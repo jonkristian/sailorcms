@@ -16,12 +16,13 @@ async function createDatabaseConnection() {
 // Check SvelteKit environment for build detection
 import { building } from '$app/environment';
 
-// Skip database connection during SvelteKit build phase
-const isBuildTime = building;
+// Only create database connection when not building
+let db: any;
+if (!building) {
+  db = await createDatabaseConnection();
+}
 
-export const db = isBuildTime ?
-  {} as any : // Mock during build
-  await createDatabaseConnection();
+export { db };
 
 // Get database instance (for other uses)
 export async function getDb() {
