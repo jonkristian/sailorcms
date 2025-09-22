@@ -1,0 +1,34 @@
+# GitHub Pages configuration
+title: Sailor Documentation
+description: A CMS built with SvelteKit and Drizzle ORM
+
+# Theme
+theme: minima
+
+# Navigation
+header_pages:
+  - getting-started.md
+  - environment-variables.md
+  - templates.md
+  - field-types.md
+  - utilities.md
+  - role-permissions.md
+  - contributing.md
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# Markdown processing
+markdown: kramdown
+highlighter: rouge
+
+# Include/exclude
+include:
+  - _pages
+exclude:
+  - node_modules
+  - .gitignore
+  - Gemfile
+  - Gemfile.lock

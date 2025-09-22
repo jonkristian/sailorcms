@@ -1,0 +1,44 @@
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+/dist
+/static/cache
+/static/uploads
+
+# OS
+.DS_Store
+Thumbs.db
+notes.md
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Database files (keep drizzle migrations)
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+
+# Keep drizzle migrations
+!drizzle/
+
+# Sailor
+src/lib/sailor/generated/
+backups/

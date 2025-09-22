@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1758053437374,
+      "tag": "0000_legal_sir_ram",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1758132565968,
+      "tag": "0001_easy_crystal",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1758132636056,
+      "tag": "0002_vengeful_menace",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1758132693145,
+      "tag": "0003_sad_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1758133124478,
+      "tag": "0004_useful_retro_girl",
+      "breakpoints": true
+    }
+  ]
+}

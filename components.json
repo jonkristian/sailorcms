@@ -1,0 +1,16 @@
+{
+  "$schema": "https://shadcn-svelte.com/schema.json",
+  "tailwind": {
+    "css": "src/lib/sailor/styles/sailor.css",
+    "baseColor": "blue"
+  },
+  "aliases": {
+    "components": "$lib/components",
+    "utils": "$lib/sailor/utils",
+    "ui": "$lib/components/ui",
+    "hooks": "$lib/hooks",
+    "lib": "$lib"
+  },
+  "typescript": true,
+  "registry": "https://shadcn-svelte.com/registry"
+}

@@ -1,0 +1,199 @@
+/* Sailor CMS Complete Styling System */
+/* This file contains ALL styles needed for the CMS - completely independent from website styles */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* CMS CSS Variables */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.98 0.005 240);
+  --foreground: oklch(0.15 0.02 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.02 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.02 240);
+  --primary: oklch(0.55 0.15 240);
+  --primary-foreground: oklch(0.98 0.005 240);
+  --secondary: oklch(0.95 0.02 240);
+  --secondary-foreground: oklch(0.25 0.05 240);
+  --muted: oklch(0.95 0.02 240);
+  --muted-foreground: oklch(0.45 0.05 240);
+  --accent: oklch(0.92 0.03 240);
+  --accent-foreground: oklch(0.25 0.05 240);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.88 0.02 240);
+  --input: oklch(0.88 0.02 240);
+  --ring: oklch(0.55 0.15 240);
+  --chart-1: oklch(0.55 0.15 240);
+  --chart-2: oklch(0.65 0.12 200);
+  --chart-3: oklch(0.45 0.08 220);
+  --chart-4: oklch(0.75 0.1 180);
+  --chart-5: oklch(0.35 0.06 260);
+  --sidebar: oklch(0.94 0.02 240);
+  --sidebar-foreground: oklch(0.2 0.03 240);
+  --sidebar-primary: oklch(0.55 0.15 240);
+  --sidebar-primary-foreground: oklch(0.98 0.005 240);
+  --sidebar-accent: oklch(0.82 0.04 240);
+  --sidebar-accent-foreground: oklch(0.35 0.05 240);
+  --sidebar-border: oklch(0.85 0.02 240);
+  --sidebar-ring: oklch(0.55 0.15 240);
+  --surface: oklch(0.92 0.02 240);
+}
+
+/* Dark mode colors */
+.dark {
+  --background: #11111b;
+  --card: #11111b;
+  --popover: #11111b;
+  --card-foreground: #cdd6f4;
+  --popover-foreground: #cdd6f4;
+  --foreground: #cdd6f4;
+  --primary: #89b4fa;
+  --primary-foreground: #1e1e2e;
+  --secondary: #45475a;
+  --secondary-foreground: #cdd6f4;
+  --muted: #45475a;
+  --muted-foreground: #a6adc8;
+  --accent: #585b70;
+  --accent-foreground: #cdd6f4;
+  --destructive: #f38ba8;
+  --border: #313244;
+  --input: #6c7086;
+  --ring: #89b4fa;
+  --chart-1: #89b4fa;
+  --chart-2: #a6e3a1;
+  --chart-3: #f9e2af;
+  --chart-4: #f5c2e7;
+  --chart-5: #cba6f7;
+  --sidebar: #1e2030;
+  --sidebar-foreground: #cad3f5;
+  --sidebar-primary: #8aadf4;
+  --sidebar-primary-foreground: #24273a;
+  --sidebar-accent: #494d64;
+  --sidebar-accent-foreground: #cad3f5;
+  --sidebar-border: #6e738d;
+  --sidebar-ring: #8aadf4;
+  --surface: #1e1e2e;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Generic semantic colors */
+  --color-success: #40a02b;
+  --color-info: #1e66f5;
+  --color-warning: #df8e1d;
+  --color-error: #d20f39;
+  --color-primary: #8839ef;
+  --color-secondary: #ea76cb;
+  --color-accent: #fe640b;
+  --color-muted: #6c7086;
+
+  /* CMS theme colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-surface: var(--surface);
+}
+
+/* Dark mode semantic color overrides */
+.dark {
+  --color-success: #a6e3a1;
+  --color-info: #89b4fa;
+  --color-warning: #f9e2af;
+  --color-error: #f38ba8;
+  --color-primary: #cba6f7;
+  --color-secondary: #f5c2e7;
+  --color-accent: #fab387;
+  --color-muted: #a6adc8;
+}
+
+/* Badge colors for CMS */
+.badge[data-variant='collection'] {
+  background-color: #fab387;
+  color: #1e1e2e;
+}
+
+.badge[data-variant='collection-muted'] {
+  background-color: #fab387;
+  color: #1e1e2e;
+  opacity: 0.6;
+}
+
+.badge[data-variant='global'] {
+  background-color: #89b4fa;
+  color: #1e1e2e;
+}
+
+.badge[data-variant='global-muted'] {
+  background-color: #89b4fa;
+  color: #1e1e2e;
+  opacity: 0.6;
+}
+
+.badge[data-variant='block'] {
+  background-color: #cba6f7;
+  color: #1e1e2e;
+}
+
+.badge[data-variant='block-muted'] {
+  background-color: #cba6f7;
+  color: #1e1e2e;
+  opacity: 0.6;
+}
+
+.badge[data-variant='system'] {
+  background-color: #6c7086;
+  color: #cdd6f4;
+}
+
+.badge[data-variant='system-muted'] {
+  background-color: #6c7086;
+  color: #cdd6f4;
+  opacity: 0.6;
+}
+
+/* Base styles for CMS */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
