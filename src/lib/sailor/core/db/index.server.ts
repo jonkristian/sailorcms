@@ -1,6 +1,10 @@
 import * as schema from '../../generated/schema';
 import { createDatabaseAdapter } from './adapter-factory';
 
+// Ensure environment variables are loaded
+import { config } from 'dotenv';
+config();
+
 // Create database connection using adapter pattern
 async function createDatabaseConnection() {
   const adapter = await createDatabaseAdapter();

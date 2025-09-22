@@ -34,7 +34,22 @@ switch (dbType) {
       };
     } else {
       // Local SQLite file
-      const dbPath = config.file || 'sailor.sqlite';
+      const dbPath = config.file;
+      if (!dbPath) {
+        throw new Error('DATABASE_URL must be configured for SQLite. Please set DATABASE_URL in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)');
+      }
+
+      // Ensure database directory exists (for drizzle operations)
+      if (typeof process !== 'undefined') {
+        const fs = require('fs');
+        const path = require('path');
+        const fullPath = path.resolve(dbPath);
+        const dbDir = path.dirname(fullPath);
+        if (!fs.existsSync(dbDir)) {
+          fs.mkdirSync(dbDir, { recursive: true });
+        }
+      }
+
       // Use absolute path for drizzle studio
       const absolutePath = dbPath.startsWith('/') ? dbPath : `./${dbPath}`;
       drizzleConfig = {

@@ -35,7 +35,7 @@ export function registerDbBackup(program) {
         if (!dbPath) {
           console.log('ℹ️ No SQLite database found');
           console.log(
-            'ℹ️ Looking for: DATABASE_FILE env var, sailor.sqlite, database.sqlite, or *.sqlite files'
+            'ℹ️ Looking for: DATABASE_URL env var, DATABASE_FILE env var, or *.sqlite files'
           );
           return;
         }

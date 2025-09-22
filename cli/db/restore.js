@@ -155,8 +155,8 @@ async function findSQLiteDatabase() {
     }
   }
 
-  // Default to sailor.sqlite for new installs
-  return 'sailor.sqlite';
+  // If no database found, throw an error - DATABASE_URL should be configured
+  throw new Error('No database found. Please set DATABASE_URL in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)');
 }
 
 async function selectS3Backup(options, bucket) {

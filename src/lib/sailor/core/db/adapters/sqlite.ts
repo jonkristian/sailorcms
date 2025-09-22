@@ -23,10 +23,17 @@ export class SQLiteAdapter extends DatabaseAdapter {
       });
     } else {
       // Local SQLite file - import Node.js modules dynamically
-      const [{ default: fs }, { join }] = await Promise.all([import('fs'), import('path')]);
+      const [{ default: fs }, { join, dirname }] = await Promise.all([import('fs'), import('path')]);
 
       const DB_PATH = join(process.cwd(), this.config.file!);
       const localUrl = `file:${DB_PATH}`;
+
+      // Ensure database directory exists
+      const dbDir = dirname(DB_PATH);
+      if (!fs.existsSync(dbDir)) {
+        console.log(`Creating database directory: ${dbDir}`);
+        fs.mkdirSync(dbDir, { recursive: true });
+      }
 
       // Ensure database file exists
       if (!fs.existsSync(DB_PATH)) {

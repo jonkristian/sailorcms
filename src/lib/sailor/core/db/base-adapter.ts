@@ -138,7 +138,10 @@ export function createDatabaseConfig(): DatabaseConfig {
 
     case 'sqlite':
     default:
-      const dbUrl = process.env.DATABASE_URL || 'file:./sailor.sqlite';
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        throw new Error('DATABASE_URL environment variable is required. Please set it in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)');
+      }
 
       // Extract auth token from URL if present (for Turso)
       const authToken = process.env.DATABASE_AUTH_TOKEN;
