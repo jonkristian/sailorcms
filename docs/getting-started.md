@@ -96,7 +96,7 @@ Deploy to Coolify with these simple settings:
 
 **Install Command**: `npm install && npx sailor db:update`  
 **Build Command**: `npm run build`  
-**Start Command**: `npm start`
+**Start Command**: `node build`
 
 Make sure your environment variables are configured in Coolify's environment tab.
 

@@ -8,7 +8,7 @@
   import { Separator } from '$lib/components/ui/separator';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
   import DraggableCard from '$lib/components/sailor/DraggableCard.svelte';
-  import { addBlock, updateBlockContent, removeBlock } from '$sailor/core/content/blocks.client';
+  import { addBlock, updateBlockContent, removeBlock } from '$sailor/core/content/blocks';
   import { Blocks } from '$lib/components/sailor/dnd';
   import SEOFields from '$lib/components/sailor/SEOFields.svelte';
   import type { FlatItem } from '$lib/components/sailor/dnd/types';
