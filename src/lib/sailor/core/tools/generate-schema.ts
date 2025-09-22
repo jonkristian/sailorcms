@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { blockDefinitions } from '../../templates/blocks';
 import { collectionDefinitions } from '../../templates/collections';
 import { globalDefinitions } from '../../templates/globals';
+import { settings } from '../../templates/settings';
 import { CORE_FIELDS, BLOCK_CORE_FIELDS, SEO_FIELDS } from '../types';
 import { createDatabaseAdapter } from '../db/adapter-factory';
 import { toSnakeCase } from '../utils/string';
@@ -12,6 +13,19 @@ import path from 'path';
 
 // Get database adapter for schema generation
 const adapter = await createDatabaseAdapter();
+
+// Helper function to get user roles from settings
+function getUserRoles() {
+  const roleDefinitions = settings?.roles?.definitions || {};
+  const roles = Object.keys(roleDefinitions);
+
+  // Fallback to default roles if no custom roles defined
+  if (roles.length === 0) {
+    return ['admin', 'editor', 'user'];
+  }
+
+  return roles;
+}
 
 // Store relationship metadata while generating tables
 const relationshipMetadata: Array<{
@@ -464,7 +478,7 @@ export function generateTypesContent() {
     '}',
     '',
     '// User and role types',
-    "export type UserRole = 'admin' | 'editor' | 'viewer';",
+    `export type UserRole = ${getUserRoles().map(role => `'${role}'`).join(' | ')};`,
     '',
     'export interface User {',
     '  id: string;',

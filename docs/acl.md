@@ -1,13 +1,12 @@
-# Role-Based Permissions System
+# Access Control
 
-Sailor CMS includes a flexible role-based permissions system that allows you to configure what each user role can access and modify.
+Sailor CMS includes a flexible role-based permissions system built on [Better Auth](https://better-auth.com/) with the admin plugin. This allows you to configure what each user role can access and modify.
 
 ## Overview
 
-The permissions system is defined in two places:
+The permissions system uses Better Auth's admin plugin for user management and combines it with Sailor's custom ACL for content-specific permissions.
 
-1. **Settings Configuration** (`src/lib/sailor/templates/settings.ts`) - Define role permissions
-2. **ACL System** (`src/lib/sailor/core/auth/acl.ts`) - Runtime permission checking and enforcement
+Configure roles and permissions in your settings file (`src/lib/sailor/templates/settings.ts`), and the ACL system automatically handles runtime permission checking and enforcement.
 
 ## Available Roles
 
@@ -46,6 +45,23 @@ Permissions can be scoped to specific content types:
 - **Draft** - Only draft content
 - **Archived** - Only archived content
 - **Own** - Only content the user owns
+
+### Permission Syntax
+
+Permissions can be defined in two formats:
+
+```typescript
+// Boolean format (simple)
+view: true,          // Allow all
+create: false,       // Deny all
+
+// Array format (preferred - more explicit and extensible)
+view: ['all'],              // Allow all
+update: ['own'],            // Only own content
+delete: ['published', 'draft'],  // Only published and draft content
+```
+
+Both formats work, but the array format is recommended for consistency and future extensibility.
 
 ## Configuration
 
@@ -152,6 +168,14 @@ definitions: {
 ```typescript
 adminRoles: ['admin', 'editor', 'moderator'];
 ```
+
+3. **Update the database schema** to include the new role:
+
+```bash
+npx sailor db:update
+```
+
+This regenerates the TypeScript types and database schema to include your new role in the `UserRole` type.
 
 ## Best Practices
 

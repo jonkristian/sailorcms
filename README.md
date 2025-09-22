@@ -22,7 +22,7 @@ npm install github:jonkristian/sailorcms
 npx sailor core:init
 ```
 
-See the [Getting Started Guide](docs/getting-started.md) for complete setup instructions.
+See the [Getting Started Guide](https://jonkristian.github.io/sailorcms/getting-started) for complete setup instructions.
 
 ## 🏗️ How It Works
 
@@ -67,12 +67,15 @@ Sailor CMS uses a **template-driven approach**:
 
 ## 📚 Documentation
 
-- 🚀 **[Getting Started](docs/getting-started.md)** - Setup and first steps
-- ⚙️ **[Environment Variables](docs/environment-variables.md)** - Configuration options
-- 📝 **[Templates](docs/templates.md)** - Creating collections, blocks, and globals
-- 🔧 **[Field Types](docs/field-types.md)** - Complete field reference
-- 🛠️ **[Utilities](docs/utilities.md)** - Frontend helpers and API reference
-- 🔐 **[Role Permissions](docs/role-permissions.md)** - User roles and security
+📖 **[Complete Documentation](https://jonkristian.github.io/sailorcms/)** - Full guides and API reference
+
+Key sections:
+- 🚀 **[Getting Started](https://jonkristian.github.io/sailorcms/getting-started)** - Setup and first steps
+- 🚢 **[Deployment](https://jonkristian.github.io/sailorcms/deployment)** - Production deployment with Coolify
+- 📝 **[Templates](https://jonkristian.github.io/sailorcms/templates)** - Creating collections, blocks, and globals
+- 🔧 **[Field Types](https://jonkristian.github.io/sailorcms/field-types)** - Complete field reference
+- 🛠️ **[Utilities](https://jonkristian.github.io/sailorcms/utilities)** - Frontend helpers and API reference
+- 🔐 **[ACL](https://jonkristian.github.io/sailorcms/acl)** - User roles and permissions
 
 ## 🛠️ Commands
 
@@ -101,11 +104,11 @@ npx sailor users:verify  # Verify user account
 
 ## 🚢 Deployment
 
-Sailor CMS works with any SvelteKit-compatible platform:
+Sailor CMS works with any SvelteKit-compatible platform. See the **[Deployment Guide](https://jonkristian.github.io/sailorcms/deployment)** for detailed instructions on:
 
-- **Coolify** - Containerized deployment
-- **Vercel** - Zero configuration deployment
-- **Netlify** - Static site generation
+- **Coolify** - Step-by-step containerized deployment
+- **SQLite with persistent storage** - Database configuration
+- **Automated backups** - S3/R2 backup setup
 
 ## 🤝 Contributing
 

@@ -11,14 +11,24 @@ npx sailor core:init
 npx sailor db:update # Creates initial migration files & database based on providede templates.
 ```
 
-## Remote functions (https://svelte.dev/docs/kit/remote-functions)
+## SvelteKit Configuration
 
-Sailor CMS uses the experimental remote functions and as such, you'll need to enable that in your `svelte.config.js`:
+Sailor CMS requires specific SvelteKit features. Add these to your `svelte.config.js`:
 
-```bash
-  experimental: {
-    remoteFunctions: true,
+```javascript
+export default {
+  kit: {
+    experimental: {
+      remoteFunctions: true // Required for CMS API functions
+    }
   },
+  compilerOptions: {
+    runes: true,        // Required for Svelte 5 reactivity
+    experimental: {
+      async: true       // Required for async components
+    }
+  }
+};
 ```
 
 > **⚠️ Important**: If you have already installed Lucia, Drizzle, or Tailwind , you might have to do some manual setup. Sailor provides its own authentication, database layer, and styling. If you do install these packages, additional manual configuration will be required to avoid conflicts.
@@ -90,18 +100,16 @@ npx sailor users:verify user@example.com # Verify a user
 
 ## Deployment
 
-### Coolify
+Ready to deploy your Sailor CMS to production? See the complete **[Deployment Guide](deployment.md)** for step-by-step instructions for Coolify deployment, including:
 
-Deploy to Coolify with these simple settings:
-
-**Install Command**: `npm install && npx sailor db:update`  
-**Build Command**: `npm run build`  
-**Start Command**: `node build`
-
-Make sure your environment variables are configured in Coolify's environment tab.
+- SQLite with persistent storage
+- Environment variable configuration
+- Automated backup setup
+- Troubleshooting tips
 
 ## Next Steps
 
+- **[Deployment Guide](deployment.md)** - Deploy to production with Coolify
 - **[Templates Guide](templates.md)** - Learn about collections, blocks, and globals
 - **[Field Types](field-types.md)** - Complete field reference
 - **[Utilities](utilities.md)** - Frontend helper functions
