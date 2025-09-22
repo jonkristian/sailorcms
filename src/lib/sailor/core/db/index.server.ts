@@ -13,10 +13,17 @@ async function createDatabaseConnection() {
 }
 
 // Create the database instance synchronously for Better Auth
-// This is necessary because Better Auth expects a synchronous Drizzle instance
-export const db = await createDatabaseConnection();
+// Check SvelteKit environment for build detection
+import { building } from '$app/environment';
 
-// Get database instance with lazy initialization (for other uses)
+// Skip database connection during SvelteKit build phase
+const isBuildTime = building;
+
+export const db = isBuildTime ?
+  {} as any : // Mock during build
+  await createDatabaseConnection();
+
+// Get database instance (for other uses)
 export async function getDb() {
   return db;
 }
