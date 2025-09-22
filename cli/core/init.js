@@ -172,9 +172,9 @@ export function registerCoreInit(program) {
 
           const sailorSection = `
 # Sailor CMS
-src/lib/sailor/generated/
 static/cache/
 static/uploads/
+backups/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm`;
