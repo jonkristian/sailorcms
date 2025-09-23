@@ -1,32 +1,31 @@
-import { db } from '../db/index.server';
-import { blockTypes, collectionTypes, globalTypes, roles } from '../db/index.server';
-import { blockDefinitions } from '../../templates/blocks';
-import { collectionDefinitions } from '../../templates/collections';
-import { globalDefinitions } from '../../templates/globals';
-import { CORE_FIELDS, BLOCK_CORE_FIELDS } from '../types';
+// Import CLI database connection (no SvelteKit dependencies)
+import { createCLIDatabase, blockTypes, collectionTypes, globalTypes, roles } from '../../src/lib/sailor/core/db/cli.js';
+import { blockDefinitions } from '../../src/lib/sailor/templates/blocks/index.js';
+import { collectionDefinitions } from '../../src/lib/sailor/templates/collections/index.js';
+import { globalDefinitions } from '../../src/lib/sailor/templates/globals/index.js';
+import { CORE_FIELDS, BLOCK_CORE_FIELDS } from '../../src/lib/sailor/core/types.js';
 import { sql, eq } from 'drizzle-orm';
-import { SystemSettingsService } from '../services/system-settings.server';
-import { createDatabaseAdapter } from '../db/adapter-factory';
+import { createDatabaseAdapter } from '../../src/lib/sailor/core/db/adapter-factory.js';
 
-// Get database adapter instance
-let adapterInstance: any = null;
-async function getAdapter() {
-  if (!adapterInstance) {
-    adapterInstance = await createDatabaseAdapter();
+// Create database connection for seeding (CLI context)
+let db = null;
+async function getDb() {
+  if (!db) {
+    db = await createCLIDatabase();
   }
-  return adapterInstance;
+  return db;
 }
 
 // Helper function to merge core fields with template fields
 function mergeWithCoreFields(
-  templateFields: Record<string, any>,
+  templateFields,
   skipCoreFields = false
-): Record<string, any> {
+) {
   if (skipCoreFields) {
     return templateFields;
   }
 
-  const mergedFields: Record<string, any> = { ...CORE_FIELDS };
+  const mergedFields = { ...CORE_FIELDS };
 
   // Add template fields, handling override syntax for core fields
   for (const [key, fieldDef] of Object.entries(templateFields)) {
@@ -35,7 +34,7 @@ function mergeWithCoreFields(
       if (fieldDef.override) {
         const { override, ui, ...otherProps } = fieldDef;
         mergedFields[key] = {
-          ...(CORE_FIELDS as any)[key],
+          ...(CORE_FIELDS)[key],
           ...override,
           core: true,
           ...(ui && { ui }),
@@ -43,7 +42,7 @@ function mergeWithCoreFields(
         };
       } else {
         // Legacy: direct override (deprecated)
-        mergedFields[key] = { ...(CORE_FIELDS as any)[key], ...fieldDef, core: true };
+        mergedFields[key] = { ...(CORE_FIELDS)[key], ...fieldDef, core: true };
       }
     } else {
       mergedFields[key] = fieldDef;
@@ -54,8 +53,8 @@ function mergeWithCoreFields(
 }
 
 // Helper function to merge block core fields with template fields
-function mergeWithBlockCoreFields(templateFields: Record<string, any>): Record<string, any> {
-  const mergedFields: Record<string, any> = { ...BLOCK_CORE_FIELDS };
+function mergeWithBlockCoreFields(templateFields) {
+  const mergedFields = { ...BLOCK_CORE_FIELDS };
 
   // Add template fields, handling override syntax for core fields
   for (const [key, fieldDef] of Object.entries(templateFields)) {
@@ -64,7 +63,7 @@ function mergeWithBlockCoreFields(templateFields: Record<string, any>): Record<s
       if (fieldDef.override) {
         const { override, ui, ...otherProps } = fieldDef;
         mergedFields[key] = {
-          ...(BLOCK_CORE_FIELDS as any)[key],
+          ...(BLOCK_CORE_FIELDS)[key],
           ...override,
           core: true,
           ...(ui && { ui }),
@@ -72,7 +71,7 @@ function mergeWithBlockCoreFields(templateFields: Record<string, any>): Record<s
         };
       } else {
         // Legacy: direct override (deprecated)
-        mergedFields[key] = { ...(BLOCK_CORE_FIELDS as any)[key], ...fieldDef, core: true };
+        mergedFields[key] = { ...(BLOCK_CORE_FIELDS)[key], ...fieldDef, core: true };
       }
     } else {
       mergedFields[key] = fieldDef;
@@ -85,11 +84,12 @@ function mergeWithBlockCoreFields(templateFields: Record<string, any>): Record<s
 // Seed roles first
 export async function seedRoles() {
   try {
-    const adapter = await getAdapter();
+    const adapter = await createDatabaseAdapter();
+    const database = await getDb();
     const uuidSql = sql.raw(adapter.getUuidFunction());
     const timestampSql = sql.raw(adapter.getCurrentTimestampFunction());
 
-    await db.transaction(async (tx: any) => {
+    await database.transaction(async (tx) => {
       // Create default roles
       const defaultRoles = [
         {
@@ -136,14 +136,15 @@ export async function seedRoles() {
 // Seed registry tables
 export async function seedRegistry() {
   try {
-    const adapter = await getAdapter();
+    const adapter = await createDatabaseAdapter();
+    const database = await getDb();
     const uuidSql = sql.raw(adapter.getUuidFunction());
     const timestampSql = sql.raw(adapter.getCurrentTimestampFunction());
 
-    await db.transaction(async (tx: any) => {
+    await database.transaction(async (tx) => {
       // Get existing block types
       const existingBlockTypes = await tx.select().from(blockTypes);
-      const existingSlugs = new Set(existingBlockTypes.map((bt: any) => bt.slug));
+      const existingSlugs = new Set(existingBlockTypes.map((bt) => bt.slug));
 
       // Seed block types
       for (const [slug, definition] of Object.entries(blockDefinitions)) {
@@ -173,14 +174,14 @@ export async function seedRegistry() {
 
       // Remove block types that no longer exist
       for (const existingSlug of existingSlugs) {
-        if (!Object.prototype.hasOwnProperty.call(blockDefinitions, existingSlug as string)) {
-          await tx.delete(blockTypes).where(eq(blockTypes.slug, existingSlug as string));
+        if (!Object.prototype.hasOwnProperty.call(blockDefinitions, existingSlug)) {
+          await tx.delete(blockTypes).where(eq(blockTypes.slug, existingSlug));
         }
       }
 
       // Get existing collection types
       const existingCollectionTypes = await tx.select().from(collectionTypes);
-      const existingCollectionSlugs = new Set(existingCollectionTypes.map((ct: any) => ct.slug));
+      const existingCollectionSlugs = new Set(existingCollectionTypes.map((ct) => ct.slug));
 
       // Seed collection types
       for (const [slug, definition] of Object.entries(collectionDefinitions)) {
@@ -217,14 +218,14 @@ export async function seedRegistry() {
 
       // Remove collection types that no longer exist
       for (const existingSlug of existingCollectionSlugs) {
-        if (!Object.prototype.hasOwnProperty.call(collectionDefinitions, existingSlug as string)) {
-          await tx.delete(collectionTypes).where(eq(collectionTypes.slug, existingSlug as string));
+        if (!Object.prototype.hasOwnProperty.call(collectionDefinitions, existingSlug)) {
+          await tx.delete(collectionTypes).where(eq(collectionTypes.slug, existingSlug));
         }
       }
 
       // Get existing global types
       const existingGlobalTypes = await tx.select().from(globalTypes);
-      const existingGlobalSlugs = new Set(existingGlobalTypes.map((gt: any) => gt.slug));
+      const existingGlobalSlugs = new Set(existingGlobalTypes.map((gt) => gt.slug));
 
       // Seed global types
       for (const [slug, definition] of Object.entries(globalDefinitions)) {
@@ -264,8 +265,8 @@ export async function seedRegistry() {
 
       // Remove global types that no longer exist
       for (const existingSlug of existingGlobalSlugs) {
-        if (!Object.prototype.hasOwnProperty.call(globalDefinitions, existingSlug as string)) {
-          await tx.delete(globalTypes).where(eq(globalTypes.slug, existingSlug as string));
+        if (!Object.prototype.hasOwnProperty.call(globalDefinitions, existingSlug)) {
+          await tx.delete(globalTypes).where(eq(globalTypes.slug, existingSlug));
         }
       }
     });
@@ -278,9 +279,10 @@ export async function seedRegistry() {
 }
 
 // Function to get role ID by name
-export async function getRoleIdByName(roleName: string): Promise<string | null> {
-  const role = await db.query.roles.findFirst({
-    where: (roles: any, { eq }: any) => eq(roles.name, roleName)
+export async function getRoleIdByName(roleName) {
+  const database = await getDb();
+  const role = await database.query.roles.findFirst({
+    where: (roles, { eq }) => eq(roles.name, roleName)
   });
   return role?.id || null;
 }
@@ -296,17 +298,6 @@ export async function seedAll() {
     // Then seed registry
     await seedRegistry();
 
-    // Sync settings from environment variables (always run during db:update)
-    try {
-      console.log('⚙️  Syncing settings from environment variables...');
-      await SystemSettingsService.initializeFromEnv();
-      console.log('✅ Settings synced from environment variables');
-    } catch (error) {
-      console.warn(
-        '⚠️  Settings sync failed (this is normal if no environment variables are set):',
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-    }
 
     console.log('✅ All seeding completed successfully');
   } catch (error) {

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e68f445a-9d4d-456d-9548-2788925fda78",
+  "id": "cd0fed6a-e02e-4e32-8f47-717da3cad3ef",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -161,7 +161,9 @@
       "indexes": {
         "block_types_slug_unique": {
           "name": "block_types_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -1087,7 +1089,9 @@
       "indexes": {
         "collection_types_slug_unique": {
           "name": "collection_types_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -1251,7 +1255,9 @@
       "indexes": {
         "collection_pages_slug_unique": {
           "name": "collection_pages_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -1415,7 +1421,9 @@
       "indexes": {
         "collection_posts_slug_unique": {
           "name": "collection_posts_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -1522,22 +1530,30 @@
       "indexes": {
         "files_name_idx": {
           "name": "files_name_idx",
-          "columns": ["name"],
+          "columns": [
+            "name"
+          ],
           "isUnique": false
         },
         "files_mime_type_idx": {
           "name": "files_mime_type_idx",
-          "columns": ["mime_type"],
+          "columns": [
+            "mime_type"
+          ],
           "isUnique": false
         },
         "files_created_at_idx": {
           "name": "files_created_at_idx",
-          "columns": ["created_at"],
+          "columns": [
+            "created_at"
+          ],
           "isUnique": false
         },
         "files_hash_idx": {
           "name": "files_hash_idx",
-          "columns": ["hash"],
+          "columns": [
+            "hash"
+          ],
           "isUnique": false
         }
       },
@@ -1630,7 +1646,9 @@
       "indexes": {
         "global_types_slug_unique": {
           "name": "global_types_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -1724,7 +1742,9 @@
       "indexes": {
         "global_categories_slug_unique": {
           "name": "global_categories_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -1951,7 +1971,9 @@
       "indexes": {
         "global_faq_slug_unique": {
           "name": "global_faq_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -2038,7 +2060,9 @@
       "indexes": {
         "global_menus_slug_unique": {
           "name": "global_menus_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -2248,7 +2272,9 @@
       "indexes": {
         "global_submissions_slug_unique": {
           "name": "global_submissions_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -2344,7 +2370,9 @@
       "indexes": {
         "roles_name_unique": {
           "name": "roles_name_unique",
-          "columns": ["name"],
+          "columns": [
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -2393,6 +2421,13 @@
         },
         "user_agent": {
           "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "impersonated_by": {
+          "name": "impersonated_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -2475,7 +2510,9 @@
       "indexes": {
         "system_settings_key_unique": {
           "name": "system_settings_key_unique",
-          "columns": ["key"],
+          "columns": [
+            "key"
+          ],
           "isUnique": true
         }
       },
@@ -2526,27 +2563,40 @@
       "indexes": {
         "taggables_tag_id_idx": {
           "name": "taggables_tag_id_idx",
-          "columns": ["tag_id"],
+          "columns": [
+            "tag_id"
+          ],
           "isUnique": false
         },
         "taggables_taggable_type_idx": {
           "name": "taggables_taggable_type_idx",
-          "columns": ["taggable_type"],
+          "columns": [
+            "taggable_type"
+          ],
           "isUnique": false
         },
         "taggables_taggable_id_idx": {
           "name": "taggables_taggable_id_idx",
-          "columns": ["taggable_id"],
+          "columns": [
+            "taggable_id"
+          ],
           "isUnique": false
         },
         "taggables_composite_idx": {
           "name": "taggables_composite_idx",
-          "columns": ["taggable_type", "taggable_id"],
+          "columns": [
+            "taggable_type",
+            "taggable_id"
+          ],
           "isUnique": false
         },
         "taggables_unique_idx": {
           "name": "taggables_unique_idx",
-          "columns": ["tag_id", "taggable_type", "taggable_id"],
+          "columns": [
+            "tag_id",
+            "taggable_type",
+            "taggable_id"
+          ],
           "isUnique": false
         }
       },
@@ -2604,22 +2654,31 @@
       "indexes": {
         "tags_name_idx": {
           "name": "tags_name_idx",
-          "columns": ["name"],
+          "columns": [
+            "name"
+          ],
           "isUnique": false
         },
         "tags_slug_idx": {
           "name": "tags_slug_idx",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": false
         },
         "tags_scope_idx": {
           "name": "tags_scope_idx",
-          "columns": ["scope"],
+          "columns": [
+            "scope"
+          ],
           "isUnique": false
         },
         "tags_name_scope_unique_idx": {
           "name": "tags_name_scope_unique_idx",
-          "columns": ["name", "scope"],
+          "columns": [
+            "name",
+            "scope"
+          ],
           "isUnique": true
         }
       },
@@ -2647,13 +2706,6 @@
         },
         "name": {
           "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "password": {
-          "name": "password",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -2689,6 +2741,20 @@
           "autoincrement": false,
           "default": 0
         },
+        "ban_reason": {
+          "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ban_expires": {
+          "name": "ban_expires",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -2707,17 +2773,23 @@
       "indexes": {
         "users_email_unique": {
           "name": "users_email_unique",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "isUnique": true
         },
         "users_email_idx": {
           "name": "users_email_idx",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "isUnique": false
         },
         "users_role_idx": {
           "name": "users_role_idx",
-          "columns": ["role"],
+          "columns": [
+            "role"
+          ],
           "isUnique": false
         }
       },

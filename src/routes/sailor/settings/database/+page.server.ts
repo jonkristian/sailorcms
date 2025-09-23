@@ -2,11 +2,9 @@ import { error } from '@sveltejs/kit';
 import { db, collectionTypes, blockTypes, globalTypes } from '$sailor/core/db/index.server';
 import { sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { seedAll } from '$sailor/core/tools/core-seed';
 import { blockDefinitions } from '$sailor/templates/blocks';
 import { collectionDefinitions } from '$sailor/templates/collections';
 import { globalDefinitions } from '$sailor/templates/globals';
-import { log } from '$sailor/core/utils/logger';
 
 interface TableInfo {
   name: string;
@@ -115,57 +113,3 @@ export const load = async () => {
   };
 };
 
-export const actions = {
-  default: async ({ locals }) => {
-    if (!locals.user) {
-      throw error(401, 'Unauthorized');
-    }
-
-    try {
-      // Seed registry tables
-      await seedAll();
-
-      // Get updated data in parallel
-      const [collectionTypesData, blockTypesData, globalTypesData, tableSchemas] =
-        await Promise.all([
-          db.select().from(collectionTypes).all(),
-          db.select().from(blockTypes).all(),
-          db.select().from(globalTypes).all(),
-          getTableInfo()
-        ]);
-
-      return {
-        success: true,
-        data: {
-          collectionInfo: collectionTypesData,
-          blockInfo: blockTypesData,
-          globalInfo: globalTypesData,
-          tables: tableSchemas,
-          // Add available definitions from template files
-          availableBlocks: Object.entries(blockDefinitions).map(([slug, def]) => ({
-            slug,
-            name: def.name,
-            description: def.description
-          })),
-          availableCollections: Object.entries(collectionDefinitions).map(([slug, def]) => ({
-            slug,
-            name: def.name,
-            description: def.description
-          })),
-          availableGlobals: Object.entries(globalDefinitions).map(([slug, def]) => ({
-            slug,
-            name: def.name,
-            description: def.description,
-            options: def.options
-          }))
-        }
-      };
-    } catch (err) {
-      log.error('Migration error', { error: err });
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'An unknown error occurred'
-      };
-    }
-  }
-};

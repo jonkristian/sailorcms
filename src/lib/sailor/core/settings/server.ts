@@ -15,7 +15,8 @@ export async function getServerSettings(): Promise<Partial<CMSSettings>> {
     // Fallback to environment variables if database settings not available
     console.warn('Failed to load database settings, falling back to environment variables:', error);
 
-    const storageProvider = (env.STORAGE_PROVIDER as 'local' | 's3') || 'local';
+    // Auto-detect storage provider based on S3_BUCKET presence
+    const storageProvider = env.S3_BUCKET ? 's3' : 'local';
 
     // Build storage providers dynamically
     const providers: any = {
@@ -25,7 +26,8 @@ export async function getServerSettings(): Promise<Partial<CMSSettings>> {
       }
     };
 
-    if (storageProvider === 's3') {
+    // Always include S3 config if S3_BUCKET is available (regardless of provider setting)
+    if (env.S3_BUCKET) {
       providers.s3 = {
         bucket: env.S3_BUCKET || '',
         region: env.S3_REGION || '',

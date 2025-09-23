@@ -1,4 +1,4 @@
-import { generateSchema } from './utils.js';
+import { generateSchema } from '../utils.js';
 import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
@@ -46,7 +46,7 @@ export function registerDbUpdate(program) {
 
           // Update registry with new blocks/collections/globals
           console.log('🔄 Updating CMS registry...');
-          execSync('bun run src/lib/sailor/core/tools/core-seed.ts', {
+          execSync('bun run cli/tools/db-seed.js', {
             cwd: targetDir,
             stdio: 'inherit'
           });

@@ -387,6 +387,7 @@ CREATE TABLE `sessions` (
 	`expires_at` text NOT NULL,
 	`ip_address` text,
 	`user_agent` text,
+	`impersonated_by` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
@@ -432,11 +433,12 @@ CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text NOT NULL,
 	`name` text,
-	`password` text,
 	`email_verified` integer DEFAULT 0,
 	`image` text,
 	`role` text,
 	`banned` integer DEFAULT 0,
+	`ban_reason` text,
+	`ban_expires` integer NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );

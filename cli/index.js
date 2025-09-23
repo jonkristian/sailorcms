@@ -4,14 +4,14 @@ import { Command } from 'commander';
 import { createRequire } from 'module';
 import { existsSync } from 'fs';
 import path from 'path';
-import { registerCoreInit } from './core/init.js';
-import { registerCoreUpdate } from './core/update.js';
-import { registerDbUpdate } from './update.js';
-import { registerDbGenerate } from './db/generate.js';
-import { registerFilesRepair } from './files/repair.js';
-import { registerUserCommands } from './core/users.js';
-import { registerDbBackup } from './db/backup.js';
-import { registerDbRestore } from './db/restore.js';
+import { registerCoreInit } from './tools/cms-init.js';
+import { registerCoreUpdate } from './tools/cms-update.js';
+import { registerDbUpdate } from './tools/db-update.js';
+import { registerDbGenerate } from './tools/db-generate.js';
+import { registerFilesRepair } from './tools/files-repair.js';
+import { registerUserCommands } from './tools/users-manage.js';
+import { registerDbBackup } from './tools/db-backup.js';
+import { registerDbRestore } from './tools/db-restore.js';
 
 // Load environment variables and start CLI
 (async () => {

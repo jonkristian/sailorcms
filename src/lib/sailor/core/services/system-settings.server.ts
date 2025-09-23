@@ -124,7 +124,7 @@ export class SystemSettingsService {
     const storageProvider = env.S3_BUCKET ? 's3' : 'local';
     await this.setSetting(
       'storage.provider',
-      env.STORAGE_PROVIDER || storageProvider,
+      storageProvider,
       'storage',
       'Storage provider (auto-detected: s3 if S3_BUCKET is set, local otherwise)'
     );

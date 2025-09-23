@@ -120,10 +120,10 @@ export function registerCoreInit(program) {
 
               const dbScripts = {
                 'db:generate':
-                  'bun run src/lib/sailor/core/tools/generate-schema.ts && drizzle-kit generate',
+                  'bun run cli/tools/db-generate-schema.js && drizzle-kit generate',
                 'db:push': 'drizzle-kit push',
                 'db:update':
-                  'npm run db:generate && npm run db:push && bun run src/lib/sailor/core/tools/core-seed.ts'
+                  'npm run db:generate && npm run db:push && bun run cli/tools/db-seed.js'
               };
 
               Object.entries(dbScripts).forEach(([script, command]) => {

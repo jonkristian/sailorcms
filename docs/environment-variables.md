@@ -36,15 +36,14 @@ DATABASE_URL=postgresql://user:password@localhost:5432/sailor
 ### Local Storage (Default)
 
 ```env
-STORAGE_PROVIDER=local
 UPLOAD_DIR=static/uploads
+# Storage provider auto-detected: local if no S3_BUCKET
 ```
 
-### S3/Cloud Storage
+### S3/Cloud Storage (Auto-detected)
 
 ```env
-STORAGE_PROVIDER=s3
-S3_BUCKET=your-bucket-name
+S3_BUCKET=your-bucket-name  # Setting this enables S3 storage automatically
 S3_REGION=us-east-1
 S3_ACCESS_KEY_ID=your-access-key
 S3_SECRET_ACCESS_KEY=your-secret-key

@@ -399,14 +399,14 @@ export async function setupDatabase(targetDir) {
   await generateSchema(targetDir);
   execSync('npx drizzle-kit generate', { cwd: targetDir, stdio: 'pipe' });
   execSync('npx drizzle-kit push', { cwd: targetDir, stdio: 'pipe' });
-  execSync('bun run src/lib/sailor/core/tools/core-seed.ts', { cwd: targetDir, stdio: 'pipe' });
+  execSync('bun run cli/tools/db-seed.js', { cwd: targetDir, stdio: 'pipe' });
   console.log('✅ Database setup complete');
 }
 
 export async function generateSchema(targetDir) {
   // Check required files exist
   const requiredFiles = [
-    'src/lib/sailor/core/tools/generate-schema.ts',
+    'cli/tools/db-generate-schema.js',
     'src/lib/sailor/templates/blocks/index.ts',
     'src/lib/sailor/templates/collections/index.ts',
     'src/lib/sailor/templates/globals/index.ts',
@@ -419,7 +419,7 @@ export async function generateSchema(targetDir) {
     }
   }
 
-  execSync('bun run src/lib/sailor/core/tools/generate-schema.ts', {
+  execSync('bun run cli/tools/db-generate-schema.js', {
     cwd: targetDir,
     stdio: 'pipe'
   });

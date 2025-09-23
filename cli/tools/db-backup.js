@@ -83,11 +83,10 @@ export function registerDbBackup(program) {
           return;
         }
 
-        // Check storage provider setting and upload accordingly
-        const storageProvider = process.env.STORAGE_PROVIDER || 'local';
+        // Auto-detect S3 storage from bucket configuration
         const bucket = validationResult.bucket;
 
-        if (storageProvider === 's3' && bucket) {
+        if (bucket) {
           await uploadToS3(backupInfo.localPath, options, siteName, timestamp, bucket);
 
           // Cleanup old backups
@@ -112,15 +111,9 @@ export function registerDbBackup(program) {
           console.log(`📊 Backup size: ${backupInfo.size}`);
           console.log(`📁 Local backup: ${localBackupPath}`);
 
-          if (storageProvider === 'local') {
-            console.log(
-              '💡 Set STORAGE_PROVIDER=s3 and configure S3_BUCKET to enable cloud backup'
-            );
-          } else if (storageProvider === 's3' && !bucket) {
-            console.log(
-              '💡 Configure S3_BUCKET to enable cloud backup (STORAGE_PROVIDER=s3 is set)'
-            );
-          }
+          console.log(
+            '💡 Configure S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY to enable cloud backup'
+          );
         }
       } catch (error) {
         console.error('❌ Backup failed:', error.message);
@@ -156,7 +149,31 @@ async function validateBackupEnvironment(options) {
 }
 
 async function findSQLiteDatabase() {
-  // First check for DATABASE_FILE environment variable
+  // First check for DATABASE_URL environment variable
+  if (process.env.DATABASE_URL) {
+    let dbPath = process.env.DATABASE_URL;
+
+    // Parse file:// URLs
+    if (dbPath.startsWith('file:')) {
+      dbPath = dbPath.replace('file:', '');
+    }
+
+    // Handle relative paths starting with ./
+    if (dbPath.startsWith('./')) {
+      dbPath = path.resolve(dbPath);
+    }
+
+    try {
+      await fs.access(dbPath);
+      return dbPath;
+    } catch {
+      console.log(
+        `⚠️ DATABASE_URL environment variable set to "${process.env.DATABASE_URL}" but file not found at "${dbPath}"`
+      );
+    }
+  }
+
+  // Then check for DATABASE_FILE environment variable
   if (process.env.DATABASE_FILE) {
     try {
       await fs.access(process.env.DATABASE_FILE);
