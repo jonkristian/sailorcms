@@ -623,9 +623,9 @@ export class ACL {
       const settings = await getSettings();
       const routes = settings.routeProtection
         ? mergeRouteProtections(
-          settings.routeProtection.customRoutes,
-          settings.routeProtection.overrideDefaults
-        )
+            settings.routeProtection.customRoutes,
+            settings.routeProtection.overrideDefaults
+          )
         : DEFAULT_PROTECTED_ROUTES;
 
       // Cache the routes
@@ -843,4 +843,3 @@ export async function checkRouteAccess(
   const acl = createACL(user);
   return await acl.checkRouteAccess(pathname, referer);
 }
-

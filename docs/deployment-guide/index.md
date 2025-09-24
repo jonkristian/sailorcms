@@ -12,15 +12,18 @@ Sailor CMS is built with SvelteKit, which means it can be deployed anywhere Node
 ## Deployment Platforms
 
 ### Modern Platforms
+
 - **Vercel** - Zero-config deployments with automatic HTTPS
 - **Netlify** - Git-based deployments with form handling
 - **Coolify** - Self-hosted alternative to Heroku
 
 ### Traditional Hosting
+
 - **VPS/Dedicated Servers** - Full control over your hosting environment
 - **Docker** - Containerized deployments for consistent environments
 
 ### Database Options
+
 - **SQLite** - File-based database, perfect for small to medium sites
 - **PostgreSQL** - Robust database for high-traffic applications
 - **Turso** - Edge SQLite database for global performance

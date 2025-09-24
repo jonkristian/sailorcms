@@ -3,9 +3,9 @@ title: Sailor CMS
 description: A Smooth Sailin' CMS for SvelteKit
 
 # SEO and title configuration
-title_separator: "|"
-url: "https://jonkristian.github.io"
-baseurl: "/sailorcms"
+title_separator: '|'
+url: 'https://jonkristian.github.io'
+baseurl: '/sailorcms'
 
 # Use Just the Docs theme
 remote_theme: just-the-docs/just-the-docs
@@ -35,8 +35,8 @@ footer_content: 'Copyright &copy; 2024 Sailor CMS. Distributed under the <a href
 
 # Just the Docs specific settings
 aux_links:
-  "GitHub Repository":
-    - "https://github.com/jonkristian/sailor-cms"
+  'GitHub Repository':
+    - 'https://github.com/jonkristian/sailor-cms'
 
 # Enable copy code button
 enable_copy_code_button: true
@@ -56,8 +56,8 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - package*.json
-  - "*.config.js"
-  - "*.config.ts"
+  - '*.config.js'
+  - '*.config.ts'
   - src/
   - static/
   - .svelte-kit/

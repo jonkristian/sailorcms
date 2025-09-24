@@ -102,10 +102,7 @@ export const auth = betterAuth({
         }
       })
   },
-  plugins: [
-    sveltekitCookies(getRequestEvent),
-    admin(await getAuthSettings())
-  ],
+  plugins: [sveltekitCookies(getRequestEvent), admin(await getAuthSettings())],
   hooks: {
     user: {
       beforeCreate: async (user: any) => {

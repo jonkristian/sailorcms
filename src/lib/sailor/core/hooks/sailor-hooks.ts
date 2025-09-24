@@ -64,7 +64,11 @@ export async function handleSailorHooks(
           throw err;
         }
         // Log unexpected errors and throw 500
-        log.error('Route protection error', { error: err, pathname: event.url.pathname, user: event.locals.user });
+        log.error('Route protection error', {
+          error: err,
+          pathname: event.url.pathname,
+          user: event.locals.user
+        });
         throw error(500, 'Internal server error during access control check');
       }
     }

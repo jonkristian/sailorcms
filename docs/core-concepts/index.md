@@ -20,15 +20,19 @@ Sailor CMS uses a template-driven approach where you define your content structu
 ## Key Components
 
 ### Collections
+
 Collections are your main content types - like blog posts, products, or pages. Each collection is defined by a template that specifies its fields and behavior.
 
 ### Blocks
+
 Reusable content components that can be used within collections or as standalone elements. Perfect for building flexible page layouts.
 
 ### Globals
+
 Site-wide settings and content that appear across multiple pages, like navigation menus, site settings, or contact information.
 
 ### Fields
+
 The building blocks of your content structure. Sailor provides many field types from simple text inputs to complex relationship fields.
 
 ---

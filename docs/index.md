@@ -7,6 +7,7 @@ permalink: /
 ---
 
 # Sailor CMS
+
 {: .fs-9 }
 
 A Smooth Sailin' CMS for SvelteKit - Build type-safe, flexible content management systems with ease.
@@ -40,18 +41,22 @@ Sailor CMS is a modern, template-driven headless CMS built with SvelteKit. It pr
 ## Quick Navigation
 
 ### Getting Started
+
 - [Installation & Setup]({{ site.baseurl }}{% link getting-started.md %})
 - [Environment Configuration]({{ site.baseurl }}{% link environment-variables.md %})
 
 ### Core Concepts
+
 - [Templates System]({{ site.baseurl }}{% link core-concepts/templates.md %})
 - [Field Types Reference]({{ site.baseurl }}{% link core-concepts/field-types.md %})
 
 ### Security & Permissions
+
 - [RBAC Overview]({{ site.baseurl }}{% link rbac/index.md %})
 - [Access Control Lists]({{ site.baseurl }}{% link rbac/acl.md %})
 
 ### Deployment & Production
+
 - [Deployment Guide]({{ site.baseurl }}{% link deployment-guide/index.md %})
 
 ---

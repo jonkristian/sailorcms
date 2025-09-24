@@ -21,16 +21,21 @@ The RBAC system is built on top of Better Auth's admin plugin and provides:
 ## Key Concepts
 
 ### Roles
+
 User roles like `admin`, `editor`, and `user` that define what actions a user can perform.
 
 ### Permissions
+
 Specific actions like `view`, `create`, `update`, and `delete` that can be allowed or restricted.
 
 ### Resources
+
 Different types of content that can be protected: `collection`, `global`, `block`, `file`, `user`, and `settings`.
 
 ### Scopes
+
 Fine-grained access control based on:
+
 - **Ownership**: `own` - only content you created
 - **Status**: `published`, `draft`, `archived` - based on content status
 - **Visibility**: `public`, `all` - based on content visibility

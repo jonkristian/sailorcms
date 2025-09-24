@@ -14,7 +14,7 @@
   ],
   "author": "Jon Kristian Nilsen",
   "license": "MIT",
-  "homepage": "https://github.com/jonkristian/sailorcms#readme",
+  "homepage": "https://jonkristian.github.io/sailorcms/",
   "repository": {
     "type": "git",
     "url": "https://github.com/jonkristian/sailorcms.git"
@@ -24,9 +24,6 @@
   },
   "bin": {
     "sailor": "./bin/sailor.js"
-  },
-  "exports": {
-    "./config/sveltekit-aliases": "./cli/config/sveltekit-aliases.js"
   },
   "scripts": {
     "dev": "vite dev",

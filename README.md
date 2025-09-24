@@ -111,6 +111,11 @@ Sailor CMS works with any SvelteKit-compatible platform. See the **[Deployment G
 - **SQLite with persistent storage** - Database configuration
 - **Automated backups** - S3/R2 backup setup
 
+## Community
+
+- 💬 [Join Discord](https://discord.gg/7nfRqRyTZx) - Get help, share ideas, and connect with other users
+- 🐛 [Report bugs](https://github.com/jonkristian/sailorcms/issues) - Found an issue? Let us know!
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](docs/contributing.md) for details on:

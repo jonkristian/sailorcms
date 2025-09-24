@@ -417,10 +417,10 @@ export const updateCollectionItemNesting = command(
       const siblingCondition = parentId
         ? eq((collectionTable as any).parent_id, parentId)
         : or(
-          sql`${(collectionTable as any).parent_id} IS NULL`,
-          sql`${(collectionTable as any).parent_id} = ''`,
-          sql`${(collectionTable as any).parent_id} = '[]'`
-        );
+            sql`${(collectionTable as any).parent_id} IS NULL`,
+            sql`${(collectionTable as any).parent_id} = ''`,
+            sql`${(collectionTable as any).parent_id} = '[]'`
+          );
 
       const siblings = await db
         .select({ id: (collectionTable as any).id, sort: (collectionTable as any).sort })

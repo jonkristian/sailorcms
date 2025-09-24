@@ -18,12 +18,12 @@ export const load: PageServerLoad = async () => {
       local: settings.storage.providers?.local || { uploadDir: '', publicUrl: '' },
       s3: settings.storage.providers?.s3
         ? {
-          ...settings.storage.providers.s3,
-          accessKeyId: settings.storage.providers.s3.accessKeyId
-            ? '***' + settings.storage.providers.s3.accessKeyId.slice(-4)
-            : '',
-          secretAccessKey: settings.storage.providers.s3.secretAccessKey ? '***' : ''
-        }
+            ...settings.storage.providers.s3,
+            accessKeyId: settings.storage.providers.s3.accessKeyId
+              ? '***' + settings.storage.providers.s3.accessKeyId.slice(-4)
+              : '',
+            secretAccessKey: settings.storage.providers.s3.secretAccessKey ? '***' : ''
+          }
         : null
     }
   };

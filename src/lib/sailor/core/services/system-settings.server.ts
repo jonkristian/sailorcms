@@ -113,7 +113,6 @@ export class SystemSettingsService {
     await db.delete(systemSettings).where(eq(systemSettings.key, key));
   }
 
-
   /**
    * Deep merge helper for nested objects
    */
@@ -151,7 +150,12 @@ export class SystemSettingsService {
     );
 
     if (env.S3_BUCKET) {
-      await this.setSetting('storage.providers.s3.bucket', env.S3_BUCKET, 'storage', 'S3 bucket name');
+      await this.setSetting(
+        'storage.providers.s3.bucket',
+        env.S3_BUCKET,
+        'storage',
+        'S3 bucket name'
+      );
     }
 
     if (env.S3_REGION) {
@@ -177,11 +181,21 @@ export class SystemSettingsService {
     }
 
     if (env.S3_ENDPOINT) {
-      await this.setSetting('storage.providers.s3.endpoint', env.S3_ENDPOINT, 'storage', 'S3 endpoint URL');
+      await this.setSetting(
+        'storage.providers.s3.endpoint',
+        env.S3_ENDPOINT,
+        'storage',
+        'S3 endpoint URL'
+      );
     }
 
     if (env.S3_PUBLIC_URL) {
-      await this.setSetting('storage.providers.s3.publicUrl', env.S3_PUBLIC_URL, 'storage', 'S3 public URL');
+      await this.setSetting(
+        'storage.providers.s3.publicUrl',
+        env.S3_PUBLIC_URL,
+        'storage',
+        'S3 public URL'
+      );
     }
 
     if (env.UPLOAD_DIR) {
