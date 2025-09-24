@@ -7,8 +7,34 @@ import { env } from '$env/dynamic/private';
 import { db } from './db/index.server';
 import { users, sessions, accounts, verifications } from './db/index.server';
 import { getSettings } from './settings';
+import { building } from '$app/environment';
 import { SystemSettingsService } from './services/system-settings.server';
 import { eq } from 'drizzle-orm';
+
+// Get auth settings safely (handles build-time when DB is unavailable)
+async function getAuthSettings() {
+  if (building) {
+    // Use defaults during build when database is unavailable
+    return {
+      defaultRole: 'user',
+      adminRoles: ['admin', 'editor']
+    };
+  }
+
+  try {
+    const settings = await getSettings();
+    return {
+      defaultRole: settings.roles?.defaultRole || 'user',
+      adminRoles: settings.roles?.adminRoles || ['admin', 'editor']
+    };
+  } catch (error) {
+    console.warn('Failed to load auth settings, using defaults:', error);
+    return {
+      defaultRole: 'user',
+      adminRoles: ['admin', 'editor']
+    };
+  }
+}
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
@@ -78,10 +104,7 @@ export const auth = betterAuth({
   },
   plugins: [
     sveltekitCookies(getRequestEvent),
-    admin({
-      defaultRole: (await getSettings()).roles?.defaultRole || 'user',
-      adminRoles: (await getSettings()).roles?.adminRoles || ['admin', 'editor']
-    })
+    admin(await getAuthSettings())
   ],
   hooks: {
     user: {
