@@ -1,3 +1,4 @@
+// Database restore tool
 import fs from 'fs/promises';
 import path from 'path';
 import { createReadStream, createWriteStream } from 'fs';
@@ -156,7 +157,9 @@ async function findSQLiteDatabase() {
   }
 
   // If no database found, throw an error - DATABASE_URL should be configured
-  throw new Error('No database found. Please set DATABASE_URL in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)');
+  throw new Error(
+    'No database found. Please set DATABASE_URL in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)'
+  );
 }
 
 async function selectS3Backup(options, bucket) {

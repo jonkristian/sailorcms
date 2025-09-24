@@ -1,14 +1,16 @@
-import type { CMSSettings, SEOSettings } from './types';
+import type { CMSSettings } from './types';
 
-// Import user settings overrides
-import { settings as userSettings } from '../../templates/settings';
-
-// Cache for SEO settings
-let cachedSEOSettings: SEOSettings | null = null;
+// User settings will be loaded dynamically
 
 // Core CMS defaults - users can override these in templates/settings.ts
 const defaultCMSSettings: CMSSettings = {
   storage: {
+    providers: {
+      local: {
+        uploadDir: 'static/uploads',
+        publicUrl: '/uploads'
+      }
+    },
     cache: {
       provider: 'local',
       local: {
@@ -75,76 +77,54 @@ function deepMerge<T>(target: T, source: Partial<T>): T {
   return result;
 }
 
-// Load SEO settings from SystemSettings
-async function loadSEOSettings(): Promise<SEOSettings> {
-  try {
-    // Return cached settings if available
-    if (cachedSEOSettings) {
-      return cachedSEOSettings;
-    }
-
-    // Load from SystemSettings
-    const { SystemSettingsService } = await import('../services/system-settings.server');
-
-    const [titleTemplate, titleSeparator, defaultDescription, language] = await Promise.all([
-      SystemSettingsService.getSetting('seo.titleTemplate'),
-      SystemSettingsService.getSetting('seo.titleSeparator'),
-      SystemSettingsService.getSetting('seo.defaultDescription'),
-      SystemSettingsService.getSetting('seo.language')
-    ]);
-
-    const seoSettings: SEOSettings = {
-      enabled: true,
-      titleTemplate: titleTemplate || '{title} | {siteName}',
-      titleSeparator: titleSeparator || '|',
-      defaultDescription: defaultDescription || '',
-      language: language || 'en'
-    };
-
-    // Cache the result
-    cachedSEOSettings = seoSettings;
-    return seoSettings;
-  } catch (error) {
-    console.warn('Failed to load SEO settings, using defaults:', error);
-    const fallbackSettings: SEOSettings = {
-      enabled: true,
-      titleTemplate: '{title} | {siteName}',
-      titleSeparator: '|',
-      defaultDescription: '',
-      language: 'en'
-    };
-
-    // Cache fallback
-    cachedSEOSettings = fallbackSettings;
-    return fallbackSettings;
-  }
-}
-
-// Settings loader with database settings
+// Settings loader - core defaults + template overrides + database overrides
 export async function getSettings(): Promise<CMSSettings> {
   // 1. Start with core CMS defaults
   let settings = defaultCMSSettings;
 
   // 2. Apply user overrides from templates/settings.ts
-  settings = deepMerge(settings, userSettings);
-
-  // 3. Load and merge database settings (includes storage, SEO, system)
   try {
-    const { getDatabaseSettings } = await import('./database-settings');
-    const databaseSettings = await getDatabaseSettings();
-
-    // Merge database settings (they take precedence)
-    settings = deepMerge(settings, databaseSettings);
+    const generatedSettings = await import('../../generated/settings');
+    const userSettings = (generatedSettings.settings || {}) as Partial<CMSSettings>;
+    settings = deepMerge<CMSSettings>(settings, userSettings);
   } catch (error) {
-    console.warn('Failed to load database settings, using defaults:', error);
+    if (error instanceof Error) {
+      console.warn('No user settings found, using defaults:', error.message);
+    } else {
+      console.warn('No user settings found, using defaults');
+    }
   }
 
-  // 4. Load and merge SEO settings from SystemSettings
+  // 3. Apply database overrides (environment variables, etc.)
   try {
-    const seoSettings = await loadSEOSettings();
-    settings.seo = seoSettings;
+    const { SystemSettingsService } = await import('../services/system-settings.server');
+    const dbSettings = await SystemSettingsService.getAllSettings();
+    const dbSettingsObj: any = {};
+
+    // Convert flat database settings to nested object
+    for (const setting of dbSettings) {
+      const keys = setting.key.split('.');
+      let current = dbSettingsObj;
+
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) {
+          current[keys[i]] = {};
+        }
+        current = current[keys[i]];
+      }
+
+      // Parse JSON value
+      try {
+        current[keys[keys.length - 1]] = JSON.parse(setting.value);
+      } catch {
+        current[keys[keys.length - 1]] = setting.value;
+      }
+    }
+
+    // Deep merge database overrides
+    settings = deepMerge<CMSSettings>(settings, dbSettingsObj);
   } catch (error) {
-    console.warn('Failed to load SEO settings, using defaults:', error);
+    console.warn('Could not load database settings, using template defaults:', error);
   }
 
   return settings;
@@ -182,9 +162,4 @@ export function formatFileSize(bytes: number): string {
   }
 
   return `${size.toFixed(1)}${units[unitIndex]}`;
-}
-
-// Utility to clear SEO settings cache (useful after updates)
-export function clearSEOSettingsCache(): void {
-  cachedSEOSettings = null;
 }

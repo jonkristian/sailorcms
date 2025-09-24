@@ -1,3 +1,4 @@
+// Core CMS initialization tool
 import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -120,10 +121,10 @@ export function registerCoreInit(program) {
 
               const dbScripts = {
                 'db:generate':
-                  'bun run cli/tools/db-generate-schema.js && drizzle-kit generate',
+                  'node node_modules/sailorcms/cli/tools/db-generate-schema.js && drizzle-kit generate',
                 'db:push': 'drizzle-kit push',
                 'db:update':
-                  'npm run db:generate && npm run db:push && bun run cli/tools/db-seed.js'
+                  'npm run db:generate && npm run db:push && node node_modules/sailorcms/cli/tools/db-seed.js'
               };
 
               Object.entries(dbScripts).forEach(([script, command]) => {
@@ -193,7 +194,8 @@ backups/
 
           console.log('\n🎉 Sailor CMS files installed successfully!');
           console.log('\n🚀 Next steps:');
-          console.log('1. Set up database: npx sailor db:update');
+          console.log('1. Copy .env.sailor → .env and set required variables (e.g. DATABASE_URL)');
+          console.log('2. Set up database: npx sailor db:update');
           console.log('3. Start development: npm run dev');
           console.log('4. Visit: http://localhost:5173/sailor');
         }

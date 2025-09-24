@@ -369,10 +369,10 @@ export async function uploadFile(
 
   await db.insert(filesTable).values(fileRecord);
 
-  // Convert Date objects to strings to match File interface
+  // Return the file record with Date objects as expected by File interface
   return {
     ...fileRecord,
-    created_at: fileRecord.created_at.toISOString(),
-    updated_at: fileRecord.updated_at.toISOString()
+    created_at: fileRecord.created_at,
+    updated_at: fileRecord.updated_at
   };
 }

@@ -23,7 +23,10 @@ export class SQLiteAdapter extends DatabaseAdapter {
       });
     } else {
       // Local SQLite file - import Node.js modules dynamically
-      const [{ default: fs }, { join, dirname }] = await Promise.all([import('fs'), import('path')]);
+      const [{ default: fs }, { join, dirname }] = await Promise.all([
+        import('fs'),
+        import('path')
+      ]);
 
       const DB_PATH = join(process.cwd(), this.config.file!);
       const localUrl = `file:${DB_PATH}`;

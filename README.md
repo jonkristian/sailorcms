@@ -70,6 +70,7 @@ Sailor CMS uses a **template-driven approach**:
 📖 **[Complete Documentation](https://jonkristian.github.io/sailorcms/)** - Full guides and API reference
 
 Key sections:
+
 - 🚀 **[Getting Started](https://jonkristian.github.io/sailorcms/getting-started)** - Setup and first steps
 - 🚢 **[Deployment](https://jonkristian.github.io/sailorcms/deployment)** - Production deployment with Coolify
 - 📝 **[Templates](https://jonkristian.github.io/sailorcms/templates)** - Creating collections, blocks, and globals

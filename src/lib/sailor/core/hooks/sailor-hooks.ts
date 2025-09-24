@@ -51,9 +51,7 @@ export async function handleSailorHooks(
       const { createSecurity } = await import('$lib/sailor/core/auth/security');
       event.locals.security = createSecurity(event.locals.user);
 
-      // Skip route protection for now to debug the issue
-      // TODO: Re-enable route protection once authentication is working
-      /*
+      // Route protection - check access permissions
       try {
         const { checkRouteAccess } = await import('$lib/sailor/core/auth/acl');
         await checkRouteAccess(
@@ -70,7 +68,6 @@ export async function handleSailorHooks(
         log.error('Route protection error', { error: err });
         throw error(500, 'Internal server error during access control check');
       }
-      */
     }
 
     return await resolve(event);

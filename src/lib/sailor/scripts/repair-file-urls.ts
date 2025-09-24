@@ -30,11 +30,6 @@ export async function repairFileURLs(
   const { dryRun = false, provider = 'auto' } = options;
   const stats: RepairStats = { total: 0, repaired: 0, errors: 0, skipped: 0 };
 
-  console.log('🔧 Starting file URL repair...');
-  console.log(`Mode: ${dryRun ? 'DRY RUN' : 'REPAIR'}`);
-  console.log(`Provider: ${provider}`);
-  console.log('');
-
   try {
     // Get current storage settings
     const settings = await getSettings();

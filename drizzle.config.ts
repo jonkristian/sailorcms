@@ -36,7 +36,9 @@ switch (dbType) {
       // Local SQLite file
       const dbPath = config.file;
       if (!dbPath) {
-        throw new Error('DATABASE_URL must be configured for SQLite. Please set DATABASE_URL in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)');
+        throw new Error(
+          'DATABASE_URL must be configured for SQLite. Please set DATABASE_URL in your .env file (e.g., DATABASE_URL=file:./db/sailor.sqlite)'
+        );
       }
 
       // Ensure database directory exists (for drizzle operations)

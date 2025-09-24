@@ -1,3 +1,4 @@
+// Database schema generation wrapper
 import { generateSchema } from '../utils.js';
 
 export function registerDbGenerate(program) {

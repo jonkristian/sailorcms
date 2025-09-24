@@ -28,7 +28,7 @@ export class LocalStorageProvider implements StorageProvider {
 
   async getPublicUrl(path: string): Promise<string> {
     const settings = await getSettings();
-    const publicUrl = settings.storage.providers?.local?.publicUrl || '/uploads';
+    const publicUrl = settings.storage?.providers?.local?.publicUrl || '/uploads';
 
     // For local storage, path should be just the filename
     return `${publicUrl}/${path}`;
@@ -36,7 +36,7 @@ export class LocalStorageProvider implements StorageProvider {
 
   async listFiles(): Promise<{ path: string; size?: number }[]> {
     const settings = await getSettings();
-    const uploadDir = settings.storage.providers?.local?.uploadDir || 'static/uploads';
+    const uploadDir = settings.storage?.providers?.local?.uploadDir || 'static/uploads';
 
     try {
       const { readdir, stat } = await import('fs/promises');
@@ -101,7 +101,7 @@ export class StorageProviderFactory {
 
   static async testConnection(): Promise<{ success: boolean; provider: string; error?: string }> {
     const settings = await getSettings();
-    const provider = settings.storage.provider || 'local';
+    const provider = settings.storage?.provider || 'local';
 
     try {
       switch (provider) {
@@ -116,7 +116,7 @@ export class StorageProviderFactory {
         case 'local': {
           // For local storage, we just check if the upload directory exists
           const { existsSync } = await import('fs');
-          const uploadDir = settings.storage.providers?.local?.uploadDir;
+          const uploadDir = settings.storage?.providers?.local?.uploadDir;
           if (!uploadDir) {
             return {
               success: false,

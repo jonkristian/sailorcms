@@ -1,3 +1,4 @@
+// Database backup tool
 import fs from 'fs/promises';
 import path from 'path';
 import { createReadStream, createWriteStream } from 'fs';

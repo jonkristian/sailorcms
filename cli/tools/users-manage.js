@@ -1,15 +1,14 @@
-#!/usr/bin/env node
-
-// Import CLI database connection (no SvelteKit dependencies)
-import { createCLIDatabase, users } from '../../src/lib/sailor/core/db/cli.js';
+// User management CLI tool
+import { createCliDbOrFail, getConsumerSchemaOrFail } from '../utils.js';
 import { eq } from 'drizzle-orm';
-
-// Create database connection for CLI usage
 let db = null;
+let users = null;
 async function getDb() {
-  if (!db) {
-    db = await createCLIDatabase();
-  }
+  if (db) return db;
+  const targetDir = process.cwd();
+  db = await createCliDbOrFail(targetDir);
+  const schema = await getConsumerSchemaOrFail(targetDir);
+  users = schema.users;
   return db;
 }
 
@@ -21,7 +20,15 @@ export function registerUserCommands(program) {
       try {
         const database = await getDb();
         console.log('📋 Fetching users...\n');
-        const allUsers = await database.select().from(users);
+        const allUsers = await database
+          .select({
+            id: users.id,
+            email: users.email,
+            name: users.name,
+            role: users.role,
+            created_at: users.created_at
+          })
+          .from(users);
 
         if (allUsers.length === 0) {
           console.log('No users found in the database.');
@@ -58,9 +65,7 @@ export function registerUserCommands(program) {
       try {
         const database = await getDb();
         console.log(`🔍 Looking for user with email: ${email}`);
-
-        // Check if user exists
-        const user = await database.select().from(users).where(eq(users.email, email)).get();
+        const user = (await database.select().from(users).where(eq(users.email, email))).at(0);
         if (!user) {
           console.error('❌ User not found with that email');
           console.log('💡 Make sure the user has signed up first (via email/password or OAuth)');
@@ -78,7 +83,7 @@ export function registerUserCommands(program) {
         console.log(`🔄 Assigning role: ${role}`);
 
         // Update user role
-        await database.update(users).set({ role: role }).where(eq(users.email, email));
+        await database.update(users).set({ role }).where(eq(users.email, email));
 
         console.log('✅ Role assigned successfully!');
         console.log(`\nUser ${email} now has role: ${role}`);
@@ -96,16 +101,16 @@ export function registerUserCommands(program) {
       try {
         const database = await getDb();
         console.log(`🔍 Looking for user with email: ${email}`);
-
-        // Check if user exists
-        const user = await database.select().from(users).where(eq(users.email, email)).get();
+        const user = (await database.select().from(users).where(eq(users.email, email))).at(0);
         if (!user) {
           console.error('❌ User not found with that email');
           process.exit(1);
         }
 
         console.log(`👤 Found user: ${user.name || 'No name'} (ID: ${user.id})`);
-        console.log(`📧 Current email verification status: ${user.email_verified ? 'Verified' : 'Not verified'}`);
+        console.log(
+          `📧 Current email verification status: ${user.email_verified ? 'Verified' : 'Not verified'}`
+        );
 
         if (user.email_verified) {
           console.log('ℹ️  User email is already verified');

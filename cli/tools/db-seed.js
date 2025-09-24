@@ -1,26 +1,87 @@
-// Import CLI database connection (no SvelteKit dependencies)
-import { createCLIDatabase, blockTypes, collectionTypes, globalTypes, roles } from '../../src/lib/sailor/core/db/cli.js';
-import { blockDefinitions } from '../../src/lib/sailor/templates/blocks/index.js';
-import { collectionDefinitions } from '../../src/lib/sailor/templates/collections/index.js';
-import { globalDefinitions } from '../../src/lib/sailor/templates/globals/index.js';
-import { CORE_FIELDS, BLOCK_CORE_FIELDS } from '../../src/lib/sailor/core/types.js';
+// Database seeding tool
 import { sql, eq } from 'drizzle-orm';
-import { createDatabaseAdapter } from '../../src/lib/sailor/core/db/adapter-factory.js';
+import crypto from 'crypto';
+import { getConsumerSchemaOrFail } from '../utils.js';
+import { pathToFileURL } from 'url';
+import { existsSync } from 'fs';
+import path from 'path';
+import { createCliDbOrFail } from '../utils.js';
 
-// Create database connection for seeding (CLI context)
 let db = null;
+let roles, blockTypes, collectionTypes, globalTypes;
+let blockDefinitions, collectionDefinitions, globalDefinitions, settings;
+let CORE_FIELDS, BLOCK_CORE_FIELDS;
 async function getDb() {
-  if (!db) {
-    db = await createCLIDatabase();
+  if (db) return db;
+  const targetDir = process.cwd();
+  db = await createCliDbOrFail(targetDir);
+  const schema = await getConsumerSchemaOrFail(targetDir);
+  roles = schema.roles;
+  blockTypes = schema.blockTypes;
+  collectionTypes = schema.collectionTypes;
+  globalTypes = schema.globalTypes;
+
+  // Load template definitions from consumer project only; abort if missing
+  const templatesDir = path.join(targetDir, 'src', 'lib', 'sailor', 'templates');
+  if (!existsSync(templatesDir)) {
+    throw new Error(
+      'Sailor templates not found in your project (src/lib/sailor/templates). Run "npx sailor core:init" first.'
+    );
   }
+
+  async function tryImportTemplates() {
+    // Templates are always TypeScript files
+    function getTemplatePath(relativePath) {
+      const tsPath = path.join(templatesDir, relativePath + '.ts');
+
+      if (existsSync(tsPath)) {
+        return pathToFileURL(tsPath).href;
+      } else {
+        throw new Error(`Template file not found: ${tsPath}`);
+      }
+    }
+
+    const consumerBlocks = getTemplatePath('blocks/index');
+    const consumerCollections = getTemplatePath('collections/index');
+    const consumerGlobals = getTemplatePath('globals/index');
+    const consumerSettings = getTemplatePath('settings');
+
+    const [b, c, g, s] = await Promise.all([
+      import(consumerBlocks),
+      import(consumerCollections),
+      import(consumerGlobals),
+      import(consumerSettings)
+    ]);
+    return {
+      blockDefinitions: b.blockDefinitions,
+      collectionDefinitions: c.collectionDefinitions,
+      globalDefinitions: g.globalDefinitions,
+      settings: s.settings
+    };
+  }
+
+  const t = await tryImportTemplates();
+  blockDefinitions = t.blockDefinitions;
+  collectionDefinitions = t.collectionDefinitions;
+  globalDefinitions = t.globalDefinitions;
+  settings = t.settings;
+
+  // Load core field definitions from consumer project
+  const coreTypesPath = path.join(targetDir, 'src', 'lib', 'sailor', 'core', 'types.ts');
+
+  if (!existsSync(coreTypesPath)) {
+    throw new Error(
+      'Core types not found in app (src/lib/sailor/core/types.ts). Run "npx sailor core:init" first.'
+    );
+  }
+  const coreTypesMod = await import(pathToFileURL(coreTypesPath).href);
+  CORE_FIELDS = coreTypesMod.CORE_FIELDS;
+  BLOCK_CORE_FIELDS = coreTypesMod.BLOCK_CORE_FIELDS;
   return db;
 }
 
 // Helper function to merge core fields with template fields
-function mergeWithCoreFields(
-  templateFields,
-  skipCoreFields = false
-) {
+function mergeWithCoreFields(templateFields, skipCoreFields = false) {
   if (skipCoreFields) {
     return templateFields;
   }
@@ -34,7 +95,7 @@ function mergeWithCoreFields(
       if (fieldDef.override) {
         const { override, ui, ...otherProps } = fieldDef;
         mergedFields[key] = {
-          ...(CORE_FIELDS)[key],
+          ...CORE_FIELDS[key],
           ...override,
           core: true,
           ...(ui && { ui }),
@@ -42,7 +103,7 @@ function mergeWithCoreFields(
         };
       } else {
         // Legacy: direct override (deprecated)
-        mergedFields[key] = { ...(CORE_FIELDS)[key], ...fieldDef, core: true };
+        mergedFields[key] = { ...CORE_FIELDS[key], ...fieldDef, core: true };
       }
     } else {
       mergedFields[key] = fieldDef;
@@ -63,7 +124,7 @@ function mergeWithBlockCoreFields(templateFields) {
       if (fieldDef.override) {
         const { override, ui, ...otherProps } = fieldDef;
         mergedFields[key] = {
-          ...(BLOCK_CORE_FIELDS)[key],
+          ...BLOCK_CORE_FIELDS[key],
           ...override,
           core: true,
           ...(ui && { ui }),
@@ -71,7 +132,7 @@ function mergeWithBlockCoreFields(templateFields) {
         };
       } else {
         // Legacy: direct override (deprecated)
-        mergedFields[key] = { ...(BLOCK_CORE_FIELDS)[key], ...fieldDef, core: true };
+        mergedFields[key] = { ...BLOCK_CORE_FIELDS[key], ...fieldDef, core: true };
       }
     } else {
       mergedFields[key] = fieldDef;
@@ -84,10 +145,7 @@ function mergeWithBlockCoreFields(templateFields) {
 // Seed roles first
 export async function seedRoles() {
   try {
-    const adapter = await createDatabaseAdapter();
     const database = await getDb();
-    const uuidSql = sql.raw(adapter.getUuidFunction());
-    const timestampSql = sql.raw(adapter.getCurrentTimestampFunction());
 
     await database.transaction(async (tx) => {
       // Create default roles
@@ -107,20 +165,21 @@ export async function seedRoles() {
       ];
 
       for (const roleData of defaultRoles) {
+        const now = new Date();
         await tx
           .insert(roles)
           .values({
-            id: uuidSql,
+            id: crypto.randomUUID(),
             name: roleData.name,
             permissions: roleData.permissions,
-            created_at: timestampSql,
-            updated_at: timestampSql
+            created_at: now,
+            updated_at: now
           })
           .onConflictDoUpdate({
             target: roles.name,
             set: {
               permissions: roleData.permissions,
-              updated_at: timestampSql
+              updated_at: now
             }
           });
       }
@@ -136,30 +195,28 @@ export async function seedRoles() {
 // Seed registry tables
 export async function seedRegistry() {
   try {
-    const adapter = await createDatabaseAdapter();
     const database = await getDb();
-    const uuidSql = sql.raw(adapter.getUuidFunction());
-    const timestampSql = sql.raw(adapter.getCurrentTimestampFunction());
 
     await database.transaction(async (tx) => {
       // Get existing block types
-      const existingBlockTypes = await tx.select().from(blockTypes);
+      const existingBlockTypes = await tx.select({ slug: blockTypes.slug }).from(blockTypes);
       const existingSlugs = new Set(existingBlockTypes.map((bt) => bt.slug));
 
       // Seed block types
       for (const [slug, definition] of Object.entries(blockDefinitions)) {
         const mergedFields = mergeWithBlockCoreFields(definition.fields || {});
         const fields = JSON.stringify(mergedFields);
+        const now = new Date();
         await tx
           .insert(blockTypes)
           .values({
-            id: uuidSql,
+            id: crypto.randomUUID(),
             name: definition.name,
             slug,
             description: definition.description || '',
             schema: fields,
-            created_at: timestampSql,
-            updated_at: timestampSql
+            created_at: now,
+            updated_at: now
           })
           .onConflictDoUpdate({
             target: blockTypes.slug,
@@ -167,7 +224,7 @@ export async function seedRegistry() {
               name: definition.name,
               description: definition.description || '',
               schema: fields,
-              updated_at: timestampSql
+              updated_at: now
             }
           });
       }
@@ -180,7 +237,9 @@ export async function seedRegistry() {
       }
 
       // Get existing collection types
-      const existingCollectionTypes = await tx.select().from(collectionTypes);
+      const existingCollectionTypes = await tx
+        .select({ slug: collectionTypes.slug })
+        .from(collectionTypes);
       const existingCollectionSlugs = new Set(existingCollectionTypes.map((ct) => ct.slug));
 
       // Seed collection types
@@ -188,10 +247,11 @@ export async function seedRegistry() {
         const mergedFields = mergeWithCoreFields(definition.fields || {});
         const fields = JSON.stringify(mergedFields);
         const options = JSON.stringify(definition.options || {});
+        const now = new Date();
         await tx
           .insert(collectionTypes)
           .values({
-            id: uuidSql,
+            id: crypto.randomUUID(),
             name_singular: definition.name.singular,
             name_plural: definition.name.plural,
             slug,
@@ -199,8 +259,8 @@ export async function seedRegistry() {
             icon: definition.icon || null,
             schema: fields,
             options,
-            created_at: timestampSql,
-            updated_at: timestampSql
+            created_at: now,
+            updated_at: now
           })
           .onConflictDoUpdate({
             target: collectionTypes.slug,
@@ -211,7 +271,7 @@ export async function seedRegistry() {
               icon: definition.icon || null,
               schema: fields,
               options,
-              updated_at: timestampSql
+              updated_at: now
             }
           });
       }
@@ -224,7 +284,7 @@ export async function seedRegistry() {
       }
 
       // Get existing global types
-      const existingGlobalTypes = await tx.select().from(globalTypes);
+      const existingGlobalTypes = await tx.select({ slug: globalTypes.slug }).from(globalTypes);
       const existingGlobalSlugs = new Set(existingGlobalTypes.map((gt) => gt.slug));
 
       // Seed global types
@@ -234,10 +294,11 @@ export async function seedRegistry() {
         const mergedFields = mergeWithCoreFields(definition.fields || {}, skipCoreFields);
         const fields = JSON.stringify(mergedFields);
         const options = JSON.stringify(definition.options || {});
+        const now = new Date();
         await tx
           .insert(globalTypes)
           .values({
-            id: uuidSql,
+            id: crypto.randomUUID(),
             name_singular: definition.name.singular,
             name_plural: definition.name.plural,
             slug,
@@ -246,8 +307,8 @@ export async function seedRegistry() {
             data_type: definition.dataType,
             schema: fields,
             options,
-            created_at: timestampSql,
-            updated_at: timestampSql
+            created_at: now,
+            updated_at: now
           })
           .onConflictDoUpdate({
             target: globalTypes.slug,
@@ -258,7 +319,7 @@ export async function seedRegistry() {
               icon: definition.icon || null,
               schema: fields,
               options,
-              updated_at: timestampSql
+              updated_at: now
             }
           });
       }
@@ -281,10 +342,8 @@ export async function seedRegistry() {
 // Function to get role ID by name
 export async function getRoleIdByName(roleName) {
   const database = await getDb();
-  const role = await database.query.roles.findFirst({
-    where: (roles, { eq }) => eq(roles.name, roleName)
-  });
-  return role?.id || null;
+  const result = await database.get(sql`select id from roles where name = ${roleName}`);
+  return result?.id || null;
 }
 
 // Main seed function that runs everything
@@ -298,7 +357,6 @@ export async function seedAll() {
     // Then seed registry
     await seedRegistry();
 
-
     console.log('✅ All seeding completed successfully');
   } catch (error) {
     console.error('❌ Seeding failed:', error);
@@ -306,8 +364,8 @@ export async function seedAll() {
   }
 }
 
-// Run if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run if this file is executed directly (use more reliable detection)
+if (process.argv[1] && process.argv[1].endsWith('db-seed.js')) {
   seedAll()
     .then(() => {
       process.exit(0);

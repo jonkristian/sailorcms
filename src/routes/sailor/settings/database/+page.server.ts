@@ -2,9 +2,6 @@ import { error } from '@sveltejs/kit';
 import { db, collectionTypes, blockTypes, globalTypes } from '$sailor/core/db/index.server';
 import { sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { blockDefinitions } from '$sailor/templates/blocks';
-import { collectionDefinitions } from '$sailor/templates/collections';
-import { globalDefinitions } from '$sailor/templates/globals';
 
 interface TableInfo {
   name: string;
@@ -92,24 +89,6 @@ export const load = async () => {
     tables: tableSchemas,
     collectionTypes: collectionTypesData,
     blockTypes: blockTypesData,
-    globalTypes: globalTypesData,
-    // Add available definitions from template files
-    availableBlocks: Object.entries(blockDefinitions).map(([slug, def]) => ({
-      slug,
-      name: def.name,
-      description: def.description
-    })),
-    availableCollections: Object.entries(collectionDefinitions).map(([slug, def]) => ({
-      slug,
-      name: def.name,
-      description: def.description
-    })),
-    availableGlobals: Object.entries(globalDefinitions).map(([slug, def]) => ({
-      slug,
-      name: def.name,
-      description: def.description,
-      options: def.options
-    }))
+    globalTypes: globalTypesData
   };
 };
-

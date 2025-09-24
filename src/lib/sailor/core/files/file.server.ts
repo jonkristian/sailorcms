@@ -26,7 +26,7 @@ export function generateFileName(originalName: string): string {
 
 export async function ensureUploadDir(): Promise<void> {
   const settings = await getSettings();
-  const providers = settings.storage.providers;
+  const providers = settings.storage?.providers;
 
   if (!providers?.local?.uploadDir) {
     throw new Error('Local storage provider not configured');
@@ -43,7 +43,7 @@ export async function saveFile(
   file: File
 ): Promise<{ filename: string; path: string; url: string }> {
   const settings = await getSettings();
-  const providers = settings.storage.providers;
+  const providers = settings.storage?.providers;
 
   if (!providers?.local?.uploadDir || !providers?.local?.publicUrl) {
     throw new Error('Local storage provider not configured');

@@ -113,6 +113,27 @@ export class SystemSettingsService {
     await db.delete(systemSettings).where(eq(systemSettings.key, key));
   }
 
+
+  /**
+   * Deep merge helper for nested objects
+   */
+  private static deepMerge<T>(target: T, source: Partial<T>): T {
+    const result = { ...target };
+
+    for (const key in source) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        result[key] = this.deepMerge(
+          result[key] || ({} as T[Extract<keyof T, string>]),
+          source[key] as any
+        );
+      } else if (source[key] !== undefined) {
+        result[key] = source[key] as T[Extract<keyof T, string>];
+      }
+    }
+
+    return result;
+  }
+
   /**
    * Initialize settings from environment variables
    * This should be called once during setup
@@ -130,16 +151,16 @@ export class SystemSettingsService {
     );
 
     if (env.S3_BUCKET) {
-      await this.setSetting('storage.s3.bucket', env.S3_BUCKET, 'storage', 'S3 bucket name');
+      await this.setSetting('storage.providers.s3.bucket', env.S3_BUCKET, 'storage', 'S3 bucket name');
     }
 
     if (env.S3_REGION) {
-      await this.setSetting('storage.s3.region', env.S3_REGION, 'storage', 'S3 region');
+      await this.setSetting('storage.providers.s3.region', env.S3_REGION, 'storage', 'S3 region');
     }
 
     if (env.S3_ACCESS_KEY_ID) {
       await this.setSetting(
-        'storage.s3.accessKeyId',
+        'storage.providers.s3.accessKeyId',
         env.S3_ACCESS_KEY_ID,
         'storage',
         'S3 access key ID'
@@ -148,7 +169,7 @@ export class SystemSettingsService {
 
     if (env.S3_SECRET_ACCESS_KEY) {
       await this.setSetting(
-        'storage.s3.secretAccessKey',
+        'storage.providers.s3.secretAccessKey',
         env.S3_SECRET_ACCESS_KEY,
         'storage',
         'S3 secret access key'
@@ -156,16 +177,16 @@ export class SystemSettingsService {
     }
 
     if (env.S3_ENDPOINT) {
-      await this.setSetting('storage.s3.endpoint', env.S3_ENDPOINT, 'storage', 'S3 endpoint URL');
+      await this.setSetting('storage.providers.s3.endpoint', env.S3_ENDPOINT, 'storage', 'S3 endpoint URL');
     }
 
     if (env.S3_PUBLIC_URL) {
-      await this.setSetting('storage.s3.publicUrl', env.S3_PUBLIC_URL, 'storage', 'S3 public URL');
+      await this.setSetting('storage.providers.s3.publicUrl', env.S3_PUBLIC_URL, 'storage', 'S3 public URL');
     }
 
     if (env.UPLOAD_DIR) {
       await this.setSetting(
-        'storage.local.uploadDir',
+        'storage.providers.local.uploadDir',
         env.UPLOAD_DIR,
         'storage',
         'Local upload directory'

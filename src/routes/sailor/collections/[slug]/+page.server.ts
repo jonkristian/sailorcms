@@ -6,11 +6,11 @@ import type { Pagination } from '$sailor/core/types';
 import { createACL } from '$lib/sailor/core/auth/acl';
 
 export const load = async ({ params, locals, url }) => {
-  // Check permissions for collection management
-  if (!locals.security) {
-    throw error(401, 'Authentication required');
-  }
-  await locals.security.isAuthenticated().can('view', 'collection');
+  // Authentication and basic permissions handled by hooks
+  // This route only needs to check specific collection access
+
+  // Non-null assertion: hooks set security on /sailor/* routes
+  const security = locals.security!;
 
   const { slug } = params;
 
@@ -218,10 +218,10 @@ export const load = async ({ params, locals, url }) => {
     // Calculate permissions for this route
     const permissions = {
       collections: {
-        create: await locals.security.canSilent('create', 'collection'),
-        update: await locals.security.canSilent('update', 'collection'),
-        delete: await locals.security.canSilent('delete', 'collection'),
-        view: await locals.security.canSilent('view', 'collection')
+        create: await security.canSilent('create', 'collection'),
+        update: await security.canSilent('update', 'collection'),
+        delete: await security.canSilent('delete', 'collection'),
+        view: await security.canSilent('view', 'collection')
       }
     };
 

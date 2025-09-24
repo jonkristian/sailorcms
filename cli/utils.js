@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -399,14 +399,16 @@ export async function setupDatabase(targetDir) {
   await generateSchema(targetDir);
   execSync('npx drizzle-kit generate', { cwd: targetDir, stdio: 'pipe' });
   execSync('npx drizzle-kit push', { cwd: targetDir, stdio: 'pipe' });
-  execSync('bun run cli/tools/db-seed.js', { cwd: targetDir, stdio: 'pipe' });
+  const pkgSeeder = path.join(targetDir, 'node_modules', 'sailorcms', 'cli', 'tools', 'db-seed.js');
+  const localSeeder = path.join(__dirname, 'tools', 'db-seed.js');
+  const seederPath = (await fs.pathExists(pkgSeeder)) ? pkgSeeder : localSeeder;
+  execSync(`node ${seederPath}`, { cwd: targetDir, stdio: 'pipe' });
   console.log('✅ Database setup complete');
 }
 
 export async function generateSchema(targetDir) {
-  // Check required files exist
+  // Check required files exist in consumer project
   const requiredFiles = [
-    'cli/tools/db-generate-schema.js',
     'src/lib/sailor/templates/blocks/index.ts',
     'src/lib/sailor/templates/collections/index.ts',
     'src/lib/sailor/templates/globals/index.ts',
@@ -419,9 +421,11 @@ export async function generateSchema(targetDir) {
     }
   }
 
-  execSync('bun run cli/tools/db-generate-schema.js', {
+  // Temporarily revert to subprocess to test
+  const schemaGeneratorPath = path.join(__dirname, 'tools', 'db-generate-schema.js');
+  execSync(`npx tsx ${schemaGeneratorPath}`, {
     cwd: targetDir,
-    stdio: 'pipe'
+    stdio: 'inherit'
   });
 }
 
@@ -479,6 +483,41 @@ export async function trackInstalledDependencies(targetDir) {
   };
 
   await fs.writeJson(trackingFile, installedDeps, { spaces: 2 });
+}
+
+// Create a Drizzle client for CLI commands using the consumer app's generated schema
+export async function getConsumerSchemaOrFail(targetDir) {
+  const schemaPath = path.join(targetDir, 'src', 'lib', 'sailor', 'generated', 'schema.ts');
+  if (!(await fs.pathExists(schemaPath))) {
+    throw new Error(
+      'Generated schema not found at src/lib/sailor/generated/schema.ts. Run "npx sailor db:update" first.'
+    );
+  }
+  // Dynamic import of consumer schema
+  const schemaUrl = pathToFileURL(schemaPath).href;
+  return await import(schemaUrl);
+}
+
+export async function createCliDbOrFail(targetDir) {
+  // Ensure env loaded from consumer project
+  try {
+    const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
+    const { config } = await import(dotenvPath);
+    config();
+  } catch {}
+
+  // Create libsql client directly (avoid importing adapter files)
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is not set. Copy .env.sailor to .env and set it.');
+  }
+  const { createClient } = await import('@libsql/client');
+  const { drizzle } = await import('drizzle-orm/libsql');
+  const client = createClient({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN });
+
+  // Get consumer schema (throws if missing)
+  const schema = await getConsumerSchemaOrFail(targetDir);
+  return drizzle(client, { schema });
 }
 
 export async function cleanupUnusedDependencies(targetDir) {

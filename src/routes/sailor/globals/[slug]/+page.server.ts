@@ -7,11 +7,10 @@ import { TagService } from '$sailor/core/services/tag.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
 
 export const load = async ({ params, locals }) => {
-  // Check permissions for global management
-  if (!locals.security) {
-    throw error(401, 'Authentication required');
-  }
-  await locals.security.isAuthenticated().can('view', 'global');
+  // Authentication and basic permissions handled by hooks
+  // This route only needs to check specific global access
+  // Non-null assertion: hooks set security on /sailor/* routes
+  const security = locals.security!;
   const { slug } = params;
 
   // Get global definition from database
@@ -202,10 +201,10 @@ export const load = async ({ params, locals }) => {
   // Calculate permissions for this route
   const permissions = {
     globals: {
-      create: await locals.security.canSilent('create', 'global'),
-      update: await locals.security.canSilent('update', 'global'),
-      delete: await locals.security.canSilent('delete', 'global'),
-      view: await locals.security.canSilent('view', 'global')
+      create: await security.canSilent('create', 'global'),
+      update: await security.canSilent('update', 'global'),
+      delete: await security.canSilent('delete', 'global'),
+      view: await security.canSilent('view', 'global')
     }
   };
 

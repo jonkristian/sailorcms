@@ -17,12 +17,14 @@ Coolify is a self-hosted platform-as-a-service that makes deployment simple and 
 Deploy to Coolify with these settings:
 
 **Recommended Deployment (with Backup Restore):**
+
 - **Install Command**: `npm install`
 - **Build Command**: `npm run build`
 - **Start Command**: `node build`
 - **After deployment**: Run `bun sailor db:restore --force` in terminal to restore from S3
 
 **Fresh Deployment (new projects only):**
+
 - **Install Command**: `npm install`
 - **Build Command**: `npm run build`
 - **Start Command**: `node build`
@@ -33,12 +35,14 @@ Deploy to Coolify with these settings:
 For SQLite databases, configure persistent storage to ensure your data survives deployments:
 
 #### 1. Add Persistent Storage
+
 - Go to your application → Storage
 - Add new storage volume
 - **Destination Path**: `/app/data` (important: `/app/` means inside container)
 - This creates a persistent volume for your database files
 
 #### 2. Environment Variables
+
 Configure these in Coolify's Environment tab:
 
 ```bash
@@ -71,6 +75,7 @@ LOG_LEVEL=warn
 ```
 
 #### 3. Automated Backups (Optional)
+
 Set up automated database backups using Coolify's cron jobs:
 
 - Add a cron job service in Coolify
@@ -102,21 +107,25 @@ After successful deployment:
 ### Troubleshooting
 
 **Build Failures:**
+
 - Ensure environment variables are set correctly
 - Check that persistent storage destination is `/app/data`
 - Verify SvelteKit configuration includes required experimental features
 
 **Database Connection Issues:**
+
 - Confirm `DATABASE_URL=file:./data/sailor.sqlite`
 - Check persistent storage is mounted to `/app/data`
 - Ensure database initialization completed successfully
 
 **File Upload Issues:**
+
 - Verify S3/R2 credentials if using cloud storage
 - Check upload directory permissions for local storage
 - Confirm `UPLOAD_*` environment variables are set correctly
 
 **Authentication Problems:**
+
 - Verify `BETTER_AUTH_SECRET` is exactly 32 characters
 - Check OAuth provider credentials if using GitHub/Google
 - Clear browser cookies and try again

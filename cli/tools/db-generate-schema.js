@@ -1,15 +1,44 @@
-// This script is used by db:generate to create the schema.ts file
-// Do not run this directly - use 'npm run db:generate' instead
-import { sql } from 'drizzle-orm';
-import { blockDefinitions } from '../../src/lib/sailor/templates/blocks/index.js';
-import { collectionDefinitions } from '../../src/lib/sailor/templates/collections/index.js';
-import { globalDefinitions } from '../../src/lib/sailor/templates/globals/index.js';
-import { settings } from '../../src/lib/sailor/templates/settings.js';
-import { CORE_FIELDS, BLOCK_CORE_FIELDS, SEO_FIELDS } from '../../src/lib/sailor/core/types.js';
-import { createDatabaseAdapter } from '../../src/lib/sailor/core/db/adapter-factory.js';
-import { toSnakeCase } from '../../src/lib/sailor/core/utils/string.js';
+// Database schema generation tool
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
+
+// Determine the target directory (consumer project directory)
+const targetDir = process.cwd();
+
+// Dynamically import from the consumer project's template files
+const blockDefinitionsModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/templates/blocks/index.ts')).href
+);
+const collectionDefinitionsModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/templates/collections/index.ts')).href
+);
+const globalDefinitionsModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/templates/globals/index.ts')).href
+);
+const settingsModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/templates/settings.ts')).href
+);
+
+// Import CMS utilities from the consumer project (these are copied during init)
+const typesModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/core/types.ts')).href
+);
+const adapterFactoryModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/core/db/adapter-factory.ts')).href
+);
+const stringUtilsModule = await import(
+  pathToFileURL(path.join(targetDir, 'src/lib/sailor/core/utils/string.ts')).href
+);
+
+// Extract the exports
+const { blockDefinitions } = blockDefinitionsModule;
+const { collectionDefinitions } = collectionDefinitionsModule;
+const { globalDefinitions } = globalDefinitionsModule;
+const { settings } = settingsModule;
+const { CORE_FIELDS, BLOCK_CORE_FIELDS, SEO_FIELDS } = typesModule;
+const { createDatabaseAdapter } = adapterFactoryModule;
+const { toSnakeCase } = stringUtilsModule;
 
 // Get database adapter for schema generation
 const adapter = await createDatabaseAdapter();
@@ -48,12 +77,7 @@ if (adapter.getDatabaseType() === 'postgres') {
 }
 
 // Helper function to merge core fields with template fields
-function mergeWithCoreFields(
-  templateFields,
-  skipCoreFields = false,
-  options = {},
-  isFlat = false
-) {
+function mergeWithCoreFields(templateFields, skipCoreFields = false, options = {}, isFlat = false) {
   if (skipCoreFields && !isFlat) {
     return templateFields;
   }
@@ -73,7 +97,7 @@ function mergeWithCoreFields(
         // Handle override syntax for audit fields
         if (fieldDef.override) {
           const { override, ...otherProps } = fieldDef;
-          const baseField = (auditFields)[key];
+          const baseField = auditFields[key];
           mergedFields[key] = {
             ...baseField,
             ...override,
@@ -106,7 +130,7 @@ function mergeWithCoreFields(
       // Handle override syntax for core/SEO fields
       if (fieldDef.override) {
         const { override, ...otherProps } = fieldDef;
-        const baseField = isInCoreFields ? (CORE_FIELDS)[key] : (SEO_FIELDS)[key];
+        const baseField = isInCoreFields ? CORE_FIELDS[key] : SEO_FIELDS[key];
         mergedFields[key] = {
           ...baseField,
           ...override,
@@ -115,7 +139,7 @@ function mergeWithCoreFields(
         };
       } else {
         // Legacy: direct override (deprecated)
-        const baseField = isInCoreFields ? (CORE_FIELDS)[key] : (SEO_FIELDS)[key];
+        const baseField = isInCoreFields ? CORE_FIELDS[key] : SEO_FIELDS[key];
         mergedFields[key] = { ...baseField, ...fieldDef, core: isInCoreFields };
       }
     } else {
@@ -137,14 +161,14 @@ function mergeWithBlockCoreFields(templateFields) {
       if (fieldDef.override) {
         const { override, ...otherProps } = fieldDef;
         mergedFields[key] = {
-          ...(BLOCK_CORE_FIELDS)[key],
+          ...BLOCK_CORE_FIELDS[key],
           ...override,
           core: true,
           ...otherProps
         };
       } else {
         // Legacy: direct override (deprecated)
-        mergedFields[key] = { ...(BLOCK_CORE_FIELDS)[key], ...fieldDef, core: true };
+        mergedFields[key] = { ...BLOCK_CORE_FIELDS[key], ...fieldDef, core: true };
       }
     } else {
       mergedFields[key] = fieldDef;
@@ -155,12 +179,7 @@ function mergeWithBlockCoreFields(templateFields) {
 }
 
 // Recursive function to generate nested array tables
-function generateArrayTables(
-  baseTableName,
-  parentIdField,
-  fields,
-  depth = 0
-) {
+function generateArrayTables(baseTableName, parentIdField, fields, depth = 0) {
   const tables = [];
 
   // Find all array fields at this level
@@ -188,16 +207,13 @@ function generateArrayTables(
         .notNull()
         .$defaultFn(() => new Date()),
       // Add regular fields from array items
-      ...Object.entries(fieldDef.items?.properties || {}).reduce(
-        (acc, [fieldKey, fieldKeyDef]) => {
-          // Skip nested array fields as they'll get their own tables
-          if (fieldKeyDef.type === 'array') return acc;
-          // Skip file fields as they'll get their own relation tables
-          if (fieldKeyDef.type === 'file') return acc;
-          return { ...acc, [fieldKey]: text(fieldKey) };
-        },
-        {}
-      )
+      ...Object.entries(fieldDef.items?.properties || {}).reduce((acc, [fieldKey, fieldKeyDef]) => {
+        // Skip nested array fields as they'll get their own tables
+        if (fieldKeyDef.type === 'array') return acc;
+        // Skip file fields as they'll get their own relation tables
+        if (fieldKeyDef.type === 'file') return acc;
+        return { ...acc, [fieldKey]: text(fieldKey) };
+      }, {})
     });
 
     tables.push({ name: arrayTableName, table: arrayTable });
@@ -269,7 +285,7 @@ function generateCollectionTypes() {
       const interfaceName = `${slug.charAt(0).toUpperCase() + slug.slice(1)}Collection`;
 
       // System fields (always present and non-nullable)
-      const systemFields = ['  id;', '  created_at;', '  updated_at;'];
+      const systemFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
 
       // Merge core fields with template fields
       const allFields = mergeWithCoreFields(definition.fields || {}, false, definition.options);
@@ -293,7 +309,7 @@ function generateGlobalTypes() {
     const interfaceName = `${slug.charAt(0).toUpperCase() + slug.slice(1)}Global`;
 
     // System fields (always present and non-nullable)
-    const systemFields = ['  id;', '  created_at;', '  updated_at;'];
+    const systemFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
 
     // Skip core fields for flat globals since they don't need titles in lists
     const skipCoreFields = definition.dataType === 'flat';
@@ -433,130 +449,132 @@ export function generateTypesContent() {
     "import type { UserReference } from '../core/types';",
     '',
     '// Database instance type',
-    'export type Database = LibSQLDatabase<typeof schema ;',
+    'export type Database = LibSQLDatabase<typeof schema>;',
     '',
     '// Database table information types',
     'export interface TableInfo {',
-    '  name;',
-    '  columns{',
-    '    cid;',
-    '  name;',
-    '  type;',
-    '  notnull;',
-    '  dflt_value | null;',
-    '  pk;',
-    '  } ;',
-    '  rowCount;',
+    '  name: string;',
+    '  columns: {',
+    '    cid: number;',
+    '    name: string;',
+    '    type: string;',
+    '    notnull: number;',
+    '    dflt_value: string | null;',
+    '    pk: number;',
+    '  }[];',
+    '  rowCount: number;',
     '}',
     '',
     'export interface RowCountResult {',
-    '  count;',
+    '  count: number;',
     '}',
     '',
     '// Database configuration types',
     'export interface DatabaseConfig {',
-    '  url;',
-    '  authToken?;',
+    '  url: string;',
+    '  authToken?: string;',
     '}',
     '',
     '// Database migration types',
     'export interface MigrationResult {',
-    '  success;',
-    '  error?;',
+    '  success: boolean;',
+    '  error?: string;',
     '}',
     '',
     '// Database seeding types',
     'export interface SeedResult {',
-    '  success;',
-    '  error?;',
-    '  tablesSeeded?[];',
+    '  success: boolean;',
+    '  error?: string;',
+    '  tablesSeeded?: string[];',
     '}',
     '',
     '// User and role types',
-    `export type UserRole = ${getUserRoles().map(role => `'${role}'`).join(' | ')};`,
+    `export type UserRole = ${getUserRoles()
+      .map((role) => `'${role}'`)
+      .join(' | ')};`,
     '',
     'export interface User {',
-    '  id;',
-    '  email;',
-    '  name?;',
-    '  email_verified?;',
-    '  image?;',
+    '  id: string;',
+    '  email: string;',
+    '  name?: string;',
+    '  email_verified?: boolean;',
+    '  image?: string;',
     '  role: UserRole;',
-    '  banned?;',
-    '  ban_reason?;',
-    '  ban_expires?;',
-    '  created_at;',
-    '  updated_at;',
+    '  banned?: boolean;',
+    '  ban_reason?: string;',
+    '  ban_expires?: Date;',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     'export interface Role {',
-    '  id;',
-    '  name;',
-    '  permissions; // JSON string of permissions',
-    '  created_at;',
-    '  updated_at;',
+    '  id: string;',
+    '  name: string;',
+    '  permissions: string; // JSON string of permissions',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     'export interface CollectionType {',
-    '  id;',
-    '  name_singular;',
-    '  name_plural;',
-    '  slug;',
-    '  description?;',
-    '  icon?;',
-    '  schema; // JSON string of field definitions',
-    '  options?; // JSON string of collection options',
-    '  created_at;',
-    '  updated_at;',
+    '  id: string;',
+    '  name_singular: string;',
+    '  name_plural: string;',
+    '  slug: string;',
+    '  description?: string;',
+    '  icon?: string;',
+    '  schema: string; // JSON string of field definitions',
+    '  options?: string; // JSON string of collection options',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     'export interface GlobalType {',
-    '  id;',
-    '  name_singular;',
-    '  name_plural;',
-    '  slug;',
-    '  description?;',
-    '  icon?;',
-    '  data_type; // "single" or "flat"',
-    '  schema; // JSON string of field definitions',
-    '  options?; // JSON string of global options',
-    '  created_at;',
-    '  updated_at;',
+    '  id: string;',
+    '  name_singular: string;',
+    '  name_plural: string;',
+    '  slug: string;',
+    '  description?: string;',
+    '  icon?: string;',
+    '  data_type: string; // "single" or "flat"',
+    '  schema: string; // JSON string of field definitions',
+    '  options?: string; // JSON string of global options',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     'export interface BlockType {',
-    '  id;',
-    '  name;',
-    '  slug;',
-    '  description?;',
-    '  schema; // JSON string of field definitions',
-    '  created_at;',
-    '  updated_at;',
+    '  id: string;',
+    '  name: string;',
+    '  slug: string;',
+    '  description?: string;',
+    '  schema: string; // JSON string of field definitions',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     'export interface File {',
-    '  id;',
-    '  name;',
-    '  mime_type;',
-    '  size? | null;',
-    '  path;',
-    '  url;',
-    '  hash? | null;',
-    '  alt? | null;',
-    '  title? | null;',
-    '  description? | null;',
+    '  id: string;',
+    '  name: string;',
+    '  mime_type: string;',
+    '  size?: number | null;',
+    '  path: string;',
+    '  url: string;',
+    '  hash?: string | null;',
+    '  alt?: string | null;',
+    '  title?: string | null;',
+    '  description?: string | null;',
     '  author?: UserReference;',
-    '  created_at;',
-    '  updated_at;',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     'export interface Tag {',
-    '  id;',
-    '  name;',
-    '  slug;',
-    '  scope?;',
-    '  created_at;',
-    '  updated_at;',
+    '  id: string;',
+    '  name: string;',
+    '  slug: string;',
+    '  scope?: string;',
+    '  created_at: Date;',
+    '  updated_at: Date;',
     '}',
     '',
     '// Generated block types',
@@ -699,8 +717,7 @@ export const collectionTables = Object.entries(collectionDefinitions).map(([slug
 
   // Create junction tables for many-to-many relations
   const relationFields = Object.entries(allFields).filter(
-    ([_, fieldDef]) =>
-      fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many'
+    ([_, fieldDef]) => fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many'
   );
 
   for (const [fieldName, fieldDef] of relationFields) {
@@ -1315,6 +1332,9 @@ export async function generateSchema() {
   const schemaPath = path.join(generatedDir, 'schema.ts');
   fs.writeFileSync(schemaPath, schemaContent);
   console.log('✓ Schema generated');
+
+  // Also generate settings
+  generateSettings();
 }
 
 // Generate and write the types file
@@ -1377,18 +1397,18 @@ export const globalFieldConfigs = ${JSON.stringify(globalConfigs, null, 2)} as c
 export const blockFieldConfigs = ${JSON.stringify(blockConfigs, null, 2)} as const;
 
 // Helper function to get field config for a collection
-export function getCollectionFieldConfig(collectionSlug) {
-  return (collectionFieldConfigs)[collectionSlug];
+export function getCollectionFieldConfig(collectionSlug: keyof typeof collectionFieldConfigs) {
+  return collectionFieldConfigs[collectionSlug];
 }
 
 // Helper function to get field config for a global
-export function getGlobalFieldConfig(globalSlug) {
-  return (globalFieldConfigs)[globalSlug];
+export function getGlobalFieldConfig(globalSlug: keyof typeof globalFieldConfigs) {
+  return globalFieldConfigs[globalSlug];
 }
 
 // Helper function to get field config for a block
-export function getBlockFieldConfig(blockSlug) {
-  return (blockFieldConfigs)[blockSlug];
+export function getBlockFieldConfig(blockSlug: keyof typeof blockFieldConfigs) {
+  return blockFieldConfigs[blockSlug];
 }
 `;
 
@@ -1401,6 +1421,51 @@ export function getBlockFieldConfig(blockSlug) {
   console.log('✓ Field configurations generated');
 }
 
+// Generate settings from templates
+export function generateSettings() {
+  try {
+    const settingsPath = path.join(
+      process.cwd(),
+      'src',
+      'lib',
+      'sailor',
+      'templates',
+      'settings.ts'
+    );
+
+    if (!fs.existsSync(settingsPath)) {
+      console.log('⚠️  No settings template found, skipping settings generation');
+      return;
+    }
+
+    // Read the TypeScript file and strip all imports/types to make it pure data
+    let settingsContent = fs.readFileSync(settingsPath, 'utf8');
+
+    // Remove all import statements
+    settingsContent = settingsContent.replace(/import.*from.*;\n/g, '');
+
+    // Remove type annotations
+    settingsContent = settingsContent.replace(/: Partial<CMSSettings>/g, '');
+
+    // Remove 'as const' assertions
+    settingsContent = settingsContent.replace(/as const/g, '');
+
+    // Clean up any double newlines
+    settingsContent = settingsContent.replace(/\n\n+/g, '\n\n');
+
+    const generatedDir = path.join(process.cwd(), 'src/lib/sailor/generated');
+    if (!fs.existsSync(generatedDir)) {
+      fs.mkdirSync(generatedDir, { recursive: true });
+    }
+
+    const generatedSettingsPath = path.join(generatedDir, 'settings.ts');
+    fs.writeFileSync(generatedSettingsPath, settingsContent);
+    console.log('✓ Settings generated');
+  } catch (error) {
+    console.warn('⚠️  Failed to generate settings:', error.message);
+  }
+}
+
 // Generate both schema and types
 export async function generateAll() {
   await generateSchema();
@@ -1409,7 +1474,7 @@ export async function generateAll() {
   console.log('✅ Generation completed');
 }
 
-// Run if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run if this file is executed directly (use more reliable detection)
+if (process.argv[1] && process.argv[1].endsWith('db-generate-schema.js')) {
   await generateAll();
 }

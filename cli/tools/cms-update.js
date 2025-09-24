@@ -1,3 +1,4 @@
+// Core CMS update tool
 import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';

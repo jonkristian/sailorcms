@@ -264,6 +264,5 @@
         {/if}
       </Card.Content>
     </Card.Root>
-
   </div>
 </div>

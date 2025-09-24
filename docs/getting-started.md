@@ -23,9 +23,9 @@ export default {
     }
   },
   compilerOptions: {
-    runes: true,        // Required for Svelte 5 reactivity
+    runes: true, // Required for Svelte 5 reactivity
     experimental: {
-      async: true       // Required for async components
+      async: true // Required for async components
     }
   }
 };
