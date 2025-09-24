@@ -1,12 +1,15 @@
 # GitHub Pages configuration
-title: Sailor CMS Documentation
+title: Sailor CMS
 description: A Smooth Sailin' CMS for SvelteKit
+url: "https://jonkristian.github.io"
+baseurl: "/sailorcms"
 
 # Use Just the Docs theme
 remote_theme: just-the-docs/just-the-docs
 
-# Enable dark mode by default, with user toggle
-color_scheme: nil # Allows users to toggle between light/dark
+# Enable dark mode toggle - Just the Docs supports this automatically
+# Setting to nil enables the toggle button
+color_scheme: nil
 
 # Search functionality
 search_enabled: true
@@ -25,7 +28,6 @@ markdown: kramdown
 kramdown:
   syntax_highlighter: rouge
   syntax_highlighter_opts:
-    css_class: "highlight"
     default_lang: javascript
     span:
       line_numbers: false
