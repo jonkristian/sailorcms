@@ -72,11 +72,11 @@ Sailor CMS uses a **template-driven approach**:
 Key sections:
 
 - 🚀 **[Getting Started](https://jonkristian.github.io/sailorcms/getting-started)** - Setup and first steps
-- 🚢 **[Deployment](https://jonkristian.github.io/sailorcms/deployment)** - Production deployment with Coolify
-- 📝 **[Templates](https://jonkristian.github.io/sailorcms/templates)** - Creating collections, blocks, and globals
-- 🔧 **[Field Types](https://jonkristian.github.io/sailorcms/field-types)** - Complete field reference
-- 🛠️ **[Utilities](https://jonkristian.github.io/sailorcms/utilities)** - Frontend helpers and API reference
-- 🔐 **[ACL](https://jonkristian.github.io/sailorcms/acl)** - User roles and permissions
+- 🚢 **[Deployment](https://jonkristian.github.io/sailorcms/deployment-guide)** - Production deployment with Coolify
+- 📝 **[Templates](https://jonkristian.github.io/sailorcms/core-concepts/templates)** - Creating collections, blocks, and globals
+- 🔧 **[Field Types](https://jonkristian.github.io/sailorcms/core-concepts/field-types)** - Complete field reference
+- 🛠️ **[Utilities](https://jonkristian.github.io/sailorcms/reference/utilities)** - Frontend helpers and API reference
+- 🔐 **[ACL](https://jonkristian.github.io/sailorcms/rbac/acl)** - User roles and permissions
 
 ## 🛠️ Commands
 
@@ -105,7 +105,7 @@ npx sailor users:verify  # Verify user account
 
 ## 🚢 Deployment
 
-Sailor CMS works with any SvelteKit-compatible platform. See the **[Deployment Guide](https://jonkristian.github.io/sailorcms/deployment)** for detailed instructions on:
+Sailor CMS works with any SvelteKit-compatible platform. See the **[Deployment Guide](https://jonkristian.github.io/sailorcms/deployment-guide)** for detailed instructions on:
 
 - **Coolify** - Step-by-step containerized deployment
 - **SQLite with persistent storage** - Database configuration
