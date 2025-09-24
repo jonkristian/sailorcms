@@ -4,7 +4,6 @@
 
 import { redirect, error, type RequestEvent, type ResolveOptions } from '@sveltejs/kit';
 import { auth } from '$sailor/core/auth.server';
-import { handleSailorACL } from '$lib/sailor/core/auth/acl';
 import { handleSailorLogging, log } from '$sailor/core/utils/logger';
 
 type MaybePromise<T> = T | Promise<T>;
@@ -41,7 +40,7 @@ export async function handleSailorHooks(
     }
 
     // Apply ACL protection for admin routes
-    if (event.url.pathname.startsWith('/sailor/')) {
+    if (event.url.pathname.startsWith('/sailor')) {
       // Redirect authenticated users away from auth pages
       if (event.url.pathname.startsWith('/sailor/auth/') && session?.user) {
         throw redirect(302, '/sailor');
@@ -65,7 +64,7 @@ export async function handleSailorHooks(
           throw err;
         }
         // Log unexpected errors and throw 500
-        log.error('Route protection error', { error: err });
+        log.error('Route protection error', { error: err, pathname: event.url.pathname, user: event.locals.user });
         throw error(500, 'Internal server error during access control check');
       }
     }

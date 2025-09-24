@@ -623,9 +623,9 @@ export class ACL {
       const settings = await getSettings();
       const routes = settings.routeProtection
         ? mergeRouteProtections(
-            settings.routeProtection.customRoutes,
-            settings.routeProtection.overrideDefaults
-          )
+          settings.routeProtection.customRoutes,
+          settings.routeProtection.overrideDefaults
+        )
         : DEFAULT_PROTECTED_ROUTES;
 
       // Cache the routes
@@ -844,28 +844,3 @@ export async function checkRouteAccess(
   return await acl.checkRouteAccess(pathname, referer);
 }
 
-// Track if we've initialized ACL caches on startup
-let aclInitialized = false;
-
-/**
- * Complete ACL handling for hooks - combines route access check with security instance creation
- * Call this once from hooks for all Sailor routes
- */
-export async function handleSailorACL(
-  pathname: string,
-  user: User | null | undefined,
-  referer?: string | null
-): Promise<import('./security').Security | undefined> {
-  // Initialize ACL caches once on first use
-  if (!aclInitialized) {
-    ACL.clearAllCaches();
-    aclInitialized = true;
-  }
-
-  // Check basic route access - throws if denied
-  await checkRouteAccess(pathname, user, referer);
-
-  // Return security instance for route-level authorization
-  const { createSecurity } = await import('./security');
-  return createSecurity(user);
-}
