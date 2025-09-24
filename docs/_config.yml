@@ -9,7 +9,7 @@ remote_theme: just-the-docs/just-the-docs
 
 # Enable dark mode toggle - Just the Docs supports this automatically
 # Setting to nil enables the toggle button
-color_scheme: nil
+color_scheme: dark
 
 # Search functionality
 search_enabled: true
@@ -22,17 +22,7 @@ search:
 # Navigation
 nav_sort: case_insensitive
 
-# Code highlighting with dark theme support
-highlighter: rouge
-markdown: kramdown
-kramdown:
-  syntax_highlighter: rouge
-  syntax_highlighter_opts:
-    default_lang: javascript
-    span:
-      line_numbers: false
-    block:
-      line_numbers: true
+# Let Just the Docs handle syntax highlighting with its defaults
 
 # Footer
 footer_content: 'Copyright &copy; 2024 Sailor CMS. Distributed under the <a href="https://github.com/jonkristian/sailor-cms/blob/master/LICENSE">MIT License</a>.'
