@@ -1,15 +1,21 @@
 # GitHub Pages configuration
 title: Sailor CMS
 description: A Smooth Sailin' CMS for SvelteKit
+
+# SEO and title configuration
+title_separator: "|"
 url: "https://jonkristian.github.io"
 baseurl: "/sailorcms"
 
 # Use Just the Docs theme
 remote_theme: just-the-docs/just-the-docs
 
-# Enable dark mode toggle - Just the Docs supports this automatically
-# Setting to nil enables the toggle button
-color_scheme: dark
+# Enable dark mode toggle with custom purple color scheme
+# Use our custom color scheme
+color_scheme: sailor
+
+# Custom color scheme
+aux_links_new_tab: true
 
 # Search functionality
 search_enabled: true

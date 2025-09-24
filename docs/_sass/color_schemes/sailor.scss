@@ -1,0 +1,40 @@
+// Sailor CMS custom color scheme with purple/blue accents
+
+// Light mode colors
+$blue-000: #f8faff !default;
+$blue-100: #e6f3ff !default;
+$blue-200: #b3d9ff !default;
+$blue-300: #80bfff !default;
+
+$purple-000: #f8f4ff !default;
+$purple-100: #ece1ff !default;
+$purple-200: #d1bfff !default;
+$purple-300: #b794f6 !default;
+
+// Primary colors using purple
+$link-color: $purple-300 !default;
+$btn-primary-color: $purple-300 !default;
+$base-button-color: #f7f7f7 !default;
+
+// Navigation and sidebar
+$sidebar-color: $purple-000 !default;
+$nav-child-link-color: $purple-300 !default;
+$search-result-preview-color: $purple-200 !default;
+
+// Code highlighting
+$code-background-color: #f8f4ff !default;
+
+// Table colors
+$table-background-color: $purple-000 !default;
+
+// Dark mode colors (matching CMS UI exactly)
+$body-background-color-dark: #11111b !default;
+$sidebar-color-dark: #1e2030 !default;
+$border-color-dark: #313244 !default;
+$body-text-color-dark: #cdd6f4 !default;
+$nav-child-link-color-dark: #89b4fa !default;
+$link-color-dark: #cba6f7 !default;
+$btn-primary-color-dark: #cba6f7 !default;
+$code-background-color-dark: #1e1e2e !default;
+$table-background-color-dark: #1e1e2e !default;
+$search-result-preview-color-dark: #45475a !default;

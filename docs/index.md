@@ -6,7 +6,7 @@ description: "Sailor CMS - A Smooth Sailin' CMS for SvelteKit"
 permalink: /
 ---
 
-# Sailor CMS Documentation
+# Sailor CMS
 {: .fs-9 }
 
 A Smooth Sailin' CMS for SvelteKit - Build type-safe, flexible content management systems with ease.
