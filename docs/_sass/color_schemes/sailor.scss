@@ -1,46 +1,21 @@
 @import "./color_schemes/dark";
 
 // Define custom colors
-$purple-000: #f8f4ff !default;
-$purple-100: #ece1ff !default;
-$purple-200: #d1bfff !default;
 $purple-300: #cba6f7 !default; // CMS primary color
-
 $blue-300: #89b4fa !default; // CMS blue accent
 
-// Light mode
-$body-background-color: #ffffff !default;
-$sidebar-color: $purple-000 !default;
-$search-background-color: #ffffff !default;
-$table-background-color: $purple-000 !default;
-$code-background-color: #f8f4ff !default;
+// Override the base variables that dark.scss uses
+$body-background-color: #11111b !default; // CMS --background
+$sidebar-color: #1e2030 !default; // CMS --sidebar
+$search-background-color: #1e1e2e !default; // CMS --surface
+$table-background-color: #1e1e2e !default;
+$code-background-color: #1e1e2e !default;
 
-$body-text-color: #24292f !default;
-$body-heading-color: #24292f !default;
-$nav-child-link-color: $purple-300 !default;
+$body-text-color: #cdd6f4 !default; // CMS --foreground
+$body-heading-color: #cdd6f4 !default;
+$nav-child-link-color: $blue-300 !default;
 $link-color: $purple-300 !default;
 $btn-primary-color: $purple-300 !default;
-$base-button-color: #f6f8fa !default;
 
-$border-color: #d1d9e0 !default;
-$table-border-color: $border-color !default;
-$hr-color: $border-color !default;
-
-// Dark mode (matching CMS exactly)
-$body-background-color-dark: #11111b !default; // CMS --background
-$sidebar-color-dark: #1e2030 !default; // CMS --sidebar
-$search-background-color-dark: #1e1e2e !default; // CMS --surface
-$table-background-color-dark: #1e1e2e !default;
-$code-background-color-dark: #1e1e2e !default;
-
-$body-text-color-dark: #cdd6f4 !default; // CMS --foreground
-$body-heading-color-dark: #cdd6f4 !default;
-$nav-child-link-color-dark: $blue-300 !default;
-$link-color-dark: $purple-300 !default;
-$btn-primary-color-dark: $purple-300 !default;
-
-$border-color-dark: #313244 !default; // CMS --border
-$table-border-color-dark: $border-color-dark !default;
-$hr-color-dark: $border-color-dark !default;
-
-$search-result-preview-color-dark: #45475a !default;
+$border-color: #313244 !default; // CMS --border
+$search-result-preview-color: #45475a !default;
