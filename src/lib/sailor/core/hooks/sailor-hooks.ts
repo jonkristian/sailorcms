@@ -47,12 +47,12 @@ export async function handleSailorHooks(
       }
 
       // Always provide security instance
-      const { createSecurity } = await import('$lib/sailor/core/auth/security');
+      const { createSecurity } = await import('$sailor/core/rbac/security');
       event.locals.security = createSecurity(event.locals.user);
 
       // Route protection - check access permissions
       try {
-        const { checkRouteAccess } = await import('$lib/sailor/core/auth/acl');
+        const { checkRouteAccess } = await import('$sailor/core/rbac/acl');
         await checkRouteAccess(
           event.url.pathname,
           event.locals.user,

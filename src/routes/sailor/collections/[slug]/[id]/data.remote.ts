@@ -4,7 +4,7 @@ import { db } from '$sailor/core/db/index.server';
 import { log } from '$sailor/core/utils/logger';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { createACL, getPermissionErrorMessage } from '$lib/sailor/core/auth/acl';
+import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
 
@@ -240,13 +240,13 @@ export const saveCollectionItem = command(
                   await tx.run(sql`
                     INSERT OR REPLACE INTO ${sql.identifier(relationTableName)}
                     (${sql.join(
-                      Object.keys(itemData).map((key) => sql.identifier(key)),
-                      sql`, `
-                    )})
+                    Object.keys(itemData).map((key) => sql.identifier(key)),
+                    sql`, `
+                  )})
                     VALUES (${sql.join(
-                      Object.values(itemData).map((val) => sql`${val}`),
-                      sql`, `
-                    )})`);
+                    Object.values(itemData).map((val) => sql`${val}`),
+                    sql`, `
+                  )})`);
                 }
               }
             }
@@ -280,15 +280,15 @@ export const saveCollectionItem = command(
               await tx.run(sql`
                 INSERT INTO ${sql.identifier(junctionTableName)}
                 (${sql.join(
-                  [
-                    sql.identifier('id'),
-                    sql.identifier('collection_id'),
-                    sql.identifier('target_id'),
-                    sql.identifier('created_at'),
-                    sql.identifier('updated_at')
-                  ],
-                  sql`, `
-                )})
+                [
+                  sql.identifier('id'),
+                  sql.identifier('collection_id'),
+                  sql.identifier('target_id'),
+                  sql.identifier('created_at'),
+                  sql.identifier('updated_at')
+                ],
+                sql`, `
+              )})
                 VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${new Date()}, ${new Date()})
               `);
             }
@@ -354,13 +354,13 @@ export const saveCollectionItem = command(
               await tx.run(sql`
                 INSERT OR REPLACE INTO ${sql.identifier(`block_${block.blockType}`)}
                 (${sql.join(
-                  Object.keys(blockData).map((key) => sql.identifier(key)),
-                  sql`, `
-                )})
+                Object.keys(blockData).map((key) => sql.identifier(key)),
+                sql`, `
+              )})
                 VALUES (${sql.join(
-                  Object.values(blockData).map((val) => sql`${val}`),
-                  sql`, `
-                )})`);
+                Object.values(blockData).map((val) => sql`${val}`),
+                sql`, `
+              )})`);
 
               // Handle nested array fields in blocks
               const blockArrayFields: Record<string, any[]> = {};
@@ -407,15 +407,15 @@ export const saveCollectionItem = command(
                   await tx.run(sql`
                     INSERT INTO ${sql.identifier(fileTableName)}
                     (${sql.join(
-                      [
-                        sql.identifier('id'),
-                        sql.identifier('block_id'),
-                        sql.identifier('file_id'),
-                        sql.identifier('sort'),
-                        sql.identifier('created_at')
-                      ],
-                      sql`, `
-                    )})
+                    [
+                      sql.identifier('id'),
+                      sql.identifier('block_id'),
+                      sql.identifier('file_id'),
+                      sql.identifier('sort'),
+                      sql.identifier('created_at')
+                    ],
+                    sql`, `
+                  )})
                     VALUES (${generateUUID()}, ${blockData.id}, ${fileId}, ${i}, ${new Date()})
                   `);
                 }
@@ -433,14 +433,14 @@ export const saveCollectionItem = command(
         for (const [, tags] of Object.entries(tagFields)) {
           const tagNames = Array.isArray(tags)
             ? ((tags as any[])
-                .map((t: any) =>
-                  typeof t === 'object' && t !== null
-                    ? t.name || t.value || undefined
-                    : typeof t === 'string'
-                      ? t
-                      : undefined
-                )
-                .filter(Boolean) as string[])
+              .map((t: any) =>
+                typeof t === 'object' && t !== null
+                  ? t.name || t.value || undefined
+                  : typeof t === 'string'
+                    ? t
+                    : undefined
+              )
+              .filter(Boolean) as string[])
             : [];
           await TagService.tagEntity(taggableType, itemId, tagNames);
         }

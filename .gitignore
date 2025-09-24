@@ -28,6 +28,13 @@ vite.config.ts.timestamp-*
 
 # Database files (keep drizzle migrations)
 *.sqlite
+
+# Jekyll (docs)
+docs/_site/
+docs/.jekyll-cache/
+docs/Gemfile.lock
+docs/.bundle/
+docs/vendor/
 *.sqlite3
 *.db
 *.db-journal

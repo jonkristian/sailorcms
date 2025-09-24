@@ -1,3 +1,10 @@
+---
+layout: default
+title: Utilities
+parent: API Reference
+nav_order: 1
+---
+
 # Utilities
 
 Simple helper functions for loading content in your SvelteKit app.

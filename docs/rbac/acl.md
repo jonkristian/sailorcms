@@ -1,3 +1,10 @@
+---
+layout: default
+title: Access Control Lists
+parent: RBAC & Security
+nav_order: 1
+---
+
 # Access Control
 
 Sailor CMS includes a flexible role-based permissions system built on [Better Auth](https://better-auth.com/) with the admin plugin. This allows you to configure what each user role can access and modify.
@@ -99,7 +106,7 @@ export const settings: Partial<CMSSettings> = {
 The ACL system automatically reads from your settings configuration:
 
 ```typescript
-import { createACL, requirePermission } from '$sailor/core/auth/acl';
+import { createACL, requirePermission } from '$sailor/core/rbac/acl';
 
 // In your server actions or load functions
 const acl = createACL(locals.user);

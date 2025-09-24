@@ -1,3 +1,10 @@
+---
+layout: default
+title: Production Deployment
+parent: Deployment
+nav_order: 1
+---
+
 # Deployment Guide
 
 This guide covers deploying Sailor CMS to production using Coolify.

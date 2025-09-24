@@ -7,7 +7,7 @@ import { collectionTypes } from '$sailor/core/db/index.server';
 import { TagService } from '$sailor/core/services/tag.server';
 import { loadBlockData } from '$sailor/core/content/blocks.server';
 import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
-import { createACL, requirePermission } from '$sailor/core/auth/acl';
+import { createACL, requirePermission } from '$sailor/core/rbac/acl';
 import type { PageServerLoad } from './$types';
 import { log } from '$sailor/core/utils/logger';
 import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';

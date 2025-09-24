@@ -3,7 +3,7 @@ import { db } from '$sailor/core/db/index.server';
 import { eq, desc, asc, count, and, or, sql, inArray } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import type { Pagination } from '$sailor/core/types';
-import { createACL } from '$lib/sailor/core/auth/acl';
+import { createACL } from '$sailor/core/rbac/acl';
 
 export const load = async ({ params, locals, url }) => {
   // Authentication and basic permissions handled by hooks

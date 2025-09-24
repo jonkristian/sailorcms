@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button/index.js';
   import {
     Card,
     CardContent,
@@ -13,7 +12,7 @@
   import Rocket from '@lucide/svelte/icons/rocket';
   import Header from '$lib/components/sailor/Header.svelte';
 
-  const baseDocsUrl = 'https://github.com/jonkristian/sailor-cms/blob/master/docs';
+  const baseDocsUrl = 'https://jonkristian.github.io/sailorcms';
 </script>
 
 <svelte:head>
@@ -57,14 +56,16 @@
           <p class="text-muted-foreground text-sm">Add team members and configure permissions</p>
         </div>
       </div>
-      <Button
-        class="w-full"
-        onclick={() => window.open(`${baseDocsUrl}/getting-started.md`, '_blank')}
+      <a
+        href="{baseDocsUrl}/getting-started.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="bg-primary text-primary-foreground ring-offset-background hover:bg-primary/90 focus-visible:ring-ring inline-flex h-10 w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
       >
         <Rocket class="mr-2 h-4 w-4" />
         Get Started
         <ExternalLink class="ml-2 h-4 w-4" />
-      </Button>
+      </a>
     </CardContent>
   </Card>
 
@@ -81,25 +82,26 @@
     </CardHeader>
     <CardContent class="space-y-3">
       <div class="flex flex-col gap-3 sm:flex-row">
-        <Button
-          variant="outline"
-          class="flex-1"
-          onclick={() =>
-            window.open('https://github.com/jonkristian/sailor-cms/tree/master/docs', '_blank')}
+        <a
+          href="https://github.com/jonkristian/sailor-cms/tree/master/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex h-10 flex-1 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
         >
           <Book class="mr-2 h-4 w-4" />
           Browse All Docs
           <ExternalLink class="ml-2 h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          class="flex-1"
-          onclick={() => window.open(`${baseDocsUrl}/contributing.md`, '_blank')}
+        </a>
+        <a
+          href="{baseDocsUrl}/contributing.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex h-10 flex-1 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
         >
           <Github class="mr-2 h-4 w-4" />
           Contributing Guide
           <ExternalLink class="ml-2 h-4 w-4" />
-        </Button>
+        </a>
       </div>
     </CardContent>
   </Card>

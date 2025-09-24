@@ -1,6 +1,6 @@
 import { db } from '$sailor/core/db/index.server';
 import { handleApiRequest } from '$sailor/core/ui/api';
-import { createACL } from '$sailor/core/auth/acl';
+import { createACL } from '$sailor/core/rbac/acl';
 
 export async function GET({ locals }: { locals: App.Locals }) {
   return handleApiRequest(async () => {

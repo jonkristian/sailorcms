@@ -3,7 +3,7 @@ import { command, query, getRequestEvent } from '$app/server';
 import { db } from '$sailor/core/db/index.server';
 import { files as filesTable, users as usersTable } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
-import { createACL, getPermissionErrorMessage } from '$lib/sailor/core/auth/acl';
+import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { TagService } from '$sailor/core/services/tag.server';
 import { getFileTypeFromMime } from '$sailor/core/files/file';
 import { type FileListItem } from '$sailor/core/files/file.server';

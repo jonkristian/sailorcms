@@ -4,7 +4,7 @@ import { TagService } from '$sailor/core/services/tag.server';
 import { db } from '$sailor/core/db/index.server';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { createACL, getPermissionErrorMessage } from '$lib/sailor/core/auth/acl';
+import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { generateUUID, normalizeRelationId } from '$sailor/core/utils/common';
 import { toSnakeCase } from '$sailor/core/utils/string';
@@ -356,9 +356,9 @@ export const updateFlatGlobal = command(
                 sql`, `
               )})
                   VALUES (${sql.join(
-                    values.map((v) => sql`${v}`),
-                    sql`, `
-                  )})`
+                values.map((v) => sql`${v}`),
+                sql`, `
+              )})`
             );
           }
         }
@@ -526,22 +526,20 @@ export const updateRepeatableGlobal = command(
 
           await tx.run(
             sql`INSERT INTO ${sql.identifier(`global_${globalSlug}`)}
-                (id, sort, author, last_modified_by, created_at, updated_at${
-                  insertFields.length > 0
-                    ? sql`, ${sql.join(
-                        insertFields.map((f) => sql.identifier(f)),
-                        sql`, `
-                      )}`
-                    : sql``
-                })
-                VALUES (${finalItemId}, 0, ${locals.user!.id}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
-                  insertValues.length > 0
-                    ? sql`, ${sql.join(
-                        insertValues.map((v) => sql`${v}`),
-                        sql`, `
-                      )}`
-                    : sql``
-                })`
+                (id, sort, author, last_modified_by, created_at, updated_at${insertFields.length > 0
+                ? sql`, ${sql.join(
+                  insertFields.map((f) => sql.identifier(f)),
+                  sql`, `
+                )}`
+                : sql``
+              })
+                VALUES (${finalItemId}, 0, ${locals.user!.id}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${insertValues.length > 0
+                ? sql`, ${sql.join(
+                  insertValues.map((v) => sql`${v}`),
+                  sql`, `
+                )}`
+                : sql``
+              })`
           );
         }
 
@@ -584,9 +582,9 @@ export const updateRepeatableGlobal = command(
                 sql`, `
               )})
                   VALUES (${sql.join(
-                    values.map((v) => sql`${v}`),
-                    sql`, `
-                  )})`
+                values.map((v) => sql`${v}`),
+                sql`, `
+              )})`
             );
           }
         }
@@ -749,22 +747,20 @@ export const updateRelationalGlobal = command(
 
           await tx.run(
             sql`INSERT INTO ${sql.identifier(`global_${globalSlug}`)}
-                (id, sort, author, last_modified_by, created_at, updated_at${
-                  insertFields.length > 0
-                    ? sql`, ${sql.join(
-                        insertFields.map((f) => sql.identifier(f)),
-                        sql`, `
-                      )}`
-                    : sql``
-                })
-                VALUES (${finalItemId}, 0, ${locals.user!.id}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
-                  insertValues.length > 0
-                    ? sql`, ${sql.join(
-                        insertValues.map((v) => sql`${v}`),
-                        sql`, `
-                      )}`
-                    : sql``
-                })`
+                (id, sort, author, last_modified_by, created_at, updated_at${insertFields.length > 0
+                ? sql`, ${sql.join(
+                  insertFields.map((f) => sql.identifier(f)),
+                  sql`, `
+                )}`
+                : sql``
+              })
+                VALUES (${finalItemId}, 0, ${locals.user!.id}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${insertValues.length > 0
+                ? sql`, ${sql.join(
+                  insertValues.map((v) => sql`${v}`),
+                  sql`, `
+                )}`
+                : sql``
+              })`
           );
         }
 
@@ -829,9 +825,9 @@ export const updateRelationalGlobal = command(
                 sql`, `
               )})
                   VALUES (${sql.join(
-                    values.map((v) => sql`${v}`),
-                    sql`, `
-                  )})
+                values.map((v) => sql`${v}`),
+                sql`, `
+              )})
                   ON CONFLICT(id) DO UPDATE SET ${sql.join(updateSetters, sql`, `)}`
             );
           }
@@ -856,7 +852,7 @@ export const bulkUpdateGlobalItems = command(
     items
   }: {
     globalSlug: string;
-    items: Array<{ id: string; tags?: any[]; [key: string]: any }>;
+    items: Array<{ id: string; tags?: any[];[key: string]: any }>;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -948,9 +944,9 @@ export const bulkUpdateGlobalItems = command(
                 sql`, `
               )})
                   VALUES (${sql.join(
-                    insertValues.map((v) => sql`${v}`),
-                    sql`, `
-                  )})`
+                insertValues.map((v) => sql`${v}`),
+                sql`, `
+              )})`
             );
           }
         }

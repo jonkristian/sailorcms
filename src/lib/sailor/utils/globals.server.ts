@@ -4,7 +4,7 @@ import { globalTypes } from '../generated/schema';
 import * as schema from '../generated/schema';
 import type { GlobalTypes } from '../generated/types';
 import { TagService } from '../core/services/tag.server';
-import { createACL, type User } from '../core/auth/acl';
+import { createACL, type User } from '../core/rbac/acl';
 import { loadGlobalData } from '../core/content/content-data';
 
 export interface GlobalWithData {

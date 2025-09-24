@@ -1,3 +1,10 @@
+---
+layout: default
+title: Templates
+parent: Core Concepts
+nav_order: 1
+---
+
 # Templates Guide
 
 ## What are Templates?

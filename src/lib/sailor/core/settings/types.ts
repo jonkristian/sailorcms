@@ -122,7 +122,7 @@ export interface RoleSettings {
 }
 
 export interface RouteProtectionSettings {
-  customRoutes?: import('../auth/route-protection').RouteProtection[];
+  customRoutes?: import('../rbac/route-protection').RouteProtection[];
   overrideDefaults?: boolean;
 }
 

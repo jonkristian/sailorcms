@@ -1,3 +1,9 @@
+---
+layout: default
+title: Environment Variables
+nav_order: 3
+---
+
 # Environment Variables
 
 Complete reference for all environment variables in Sailor CMS. For basic setup, see the [Getting Started Guide](getting-started.md).

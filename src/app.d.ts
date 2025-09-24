@@ -12,7 +12,7 @@ declare global {
         image?: string | null;
       };
       session?: Record<string, unknown>; // Add session property for better-auth
-      security?: import('$lib/sailor/core/auth/security').Security;
+      security?: import('$sailor/core/rbac/security').Security;
     }
     // interface PageData {}
     // interface PageState {}

@@ -1,30 +1,55 @@
 # GitHub Pages configuration
-title: Sailor Documentation
-description: A CMS built with SvelteKit and Drizzle ORM
+title: Sailor CMS Documentation
+description: A Smooth Sailin' CMS for SvelteKit
 
-# Theme
-theme: minima
+# Use Just the Docs theme
+remote_theme: just-the-docs/just-the-docs
+
+# Enable dark mode by default, with user toggle
+color_scheme: nil # Allows users to toggle between light/dark
+
+# Search functionality
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
 
 # Navigation
-header_pages:
-  - getting-started.md
-  - environment-variables.md
-  - templates.md
-  - field-types.md
-  - utilities.md
-  - role-permissions.md
-  - contributing.md
+nav_sort: case_insensitive
 
-# Plugins
+# Code highlighting with dark theme support
+highlighter: rouge
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    css_class: "highlight"
+    default_lang: javascript
+    span:
+      line_numbers: false
+    block:
+      line_numbers: true
+
+# Footer
+footer_content: 'Copyright &copy; 2024 Sailor CMS. Distributed under the <a href="https://github.com/jonkristian/sailor-cms/blob/master/LICENSE">MIT License</a>.'
+
+# Just the Docs specific settings
+aux_links:
+  "GitHub Repository":
+    - "https://github.com/jonkristian/sailor-cms"
+
+# Enable copy code button
+enable_copy_code_button: true
+
+# Plugins (preserving existing ones)
 plugins:
   - jekyll-feed
   - jekyll-sitemap
+  - jekyll-seo-tag
 
-# Markdown processing
-markdown: kramdown
-highlighter: rouge
-
-# Include/exclude
+# Include/exclude (preserving and extending existing)
 include:
   - _pages
 exclude:
@@ -32,3 +57,11 @@ exclude:
   - .gitignore
   - Gemfile
   - Gemfile.lock
+  - package*.json
+  - "*.config.js"
+  - "*.config.ts"
+  - src/
+  - static/
+  - .svelte-kit/
+  - build/
+  - .env*

@@ -1,3 +1,10 @@
+---
+layout: default
+title: Field Types
+parent: Core Concepts
+nav_order: 2
+---
+
 # Field Types Reference
 
 Complete reference for all field types available in Sailor CMS templates.

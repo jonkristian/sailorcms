@@ -4,7 +4,7 @@ import { db } from '$sailor/core/db/index.server';
 import { log } from '$sailor/core/utils/logger';
 import { eq, and, or, sql, asc, ne } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { createACL, getPermissionErrorMessage } from '$lib/sailor/core/auth/acl';
+import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
 
@@ -417,10 +417,10 @@ export const updateCollectionItemNesting = command(
       const siblingCondition = parentId
         ? eq((collectionTable as any).parent_id, parentId)
         : or(
-            sql`${(collectionTable as any).parent_id} IS NULL`,
-            sql`${(collectionTable as any).parent_id} = ''`,
-            sql`${(collectionTable as any).parent_id} = '[]'`
-          );
+          sql`${(collectionTable as any).parent_id} IS NULL`,
+          sql`${(collectionTable as any).parent_id} = ''`,
+          sql`${(collectionTable as any).parent_id} = '[]'`
+        );
 
       const siblings = await db
         .select({ id: (collectionTable as any).id, sort: (collectionTable as any).sort })

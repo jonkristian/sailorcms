@@ -3,4 +3,4 @@
  */
 
 export * from './acl';
-export { isAdmin, isEditor, canAccessPrivateContent } from './auth';
+export { isAdmin, isEditor, canAccessPrivateContent } from './roles';

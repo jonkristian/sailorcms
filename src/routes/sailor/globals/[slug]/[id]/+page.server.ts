@@ -4,7 +4,7 @@ import { error, redirect, fail } from '@sveltejs/kit';
 import { eq, asc } from 'drizzle-orm';
 import crypto from 'crypto';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
-import { createACL, getPermissionErrorMessage } from '$sailor/core/auth/acl';
+import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { normalizeRelationId } from '$sailor/core/utils/common';
 import { log } from '$sailor/core/utils/logger';
 

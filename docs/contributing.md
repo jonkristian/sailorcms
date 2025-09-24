@@ -1,3 +1,9 @@
+---
+layout: default
+title: Contributing
+nav_order: 8
+---
+
 # Contributing to Sailor
 
 Thank you for considering contributing to Sailor CMS!

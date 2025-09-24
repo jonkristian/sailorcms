@@ -2,7 +2,7 @@ import { db } from '../core/db/index.server';
 import * as schema from '../generated/schema';
 import { sql, ne, eq, and, asc, desc, count, inArray } from 'drizzle-orm';
 import { loadBlocksForCollection, type BlockWithRelations } from './blocks.server';
-import { createACL, type User } from '../core/auth/acl';
+import { createACL, type User } from '../core/rbac/acl';
 import { toSnakeCase } from '../core/utils/string';
 import type { CollectionTypes } from '../generated/types';
 import type { Pagination } from '../core/types';
@@ -105,10 +105,10 @@ export async function getCollection<K extends keyof CollectionTypes>(
   options: CollectionOptions & { slug: string }
 ): Promise<
   | (CollectionTypes[K] & {
-      url: string;
-      breadcrumbs?: BreadcrumbItem[];
-      blocks?: BlockWithRelations[];
-    })
+    url: string;
+    breadcrumbs?: BreadcrumbItem[];
+    blocks?: BlockWithRelations[];
+  })
   | null
 >;
 
@@ -511,10 +511,10 @@ export async function getCollectionItem<K extends keyof CollectionTypes>(
   }
 ): Promise<
   | (CollectionTypes[K] & {
-      url: string;
-      breadcrumbs?: BreadcrumbItem[];
-      blocks?: BlockWithRelations[];
-    })
+    url: string;
+    breadcrumbs?: BreadcrumbItem[];
+    blocks?: BlockWithRelations[];
+  })
   | null
 > {
   let result: any;
@@ -533,10 +533,10 @@ export async function getCollectionItem<K extends keyof CollectionTypes>(
   // getCollection returns single item when slug or itemId is provided
   return result && 'id' in result
     ? (result as CollectionTypes[K] & {
-        url: string;
-        breadcrumbs?: BreadcrumbItem[];
-        blocks?: BlockWithRelations[];
-      })
+      url: string;
+      breadcrumbs?: BreadcrumbItem[];
+      blocks?: BlockWithRelations[];
+    })
     : null;
 }
 

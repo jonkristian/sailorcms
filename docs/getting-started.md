@@ -1,3 +1,9 @@
+---
+layout: default
+title: Getting Started
+nav_order: 2
+---
+
 # Getting Started
 
 Get Sailor running in your SvelteKit project in minutes.
