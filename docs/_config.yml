@@ -12,7 +12,7 @@ remote_theme: just-the-docs/just-the-docs
 
 # Enable dark mode toggle with custom purple color scheme
 # Use our custom color scheme
-color_scheme: sailor
+color_scheme: dark
 
 # Custom color scheme
 aux_links_new_tab: true

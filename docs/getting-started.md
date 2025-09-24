@@ -13,8 +13,8 @@ Get Sailor running in your SvelteKit project in minutes.
 ```bash
 cd your-sveltekit-project
 npm install github:jonkristian/sailorcms
-npx sailor core:init
-npx sailor db:update # Creates initial migration files & database based on providede templates.
+npx sailor core:init # Initializes the cms by copying required files into your project.
+npx sailor db:update # Regenerate files from your templates & updates your database.
 ```
 
 ## SvelteKit Configuration
@@ -25,13 +25,13 @@ Sailor CMS requires specific SvelteKit features. Add these to your `svelte.confi
 export default {
   kit: {
     experimental: {
-      remoteFunctions: true // Required for CMS API functions
+      remoteFunctions: true
     }
   },
   compilerOptions: {
-    runes: true, // Required for Svelte 5 reactivity
+    runes: true,
     experimental: {
-      async: true // Required for async components
+      async: true
     }
   }
 };
