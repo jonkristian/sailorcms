@@ -132,6 +132,27 @@ export const load = async ({ params, locals }) => {
       } catch {
         item[fieldName] = [];
       }
+    } else if ((fieldDef as any).type === 'relation') {
+      // Resolve single-FK relations server-side for better UX
+      const relType = (fieldDef as any).relation?.type;
+      if (relType === 'one-to-one' || relType === 'many-to-one') {
+        const targetId = item[fieldName];
+        if (targetId) {
+          try {
+            const { getRelationItem } = await import('$sailor/remote/relations.remote');
+            const scope = (fieldDef as any).relation?.targetGlobal ? 'global' : 'collection';
+            const slugArg =
+              (fieldDef as any).relation?.targetGlobal ||
+              (fieldDef as any).relation?.targetCollection;
+            const res = await getRelationItem({ scope, slug: slugArg, id: String(targetId) });
+            if (res.success && res.item) {
+              item[fieldName] = JSON.stringify(res.item);
+            }
+          } catch {
+            // Leave as id on failure
+          }
+        }
+      }
     }
   }
 

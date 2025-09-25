@@ -49,7 +49,7 @@ CREATE TABLE `block_features_features` (
 --> statement-breakpoint
 CREATE TABLE `block_features_features_cta` (
 	`id` text PRIMARY KEY NOT NULL,
-	`parent_id` text,
+	`block_id` text NOT NULL,
 	`sort` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
@@ -63,13 +63,14 @@ CREATE TABLE `block_gallery` (
 	`sort` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
-	`title` text
+	`title` text,
+	`images` text
 );
 --> statement-breakpoint
 CREATE TABLE `block_gallery_images` (
 	`id` text PRIMARY KEY NOT NULL,
-	`block_id` text NOT NULL,
-	`file_id` text,
+	`parent_id` text,
+	`file_id` text NOT NULL,
 	`sort` integer DEFAULT 0 NOT NULL,
 	`alt_override` text,
 	`created_at` integer NOT NULL
@@ -83,13 +84,14 @@ CREATE TABLE `block_hero` (
 	`updated_at` integer NOT NULL,
 	`title` text,
 	`subtitle` text,
-	`content` text
+	`content` text,
+	`background_image` text
 );
 --> statement-breakpoint
 CREATE TABLE `block_hero_background_image` (
 	`id` text PRIMARY KEY NOT NULL,
-	`block_id` text NOT NULL,
-	`file_id` text,
+	`parent_id` text,
+	`file_id` text NOT NULL,
 	`sort` integer DEFAULT 0 NOT NULL,
 	`alt_override` text,
 	`created_at` integer NOT NULL
@@ -104,13 +106,14 @@ CREATE TABLE `block_media_text` (
 	`title` text,
 	`subtitle` text,
 	`content` text,
+	`image` text,
 	`image_position` text
 );
 --> statement-breakpoint
 CREATE TABLE `block_media_text_image` (
 	`id` text PRIMARY KEY NOT NULL,
-	`block_id` text NOT NULL,
-	`file_id` text,
+	`parent_id` text,
+	`file_id` text NOT NULL,
 	`sort` integer DEFAULT 0 NOT NULL,
 	`alt_override` text,
 	`created_at` integer NOT NULL
@@ -148,7 +151,7 @@ CREATE TABLE `block_services_services` (
 --> statement-breakpoint
 CREATE TABLE `block_services_services_cta` (
 	`id` text PRIMARY KEY NOT NULL,
-	`parent_id` text,
+	`block_id` text NOT NULL,
 	`sort` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
@@ -159,7 +162,7 @@ CREATE TABLE `block_services_services_cta` (
 CREATE TABLE `block_services_services_image` (
 	`id` text PRIMARY KEY NOT NULL,
 	`parent_id` text,
-	`file_id` text,
+	`file_id` text NOT NULL,
 	`sort` integer DEFAULT 0 NOT NULL,
 	`alt_override` text,
 	`created_at` integer NOT NULL
@@ -204,6 +207,16 @@ CREATE TABLE `collection_pages` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `collection_pages_slug_unique` ON `collection_pages` (`slug`);--> statement-breakpoint
+CREATE TABLE `collection_pages_blocks` (
+	`id` text PRIMARY KEY NOT NULL,
+	`collection_id` text NOT NULL,
+	`block_type` text,
+	`block_id` text NOT NULL,
+	`sort` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `collection_posts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`created_at` integer NOT NULL,
@@ -224,7 +237,6 @@ CREATE TABLE `collection_posts` (
 	`noindex` text,
 	`content` text,
 	`excerpt` text,
-	`featured_image` text,
 	`tags` text
 );
 --> statement-breakpoint
@@ -268,12 +280,12 @@ CREATE TABLE `global_categories` (
 	`id` text PRIMARY KEY NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
-	`parent_id` text,
 	`title` text,
 	`slug` text,
 	`status` text,
 	`author` text,
 	`sort` integer DEFAULT 0 NOT NULL,
+	`parent_id` text,
 	`last_modified_by` text,
 	`description` text
 );
@@ -336,7 +348,6 @@ CREATE TABLE `global_menus_items` (
 	`sort` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
-	`parent_id` text,
 	`label` text,
 	`url` text,
 	`target` text
@@ -366,7 +377,7 @@ CREATE UNIQUE INDEX `global_submissions_slug_unique` ON `global_submissions` (`s
 CREATE TABLE `junction_posts_categories` (
 	`id` text PRIMARY KEY NOT NULL,
 	`collection_id` text NOT NULL,
-	`target_id` text,
+	`target_id` text NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );

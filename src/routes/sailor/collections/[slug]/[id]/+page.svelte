@@ -44,7 +44,7 @@
       // Prepare form data
       const formPayload: Record<string, any> = {
         ...formData,
-        blocks: blocks.map((block) => ({
+        blocks: blocks.map((block: any) => ({
           id: block.id,
           blockType: block.blockType,
           sort: block.sort,
@@ -260,7 +260,7 @@
   }
 
   function handleBulkDeleteBlocks(ids: string[]) {
-    blocks = blocks.filter((block) => !ids.includes(block.id));
+    blocks = blocks.filter((block: any) => !ids.includes(block.id));
     blocksChanged = true;
   }
 

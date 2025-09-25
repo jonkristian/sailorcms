@@ -421,9 +421,8 @@ export async function generateSchema(targetDir) {
     }
   }
 
-  // Temporarily revert to subprocess to test
-  const schemaGeneratorPath = path.join(__dirname, 'tools', 'db-generate-schema.js');
-  execSync(`npx tsx ${schemaGeneratorPath}`, {
+  // Use the CLI command (it now auto-detects and uses tsx when needed)
+  execSync('npx sailor db:generate', {
     cwd: targetDir,
     stdio: 'inherit'
   });

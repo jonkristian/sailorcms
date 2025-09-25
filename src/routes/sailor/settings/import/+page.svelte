@@ -80,7 +80,7 @@
     >
       <Tabs.Trigger value="import" class="flex items-center gap-2 px-3 py-1.5">
         <Download class="h-4 w-4" />
-        Import from WordPress
+        WordPress
       </Tabs.Trigger>
       <Tabs.Trigger value="export" class="flex items-center gap-2 px-3 py-1.5">
         <FileText class="h-4 w-4" />

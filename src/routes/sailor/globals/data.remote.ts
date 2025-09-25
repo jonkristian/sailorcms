@@ -251,8 +251,8 @@ export const updateFlatGlobal = command(
         const fieldDef = globalFields[key];
         if (fieldDef?.type === 'array') {
           arrayFields[key] = Array.isArray(value) ? value : [value];
-        } else if (key !== 'name') {
-          // Exclude 'name' field as it's used for display purposes only
+        } else if (key !== 'id' && fieldDef) {
+          // Only persist fields that exist in schema
           regularFields[key] = value;
         }
       });
@@ -422,8 +422,9 @@ export const updateRepeatableGlobal = command(
 
       const globalFields = JSON.parse(globalTypeRow.schema);
 
-      // Separate array fields, tag fields, and regular fields
+      // Separate array fields, file fields, tag fields, and regular fields
       const arrayFields: Record<string, any[]> = {};
+      const fileFields: Record<string, any> = {};
       const tagFields: Record<string, any[]> = {};
       const regularFields: Record<string, any> = {};
 
@@ -436,6 +437,9 @@ export const updateRepeatableGlobal = command(
             log.warn(`Failed to parse array field ${key}`, { value, error });
             arrayFields[key] = [];
           }
+        } else if (fieldDef?.type === 'file') {
+          // Single file relation handled in its own relation table
+          fileFields[key] = value;
         } else if (fieldDef?.type === 'tags') {
           // Parse tags data - could be array or need parsing
           let parsedTags = value;
@@ -448,14 +452,19 @@ export const updateRepeatableGlobal = command(
             }
           }
           tagFields[key] = Array.isArray(parsedTags) ? parsedTags : [];
-        } else if (key !== 'id' && key !== 'name') {
-          // Exclude 'id' and 'name' from regular fields as they're handled separately
+        } else if (key !== 'id' && fieldDef) {
+          // Only persist fields that exist in schema
           regularFields[key] = value;
         }
       });
 
       // For repeatable globals, we need an item ID (from parameter or create new)
       const finalItemId = itemId || generateUUID();
+
+      const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
+      if (!globalTable) {
+        return { success: false, error: `Global table for '${globalSlug}' not found` };
+      }
 
       await db.transaction(async (tx: any) => {
         // Check if item exists
@@ -465,84 +474,113 @@ export const updateRepeatableGlobal = command(
 
         if (existing.rows.length > 0) {
           // Update existing item
-          const updateFields = Object.keys(regularFields).filter(
-            (key) => !['id', 'created_at', 'updated_at'].includes(key)
+          const now = getCurrentTimestamp();
+          const schemaKeys = Object.keys(globalFields);
+          const payloadMainRaw = Object.fromEntries(
+            Object.entries(regularFields).filter(
+              ([key]) =>
+                schemaKeys.includes(key) &&
+                !['author', 'last_modified_by', 'created_at', 'updated_at', 'sort', 'id'].includes(
+                  key
+                ) &&
+                globalFields[key]?.type !== 'array' &&
+                globalFields[key]?.type !== 'tags' &&
+                globalFields[key]?.type !== 'file'
+            )
           );
 
-          // Handle sort field - only update if it's a valid number
-          if (data.sort !== undefined && data.sort !== '' && !isNaN(Number(data.sort))) {
-            updateFields.push('sort');
-            regularFields.sort = Number(data.sort);
-          }
-
-          // Handle author field - set to current user if empty/null
-          if (
-            regularFields.author === '' ||
-            regularFields.author === null ||
-            regularFields.author === undefined
-          ) {
-            regularFields.author = locals.user!.id;
-          }
-
-          if (updateFields.length > 0) {
-            const updateSetters = updateFields.map((key) => {
-              let value = regularFields[key];
-
-              // Handle relation fields
-              if (key.endsWith('_id') && Array.isArray(value) && value.length > 0) {
-                value = value[0].id || value[0] || null;
-              } else if (key.endsWith('_id') && typeof value === 'object' && value !== null) {
-                value = value.id || null;
+          // Normalize relation-like fields (e.g., parent_id)
+          const payloadMain: Record<string, any> = {};
+          for (const [k, v] of Object.entries(payloadMainRaw)) {
+            if (k === 'parent_id') {
+              let value: any = v;
+              if (Array.isArray(value) && value.length > 0) {
+                value = value[0]?.id || value[0] || null;
+              } else if (typeof value === 'object' && value !== null) {
+                value = (value as any).id || null;
               }
-
-              return sql`${sql.identifier(key)} = ${value}`;
-            });
-            updateSetters.push(sql`updated_at = ${getCurrentTimestamp()}`);
-            updateSetters.push(sql`last_modified_by = ${locals.user!.id}`);
-
-            await tx.run(
-              sql`UPDATE ${sql.identifier(`global_${globalSlug}`)}
-                  SET ${sql.join(updateSetters, sql`, `)}
-                  WHERE id = ${finalItemId}`
-            );
+              payloadMain[k] = value;
+            } else {
+              payloadMain[k] = v;
+            }
           }
+
+          // Allow updating author if provided; else keep existing
+          let authorValue: any = regularFields.author;
+          if (Array.isArray(authorValue) && authorValue.length > 0) {
+            authorValue = authorValue[0].id || authorValue[0] || null;
+          } else if (typeof authorValue === 'object' && authorValue !== null) {
+            authorValue = authorValue.id || null;
+          }
+
+          const updateData: Record<string, any> = {
+            ...payloadMain,
+            updated_at: now,
+            last_modified_by: locals.user!.id
+          };
+
+          if (authorValue) updateData.author = authorValue;
+          if (data.sort !== undefined && data.sort !== '' && !isNaN(Number(data.sort))) {
+            updateData.sort = Number(data.sort);
+          }
+
+          await (tx as any)
+            .update(globalTable)
+            .set(updateData)
+            .where(eq((globalTable as any).id, finalItemId));
         } else {
           // Create new item with core fields
-          const insertFields = Object.keys(regularFields).filter(
-            (key) => !['id', 'created_at', 'updated_at', 'sort'].includes(key)
+          const now = getCurrentTimestamp();
+          const schemaKeys = Object.keys(globalFields);
+          const payloadMainRaw = Object.fromEntries(
+            Object.entries(regularFields).filter(
+              ([key]) =>
+                schemaKeys.includes(key) &&
+                !['author', 'last_modified_by', 'created_at', 'updated_at', 'sort', 'id'].includes(
+                  key
+                ) &&
+                globalFields[key]?.type !== 'array' &&
+                globalFields[key]?.type !== 'tags' &&
+                globalFields[key]?.type !== 'file'
+            )
           );
-          const insertValues = insertFields.map((key) => {
-            let value = regularFields[key];
 
-            // Handle relation fields
-            if (key.endsWith('_id') && Array.isArray(value) && value.length > 0) {
-              value = value[0].id || value[0] || null;
-            } else if (key.endsWith('_id') && typeof value === 'object' && value !== null) {
-              value = value.id || null;
+          // Normalize relation-like fields (e.g., parent_id)
+          const payloadMain: Record<string, any> = {};
+          for (const [k, v] of Object.entries(payloadMainRaw)) {
+            if (k === 'parent_id') {
+              let value: any = v;
+              if (Array.isArray(value) && value.length > 0) {
+                value = value[0]?.id || value[0] || null;
+              } else if (typeof value === 'object' && value !== null) {
+                value = (value as any).id || null;
+              }
+              payloadMain[k] = value;
+            } else {
+              payloadMain[k] = v;
             }
+          }
 
-            return value;
-          });
+          // Resolve author if provided; otherwise default to current user
+          let authorValue: any = regularFields.author;
+          if (Array.isArray(authorValue) && authorValue.length > 0) {
+            authorValue = authorValue[0].id || authorValue[0] || locals.user!.id;
+          } else if (typeof authorValue === 'object' && authorValue !== null) {
+            authorValue = authorValue.id || locals.user!.id;
+          }
+          if (!authorValue) authorValue = locals.user!.id;
 
-          await tx.run(
-            sql`INSERT INTO ${sql.identifier(`global_${globalSlug}`)}
-                (id, sort, author, last_modified_by, created_at, updated_at${
-                  insertFields.length > 0
-                    ? sql`, ${sql.join(
-                        insertFields.map((f) => sql.identifier(f)),
-                        sql`, `
-                      )}`
-                    : sql``
-                })
-                VALUES (${finalItemId}, 0, ${locals.user!.id}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
-                  insertValues.length > 0
-                    ? sql`, ${sql.join(
-                        insertValues.map((v) => sql`${v}`),
-                        sql`, `
-                      )}`
-                    : sql``
-                })`
-          );
+          const insertData: Record<string, any> = {
+            id: finalItemId,
+            sort: 0,
+            author: authorValue,
+            last_modified_by: locals.user!.id,
+            created_at: now,
+            updated_at: now,
+            ...payloadMain
+          };
+
+          await (tx as any).insert(globalTable).values(insertData);
         }
 
         // Handle array fields for repeatable globals
@@ -609,6 +647,38 @@ export const updateRepeatableGlobal = command(
           });
         } catch (error) {
           log.error(`Failed to save tags for field ${fieldName}`, {}, error as Error);
+        }
+      }
+
+      // Handle single file fields outside transaction to avoid locking main row
+      for (const [fieldName, fileValue] of Object.entries(fileFields)) {
+        try {
+          const snake = toSnakeCase(fieldName);
+          const relationTableName = `global_${globalSlug}_${snake}`;
+          const relationTable = (schema as any)[relationTableName];
+          if (!relationTable) continue;
+
+          let fileId: any = fileValue;
+          if (Array.isArray(fileId) && fileId.length > 0) {
+            fileId = fileId[0]?.id || fileId[0] || null;
+          } else if (typeof fileId === 'object' && fileId !== null) {
+            fileId = (fileId as any).id || null;
+          }
+          // Clear existing
+          await (db as any)
+            .delete(relationTable)
+            .where(eq((relationTable as any).parent_id, finalItemId));
+          if (fileId) {
+            await (db as any).insert(relationTable).values({
+              id: generateUUID(),
+              parent_id: finalItemId,
+              file_id: fileId,
+              sort: 0,
+              created_at: getCurrentTimestamp()
+            });
+          }
+        } catch (error) {
+          log.error(`Failed to save file field ${fieldName}`, {}, error as Error);
         }
       }
 
@@ -686,8 +756,8 @@ export const updateRelationalGlobal = command(
             log.warn(`Failed to parse array field ${key}`, { value, error });
             arrayFields[key] = [];
           }
-        } else if (key !== 'name') {
-          // Exclude 'name' field as it's used for display purposes only
+        } else if (fieldDef) {
+          // Only persist fields that exist in schema
           regularFields[key] = value;
         }
       });
@@ -732,7 +802,11 @@ export const updateRelationalGlobal = command(
         } else {
           // Create new item with core fields
           const insertFields = Object.keys(regularFields).filter(
-            (key) => !['id', 'created_at', 'updated_at', 'sort'].includes(key)
+            // Exclude system-managed fields to avoid duplicate columns in INSERT
+            (key) =>
+              !['id', 'created_at', 'updated_at', 'sort', 'author', 'last_modified_by'].includes(
+                key
+              )
           );
           const insertValues = insertFields.map((key) => {
             let value = regularFields[key];
@@ -747,6 +821,15 @@ export const updateRelationalGlobal = command(
             return value;
           });
 
+          // Respect provided author if present; otherwise default to current user
+          let authorValue: any = regularFields.author;
+          if (Array.isArray(authorValue) && authorValue.length > 0) {
+            authorValue = authorValue[0].id || authorValue[0] || locals.user!.id;
+          } else if (typeof authorValue === 'object' && authorValue !== null) {
+            authorValue = authorValue.id || locals.user!.id;
+          }
+          if (!authorValue) authorValue = locals.user!.id;
+
           await tx.run(
             sql`INSERT INTO ${sql.identifier(`global_${globalSlug}`)}
                 (id, sort, author, last_modified_by, created_at, updated_at${
@@ -757,7 +840,7 @@ export const updateRelationalGlobal = command(
                       )}`
                     : sql``
                 })
-                VALUES (${finalItemId}, 0, ${locals.user!.id}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
+                VALUES (${finalItemId}, 0, ${authorValue}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
                   insertValues.length > 0
                     ? sql`, ${sql.join(
                         insertValues.map((v) => sql`${v}`),
@@ -901,7 +984,18 @@ export const bulkUpdateGlobalItems = command(
           if (existing.rows.length > 0) {
             // Update existing item
             const filteredData = Object.fromEntries(
-              Object.entries(regularData).filter(([key]) => key !== 'name')
+              Object.entries(regularData).filter(
+                ([key]) =>
+                  ![
+                    'name',
+                    'id',
+                    'sort',
+                    'author',
+                    'last_modified_by',
+                    'created_at',
+                    'updated_at'
+                  ].includes(key)
+              )
             );
             const updateFields = Object.keys(filteredData).filter(
               (key) => !['created_at', 'updated_at'].includes(key)
@@ -923,7 +1017,18 @@ export const bulkUpdateGlobalItems = command(
           } else {
             // Create new item
             const filteredData = Object.fromEntries(
-              Object.entries(regularData).filter(([key]) => key !== 'name')
+              Object.entries(regularData).filter(
+                ([key]) =>
+                  ![
+                    'name',
+                    'id',
+                    'sort',
+                    'author',
+                    'last_modified_by',
+                    'created_at',
+                    'updated_at'
+                  ].includes(key)
+              )
             );
             const insertFields = [
               'id',

@@ -120,11 +120,9 @@ export function registerCoreInit(program) {
               if (!packageJson.scripts) packageJson.scripts = {};
 
               const dbScripts = {
-                'db:generate':
-                  'node node_modules/sailorcms/cli/tools/db-generate-schema.js && drizzle-kit generate',
+                'db:generate': 'npx sailor db:generate && drizzle-kit generate',
                 'db:push': 'drizzle-kit push',
-                'db:update':
-                  'npm run db:generate && npm run db:push && node node_modules/sailorcms/cli/tools/db-seed.js'
+                'db:update': 'npm run db:generate && npm run db:push && npx sailor db:seed'
               };
 
               Object.entries(dbScripts).forEach(([script, command]) => {

@@ -10,7 +10,7 @@ import {
   getUserContentSummary
 } from '$sailor/core/services/user-adoption.server';
 import type { User } from '$sailor/generated/types';
-import type { Database } from '$sailor/generated/types';
+// Database type removed - using any for flexibility
 import type { Actions, PageServerLoad } from './$types';
 
 export type AvailableUser = Pick<User, 'id' | 'name' | 'email'>;
@@ -139,7 +139,7 @@ export const actions: Actions = {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Create user and credential account in a transaction
-      await db.transaction(async (tx: Database) => {
+      await db.transaction(async (tx: any) => {
         // Create user (without password - better-auth doesn't use users.password)
         await tx.insert(users).values({
           id: userId,
@@ -239,7 +239,7 @@ export const actions: Actions = {
       }
 
       // Update user and credential account in a transaction
-      await db.transaction(async (tx: Database) => {
+      await db.transaction(async (tx: any) => {
         // Update user (without password - better-auth doesn't use users.password)
         await tx
           .update(users)
@@ -350,7 +350,7 @@ export const actions: Actions = {
       }
 
       // Delete user and associated auth data
-      await db.transaction(async (tx: Database) => {
+      await db.transaction(async (tx: any) => {
         // Delete associated auth data (always cascade these)
         await tx.delete(sessions).where(eq(sessions.user_id, userId));
         await tx.delete(accounts).where(eq(accounts.user_id, userId));

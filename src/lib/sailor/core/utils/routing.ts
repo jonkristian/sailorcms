@@ -3,13 +3,13 @@
  * Defines canonical URL patterns for different content types
  */
 
-import type { CollectionType, GlobalType } from '../../generated/types';
+import type { CollectionTypes, GlobalTypes } from '../../generated/types';
 
 /**
  * Generate the canonical URL for a global type
  */
 export function getGlobalUrl(
-  global: Pick<GlobalType, 'slug' | 'data_type'>,
+  global: { slug: string; data_type?: string },
   itemId?: string
 ): string {
   if (global.data_type === 'flat') {
@@ -29,7 +29,7 @@ export function getGlobalUrl(
  * Generate the canonical URL for a collection type
  */
 export function getCollectionUrl(
-  collection: Pick<CollectionType, 'slug'>,
+  collection: { slug: string },
   itemId?: string
 ): string {
   if (itemId) {
@@ -44,12 +44,12 @@ export function getCollectionUrl(
  */
 export function getDashboardActivityLink(
   type: 'collection' | 'global',
-  entity: Pick<CollectionType, 'slug'> | Pick<GlobalType, 'slug' | 'data_type'>,
+  entity: { slug: string; data_type?: string },
   itemId?: string
 ): string {
   if (type === 'collection') {
-    return getCollectionUrl(entity as Pick<CollectionType, 'slug'>, itemId);
+    return getCollectionUrl(entity, itemId);
   } else {
-    return getGlobalUrl(entity as Pick<GlobalType, 'slug' | 'data_type'>, itemId);
+    return getGlobalUrl(entity, itemId);
   }
 }

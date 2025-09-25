@@ -48,7 +48,6 @@ export function registerDbUpdate(program) {
               stdio: 'inherit'
             });
 
-            console.log('🔄 Updating CMS registry...');
             const path = (await import('path')).default;
             const { existsSync } = await import('fs');
             const pkgSeeder = path.join(
@@ -85,7 +84,6 @@ export function registerDbUpdate(program) {
           });
 
           // Update registry with new blocks/collections/globals
-          console.log('🔄 Updating CMS registry...');
           const path2 = (await import('path')).default;
           const { existsSync: existsSync2 } = await import('fs');
           const pkgSeeder2 = path2.join(
@@ -111,8 +109,7 @@ export function registerDbUpdate(program) {
           execSync(`${executor2} ${seederPath2}`, { cwd: targetDir, stdio: 'inherit' });
         }
 
-        console.log('✅ Database schema updated successfully!');
-        console.log('💡 Restart your dev server to see the changes.');
+        console.log('✅ Generated files and CMS registry refreshed successfully!');
       } catch (error) {
         console.error('❌ Error updating database schema:', error.message);
         process.exit(1);

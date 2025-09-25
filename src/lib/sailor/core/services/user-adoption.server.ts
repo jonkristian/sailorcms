@@ -1,7 +1,7 @@
 import { db } from '../db/index.server';
 import * as schema from '../../generated/schema';
 import { eq, sql } from 'drizzle-orm';
-import type { Database } from '../../generated/types';
+// Database type removed - using any for flexibility
 
 interface TableInfo {
   tableName: string;
@@ -103,7 +103,7 @@ export async function adoptUserContent(fromUserId: string, toUserId: string): Pr
     return;
   }
 
-  await db.transaction(async (tx: Database) => {
+  await db.transaction(async (tx: any) => {
     for (const tableInfo of contentTables) {
       const { table, authorField, modifierField } = tableInfo;
 
@@ -144,7 +144,7 @@ export async function deleteUserContent(userId: string): Promise<void> {
     return;
   }
 
-  await db.transaction(async (tx: Database) => {
+  await db.transaction(async (tx: any) => {
     for (const tableInfo of contentTables) {
       const { table, authorField } = tableInfo;
 

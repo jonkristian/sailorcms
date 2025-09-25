@@ -303,7 +303,6 @@ export type CollectionDefinition = {
     basePath?: string; // Base URL path for preview links and canonical URLs (e.g., '/articles/')
     sortable?: boolean; // Enable/disable drag-and-drop reordering
     nestable?: boolean; // Enable/disable hierarchical parent-child relationships
-    dragAndDrop?: boolean; // Legacy: alias for sortable
   };
 };
 

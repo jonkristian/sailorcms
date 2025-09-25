@@ -19,9 +19,7 @@ export interface GlobalWithData {
 }
 
 // Type generation utilities using generated types
-export type InferGlobalType<T extends string> = T extends keyof GlobalTypes
-  ? GlobalTypes[T]
-  : GlobalWithData;
+export type InferGlobalType<T extends string> = GlobalWithData;
 
 export interface GlobalOptions {
   withRelations?: boolean; // Include items relation for relational globals
@@ -97,16 +95,16 @@ type GlobalQueryOptions = {
 };
 
 // Multiple items - for repeatable globals
-export async function getGlobalItems<K extends keyof GlobalTypes>(
-  globalSlug: K,
+export async function getGlobalItems(
+  globalSlug: string,
   options?: GlobalQueryOptions & {
     query?: 'slug';
     value?: string;
   }
 ): Promise<{
-  items: GlobalTypes[K][];
+  items: GlobalTypes[];
   total?: number;
-  grouped?: Record<string, GlobalTypes[K][]>;
+  grouped?: Record<string, GlobalTypes[]>;
 }> {
   const result = await getGlobal(globalSlug, options);
   if (!result) return { items: [] };
@@ -116,26 +114,26 @@ export async function getGlobalItems<K extends keyof GlobalTypes>(
     const items = result.items;
     const filteredItems = items?.filter((item: any) => item.slug === options.value) || [];
     return {
-      items: filteredItems as GlobalTypes[K][],
+      items: filteredItems,
       total: filteredItems.length
     };
   }
 
   return {
-    items: result.items as GlobalTypes[K][],
+    items: result.items || [],
     total: result.items?.length,
-    grouped: result.grouped ? (result.grouped as Record<string, GlobalTypes[K][]>) : undefined
+    grouped: result.grouped || undefined
   };
 }
 
 // Single item - for getting one specific global item
-export async function getGlobalItem<K extends keyof GlobalTypes>(
-  globalSlug: K,
+export async function getGlobalItem(
+  globalSlug: string,
   options: GlobalQueryOptions & {
     query: 'slug' | 'id';
     value: string;
   }
-): Promise<GlobalTypes[K] | null> {
+): Promise<GlobalTypes | null> {
   const result = await getGlobal(globalSlug, options);
   if (!result) return null;
 
@@ -143,28 +141,28 @@ export async function getGlobalItem<K extends keyof GlobalTypes>(
 
   switch (options.query) {
     case 'slug':
-      return (items?.find((item: any) => item.slug === options.value) as GlobalTypes[K]) || null;
+      return items?.find((item: any) => item.slug === options.value) || null;
     case 'id':
-      return (items?.find((item: any) => item.id === options.value) as GlobalTypes[K]) || null;
+      return items?.find((item: any) => item.id === options.value) || null;
     default:
       return null;
   }
 }
 
 // Original function for advanced usage - always returns consistent format
-export async function getGlobal<K extends keyof GlobalTypes>(
-  globalSlug: K,
+export async function getGlobal(
+  globalSlug: string,
   options?: GlobalQueryOptions
 ): Promise<{
-  items: GlobalTypes[K][];
+  items: GlobalTypes[];
   total?: number;
-  grouped?: Record<string, GlobalTypes[K][]>;
+  grouped?: Record<string, GlobalTypes[]>;
 } | null>;
 
 export async function getGlobal(
   globalSlug: string,
   options?: GlobalQueryOptions
-): Promise<{ items: any[]; total?: number; grouped?: Record<string, any[]> } | null>;
+): Promise<{ items: GlobalTypes[]; total?: number; grouped?: Record<string, GlobalTypes[]> } | null>;
 
 // Implementation
 export async function getGlobal(

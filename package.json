@@ -1,7 +1,7 @@
 {
   "name": "sailorcms",
   "private": false,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "A modern headless CMS built with SvelteKit, featuring dynamic schema generation, flexible content management, and seamless database integration.",
   "keywords": [

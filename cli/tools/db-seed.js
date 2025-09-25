@@ -102,7 +102,7 @@ function mergeWithCoreFields(templateFields, skipCoreFields = false) {
           ...otherProps
         };
       } else {
-        // Legacy: direct override (deprecated)
+        // Fallback: direct override (use override property instead)
         mergedFields[key] = { ...CORE_FIELDS[key], ...fieldDef, core: true };
       }
     } else {
@@ -131,7 +131,7 @@ function mergeWithBlockCoreFields(templateFields) {
           ...otherProps
         };
       } else {
-        // Legacy: direct override (deprecated)
+        // Fallback: direct override (use override property instead)
         mergedFields[key] = { ...BLOCK_CORE_FIELDS[key], ...fieldDef, core: true };
       }
     } else {
@@ -184,8 +184,6 @@ export async function seedRoles() {
           });
       }
     });
-
-    console.log('✓ Roles seeded successfully');
   } catch (error) {
     console.error('✗ Error seeding roles:', error);
     throw error;
@@ -331,8 +329,6 @@ export async function seedRegistry() {
         }
       }
     });
-
-    console.log('✓ Registry tables seeded successfully');
   } catch (error) {
     console.error('✗ Error seeding registry tables:', error);
     throw error;
@@ -349,15 +345,11 @@ export async function getRoleIdByName(roleName) {
 // Main seed function that runs everything
 export async function seedAll() {
   try {
-    console.log('🌱 Starting database seeding...');
-
     // Seed roles first
     await seedRoles();
 
     // Then seed registry
     await seedRegistry();
-
-    console.log('✅ All seeding completed successfully');
   } catch (error) {
     console.error('❌ Seeding failed:', error);
     throw error;

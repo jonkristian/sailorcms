@@ -100,11 +100,11 @@ export interface CollectionResult<T = CollectionItem> {
  */
 
 // Function overloads for proper typing based on collection slug
-export async function getCollection<K extends keyof CollectionTypes>(
-  collectionSlug: K,
+export async function getCollection(
+  collectionSlug: string,
   options: CollectionOptions & { slug: string }
 ): Promise<
-  | (CollectionTypes[K] & {
+  | (CollectionTypes & {
       url: string;
       breadcrumbs?: BreadcrumbItem[];
       blocks?: BlockWithRelations[];
@@ -112,12 +112,12 @@ export async function getCollection<K extends keyof CollectionTypes>(
   | null
 >;
 
-export async function getCollection<K extends keyof CollectionTypes>(
-  collectionSlug: K,
+export async function getCollection(
+  collectionSlug: string,
   options?: CollectionOptions & { slug?: never }
 ): Promise<
   CollectionResult<
-    CollectionTypes[K] & {
+    CollectionTypes & {
       url: string;
       breadcrumbs?: BreadcrumbItem[];
       blocks?: BlockWithRelations[];
@@ -437,15 +437,15 @@ type CollectionQueryOptions = Omit<CollectionOptions, 'slug'> & {
 };
 
 // Multiple items - for getting lists/collections
-export async function getCollectionItems<K extends keyof CollectionTypes>(
-  collectionSlug: K,
+export async function getCollectionItems(
+  collectionSlug: string,
   options?: CollectionQueryOptions & {
     query?: 'children' | 'siblings';
     value?: string;
     excludeCurrent?: boolean;
   }
 ): Promise<{
-  items: (CollectionTypes[K] & {
+  items: (CollectionTypes & {
     url: string;
     breadcrumbs?: BreadcrumbItem[];
     blocks?: BlockWithRelations[];
@@ -503,14 +503,14 @@ export async function getCollectionItems<K extends keyof CollectionTypes>(
 }
 
 // Single item - for getting one specific item
-export async function getCollectionItem<K extends keyof CollectionTypes>(
-  collectionSlug: K,
+export async function getCollectionItem(
+  collectionSlug: string,
   options: CollectionQueryOptions & {
     query: 'slug' | 'id';
     value: string;
   }
 ): Promise<
-  | (CollectionTypes[K] & {
+  | (CollectionTypes & {
       url: string;
       breadcrumbs?: BreadcrumbItem[];
       blocks?: BlockWithRelations[];
@@ -532,7 +532,7 @@ export async function getCollectionItem<K extends keyof CollectionTypes>(
 
   // getCollection returns single item when slug or itemId is provided
   return result && 'id' in result
-    ? (result as CollectionTypes[K] & {
+    ? (result as CollectionTypes & {
         url: string;
         breadcrumbs?: BreadcrumbItem[];
         blocks?: BlockWithRelations[];

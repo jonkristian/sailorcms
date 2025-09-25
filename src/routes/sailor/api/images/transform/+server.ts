@@ -91,7 +91,7 @@ export const GET: RequestHandler = async ({ url }) => {
           throw error(404, 'File not found');
         }
       } else if (imagePath.startsWith('http')) {
-        // It's already a full URL (legacy or direct URLs)
+        // It's already a full URL (external or absolute URLs)
         fullImagePath = imagePath;
       } else if (imagePath.startsWith('/') || settings.storage.provider === 'local') {
         // It's a local path

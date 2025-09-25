@@ -355,14 +355,17 @@ export async function uploadFile(
   const fileRecord = {
     id: crypto.randomUUID(),
     name: file.name, // Store original filename from user
+    original_name: file.name, // Store original filename
     mime_type: file.type,
     size: file.size,
     path: uploadResult.path,
     url: uploadResult.url, // Store the actual URL from storage provider
     hash: fileHash, // Store computed hash
-    alt: options.alt || null,
-    title: options.title || null,
-    description: options.description || null,
+    alt: options.alt || undefined,
+    alt_text: options.alt || undefined,
+    title: options.title || undefined,
+    description: options.description || undefined,
+    author: 'system', // TODO: Get from session
     created_at: options.created_at || new Date(), // Use custom date if provided
     updated_at: new Date()
   };
@@ -371,8 +374,6 @@ export async function uploadFile(
 
   // Return the file record with Date objects as expected by File interface
   return {
-    ...fileRecord,
-    created_at: fileRecord.created_at,
-    updated_at: fileRecord.updated_at
+    ...fileRecord
   };
 }

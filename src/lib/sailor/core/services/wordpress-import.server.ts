@@ -783,9 +783,9 @@ export class WordPressImportService {
             await db.run(
               sql`INSERT INTO ${sql.identifier(`collection_${options.collectionSlug}`)} 
                   (${sql.join(
-                    Object.keys(postData).map((key) => sql.identifier(key)),
-                    sql`, `
-                  )})
+                Object.keys(postData).map((key) => sql.identifier(key)),
+                sql`, `
+              )})
                   VALUES (${sql.join(Object.values(postData), sql`, `)})`
             );
           }
@@ -856,23 +856,31 @@ export class WordPressImportService {
         if (
           featuredImageFileId &&
           fieldMappings.featured_image &&
+          fieldMappings.featured_image.trim() !== '' &&
           collectionFields[fieldMappings.featured_image]
         ) {
           try {
             const collectionTable =
               schema[`collection_${options.collectionSlug}` as keyof typeof schema];
             if (collectionTable) {
-              await db
-                .update(collectionTable)
-                .set({ [fieldMappings.featured_image]: featuredImageFileId })
-                .where(eq((collectionTable as any).id, post.id));
+              // Validate that the field mapping is valid before attempting update
+              const fieldName = fieldMappings.featured_image.trim();
+              if (fieldName && collectionFields[fieldName]) {
+                await db
+                  .update(collectionTable)
+                  .set({ [fieldName]: featuredImageFileId })
+                  .where(eq((collectionTable as any).id, post.id));
+              }
             } else {
               // Fallback to raw SQL for dynamic collection tables
-              await db.run(
-                sql`UPDATE ${sql.identifier(`collection_${options.collectionSlug}`)} 
-                    SET ${sql.identifier(fieldMappings.featured_image)} = ${featuredImageFileId} 
-                    WHERE id = ${post.id}`
-              );
+              const fieldName = fieldMappings.featured_image.trim();
+              if (fieldName && collectionFields[fieldName]) {
+                await db.run(
+                  sql`UPDATE ${sql.identifier(`collection_${options.collectionSlug}`)} 
+                      SET ${sql.identifier(fieldName)} = ${featuredImageFileId} 
+                      WHERE id = ${post.id}`
+                );
+              }
             }
           } catch (error) {
             console.warn(`Failed to update featured image for '${post.title}':`, error);
@@ -1021,12 +1029,12 @@ export class WordPressImportService {
 
       const result = {
         id: uploadedFile.id,
-        url: uploadedFile.url,
+        url: uploadedFile.url || '',
         wasDownloaded
       };
 
       // Cache the result to avoid future downloads of the same URL
-      if (imageCache) {
+      if (imageCache && uploadedFile.url) {
         imageCache.set(url, { id: uploadedFile.id, url: uploadedFile.url });
       }
 
@@ -1120,7 +1128,7 @@ export class WordPressImportService {
   }
 
   /**
-   * Extract all image URLs from HTML content (legacy method for compatibility)
+   * Extract all image URLs from HTML content (simplified method)
    */
   private static extractImageUrlsFromContent(content: string): string[] {
     return this.extractImageDataFromContent(content).map((img) => img.url);

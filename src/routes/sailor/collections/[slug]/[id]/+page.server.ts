@@ -145,6 +145,27 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     // Load relation data for collection fields
     for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
       if ((fieldDef as any).type === 'relation') {
+        const relType = (fieldDef as any).relation?.type;
+        // For single FK relations (one-to-one, many-to-one) resolve server-side to avoid client loops
+        if (relType === 'one-to-one' || relType === 'many-to-one') {
+          const targetId = page[fieldName];
+          if (targetId) {
+            try {
+              const { getRelationItem } = await import('$sailor/remote/relations.remote');
+              const scope = (fieldDef as any).relation?.targetGlobal ? 'global' : 'collection';
+              const slugArg =
+                (fieldDef as any).relation?.targetGlobal ||
+                (fieldDef as any).relation?.targetCollection;
+              const res = await getRelationItem({ scope, slug: slugArg, id: String(targetId) });
+              if (res.success && res.item) {
+                page[fieldName] = JSON.stringify(res.item);
+              }
+            } catch {
+              // Ignore and leave as id
+            }
+          }
+          continue;
+        }
         // Use the correct junction table naming convention
         const junctionTableName =
           (fieldDef as any).relation?.through || `junction_${slug}_${fieldName}`;
@@ -227,7 +248,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
           for (const [fieldName] of fileFields) {
             try {
               const fileResult = await db.run(
-                sql`SELECT * FROM ${sql.identifier(`block_${blockSlug}_${fieldName}`)} WHERE block_id = ${block.id} ORDER BY "sort"`
+                sql`SELECT * FROM ${sql.identifier(`block_${blockSlug}_${fieldName}`)} WHERE parent_id = ${block.id} ORDER BY "sort"`
               );
               fileRelations[fieldName] = fileResult.rows;
             } catch {

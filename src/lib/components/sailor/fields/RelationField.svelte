@@ -38,13 +38,31 @@
   let searchTerm = $state('');
   let triggerRef = $state<HTMLButtonElement>(null!);
   let loading = $state(false);
+  let triedResolve = $state(false);
+  let contentWidth = $state<number>(0);
 
   $effect(() => {
     const next = parseValue(value);
     const prevIds = selectedItems.map((i) => i.id);
     const nextIds = next.map((i) => i.id);
     const changed = prevIds.length !== nextIds.length || prevIds.some((id, i) => id !== nextIds[i]);
-    if (changed) selectedItems = next;
+    if (changed) {
+      selectedItems = next;
+      triedResolve = false; // allow one resolve attempt for new value
+    }
+  });
+
+  // Resolve placeholder titles for single-select when we only have the ID
+  $effect(() => {
+    if (
+      isSingleSelect &&
+      !triedResolve &&
+      selectedItems.length > 0 &&
+      selectedItems.some((i) => i.title === 'Loading...' || i.title === i.id)
+    ) {
+      triedResolve = true;
+      resolveTitles();
+    }
   });
 
   // Parse initial value - handle both single and multi-select formats
@@ -249,6 +267,12 @@
   function handleOpenChange(newOpen: boolean) {
     open = newOpen;
     if (newOpen) {
+      // Match popover width to trigger width
+      queueMicrotask(() => {
+        try {
+          contentWidth = triggerRef ? (triggerRef as HTMLButtonElement).offsetWidth : 0;
+        } catch {}
+      });
       loadAvailableItems();
       // After loading available items, try to hydrate any 'Loading...' titles
       queueMicrotask(() => {
@@ -268,9 +292,10 @@
 
 <!-- Combobox for selecting items -->
 <Popover.Root bind:open onOpenChange={handleOpenChange}>
-  <Popover.Trigger bind:ref={triggerRef} class="w-full">
-    <div
-      class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+  <div class="flex w-full items-center gap-2">
+    <Popover.Trigger
+      bind:ref={triggerRef}
+      class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
       role="combobox"
       aria-expanded={open}
       aria-controls="relation-field-content"
@@ -279,32 +304,42 @@
         {#if isSingleSelect}
           {#if selectedItems.length > 0}
             <span class="truncate">{selectedItems[0].title}</span>
-            <button
-              type="button"
-              onclick={(e) => {
-                e.stopPropagation();
-                onChange(isSingleSelect ? '' : []);
-              }}
-              class="ml-auto rounded transition-colors hover:text-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
-              title="Clear selection"
-            >
-              <X class="h-3 w-3" />
-            </button>
           {:else}
-            <span>Select {field.label || field.title}...</span>
+            <span class="truncate">Select {field.label || field.title}...</span>
           {/if}
         {:else}
-          <span>
+          <span class="truncate">
             {selectedItems.length > 0
               ? `${selectedItems.length} item${selectedItems.length === 1 ? '' : 's'} selected`
               : `Select ${field.label || field.title}...`}
           </span>
         {/if}
       </span>
-      <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-    </div>
-  </Popover.Trigger>
-  <Popover.Content id="relation-field-content" class="w-full p-0" align="start">
+      <div class="ml-2 flex shrink-0 items-center gap-2">
+        {#if isSingleSelect && selectedItems.length > 0 && !readonly}
+          <button
+            type="button"
+            onclick={(e) => {
+              e.stopPropagation();
+              onChange('');
+            }}
+            class="rounded transition-colors hover:text-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
+            title="Clear selection"
+            aria-label="Clear selection"
+          >
+            <X class="h-3 w-3" />
+          </button>
+        {/if}
+        <ChevronsUpDown class="h-4 w-4 opacity-50" />
+      </div>
+    </Popover.Trigger>
+  </div>
+  <Popover.Content
+    id="relation-field-content"
+    class="p-0"
+    style={`width:${contentWidth > 0 ? contentWidth + 'px' : 'auto'}`}
+    align="start"
+  >
     <Command.Root>
       <Command.Input placeholder="Search items..." bind:value={searchTerm} class="h-9" />
       <Command.List class="max-h-60">

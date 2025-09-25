@@ -82,12 +82,25 @@ export const saveCollectionItem = command(
         if (fieldDef?.type === 'array') {
           arrayFields[key] = value as any[];
         } else if (fieldDef?.type === 'relation') {
-          // Relations may come as JSON string of objects or ids
-          try {
-            const raw = typeof value === 'string' ? JSON.parse(value) : value;
-            relationFields[key] = Array.isArray(raw) ? raw : [];
-          } catch {
-            relationFields[key] = Array.isArray(value) ? value : [];
+          // Distinguish between single FK on main table vs many-to-many via junction
+          const relType = fieldDef?.relation?.type;
+          if (relType === 'one-to-one' || relType === 'many-to-one') {
+            // Store foreign key on main table column (normalize to scalar id)
+            let v: any = value;
+            try {
+              v = typeof v === 'string' && v.startsWith('{') ? JSON.parse(v) : v;
+            } catch {}
+            if (Array.isArray(v) && v.length > 0) v = v[0]?.id || v[0] || null;
+            else if (typeof v === 'object' && v !== null) v = v.id || null;
+            regularFields[key] = v ?? null;
+          } else {
+            // Many-to-many relations may come as JSON string of ids/objects
+            try {
+              const raw = typeof value === 'string' ? JSON.parse(value) : value;
+              relationFields[key] = Array.isArray(raw) ? raw : [];
+            } catch {
+              relationFields[key] = Array.isArray(value) ? value : [];
+            }
           }
         } else if (fieldDef?.type === 'tags') {
           // Tags may come as array of objects, array of strings, or JSON string
@@ -109,31 +122,24 @@ export const saveCollectionItem = command(
             regularFields[key] = Boolean(value);
           }
         } else {
-          // Apply sanitization for parent_id to prevent orphaned records
+          // Apply normalization for core relation field parent_id
           if (key === 'parent_id') {
-            regularFields[key] = sanitizeId(value);
+            let v: any = value;
+            if (Array.isArray(v) && v.length > 0) v = v[0]?.id || v[0] || null;
+            else if (typeof v === 'object' && v !== null) v = v.id || null;
+            regularFields[key] = sanitizeId(v);
           } else {
             regularFields[key] = value;
           }
         }
       });
 
-      // Auto-populate author field for new content if not provided
-      if (!regularFields.author && locals.user?.id) {
-        regularFields.author = locals.user.id;
-      }
-
-      // Auto-assign author if current author is 'Unknown' or null/empty and we have a user
-      if (
-        locals.user?.id &&
-        (!regularFields.author || regularFields.author === 'Unknown' || regularFields.author === '')
-      ) {
-        regularFields.author = locals.user.id;
-      }
-
-      // Always set last_modified_by to current user
-      if (locals.user?.id) {
-        regularFields.last_modified_by = locals.user.id;
+      // Normalize author if provided; fallback handled during create
+      if (regularFields.author !== undefined) {
+        let a: any = regularFields.author;
+        if (Array.isArray(a) && a.length > 0) a = a[0]?.id || a[0] || null;
+        else if (typeof a === 'object' && a !== null) a = a.id || null;
+        regularFields.author = a;
       }
 
       const result = await db.transaction(async (tx: any) => {
@@ -169,13 +175,38 @@ export const saveCollectionItem = command(
             throw new Error(errorMessage);
           }
 
-          // Update existing item
-          const updateData = {
-            ...regularFields,
-            updated_at: new Date()
+          // Update existing item using core-first + sanitized payload spread
+          const schemaKeys = Object.keys(collectionFields);
+          const payloadMainRaw = Object.fromEntries(
+            Object.entries(regularFields).filter(
+              ([key]) =>
+                schemaKeys.includes(key) &&
+                !['id', 'created_at', 'updated_at', 'last_modified_by', 'sort'].includes(key)
+            )
+          );
+
+          const payloadMain: Record<string, any> = {};
+          for (const [k, v] of Object.entries(payloadMainRaw)) {
+            if (k === 'parent_id') {
+              let vv: any = v;
+              if (Array.isArray(vv) && vv.length > 0) vv = vv[0]?.id || vv[0] || null;
+              else if (typeof vv === 'object' && vv !== null) vv = (vv as any).id || null;
+              payloadMain[k] = vv;
+            } else {
+              payloadMain[k] = v;
+            }
+          }
+
+          const updateData: Record<string, any> = {
+            ...payloadMain,
+            updated_at: new Date(),
+            last_modified_by: locals.user?.id || null
           };
 
-          await tx
+          // Allow author update if provided
+          if (regularFields.author !== undefined) updateData.author = regularFields.author;
+
+          await (tx as any)
             .update(collectionTable)
             .set(updateData)
             .where(eq((collectionTable as any).id, itemId));
@@ -191,14 +222,44 @@ export const saveCollectionItem = command(
             throw new Error(errorMessage);
           }
 
-          const createData = {
+          // Build base core fields
+          const now = new Date();
+          let author = regularFields.author;
+          if (!author && locals.user?.id) author = locals.user.id;
+
+          const schemaKeys = Object.keys(collectionFields);
+          const payloadMainRaw = Object.fromEntries(
+            Object.entries(regularFields).filter(
+              ([key]) =>
+                schemaKeys.includes(key) &&
+                !['id', 'created_at', 'updated_at', 'last_modified_by', 'sort', 'author'].includes(
+                  key
+                )
+            )
+          );
+
+          const payloadMain: Record<string, any> = {};
+          for (const [k, v] of Object.entries(payloadMainRaw)) {
+            if (k === 'parent_id') {
+              let vv: any = v;
+              if (Array.isArray(vv) && vv.length > 0) vv = vv[0]?.id || vv[0] || null;
+              else if (typeof vv === 'object' && vv !== null) vv = (vv as any).id || null;
+              payloadMain[k] = vv;
+            } else {
+              payloadMain[k] = v;
+            }
+          }
+
+          const createData: Record<string, any> = {
             id: itemId,
-            ...regularFields,
-            created_at: new Date(),
-            updated_at: new Date()
+            author: author || null,
+            last_modified_by: locals.user?.id || null,
+            created_at: now,
+            updated_at: now,
+            ...payloadMain
           };
 
-          await tx.insert(collectionTable).values(createData);
+          await (tx as any).insert(collectionTable).values(createData);
         }
 
         // Handle array fields if any
@@ -312,7 +373,7 @@ export const saveCollectionItem = command(
                 if (fileTable) {
                   await tx.run(sql`
                     DELETE FROM ${sql.identifier(fileTableName)}
-                    WHERE block_id IN (
+                    WHERE parent_id IN (
                       SELECT id FROM ${sql.identifier(`block_${blockTypeSlug}`)}
                       WHERE collection_id = ${itemId}
                     )
@@ -393,13 +454,19 @@ export const saveCollectionItem = command(
                 // Clear existing file relations for this block/field
                 await tx.run(sql`
                   DELETE FROM ${sql.identifier(fileTableName)}
-                  WHERE block_id = ${blockData.id}
+                  WHERE parent_id = ${blockData.id}
                 `);
 
                 const fieldValue = (block.content || {})[fieldName];
                 if (!fieldValue) continue;
 
-                const fileIds: string[] = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+                const rawValues: any[] = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+                const fileIds: (string | null)[] = rawValues.map((val) => {
+                  if (val && typeof val === 'object') {
+                    return (val as any).id ?? null;
+                  }
+                  return (val as any) ?? null;
+                });
 
                 for (let i = 0; i < fileIds.length; i++) {
                   const fileId = fileIds[i];
@@ -409,7 +476,7 @@ export const saveCollectionItem = command(
                     (${sql.join(
                       [
                         sql.identifier('id'),
-                        sql.identifier('block_id'),
+                        sql.identifier('parent_id'),
                         sql.identifier('file_id'),
                         sql.identifier('sort'),
                         sql.identifier('created_at')

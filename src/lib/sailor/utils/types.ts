@@ -88,17 +88,10 @@ export interface ResponsiveImageData {
 }
 
 // Collection helper types for stricter typing
-export type GetCollectionSingle<T extends keyof CollectionTypes> =
-  | (CollectionTypes[T] & { blocks?: any[] })
-  | null;
+export type GetCollectionSingle = CollectionTypes | null;
 
-export type GetCollectionMultiple<T extends keyof CollectionTypes> = CollectionResult<
-  CollectionTypes[T] & { blocks?: any[] }
->;
+export type GetCollectionMultiple = CollectionResult<CollectionTypes>;
 
 // Global helper types
-export type GetGlobalSingle<T extends keyof GlobalTypes> = GlobalTypes[T] | null;
-export type GetGlobalMultiple<T extends keyof GlobalTypes> =
-  | GlobalTypes[T]
-  | GlobalResult<GlobalTypes[T]>
-  | null;
+export type GetGlobalSingle = GlobalTypes | null;
+export type GetGlobalMultiple = GlobalTypes | GlobalResult<GlobalTypes> | null;

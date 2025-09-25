@@ -251,7 +251,7 @@ async function loadFileRelations(
           .select({ id: files.id })
           .from(files)
           .innerJoin(relationTable, eq(files.id, (relationTable as any).file_id))
-          .where(eq((relationTable as any).block_id, block.id))
+          .where(eq((relationTable as any).parent_id, block.id))
           .orderBy(asc((relationTable as any).sort));
         fileResult = { rows: result };
       } else {
@@ -259,7 +259,7 @@ async function loadFileRelations(
         fileResult = await db.run(
           sql`SELECT f.id FROM files f 
               JOIN ${sql.identifier(relationTableName)} bf ON f.id = bf.file_id 
-              WHERE bf.block_id = ${block.id} 
+              WHERE bf.parent_id = ${block.id} 
               ORDER BY bf.sort`
         );
       }
