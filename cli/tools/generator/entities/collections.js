@@ -132,10 +132,22 @@ export class CollectionGenerator {
    */
   resolveTargetTable(relation) {
     if (relation.targetGlobal) {
-      return `global_${relation.targetGlobal}`;
+      const targetTable = `global_${relation.targetGlobal}`;
+      // Validate that the target table exists in metadata
+      if (!this.tableGen.metadata.getTableMetadata(targetTable)) {
+        console.warn(`Warning: Relation target table '${targetTable}' not found in metadata. Available global tables:`,
+          this.tableGen.metadata.getTablesByType('global').map(t => t.name));
+      }
+      return targetTable;
     }
     if (relation.targetCollection) {
-      return `collection_${relation.targetCollection}`;
+      const targetTable = `collection_${relation.targetCollection}`;
+      // Validate that the target table exists in metadata
+      if (!this.tableGen.metadata.getTableMetadata(targetTable)) {
+        console.warn(`Warning: Relation target table '${targetTable}' not found in metadata. Available collection tables:`,
+          this.tableGen.metadata.getTablesByType('collection').map(t => t.name));
+      }
+      return targetTable;
     }
     throw new Error(`Invalid relation: ${JSON.stringify(relation)}`);
   }

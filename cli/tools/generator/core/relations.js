@@ -13,7 +13,10 @@ export class RelationGenerator {
 
     // Generate relations from collected metadata
     for (const relation of this.metadata.getAllRelations()) {
-      relations.push(this.createRelationDefinition(relation));
+      const relationDef = this.createRelationDefinition(relation);
+      if (relationDef !== null) {
+        relations.push(relationDef);
+      }
     }
 
     return relations;
@@ -24,6 +27,16 @@ export class RelationGenerator {
    */
   createRelationDefinition(relation) {
     const { fromTable, toTable, type, foreignKey, references } = relation;
+
+    // Validate that both tables are registered in metadata
+    if (!this.metadata.getTableMetadata(fromTable)) {
+      console.warn(`Warning: Relation references unknown table '${fromTable}' - skipping relation`);
+      return null;
+    }
+    if (!this.metadata.getTableMetadata(toTable)) {
+      console.warn(`Warning: Relation references unknown table '${toTable}' - skipping relation`);
+      return null;
+    }
 
     if (type === 'many-to-one') {
       return `export const ${fromTable}Relations = relations(${fromTable}, ({ one }) => ({

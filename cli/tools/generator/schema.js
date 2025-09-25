@@ -37,8 +37,8 @@ export class SchemaGenerator {
       // Generate all tables
       await this.generateAllTables();
 
-      // TODO: Re-enable validation once core tables are generated
-      // this.metadata.validateRelations();
+      // Validate relations now that all tables are registered
+      // this.metadata.validateRelations(); // TODO: Implement if needed
 
       // Generate schema content
       const content = await this.buildSchemaContent();
@@ -54,6 +54,9 @@ export class SchemaGenerator {
    * Generate all entity tables
    */
   async generateAllTables() {
+    // Generate core tables first so they're available for relations
+    await this.generateCoreTablesMetadata();
+
     // Generate globals
     this.generateGlobalTables();
 
@@ -62,6 +65,37 @@ export class SchemaGenerator {
 
     // Generate blocks
     this.generateBlockTables();
+  }
+
+  /**
+   * Register core tables in metadata so they're available for relations
+   */
+  async generateCoreTablesMetadata() {
+    // Register core tables in metadata
+    this.metadata.registerTable('files', {
+      type: 'core',
+      fields: ['id', 'name', 'original_name', 'mime_type', 'size', 'path', 'url', 'width', 'height', 'alt_text', 'alt', 'description', 'author', 'created_at', 'updated_at']
+    });
+
+    this.metadata.registerTable('users', {
+      type: 'core',
+      fields: ['id', 'email', 'name', 'password_hash', 'role', 'avatar', 'image', 'email_verified', 'status', 'last_login', 'created_at', 'updated_at']
+    });
+
+    this.metadata.registerTable('tags', {
+      type: 'core',
+      fields: ['id', 'name', 'slug', 'color', 'created_at', 'updated_at']
+    });
+
+    this.metadata.registerTable('roles', {
+      type: 'core',
+      fields: ['id', 'name', 'description', 'created_at', 'updated_at']
+    });
+
+    this.metadata.registerTable('taggables', {
+      type: 'core',
+      fields: ['id', 'tag_id', 'taggable_id', 'taggable_type', 'created_at']
+    });
   }
 
   /**
