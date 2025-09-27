@@ -162,7 +162,11 @@ export async function getGlobal(
 export async function getGlobal(
   globalSlug: string,
   options?: GlobalQueryOptions
-): Promise<{ items: GlobalTypes[]; total?: number; grouped?: Record<string, GlobalTypes[]> } | null>;
+): Promise<{
+  items: GlobalTypes[];
+  total?: number;
+  grouped?: Record<string, GlobalTypes[]>;
+} | null>;
 
 // Implementation
 export async function getGlobal(

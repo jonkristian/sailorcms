@@ -3,12 +3,28 @@ import { SystemSettingsService } from '$sailor/core/services/system-settings.ser
 import { log } from '$sailor/core/utils/logger';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ parent }) => {
+  // Get shared settings data from layout
+  const { settingsData } = await parent();
+
   // Use services directly in load function since remote functions can't be called during SSR
   const siteName = await SystemSettingsService.getSetting('site.name');
   const siteUrl = await SystemSettingsService.getSetting('site.url');
   const siteDescription = await SystemSettingsService.getSetting('site.description');
   const allowRegistration = await SystemSettingsService.isRegistrationEnabled();
+
+  // Create header actions for payload preview
+  const headerActions = [];
+  headerActions.push({
+    type: 'payload-preview',
+    props: {
+      type: 'settings',
+      id: 'settings',
+      title: 'Settings Payload',
+      expandedCategory: 'site',
+      initialPayload: settingsData
+    }
+  });
 
   return {
     settings: {
@@ -16,7 +32,8 @@ export const load: PageServerLoad = async () => {
       siteUrl: siteUrl || '',
       siteDescription: siteDescription || '',
       allowRegistration: allowRegistration
-    }
+    },
+    headerActions
   };
 };
 

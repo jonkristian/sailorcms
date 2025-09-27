@@ -28,10 +28,7 @@ export function getGlobalUrl(
 /**
  * Generate the canonical URL for a collection type
  */
-export function getCollectionUrl(
-  collection: { slug: string },
-  itemId?: string
-): string {
+export function getCollectionUrl(collection: { slug: string }, itemId?: string): string {
   if (itemId) {
     return `/sailor/collections/${collection.slug}/${itemId}`;
   } else {

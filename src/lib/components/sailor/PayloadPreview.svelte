@@ -4,28 +4,41 @@
   import { Code, Copy } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
   import { htmlToTiptapJson } from '$lib/sailor/core/content/content';
-  import { formatJson, rehighlightCode } from '$lib/sailor/core/ui/syntax-highlighting';
+  import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
+  import CategoryTree from './CategoryTree.svelte';
+  import { mode } from 'mode-watcher';
 
   let {
-    pageId,
-    collectionSlug,
+    type = 'collection',
+    id,
+    slug,
+    title = 'JSON Preview',
+    expandedCategory,
     open = $bindable(false),
     initialPayload = $bindable<unknown | null>(null),
-    collectionFields = $bindable<Record<string, any>>({}),
-    siteUrl = ''
+    fields = $bindable<Record<string, any>>({})
   } = $props<{
-    pageId: string;
-    collectionSlug: string;
+    type?: 'collection' | 'global' | 'settings';
+    id: string;
+    slug?: string;
+    title?: string;
+    expandedCategory?: string;
     open?: boolean;
     initialPayload?: unknown | null;
-    collectionFields?: Record<string, any>;
-    siteUrl?: string;
+    fields?: Record<string, any>;
   }>();
 
   let highlightedPayload = $state<string>('');
   let rawPayload = $state<string>('');
+  let parsedData = $state<any>(null);
   let error = $state<string | null>(null);
   let loading = $state(false);
+  let isDark = $state(mode.current === 'dark');
+
+  // Update isDark when mode changes
+  $effect(() => {
+    isDark = mode.current === 'dark';
+  });
 
   /**
    * Recursively convert HTML content in wysiwyg fields to JSON
@@ -74,10 +87,10 @@
    * Get field type for a given field key
    */
   function getFieldType(fieldKey?: string): string | null {
-    if (!fieldKey || !collectionFields[fieldKey]) {
+    if (!fieldKey || !fields[fieldKey]) {
       return null;
     }
-    return collectionFields[fieldKey].type || null;
+    return fields[fieldKey].type || null;
   }
 
   /**
@@ -105,15 +118,22 @@
       const jsonString = JSON.stringify(convertedData, null, 2);
       rawPayload = jsonString;
 
-      // Validate that the data is actually JSON before highlighting
-      JSON.parse(jsonString); // This will throw if invalid
-      highlightedPayload = await formatJson(jsonString, '0.875rem');
+      // For settings, pass data directly to CategoryTree; for others, use direct highlight.js
+      if (type === 'settings') {
+        parsedData = convertedData; // Use already converted data, no need to parse JSON
+        highlightedPayload = ''; // CategoryTree will handle highlighting
+      } else {
+        highlightedPayload = await formatJson(jsonString);
+        parsedData = null; // Not needed for non-settings
+      }
+
       error = null;
     } catch (e) {
       console.error('Error highlighting payload:', e);
       error = e instanceof Error ? e.message : 'Unknown error occurred';
-      // Fallback to plain text if JSON is invalid
+      // Let highlight.js handle the fallback
       highlightedPayload = '';
+      parsedData = null;
     }
   }
 
@@ -127,7 +147,7 @@
       }
 
       const { getCollectionItem } = await import('$sailor/remote/collections.remote.js');
-      const result = await getCollectionItem({ collection: collectionSlug, id: pageId });
+      const result = await getCollectionItem({ collection: slug || '', id });
 
       if (!result.success) {
         throw new Error(`Failed to fetch payload: ${result.error}`);
@@ -153,16 +173,15 @@
       fetchPayload();
     }
   });
-
-  // Re-highlight when theme changes
-  $effect(() => {
-    if (rawPayload) {
-      rehighlightCode(rawPayload, 'json', '0.875rem').then((formatted) => {
-        highlightedPayload = formatted;
-      });
-    }
-  });
 </script>
+
+<svelte:head>
+  {#if isDark}
+    <link rel="stylesheet" href="/node_modules/highlight.js/styles/github-dark.css" />
+  {:else}
+    <link rel="stylesheet" href="/node_modules/highlight.js/styles/github.css" />
+  {/if}
+</svelte:head>
 
 <Sheet bind:open>
   <SheetTrigger type="button" class="h-8 w-8">
@@ -174,7 +193,7 @@
     <SheetHeader class="flex flex-row items-center justify-between space-y-0 pb-4">
       <div class="flex items-center gap-2">
         <Code class="h-4 w-4" />
-        <span class="text-sm font-medium">JSON Preview</span>
+        <span class="text-sm font-medium">{title}</span>
       </div>
       <Button type="button" variant="outline" size="sm" onclick={copyPayload} class="h-8">
         <Copy class="mr-2 h-4 w-4" />
@@ -186,8 +205,12 @@
         <div class="text-destructive">Error: {error}</div>
       {:else if loading}
         <div class="text-muted-foreground">Loading payload...</div>
+      {:else if type === 'settings' && parsedData}
+        <div class="p-4">
+          <CategoryTree data={parsedData || {}} {expandedCategory} />
+        </div>
       {:else if highlightedPayload}
-        <div class="sugar-high-wrapper p-4">
+        <div class="p-4">
           {@html highlightedPayload}
         </div>
       {:else}
@@ -198,34 +221,6 @@
 </Sheet>
 
 <style>
-  /* Default (light) theme - Catppuccin Latte colors */
-  .sugar-high-wrapper {
-    --sh-sign: #dc8a78; /* Rosewater - for brackets, commas */
-    --sh-string: #40a02b; /* Green - for string values */
-    --sh-keyword: #8839ef; /* Mauve - for keywords */
-    --sh-class: #fe640b; /* Orange - for numbers */
-    --sh-identifier: #7c7f93; /* Subtext1 - for identifiers */
-    --sh-comment: #9ca0b0; /* Subtext0 - for comments */
-    --sh-jsxliterals: #40a02b; /* Green - for JSX literals */
-    --sh-property: #1e66f5; /* Blue - for property names */
-    --sh-entity: #8839ef; /* Mauve - for entities */
-    --sh-break: transparent;
-    --sh-space: transparent;
-  }
-
-  /* Dark theme - Catppuccin Macchiato colors */
-  :global(.dark) .sugar-high-wrapper {
-    --sh-sign: #f4dbd6; /* Rosewater - for brackets, commas */
-    --sh-string: #a6da95; /* Green - for string values */
-    --sh-keyword: #c6a0f6; /* Mauve - for keywords */
-    --sh-class: #f5a97f; /* Peach - for numbers */
-    --sh-identifier: #b8c0e0; /* Subtext1 - for identifiers */
-    --sh-comment: #a5adcb; /* Subtext0 - for comments */
-    --sh-jsxliterals: #a6da95; /* Green - for JSX literals */
-    --sh-property: #8aadf4; /* Blue - for property names */
-    --sh-entity: #c6a0f6; /* Mauve - for entities */
-  }
-
   /* Hide the default close button */
   :global([data-slot='sheet-content'] > button) {
     display: none !important;

@@ -253,3 +253,20 @@ export function normalizeRelationId(key: string, value: any): any {
 
   return value ?? null;
 }
+
+/**
+ * Helper to parse JSON values or return original string
+ * Useful for settings where values might be stored as JSON strings
+ */
+export function tryParseJson(value: string): any {
+  try {
+    const parsed = JSON.parse(value);
+    // Return parsed value for non-string types, or if it's a complex object/array
+    if (typeof parsed !== 'string' || parsed !== value) {
+      return parsed;
+    }
+    return value;
+  } catch {
+    return value;
+  }
+}

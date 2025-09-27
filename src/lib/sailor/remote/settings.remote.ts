@@ -184,3 +184,24 @@ export const getSettings = command('unchecked', async ({ keys }: { keys: string[
     return { success: false, error: 'Failed to get settings' };
   }
 });
+
+/**
+ * Get raw settings from database for payload preview
+ */
+export const getRawSettings = command('unchecked', async () => {
+  const { locals } = getRequestEvent();
+
+  // Authentication handled by hooks - admin check required for settings payload
+  if (locals.user!.role !== 'admin') {
+    return { success: false, error: 'Admin access required' };
+  }
+
+  try {
+    const rawSettings = await SystemSettingsService.getAllSettings();
+    console.log('Raw settings from database:', rawSettings);
+    return { success: true, settings: rawSettings };
+  } catch (error) {
+    console.error('Failed to get raw settings:', error);
+    return { success: false, error: 'Failed to get raw settings' };
+  }
+});

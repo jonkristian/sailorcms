@@ -372,11 +372,7 @@ function generateTypes(
     const typeName = config.name.singular.replace(/\s+/g, '');
 
     // Start with core database fields that are always present
-    const coreFields = [
-      '  id: string;',
-      '  created_at: Date;',
-      '  updated_at: Date;'
-    ];
+    const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
 
     const fields = Object.entries(config.fields)
       .map(([fieldName, fieldDef]) => {
@@ -401,11 +397,7 @@ function generateTypes(
     const typeName = config.name.singular.replace(/\s+/g, '');
 
     // Start with core database fields that are always present
-    const coreFields = [
-      '  id: string;',
-      '  created_at: Date;',
-      '  updated_at: Date;'
-    ];
+    const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
 
     const fields = Object.entries(config.fields)
       .map(([fieldName, fieldDef]) => {
@@ -430,11 +422,7 @@ function generateTypes(
     const typeName = config.name.replace(/\s+/g, '');
 
     // Start with core database fields that are always present
-    const coreFields = [
-      '  id: string;',
-      '  created_at: Date;',
-      '  updated_at: Date;'
-    ];
+    const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
 
     const fields = Object.entries(config.fields)
       .map(([fieldName, fieldDef]) => {
@@ -526,6 +514,17 @@ function generateTypes(
   typeDefinitions.push('}');
   typeDefinitions.push('');
 
+  typeDefinitions.push('export interface Settings {');
+  typeDefinitions.push('  key: string;');
+  typeDefinitions.push('  value: string;');
+  typeDefinitions.push('  description?: string;');
+  typeDefinitions.push('  category: string;');
+  typeDefinitions.push('  source: string;');
+  typeDefinitions.push('  created_at: Date;');
+  typeDefinitions.push('  updated_at: Date;');
+  typeDefinitions.push('}');
+  typeDefinitions.push('');
+
   // Add collection definition types
   typeDefinitions.push('// Collection Definition Types');
   typeDefinitions.push('export interface CollectionDefinition {');
@@ -549,7 +548,6 @@ function generateTypes(
   typeDefinitions.push('  options?: Record<string, any>;');
   typeDefinitions.push('}');
   typeDefinitions.push('');
-
 
   const typesContent = typeDefinitions.join('\n');
   const generatedDir = path.join(targetDir, 'src/lib/sailor/generated');

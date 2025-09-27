@@ -197,3 +197,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Override highlight.js background to integrate with CMS */
+.hljs {
+  background: transparent !important;
+  font-size: 0.8rem;
+}

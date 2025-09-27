@@ -1,93 +1,75 @@
-import { highlight } from 'sugar-high';
-import { mode } from 'mode-watcher';
+import hljs from 'highlight.js/lib/core';
+import json from 'highlight.js/lib/languages/json';
+
+// Register only the languages we need
+hljs.registerLanguage('json', json);
+
+// Configure highlight.js for better performance
+hljs.configure({
+  // Disable auto-detection for better performance since we know the language
+  languages: ['json'],
+  // Use class-based highlighting for better CSS integration
+  classPrefix: 'hljs-'
+});
 
 /**
- * No initialization needed for sugar-high - it's much simpler!
- */
-export async function initHighlighter() {
-  return true; // Keep the function for compatibility
-}
-
-/**
- * Get CSS variables for the current theme
- */
-export function getCurrentTheme(): string {
-  return mode.current === 'dark' ? 'dark' : 'light';
-}
-
-/**
- * Escape HTML entities to prevent XSS
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/**
- * Format JSON with syntax highlighting using sugar-high
+ * Format JSON with syntax highlighting using highlight.js
+ * This leverages highlight.js's built-in capabilities for JSON formatting and error handling
  */
 export async function formatJson(
   json: string | object,
   fontSize: string = '0.875rem'
 ): Promise<string> {
+  // Convert to string and format if it's an object
+  const jsonString = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+
   try {
-    const jsonString = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
-    const parsed = JSON.parse(jsonString); // Validate JSON
-    const formatted = JSON.stringify(parsed, null, 2);
-
-    // Use sugar-high for highlighting - much lighter than shiki
-    const highlighted = highlight(formatted);
-
-    // Wrap with consistent styling - theme handled by CSS :global(.dark) selector
-    return `<div class="sugar-high-wrapper" style="font-size: ${fontSize}; line-height: 1.5; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;"><pre><code>${highlighted}</code></pre></div>`;
-  } catch {
-    // Return escaped plain text if JSON is invalid
-    const jsonString = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
-    const escapedJson = escapeHtml(jsonString);
-    return `<pre style="font-size: ${fontSize}; line-height: 1.5; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;"><code>${escapedJson}</code></pre>`;
+    // Use highlight.js to handle JSON highlighting
+    const highlighted = hljs.highlight(jsonString, { language: 'json' }).value;
+    return `<pre><code class="hljs language-json">${highlighted}</code></pre>`;
+  } catch (error) {
+    // If JSON highlighting fails, highlight.js will automatically fall back gracefully
+    // We can still try to highlight as plaintext for better visual consistency
+    console.warn('JSON highlighting failed, using fallback:', error);
+    try {
+      const highlighted = hljs.highlight(jsonString, { language: 'plaintext' }).value;
+      return `<pre><code class="hljs language-plaintext">${highlighted}</code></pre>`;
+    } catch (fallbackError) {
+      // Ultimate fallback - return unhighlighted but escaped content
+      console.error('All highlighting failed:', fallbackError);
+      return `<pre><code class="hljs">${jsonString}</code></pre>`;
+    }
   }
 }
 
 /**
- * Format code with syntax highlighting using sugar-high
+ * Format code with syntax highlighting using highlight.js
+ * Simplified to leverage highlight.js's built-in capabilities
  */
 export async function formatCode(
   code: string,
   language: string = 'json',
   fontSize: string = '0.875rem'
 ): Promise<string> {
-  try {
-    // Use sugar-high for highlighting - works for most languages
-    const highlighted = highlight(code);
-
-    // Wrap with consistent styling - theme handled by CSS :global(.dark) selector
-    return `<div class="sugar-high-wrapper" style="font-size: ${fontSize}; line-height: 1.5; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;"><pre><code>${highlighted}</code></pre></div>`;
-  } catch {
-    const escapedCode = escapeHtml(code);
-    return `<pre style="font-size: ${fontSize}; line-height: 1.5; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;"><code>${escapedCode}</code></pre>`;
+  // For JSON, use the optimized formatJson function
+  if (language === 'json') {
+    return formatJson(code, fontSize);
   }
-}
 
-/**
- * Get the highlighter instance (for advanced usage)
- * Sugar-high doesn't need an instance - just returns true for compatibility
- */
-export function getHighlighter() {
-  return true;
-}
-
-/**
- * Re-highlight code when theme changes
- * With sugar-high, we just call formatCode again since it's lightweight
- */
-export async function rehighlightCode(
-  code: string,
-  language: string = 'json',
-  fontSize: string = '0.875rem'
-): Promise<string> {
-  return formatCode(code, language, fontSize);
+  try {
+    // Use highlight.js for syntax highlighting - it handles escaping and validation
+    const highlighted = hljs.highlight(code, { language }).value;
+    return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+  } catch (error) {
+    // Fallback to plaintext highlighting for better visual consistency
+    console.warn(`Highlight.js highlighting failed for language '${language}':`, error);
+    try {
+      const highlighted = hljs.highlight(code, { language: 'plaintext' }).value;
+      return `<pre><code class="hljs language-plaintext">${highlighted}</code></pre>`;
+    } catch (fallbackError) {
+      // Ultimate fallback - return unhighlighted content
+      console.error('All highlighting failed:', fallbackError);
+      return `<pre><code class="hljs">${code}</code></pre>`;
+    }
+  }
 }

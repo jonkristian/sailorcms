@@ -43,8 +43,8 @@
   }
 
   // Get role statistics
-  const roleCount = Object.keys(roleSettings.definitions).length;
-  const adminRoleCount = roleSettings.adminRoles.length;
+  const roleCount = roleSettings ? Object.keys(roleSettings.definitions).length : 0;
+  const adminRoleCount = roleSettings?.adminRoles.length ?? 0;
   const resourceCount = resources.length;
   const permissionCount = permissions.length;
 </script>
@@ -122,7 +122,7 @@
       </CardHeader>
       <CardContent>
         <div class="space-y-3">
-          {#each Object.entries(roleSettings.definitions) as [roleKey, role]}
+          {#each roleSettings ? Object.entries(roleSettings.definitions) : [] as [roleKey, role]}
             <Collapsible.Root>
               <Collapsible.Trigger class="w-full">
                 <div
@@ -130,7 +130,7 @@
                 >
                   <div class="flex items-center gap-3">
                     <span class="font-medium">{role.name}</span>
-                    {#if roleSettings.adminRoles.includes(roleKey)}
+                    {#if roleSettings?.adminRoles.includes(roleKey)}
                       <Badge
                         variant="default"
                         class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
@@ -138,7 +138,7 @@
                         Admin
                       </Badge>
                     {/if}
-                    {#if roleKey === roleSettings.defaultRole}
+                    {#if roleKey === roleSettings?.defaultRole}
                       <Badge
                         variant="secondary"
                         class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"

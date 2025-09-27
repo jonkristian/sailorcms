@@ -202,6 +202,7 @@ export class S3StorageService {
   static async listFiles(): Promise<{ path: string; size?: number }[]> {
     const s3Client = await this.getS3Client();
     const s3Config = await this.getS3Config();
+    const settings = await getSettings();
 
     try {
       const listCommand = new ListObjectsV2Command({
@@ -211,16 +212,19 @@ export class S3StorageService {
 
       const response = await s3Client.send(listCommand);
 
+      // Get exclude paths from settings, with fallback to defaults
+      const excludePaths = settings.storage?.excludePaths || [
+        'cache/',
+        'backup/',
+        '.tmp/',
+        '.git/'
+      ];
+
       return (response.Contents || [])
         .filter((obj) => {
           const key = obj.Key || '';
-          // Skip cache, backup files and any hidden files/folders
-          return (
-            !key.startsWith('cache/') &&
-            !key.startsWith('backup/') &&
-            !key.startsWith('backups/') &&
-            !key.startsWith('.')
-          );
+          // Skip any configured exclude paths and hidden files/folders
+          return !excludePaths.some((exclude) => key.startsWith(exclude)) && !key.startsWith('.');
         })
         .map((obj) => ({
           path: obj.Key || '',

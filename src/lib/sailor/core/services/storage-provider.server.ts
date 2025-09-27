@@ -45,9 +45,20 @@ export class LocalStorageProvider implements StorageProvider {
       const files = await readdir(uploadDir);
       const result = [];
 
+      // Get exclude paths from settings, with fallback to defaults
+      const excludePaths = settings.storage?.excludePaths || [
+        'cache/',
+        'backup/',
+        '.tmp/',
+        '.git/'
+      ];
+
       for (const file of files) {
-        // Skip cache, backup folders and any hidden files/folders
-        if (file === 'cache' || file === 'backup' || file === 'backups' || file.startsWith('.')) {
+        // Skip any configured exclude paths and hidden files/folders
+        if (
+          excludePaths.some((exclude) => file === exclude.replace('/', '')) ||
+          file.startsWith('.')
+        ) {
           continue;
         }
 

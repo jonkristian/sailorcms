@@ -28,15 +28,16 @@ export async function getSiteSettings(): Promise<SiteConfig> {
       siteName: siteName || undefined,
       siteUrl: siteUrl || undefined,
       siteDescription: siteDescription || undefined,
-      registrationEnabled
+      registrationEnabled: registrationEnabled ?? true // Default to true if undefined
     };
   } catch (error) {
     console.warn('Failed to load site configuration:', error);
-    return {};
+    // Return a proper default object instead of empty object
+    return {
+      siteName: undefined,
+      siteUrl: undefined,
+      siteDescription: undefined,
+      registrationEnabled: true
+    };
   }
 }
-
-/**
- * Get core CMS settings (storage, SEO, system)
- * Note: This is server-only and should be imported from core/settings directly
- */

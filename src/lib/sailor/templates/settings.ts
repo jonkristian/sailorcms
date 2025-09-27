@@ -10,6 +10,9 @@ import type { CMSSettings } from '$sailor/core/settings/types';
 export const settings: Partial<CMSSettings> = {
   // ✅ Storage settings (most important - override as needed)
   storage: {
+    // Paths to exclude from storage scanning (file import/sync operations)
+    excludePaths: ['cache/', 'backup/', '.tmp/', '.git/'],
+
     cache: {
       provider: 'local' as const,
       local: {

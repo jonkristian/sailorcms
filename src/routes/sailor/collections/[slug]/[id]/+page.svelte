@@ -801,10 +801,10 @@
                 <span class="text-foreground">
                   {formatRelativeTime(data.page.created_at)}
                 </span>
-                {#if data.page?.authorName || data.page?.authorEmail}
+                {#if data.page?.author_name || data.page?.author_email}
                   <span>by</span>
                   <span class="text-foreground truncate font-medium">
-                    {data.page.authorName || data.page.authorEmail}
+                    {data.page.author_name || data.page.author_email}
                   </span>
                 {/if}
               </div>
@@ -819,10 +819,10 @@
                 <span class="text-foreground">
                   {formatRelativeTime(data.page.updated_at)}
                 </span>
-                {#if (data.page?.lastModifiedByName || data.page?.lastModifiedByEmail) && data.page.last_modified_by !== data.page.author}
+                {#if (data.page?.last_modified_by_name || data.page?.last_modified_by_email) && data.page.last_modified_by !== data.page.author}
                   <span>by</span>
                   <span class="text-foreground truncate font-medium">
-                    {data.page.lastModifiedByName || data.page.lastModifiedByEmail}
+                    {data.page.last_modified_by_name || data.page.last_modified_by_email}
                   </span>
                 {/if}
               </div>

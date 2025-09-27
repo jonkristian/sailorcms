@@ -67,7 +67,9 @@
         item.text ||
         item.content ||
         item.description ||
-        Object.values(item).find((val: any) => typeof val === 'string' && val.length > 0) ||
+        (item && typeof item === 'object' ? Object.values(item) : []).find(
+          (val: any) => typeof val === 'string' && val.length > 0
+        ) ||
         `Item ${index + 1}`;
 
       return {

@@ -26,15 +26,8 @@ notes.md
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Database files (keep drizzle migrations)
+# Database files
 *.sqlite
-
-# Jekyll (docs)
-docs/_site/
-docs/.jekyll-cache/
-docs/Gemfile.lock
-docs/.bundle/
-docs/vendor/
 *.sqlite3
 *.db
 *.db-journal
@@ -43,9 +36,16 @@ docs/vendor/
 *.db-wal
 *.db-shm
 
-# Keep drizzle migrations
-!drizzle/
+# Drizzle generated files
+drizzle/
+
+# Jekyll (docs)
+docs/_site/
+docs/.jekyll-cache/
+docs/Gemfile.lock
+docs/.bundle/
+docs/vendor/
 
 # Sailor
 src/lib/sailor/generated/
-backups/
+backup/

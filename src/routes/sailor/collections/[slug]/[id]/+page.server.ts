@@ -288,8 +288,8 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
           where: (users: any, { eq }: any) => eq(users.id, page.author),
           columns: { name: true, email: true }
         });
-        page.authorName = authorUser?.name || null;
-        page.authorEmail = authorUser?.email || null;
+        page.author_name = authorUser?.name || null;
+        page.author_email = authorUser?.email || null;
       }
 
       // Load last modified by name if field exists
@@ -298,8 +298,8 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
           where: (users: any, { eq }: any) => eq(users.id, page.last_modified_by),
           columns: { name: true, email: true }
         });
-        page.lastModifiedByName = lastModifiedUser?.name || null;
-        page.lastModifiedByEmail = lastModifiedUser?.email || null;
+        page.last_modified_by_name = lastModifiedUser?.name || null;
+        page.last_modified_by_email = lastModifiedUser?.email || null;
       }
     } catch (error) {
       log.warn('Failed to load user names', { error });
@@ -313,9 +313,11 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
   headerActions.push({
     type: 'payload-preview',
     props: {
-      pageId: String(page.id || ''),
-      collectionSlug: slug,
-      collectionFields: effectiveFields,
+      type: 'collection',
+      id: String(page.id || ''),
+      slug: slug,
+      title: 'Collection Payload',
+      fields: effectiveFields,
       initialPayload: {
         ...page,
         blocks: blocks.map((block: any) => ({

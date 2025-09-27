@@ -1,16 +1,29 @@
 import { getSettings } from '$sailor/core/settings';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-  // Initialize environment variables if not already done
-  await SystemSettingsService.initializeFromEnv();
+export const load: PageServerLoad = async ({ parent }) => {
+  // Get shared settings data from layout
+  const { settingsData } = await parent();
 
   // Get complete settings (defaults + template overrides + database overrides)
   const settings = await getSettings();
 
+  // Create header actions for payload preview
+  const headerActions = [];
+  headerActions.push({
+    type: 'payload-preview',
+    props: {
+      type: 'settings',
+      id: 'settings',
+      title: 'Storage Settings Payload',
+      expandedCategory: 'storage',
+      initialPayload: settingsData
+    }
+  });
+
   return {
     storageConfig: settings.storage,
+    headerActions,
     // Mask sensitive information for display
     displayConfig: {
       provider: settings.storage.provider,
@@ -28,5 +41,3 @@ export const load: PageServerLoad = async () => {
     }
   };
 };
-
-// No actions needed - using remote functions instead

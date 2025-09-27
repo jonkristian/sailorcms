@@ -173,7 +173,7 @@ export function registerCoreInit(program) {
 # Sailor CMS
 static/cache/
 static/uploads/
-backups/
+backup/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm`;

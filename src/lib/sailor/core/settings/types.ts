@@ -1,6 +1,7 @@
 // Storage Settings
 export interface StorageSettings {
   provider?: 'local' | 's3'; // Optional since it's set via environment variables
+  excludePaths?: string[]; // Paths/folders to exclude from storage scanning
   providers?: {
     // Optional since it's built from environment variables
     local: LocalStorageConfig;

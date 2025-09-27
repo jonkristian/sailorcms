@@ -74,12 +74,41 @@ export class SchemaGenerator {
     // Register core tables in metadata
     this.metadata.registerTable('files', {
       type: 'core',
-      fields: ['id', 'name', 'original_name', 'mime_type', 'size', 'path', 'url', 'width', 'height', 'alt_text', 'alt', 'description', 'author', 'created_at', 'updated_at']
+      fields: [
+        'id',
+        'name',
+        'original_name',
+        'mime_type',
+        'size',
+        'path',
+        'url',
+        'width',
+        'height',
+        'alt_text',
+        'alt',
+        'description',
+        'author',
+        'created_at',
+        'updated_at'
+      ]
     });
 
     this.metadata.registerTable('users', {
       type: 'core',
-      fields: ['id', 'email', 'name', 'password_hash', 'role', 'avatar', 'image', 'email_verified', 'status', 'last_login', 'created_at', 'updated_at']
+      fields: [
+        'id',
+        'email',
+        'name',
+        'password_hash',
+        'role',
+        'avatar',
+        'image',
+        'email_verified',
+        'status',
+        'last_login',
+        'created_at',
+        'updated_at'
+      ]
     });
 
     this.metadata.registerTable('tags', {

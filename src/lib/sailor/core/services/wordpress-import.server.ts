@@ -783,9 +783,9 @@ export class WordPressImportService {
             await db.run(
               sql`INSERT INTO ${sql.identifier(`collection_${options.collectionSlug}`)} 
                   (${sql.join(
-                Object.keys(postData).map((key) => sql.identifier(key)),
-                sql`, `
-              )})
+                    Object.keys(postData).map((key) => sql.identifier(key)),
+                    sql`, `
+                  )})
                   VALUES (${sql.join(Object.values(postData), sql`, `)})`
             );
           }

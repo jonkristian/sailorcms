@@ -8,7 +8,7 @@
   // Navigation items for settings
   const navItems = [
     {
-      label: 'Site Settings',
+      label: 'Settings',
       href: '/sailor/settings',
       icon: Settings,
       description: 'Basic site information'

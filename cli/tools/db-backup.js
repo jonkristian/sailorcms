@@ -57,7 +57,7 @@ export function registerDbBackup(program) {
           const bucket = validationResult.bucket;
           console.log(`🔍 Would create backup: ${siteName}-${timestamp}.sqlite.gz`);
           if (bucket) {
-            console.log(`🔍 Would upload to: ${bucket}/backups/${siteName}-${timestamp}.sqlite.gz`);
+            console.log(`🔍 Would upload to: ${bucket}/backup/${siteName}-${timestamp}.sqlite.gz`);
           } else {
             console.log(
               `🔍 Would save locally to: ${options.tempDir}/${siteName}-${timestamp}.sqlite.gz`
@@ -99,12 +99,12 @@ export function registerDbBackup(program) {
 
           console.log('✅ Backup completed successfully!');
           console.log(`📊 Backup size: ${backupInfo.size}`);
-          console.log(`☁️ Uploaded to: ${bucket}/backups/${siteName}-${timestamp}.sqlite.gz`);
+          console.log(`☁️ Uploaded to: ${bucket}/backup/${siteName}-${timestamp}.sqlite.gz`);
         } else {
-          // No S3 configured, save locally to ./backups/
+          // No S3 configured, save locally to ./backup/
           const localBackupPath = await saveLocalBackup(
             backupInfo.localPath,
-            './backups/',
+            './backup/',
             siteName,
             timestamp
           );
@@ -380,7 +380,7 @@ async function uploadToS3(backupPath, options, siteName, timestamp, bucket) {
 
     const command = new PutObjectCommand({
       Bucket: bucket,
-      Key: `backups/${fileName}`,
+      Key: `backup/${fileName}`,
       Body: fileContent,
       ContentType: 'application/gzip',
       Metadata: {
@@ -391,7 +391,7 @@ async function uploadToS3(backupPath, options, siteName, timestamp, bucket) {
     });
 
     await client.send(command);
-    console.log(`✅ Uploaded to S3: ${bucket}/backups/${fileName}`);
+    console.log(`✅ Uploaded to S3: ${bucket}/backup/${fileName}`);
   } catch (error) {
     if (error.code === 'MODULE_NOT_FOUND') {
       throw new Error('AWS SDK not available. Run: npm install @aws-sdk/client-s3');
@@ -422,7 +422,7 @@ async function cleanupOldBackups(options, siteName, bucket) {
     // List backups for this site
     const listCommand = new ListObjectsV2Command({
       Bucket: bucket,
-      Prefix: `backups/${siteName}-`
+      Prefix: `backup/${siteName}-`
     });
 
     const response = await client.send(listCommand);

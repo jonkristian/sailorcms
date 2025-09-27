@@ -56,14 +56,11 @@
 </script>
 
 <svelte:head>
-  <title>Site Settings - Sailor CMS</title>
+  <title>Settings - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
-  <Header
-    title="Site Settings"
-    description="Configure your site's basic information and settings"
-  />
+  <Header title="Settings" description="Configure your site's basic information and settings" />
 
   <form onsubmit={handleSubmit}>
     <Card.Root>

@@ -20,6 +20,14 @@ import { building } from '$app/environment';
 let db: any;
 if (!building) {
   db = await createDatabaseConnection();
+
+  // Initialize template settings on startup
+  try {
+    const { SystemSettingsService } = await import('../services/system-settings.server');
+    await SystemSettingsService.loadTemplateSettings();
+  } catch (error) {
+    console.warn('Warning: Failed to load template settings on startup:', error);
+  }
 }
 
 export { db };

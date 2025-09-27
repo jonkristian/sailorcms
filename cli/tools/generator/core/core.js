@@ -85,13 +85,13 @@ export class CoreGenerator {
   updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
 });`,
 
-      // System settings table
-      `export const systemSettings = ${this.adapter.getTableFunction()}('system_settings', {
-  id: ${this.adapter.getPrimaryKeyDefinition()},
-  key: ${this.adapter.getTextFieldDefinition('key', { notNull: true, unique: true })},
+      // Settings table
+      `export const settings = ${this.adapter.getTableFunction()}('settings', {
+  key: text('key').primaryKey().notNull(),
   value: ${this.adapter.getTextFieldDefinition('value', { notNull: true })},
   description: ${this.adapter.getTextFieldDefinition('description')},
   category: ${this.adapter.getTextFieldDefinition('category', { notNull: true })},
+  source: ${this.adapter.getTextFieldDefinition('source', { notNull: true, default: 'user' })},
   created_at: ${this.adapter.getTimestampDefinition('created_at')},
   updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
 });`,

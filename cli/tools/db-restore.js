@@ -184,7 +184,7 @@ async function selectS3Backup(options, bucket) {
 
     const listCommand = new ListObjectsV2Command({
       Bucket: bucket,
-      Prefix: `backups/${siteName}-`
+      Prefix: `backup/${siteName}-`
     });
 
     const response = await client.send(listCommand);
