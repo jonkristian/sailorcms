@@ -24,6 +24,11 @@ export class BlockGenerator {
     const childTables = this.createChildTables(mainTable.name, definition.fields || {}, entityInfo);
     tables.push(...childTables);
 
+    // Handle relation fields (foreign keys, junction tables)
+    const allFields = this.mergeFields(definition, coreFields);
+    const relationTables = this.createRelationTables(mainTable.name, allFields, entityInfo);
+    tables.push(...relationTables);
+
     return tables;
   }
 
@@ -110,6 +115,78 @@ export class BlockGenerator {
       { name: fieldName, ...fieldDef },
       entityInfo
     );
+  }
+
+  /**
+   * Create junction tables for many-to-many relations
+   */
+  createRelationTables(mainTableName, allFields, entityInfo) {
+    const tables = [];
+
+    for (const [fieldName, fieldDef] of Object.entries(allFields)) {
+      if (fieldDef.type !== 'relation') continue;
+
+      const relation = fieldDef.relation;
+      if (!relation) continue;
+
+      if (relation.type === 'many-to-many') {
+        // Create junction table for many-to-many relations
+        const targetTable = this.resolveTargetTable(relation);
+        const junctionTableName = `junction_${mainTableName.replace('block_', '')}_${this.toSnakeCase(fieldName)}`;
+
+        const junctionTable = this.tableGen.createJunctionTable(
+          junctionTableName,
+          mainTableName,
+          targetTable,
+          entityInfo
+        );
+        tables.push(junctionTable);
+      } else {
+        // one-to-one and one-to-many relations just add foreign key to main table
+        // The foreign key is handled in buildMainTableFields
+        // But we need to track the relation for proper Drizzle relation generation
+        const targetTable = this.resolveTargetTable(relation);
+
+        this.tableGen.metadata.addRelation({
+          fromTable: mainTableName,
+          toTable: targetTable,
+          type: relation.type === 'one-to-one' ? 'many-to-one' : 'one-to-many',
+          foreignKey: fieldName,
+          references: 'id'
+        });
+      }
+    }
+
+    return tables;
+  }
+
+  /**
+   * Resolve target table name from relation definition
+   */
+  resolveTargetTable(relation) {
+    if (relation.targetGlobal) {
+      const targetTable = `global_${relation.targetGlobal}`;
+      // Validate that the target table exists in metadata
+      if (!this.tableGen.metadata.getTableMetadata(targetTable)) {
+        console.warn(
+          `Warning: Relation target table '${targetTable}' not found in metadata. Available global tables:`,
+          this.tableGen.metadata.getTablesByType('global').map((t) => t.name)
+        );
+      }
+      return targetTable;
+    }
+    if (relation.targetCollection) {
+      const targetTable = `collection_${relation.targetCollection}`;
+      // Validate that the target table exists in metadata
+      if (!this.tableGen.metadata.getTableMetadata(targetTable)) {
+        console.warn(
+          `Warning: Relation target table '${targetTable}' not found in metadata. Available collection tables:`,
+          this.tableGen.metadata.getTablesByType('collection').map((t) => t.name)
+        );
+      }
+      return targetTable;
+    }
+    throw new Error(`Invalid relation: ${JSON.stringify(relation)}`);
   }
 
   /**

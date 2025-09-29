@@ -394,10 +394,13 @@ export const saveCollectionItem = command(
             if (!blockType) continue;
 
             // Only include fields that map to actual columns on the block table
-            // Exclude 'file' fields (stored in relation tables) and 'array' fields (handled below)
+            // Exclude 'file' fields (stored in relation tables), 'array' fields (handled below), and 'many-to-many' relation fields (stored in junction tables)
             const allowedContentEntries = Object.entries(block.content || {}).filter(([key]) => {
               const fieldDef = blockType.fields?.[key];
-              return fieldDef && fieldDef.type !== 'file' && fieldDef.type !== 'array';
+              if (!fieldDef) return false;
+              if (fieldDef.type === 'file' || fieldDef.type === 'array') return false;
+              if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many') return false;
+              return true;
             });
             const filteredContent = Object.fromEntries(allowedContentEntries);
 
@@ -439,6 +442,38 @@ export const saveCollectionItem = command(
                   blockType.fields,
                   blockArrayFields
                 );
+              }
+
+              // Handle many-to-many relation fields for this block
+              const relationFields = Object.entries(blockType.fields || {}).filter(
+                ([, fieldDef]: [string, any]) => fieldDef?.type === 'relation' && fieldDef?.relation?.type === 'many-to-many'
+              );
+
+              for (const [fieldName] of relationFields as [string, any][]) {
+                const junctionTableName = `junction_${block.blockType}_${fieldName}`;
+                const junctionTable = schema[junctionTableName as keyof typeof schema];
+                if (!junctionTable) continue;
+
+                // Clear existing relation entries for this block/field
+                await tx.run(sql`
+                  DELETE FROM ${sql.identifier(junctionTableName)}
+                  WHERE block_id = ${blockData.id}
+                `);
+
+                const fieldValue = (block.content || {})[fieldName];
+                if (!fieldValue || !Array.isArray(fieldValue)) continue;
+
+                // Insert new junction table entries
+                for (const relatedId of fieldValue) {
+                  const targetId = typeof relatedId === 'object' ? relatedId.id : relatedId;
+                  if (!targetId) continue;
+
+                  await tx.run(sql`
+                    INSERT INTO ${sql.identifier(junctionTableName)}
+                    (id, block_id, target_id, created_at, updated_at)
+                    VALUES (${generateUUID()}, ${blockData.id}, ${targetId}, ${new Date()}, ${new Date()})
+                  `);
+                }
               }
 
               // Handle file fields for this block

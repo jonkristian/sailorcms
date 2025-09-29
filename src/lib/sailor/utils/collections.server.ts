@@ -202,7 +202,9 @@ export async function getCollection(
 
       // Load blocks if requested
       if (includeBlocks) {
+        console.log('Loading blocks for collection item:', item.id);
         item.blocks = await loadBlocksForCollection(item.id);
+        console.log('Loaded blocks count:', item.blocks?.length || 0);
       }
 
       // Populate user references if requested

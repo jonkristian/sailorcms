@@ -434,7 +434,7 @@ export async function getGlobal(
       }
 
       // Load global data for all repeatable items
-      if (withRelations && items.length > 0) {
+      if (items.length > 0) {
         try {
           const globalFields = JSON.parse(globalType.schema);
           for (const item of items) {

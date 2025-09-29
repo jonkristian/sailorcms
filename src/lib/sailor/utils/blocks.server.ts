@@ -3,6 +3,7 @@ import { sql, eq, asc, desc, and } from 'drizzle-orm';
 import { blockTypes, files } from '../generated/schema';
 import * as schema from '../generated/schema';
 import { loadBlockData } from '../core/content/blocks.server';
+import { loadContentData } from '../core/content/content-data';
 
 export interface BlockWithRelations {
   id: string;
@@ -41,6 +42,7 @@ export async function loadBlocksForCollection(
   collectionId: string,
   options: Omit<LoadBlocksOptions, 'collectionId'> = {}
 ): Promise<BlockWithRelations[]> {
+  console.log('loadBlocksForCollection called with collectionId:', collectionId);
   return loadBlocks({ ...options, collectionId });
 }
 
@@ -73,6 +75,8 @@ export async function loadBlocks(options: LoadBlocksOptions = {}): Promise<Block
     orderBy = 'sort',
     order = 'asc'
   } = options;
+
+  console.log('loadBlocks called with collectionId:', collectionId);
 
   // Get available block types from registry
   const availableBlockTypes = await db.query.blockTypes.findMany();
@@ -129,6 +133,9 @@ export async function loadBlocks(options: LoadBlocksOptions = {}): Promise<Block
           if (includeArrayRelations) {
             await loadArrayRelations(enrichedBlock, blockType);
           }
+
+          // Load many-to-many relations
+          await loadManyToManyRelations(enrichedBlock, blockType);
 
           return enrichedBlock;
         })
@@ -216,6 +223,7 @@ export async function loadBlockById(
     if (blockTypeDef) {
       await loadFileRelations(enrichedBlock, blockTypeDef);
       await loadArrayRelations(enrichedBlock, blockTypeDef);
+      await loadManyToManyRelations(enrichedBlock, blockTypeDef);
     }
 
     return enrichedBlock;
@@ -397,6 +405,131 @@ async function loadArrayRelations(
       block[fieldName] = arrayItems;
     } catch {
       // Array relation table doesn't exist yet
+      block[fieldName] = [];
+    }
+  }
+}
+
+/**
+ * Load many-to-many relations for a block
+ */
+async function loadManyToManyRelations(
+  block: BlockWithRelations,
+  blockType: { slug: string; schema: string; [key: string]: any }
+) {
+  const blockFields = JSON.parse(blockType.schema);
+  const relationFields = Object.entries(blockFields).filter(
+    ([_, fieldDef]: [string, any]) => fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many'
+  );
+
+  for (const [fieldName, fieldDef] of relationFields) {
+    try {
+      const junctionTableName = `junction_${blockType.slug}_${fieldName}`;
+      const junctionTable = schema[junctionTableName as keyof typeof schema];
+
+      if (!junctionTable) {
+        console.warn(`Junction table '${junctionTableName}' not found in schema`);
+        block[fieldName] = [];
+        continue;
+      }
+
+      // Get the target table name
+      const relation = (fieldDef as any).relation;
+      let targetTable: any;
+      let targetTableName: string;
+
+      if (relation.targetGlobal) {
+        targetTableName = `global_${relation.targetGlobal}`;
+        targetTable = schema[targetTableName as keyof typeof schema];
+      } else if (relation.targetCollection) {
+        targetTableName = `collection_${relation.targetCollection}`;
+        targetTable = schema[targetTableName as keyof typeof schema];
+      } else {
+        console.warn(`Unknown target for relation ${fieldName}:`, relation);
+        block[fieldName] = [];
+        continue;
+      }
+
+      if (!targetTable) {
+        console.warn(`Target table '${targetTableName}' not found in schema`);
+        block[fieldName] = [];
+        continue;
+      }
+
+      // Join junction table with target table to get full objects
+      const relationResult = await db
+        .select()
+        .from(targetTable)
+        .innerJoin(junctionTable, eq((targetTable as any).id, (junctionTable as any).target_id))
+        .where(eq((junctionTable as any).block_id, block.id));
+
+      // Extract the target objects and recursively load their nested data
+      const relatedObjects = await Promise.all(
+        relationResult.map(async (row: any) => {
+          // The target table data is in a nested object named after the table
+          const relatedObject = row[targetTableName] || row;
+
+          // Recursively load nested data for the related object
+          // We need to determine the target content type and slug
+          let targetContentType: 'block' | 'global';
+          let targetSlug: string;
+
+          if (relation.targetGlobal) {
+            targetContentType = 'global';
+            targetSlug = relation.targetGlobal;
+          } else if (relation.targetCollection) {
+            targetContentType = 'global'; // Collections use 'global' pattern for content loading
+            targetSlug = relation.targetCollection;
+          } else {
+            return relatedObject; // Return as-is if we can't determine type
+          }
+
+          // Get the actual schema definition for the target content type
+          let targetSchema: Record<string, any> = {};
+
+          try {
+            if (relation.targetGlobal) {
+              // Fetch global schema from database
+              const globalTypeRow = await db.query.globalTypes.findFirst({
+                where: (globalTypes: any, { eq }: any) => eq(globalTypes.slug, relation.targetGlobal)
+              });
+              if (globalTypeRow) {
+                targetSchema = JSON.parse(globalTypeRow.schema);
+              }
+            } else if (relation.targetCollection) {
+              // Fetch collection schema from database
+              const collectionTypeRow = await db.query.collectionTypes.findFirst({
+                where: (collectionTypes: any, { eq }: any) => eq(collectionTypes.slug, relation.targetCollection)
+              });
+              if (collectionTypeRow) {
+                targetSchema = JSON.parse(collectionTypeRow.schema);
+              }
+            }
+
+            // Load nested content data for the related object using its actual schema
+            if (Object.keys(targetSchema).length > 0) {
+              await loadContentData(relatedObject, targetSchema, {
+                contentType: targetContentType,
+                slug: targetSlug,
+                loadFullFileObjects: false // Just load file IDs for better performance
+              });
+            }
+          } catch (schemaError) {
+            // If we can't load the schema, just return the object as-is
+            console.warn(`Failed to load schema for ${targetContentType} ${targetSlug}`, { error: schemaError });
+          }
+
+          return relatedObject;
+        })
+      );
+
+      block[fieldName] = relatedObjects;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(
+        `Failed to load many-to-many relation for ${fieldName} in ${blockType.slug}:`,
+        errorMessage
+      );
       block[fieldName] = [];
     }
   }
