@@ -240,9 +240,10 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
           for (const [fieldName] of fileFields) {
             try {
               const fileResult = await db.run(
-                sql`SELECT * FROM ${sql.identifier(`block_${blockSlug}_${fieldName}`)} WHERE parent_id = ${block.id} ORDER BY "sort"`
+                sql`SELECT file_id FROM ${sql.identifier(`block_${blockSlug}_${fieldName}`)} WHERE parent_id = ${block.id} AND (parent_type = 'block' OR parent_type IS NULL OR parent_type = '') ORDER BY "sort"`
               );
-              fileRelations[fieldName] = fileResult.rows;
+              // Extract just the file IDs for the field renderer
+              fileRelations[fieldName] = fileResult.rows.map((row: any) => row.file_id);
             } catch {
               // File relation table doesn't exist yet
               fileRelations[fieldName] = [];

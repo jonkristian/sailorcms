@@ -65,6 +65,7 @@ export class TableGenerator {
     const fields = {
       id: this.getPrimaryKeyField(),
       parent_id: this.getTextField({ notNull: true }),
+      parent_type: this.getTextField({ notNull: true }),
       file_id: this.getTextField({ notNull: true }),
       sort: this.getIntegerField({ notNull: true, default: 0 }),
       alt_override: this.getTextField(),

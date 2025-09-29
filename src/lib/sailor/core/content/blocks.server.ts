@@ -103,7 +103,7 @@ export async function saveNestedArrayFields(
         // Clear existing file relations for this item/field
         await tx.run(sql`
           DELETE FROM ${sql.identifier(fileTableName)}
-          WHERE parent_id = ${itemId}
+          WHERE parent_id = ${itemId} AND parent_type = 'block'
         `);
 
         if (!fieldValue) continue;
@@ -116,13 +116,13 @@ export async function saveNestedArrayFields(
           await tx.run(sql`
             INSERT INTO ${sql.identifier(fileTableName)}
             (${sql.join(
-              ['id', 'parent_id', 'file_id', 'sort', 'created_at'].map((key) =>
+              ['id', 'parent_id', 'parent_type', 'file_id', 'sort', 'created_at'].map((key) =>
                 sql.identifier(key)
               ),
               sql`, `
             )})
             VALUES (${sql.join(
-              [randomUUID(), itemId, fileId, i, Date.now()].map((val) => sql`${val}`),
+              [randomUUID(), itemId, 'block', fileId, i, Date.now()].map((val) => sql`${val}`),
               sql`, `
             )})`);
         }

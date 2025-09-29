@@ -1226,6 +1226,7 @@ export class WordPressImportService {
     } catch (error) {
       console.error('WordPress API import failed:', error);
       result.success = false;
+      result.errors.push(error instanceof Error ? error.message : 'Unknown error');
       return result;
     }
   }
@@ -1589,20 +1590,25 @@ export class WordPressImportService {
 
         // Extract author name from embedded data - fallback to current user
         let authorName = 'Current User'; // Will be mapped to current user ID
-        if (apiPost._embedded?.author?.[0]) {
-          authorName = apiPost._embedded.author[0].name;
+        if (apiPost._embedded?.author?.[0] && !(apiPost._embedded.author[0] as any).code) {
+          // Only use author name if it's not an error response
+          authorName = apiPost._embedded.author[0].name || 'Current User';
         }
+
+        // Extract content and excerpt based on field mappings (safely)
+        const content = options.fieldMappings?.content ? (apiPost.content?.rendered || '') : '';
+        const excerpt = options.fieldMappings?.excerpt ? (apiPost.excerpt?.rendered || '') : '';
 
         const convertedPost: WordPressPost = {
           id: crypto.randomUUID(),
           wp_id: apiPost.id, // Preserve original WordPress ID for relationship mapping
-          title: apiPost.title.rendered,
-          content: apiPost.content.rendered,
-          excerpt: apiPost.excerpt.rendered,
-          slug: apiPost.slug,
+          title: apiPost.title?.rendered || '',
+          content,
+          excerpt,
+          slug: apiPost.slug || '',
           status: apiPost.status as 'publish' | 'draft' | 'private',
-          date: apiPost.date,
-          modified: apiPost.modified,
+          date: apiPost.date || '',
+          modified: apiPost.modified || '',
           categories,
           tags,
           author: authorName,

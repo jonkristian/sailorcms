@@ -1,5 +1,5 @@
 import { db } from '../db/index.server';
-import { sql, eq, asc } from 'drizzle-orm';
+import { sql, eq, asc, and } from 'drizzle-orm';
 import { files } from '../../generated/schema';
 import * as schema from '../../generated/schema';
 import { toSnakeCase } from '../utils/string';
@@ -128,7 +128,10 @@ export async function loadContentData(
                         .select()
                         .from(files)
                         .innerJoin(relationTable, eq(files.id, (relationTable as any).file_id))
-                        .where(eq((relationTable as any).parent_id, arrayItem.id))
+                        .where(and(
+                          eq((relationTable as any).parent_id, arrayItem.id),
+                          eq((relationTable as any).parent_type, contentType)
+                        ))
                         .orderBy(asc((relationTable as any).sort));
 
                       if (fileResult.length > 0) {

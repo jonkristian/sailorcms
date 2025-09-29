@@ -38,6 +38,16 @@ export const categoriesGlobal: GlobalDefinition = {
       position: 'main',
       width: 'full'
     },
+    image: {
+      type: 'file',
+      label: 'Image',
+      position: 'main',
+      width: 'full',
+      file: {
+        fileType: 'image',
+        accept: 'image/*'
+      }
+    },
     status: {
       position: 'sidebar',
       order: 3,

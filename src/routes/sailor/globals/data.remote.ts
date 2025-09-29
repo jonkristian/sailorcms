@@ -2,7 +2,7 @@
 import { command, getRequestEvent } from '$app/server';
 import { TagService } from '$sailor/core/services/tag.server';
 import { db } from '$sailor/core/db/index.server';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { generateUUID, normalizeRelationId } from '$sailor/core/utils/common';
@@ -425,6 +425,7 @@ export const updateRepeatableGlobal = command(
 
       Object.entries(data).forEach(([key, value]) => {
         const fieldDef = globalFields[key];
+
         if (fieldDef?.type === 'array') {
           try {
             arrayFields[key] = Array.isArray(value) ? value : [value];
@@ -651,7 +652,16 @@ export const updateRepeatableGlobal = command(
           const snake = toSnakeCase(fieldName);
           const relationTableName = `global_${globalSlug}_${snake}`;
           const relationTable = (schema as any)[relationTableName];
-          if (!relationTable) continue;
+
+          if (!relationTable) {
+            log.warn(`File relation table not found: ${relationTableName}`, {
+              fieldName,
+              globalSlug,
+              snake,
+              availableTables: Object.keys(schema).filter(key => key.includes(`global_${globalSlug}`))
+            });
+            continue;
+          }
 
           let fileId: any = fileValue;
           if (Array.isArray(fileId) && fileId.length > 0) {
@@ -659,21 +669,52 @@ export const updateRepeatableGlobal = command(
           } else if (typeof fileId === 'object' && fileId !== null) {
             fileId = (fileId as any).id || null;
           }
+
+          log.debug(`Processing file field ${fieldName}`, {
+            relationTableName,
+            fileId,
+            originalValue: fileValue,
+            finalItemId
+          });
+
           // Clear existing
           await (db as any)
             .delete(relationTable)
-            .where(eq((relationTable as any).parent_id, finalItemId));
+            .where(and(
+              eq((relationTable as any).parent_id, finalItemId),
+              eq((relationTable as any).parent_type, 'global')
+            ));
+
           if (fileId) {
-            await (db as any).insert(relationTable).values({
+            const insertData = {
               id: generateUUID(),
               parent_id: finalItemId,
+              parent_type: 'global',
               file_id: fileId,
               sort: 0,
               created_at: getCurrentTimestamp()
+            };
+
+            log.debug(`Inserting file relation`, { relationTableName, insertData });
+
+            await (db as any).insert(relationTable).values(insertData);
+
+            log.info(`Successfully saved file field ${fieldName}`, {
+              relationTableName,
+              fileId,
+              itemId: finalItemId
             });
+          } else {
+            log.debug(`No file ID provided for ${fieldName}, skipping insertion`);
           }
         } catch (error) {
-          log.error(`Failed to save file field ${fieldName}`, {}, error as Error);
+          log.error(`Failed to save file field ${fieldName}`, {
+            fieldName,
+            globalSlug,
+            relationTableName: `global_${globalSlug}_${toSnakeCase(fieldName)}`,
+            fileValue,
+            finalItemId
+          }, error as Error);
         }
       }
 
@@ -877,8 +918,12 @@ export const updateRelationalGlobal = command(
               values.push(item[propKey] || null);
             });
 
-            // Add parent_id for nestable arrays (core field)
-            if (fieldDef.nestable && item.parent_id !== undefined) {
+            // Add parent_id for nestable arrays only if defined in schema
+            if (
+              fieldDef.nestable &&
+              fieldDef.items?.properties?.parent_id !== undefined &&
+              item.parent_id !== undefined
+            ) {
               columns.push('parent_id');
               values.push(item.parent_id);
             }
@@ -891,8 +936,8 @@ export const updateRelationalGlobal = command(
               sql`${sql.identifier('updated_at')} = excluded.${sql.identifier('updated_at')}`
             );
 
-            // Add parent_id to conflict resolution for nestable arrays
-            if (fieldDef.nestable) {
+            // Add parent_id to conflict resolution only if present in schema
+            if (fieldDef.nestable && fieldDef.items?.properties?.parent_id !== undefined) {
               updateSetters.push(
                 sql`${sql.identifier('parent_id')} = excluded.${sql.identifier('parent_id')}`
               );

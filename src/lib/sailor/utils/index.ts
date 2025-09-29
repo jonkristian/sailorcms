@@ -27,7 +27,6 @@ export {
   setDefaultBreakpoints,
   getDefaultBreakpoints
 } from './files';
-export { getFileClient, getImageClient, copyToClipboard, downloadFile, throttle } from './browser';
 
 // Universal utilities
 export { renderContent, getExcerpt } from './content';

@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { log } from '$sailor/core/utils/logger';
 import { db } from '$sailor/core/db/index.server';
-import { eq, asc, desc } from 'drizzle-orm';
+import { eq, asc, desc, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { TagService } from '$sailor/core/services/tag.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
@@ -166,6 +166,75 @@ export const load = async ({ params, locals }) => {
           existingData[fieldName] = [];
         } else {
           items.forEach((item) => {
+            item[fieldName] = [];
+          });
+        }
+      }
+    }
+  }
+
+  // Load file field data from file relation tables (for both flat and repeatable globals)
+  for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {
+    if ((fieldDef as any).type === 'file') {
+      try {
+        const snakeCaseFieldName = toSnakeCase(fieldName);
+        const fileTableName = `global_${slug}_${snakeCaseFieldName}`;
+        const fileTable = schema[fileTableName as keyof typeof schema];
+
+        if (fileTable) {
+          const fileResult = await db
+            .select({
+              id: (fileTable as any).id,
+              parent_id: (fileTable as any).parent_id,
+              file_id: (fileTable as any).file_id,
+              sort: (fileTable as any).sort,
+              alt_override: (fileTable as any).alt_override,
+              filename: schema.files.name,
+              path: schema.files.path,
+              url: schema.files.url,
+              file_size: schema.files.size,
+              mime_type: schema.files.mime_type
+            })
+            .from(fileTable)
+            .innerJoin(schema.files, eq(schema.files.id, (fileTable as any).file_id))
+            .where(eq((fileTable as any).parent_type, 'global'))
+            .orderBy(asc((fileTable as any).parent_id), asc((fileTable as any).sort));
+
+          if (isFlat) {
+            // For flat globals, attach to existingData
+            const filteredFiles = fileResult.filter(
+              (row: any) => row.parent_id === existingData.id
+            );
+            // For single file fields, use the file ID string or empty string
+            const fileId = filteredFiles.length > 0 ? filteredFiles[0].file_id : '';
+            existingData[fieldName] = fileId;
+          } else {
+            // For repeatable globals, attach to each item
+            const allFileData = fileResult || [];
+            items.forEach((item: any) => {
+              const itemFiles = allFileData.filter((row: any) => row.parent_id === item.id);
+              // For single file fields, use the file ID string or empty string
+              const fileId = itemFiles.length > 0 ? itemFiles[0].file_id : '';
+              item[fieldName] = fileId;
+            });
+          }
+        } else {
+          log.warn(`File relation table ${fileTableName} not found in schema`);
+          if (isFlat) {
+            existingData[fieldName] = [];
+          } else {
+            items.forEach((item: any) => {
+              item[fieldName] = [];
+            });
+          }
+        }
+      } catch (err) {
+        log.warn(`Could not load file field ${fieldName}:`, { fieldName, error: err });
+
+        if (isFlat) {
+          existingData[fieldName] = [];
+        } else {
+          items.forEach((item: any) => {
             item[fieldName] = [];
           });
         }

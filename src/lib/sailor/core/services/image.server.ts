@@ -70,7 +70,7 @@ export class ImageProcessor {
 
   // Generate cache key using predictable naming scheme
   private static generateCacheKey(imagePath: string, options: ImageTransformOptions): string {
-    const { width, height, quality = 80, format = 'webp', resize = 'cover' } = options;
+    const { width, height, quality = 80 } = options;
 
     // Get the base filename without extension
     const baseName = basename(imagePath, extname(imagePath));
@@ -103,7 +103,6 @@ export class ImageProcessor {
 
   // Clean up expired memory cache entries
   private static cleanupMemoryCache(): void {
-    const now = Date.now();
     for (const [key, entry] of this.memoryCache.entries()) {
       if (!this.isCacheValid(entry)) {
         this.memoryCache.delete(key);
@@ -183,13 +182,23 @@ export class ImageProcessor {
         return null;
       }
 
+      // Read credentials from environment variables for security
+      // (they are intentionally not stored in database)
+      const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+      const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+
+      if (!accessKeyId || !secretAccessKey) {
+        console.warn('S3 credentials not found in environment variables, skipping cache read');
+        return null;
+      }
+
       const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3');
 
       const s3Client = new S3Client({
         region: s3Config.region,
         credentials: {
-          accessKeyId: s3Config.accessKeyId,
-          secretAccessKey: s3Config.secretAccessKey
+          accessKeyId,
+          secretAccessKey
         },
         endpoint: s3Config.endpoint,
         forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
@@ -239,7 +248,6 @@ export class ImageProcessor {
     mimeType: string
   ): Promise<void> {
     try {
-      const { S3StorageService } = await import('./storage-s3.server');
       const settings = await getSettings();
       const s3Config = settings.storage?.providers?.s3;
 
@@ -247,13 +255,22 @@ export class ImageProcessor {
         throw new Error('S3 not configured');
       }
 
+      // Read credentials from environment variables for security
+      // (they are intentionally not stored in database)
+      const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+      const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+
+      if (!accessKeyId || !secretAccessKey) {
+        throw new Error('S3 credentials not found in environment variables (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)');
+      }
+
       const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
 
       const s3Client = new S3Client({
         region: s3Config.region,
         credentials: {
-          accessKeyId: s3Config.accessKeyId,
-          secretAccessKey: s3Config.secretAccessKey
+          accessKeyId,
+          secretAccessKey
         },
         endpoint: s3Config.endpoint,
         forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'

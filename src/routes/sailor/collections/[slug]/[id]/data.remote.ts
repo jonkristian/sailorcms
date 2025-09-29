@@ -88,7 +88,7 @@ export const saveCollectionItem = command(
             let v: any = value;
             try {
               v = typeof v === 'string' && v.startsWith('{') ? JSON.parse(v) : v;
-            } catch {}
+            } catch { }
             if (Array.isArray(v) && v.length > 0) v = v[0]?.id || v[0] || null;
             else if (typeof v === 'object' && v !== null) v = v.id || null;
             regularFields[key] = v ?? null;
@@ -275,27 +275,39 @@ export const saveCollectionItem = command(
 
               for (let index = 0; index < arrayItems.length; index++) {
                 const item = arrayItems[index];
-                const itemData = {
-                  id: item.id || generateUUID(),
-                  collection_id: itemId,
-                  sort: index,
-                  ...item,
-                  created_at: new Date(),
-                  updated_at: new Date()
-                };
+
+                // Build columns/values explicitly to avoid inserting unknown keys
+                const columns = ['id', 'collection_id', 'sort', 'created_at', 'updated_at'];
+                const values = [
+                  item.id || generateUUID(),
+                  itemId,
+                  index,
+                  new Date(),
+                  new Date()
+                ];
+
+                // Add schema-defined properties from array item
+                Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                  columns.push(propKey);
+                  values.push((item as any)[propKey] ?? null);
+                });
+
+                // Optionally include parent_id when array is nestable and defined in schema
+                if (
+                  fieldDef.nestable &&
+                  fieldDef.items?.properties?.parent_id !== undefined &&
+                  (item as any).parent_id !== undefined
+                ) {
+                  columns.push('parent_id');
+                  values.push((item as any).parent_id);
+                }
 
                 const relationTable = schema[relationTableName as keyof typeof schema];
                 if (relationTable) {
                   await tx.run(sql`
                     INSERT OR REPLACE INTO ${sql.identifier(relationTableName)}
-                    (${sql.join(
-                      Object.keys(itemData).map((key) => sql.identifier(key)),
-                      sql`, `
-                    )})
-                    VALUES (${sql.join(
-                      Object.values(itemData).map((val) => sql`${val}`),
-                      sql`, `
-                    )})`);
+                    (${sql.join(columns.map((c) => sql.identifier(c)), sql`, `)})
+                    VALUES (${sql.join(values.map((v) => sql`${v}`), sql`, `)})`);
                 }
               }
             }
@@ -329,15 +341,15 @@ export const saveCollectionItem = command(
               await tx.run(sql`
                 INSERT INTO ${sql.identifier(junctionTableName)}
                 (${sql.join(
-                  [
-                    sql.identifier('id'),
-                    sql.identifier('collection_id'),
-                    sql.identifier('target_id'),
-                    sql.identifier('created_at'),
-                    sql.identifier('updated_at')
-                  ],
-                  sql`, `
-                )})
+                [
+                  sql.identifier('id'),
+                  sql.identifier('collection_id'),
+                  sql.identifier('target_id'),
+                  sql.identifier('created_at'),
+                  sql.identifier('updated_at')
+                ],
+                sql`, `
+              )})
                 VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${new Date()}, ${new Date()})
               `);
             }
@@ -361,7 +373,7 @@ export const saveCollectionItem = command(
                 if (fileTable) {
                   await tx.run(sql`
                     DELETE FROM ${sql.identifier(fileTableName)}
-                    WHERE parent_id IN (
+                    WHERE parent_type = 'block' AND parent_id IN (
                       SELECT id FROM ${sql.identifier(`block_${blockTypeSlug}`)}
                       WHERE collection_id = ${itemId}
                     )
@@ -403,13 +415,13 @@ export const saveCollectionItem = command(
               await tx.run(sql`
                 INSERT OR REPLACE INTO ${sql.identifier(`block_${block.blockType}`)}
                 (${sql.join(
-                  Object.keys(blockData).map((key) => sql.identifier(key)),
-                  sql`, `
-                )})
+                Object.keys(blockData).map((key) => sql.identifier(key)),
+                sql`, `
+              )})
                 VALUES (${sql.join(
-                  Object.values(blockData).map((val) => sql`${val}`),
-                  sql`, `
-                )})`);
+                Object.values(blockData).map((val) => sql`${val}`),
+                sql`, `
+              )})`);
 
               // Handle nested array fields in blocks
               const blockArrayFields: Record<string, any[]> = {};
@@ -442,7 +454,7 @@ export const saveCollectionItem = command(
                 // Clear existing file relations for this block/field
                 await tx.run(sql`
                   DELETE FROM ${sql.identifier(fileTableName)}
-                  WHERE parent_id = ${blockData.id}
+                  WHERE parent_id = ${blockData.id} AND parent_type = 'block'
                 `);
 
                 const fieldValue = (block.content || {})[fieldName];
@@ -462,15 +474,15 @@ export const saveCollectionItem = command(
                   await tx.run(sql`
                     INSERT INTO ${sql.identifier(fileTableName)}
                     (${sql.join(
-                      [
-                        sql.identifier('id'),
-                        sql.identifier('parent_id'),
-                        sql.identifier('file_id'),
-                        sql.identifier('sort'),
-                        sql.identifier('created_at')
-                      ],
-                      sql`, `
-                    )})
+                    [
+                      sql.identifier('id'),
+                      sql.identifier('parent_id'),
+                      sql.identifier('file_id'),
+                      sql.identifier('sort'),
+                      sql.identifier('created_at')
+                    ],
+                    sql`, `
+                  )})
                     VALUES (${generateUUID()}, ${blockData.id}, ${fileId}, ${i}, ${new Date()})
                   `);
                 }
@@ -488,14 +500,14 @@ export const saveCollectionItem = command(
         for (const [, tags] of Object.entries(tagFields)) {
           const tagNames = Array.isArray(tags)
             ? ((tags as any[])
-                .map((t: any) =>
-                  typeof t === 'object' && t !== null
-                    ? t.name || t.value || undefined
-                    : typeof t === 'string'
-                      ? t
-                      : undefined
-                )
-                .filter(Boolean) as string[])
+              .map((t: any) =>
+                typeof t === 'object' && t !== null
+                  ? t.name || t.value || undefined
+                  : typeof t === 'string'
+                    ? t
+                    : undefined
+              )
+              .filter(Boolean) as string[])
             : [];
           await TagService.tagEntity(taggableType, itemId, tagNames);
         }

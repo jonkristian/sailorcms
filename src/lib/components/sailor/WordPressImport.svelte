@@ -9,6 +9,7 @@
   import * as Select from '$lib/components/ui/select';
   import { Progress } from '$lib/components/ui/progress';
   import { Separator } from '$lib/components/ui/separator';
+  import { browser } from '$app/environment';
 
   let {
     collectionSlug,
@@ -179,6 +180,7 @@
       // Start the import
       const importPromise = importWordPressContent({
         collectionSlug,
+        selectedPostType, // Add the selected post type
         downloadFiles: true, // Always download files for complete import
         createCategories,
         createTags,
@@ -267,9 +269,9 @@
     }
   }
 
-  // Fetch fields when we reach step 4 (field mapping)
+  // Fetch fields when we reach step 3 (field mapping) - client-side only
   $effect(() => {
-    if (currentStep === 3 && collectionSlug && availableFields.length === 0) {
+    if (browser && currentStep === 3 && collectionSlug && availableFields.length === 0) {
       fetchCollectionFields();
     }
   });

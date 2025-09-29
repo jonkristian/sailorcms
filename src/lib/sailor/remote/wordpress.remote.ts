@@ -56,6 +56,7 @@ export const importWordPressContent = command(
   'unchecked',
   async (options: {
     collectionSlug: string;
+    selectedPostType?: string;
     downloadFiles: boolean;
     createCategories: boolean;
     createTags: boolean;
@@ -77,39 +78,17 @@ export const importWordPressContent = command(
     }
 
     try {
-      const {
-        collectionSlug,
-        downloadFiles,
-        createCategories,
-        createTags,
-        skipExistingSlugs,
-        useCurrentUserAsAuthor,
-        statusMapping,
-        fieldMappings,
-        apiConfig
-      } = options;
-
-      if (!collectionSlug || !apiConfig) {
+      if (!options.collectionSlug || !options.apiConfig) {
         return { success: false, error: 'Missing required fields: collectionSlug and apiConfig' };
       }
 
-      // Start the import process
+      // Start the import process - just add currentUserId to the existing options
       const importOptions = {
-        collectionSlug,
-        downloadFiles,
-        createCategories,
-        createTags,
-        skipExistingSlugs,
-        useCurrentUserAsAuthor,
-        statusMapping,
-        fieldMappings,
+        ...options,
         currentUserId: locals.user.id
       };
 
-      const result = await WordPressImportService.importFromAPI({
-        ...importOptions,
-        apiConfig
-      });
+      const result = await WordPressImportService.importFromAPI(importOptions);
 
       return {
         success: true,

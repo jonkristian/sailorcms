@@ -1,5 +1,5 @@
 import { db } from '../core/db/index.server';
-import { sql, eq, asc, desc } from 'drizzle-orm';
+import { sql, eq, asc, desc, and } from 'drizzle-orm';
 import { blockTypes, files } from '../generated/schema';
 import * as schema from '../generated/schema';
 import { loadBlockData } from '../core/content/blocks.server';
@@ -251,7 +251,10 @@ async function loadFileRelations(
           .select({ id: files.id })
           .from(files)
           .innerJoin(relationTable, eq(files.id, (relationTable as any).file_id))
-          .where(eq((relationTable as any).parent_id, block.id))
+          .where(and(
+            eq((relationTable as any).parent_id, block.id),
+            eq((relationTable as any).parent_type, 'block')
+          ))
           .orderBy(asc((relationTable as any).sort));
         fileResult = { rows: result };
       } else {
@@ -259,7 +262,7 @@ async function loadFileRelations(
         fileResult = await db.run(
           sql`SELECT f.id FROM files f 
               JOIN ${sql.identifier(relationTableName)} bf ON f.id = bf.file_id 
-              WHERE bf.parent_id = ${block.id} 
+              WHERE bf.parent_id = ${block.id} AND bf.parent_type = 'block' 
               ORDER BY bf.sort`
         );
       }
@@ -354,7 +357,10 @@ async function loadArrayRelations(
                     .select()
                     .from(files)
                     .innerJoin(fileRelationTable, eq(files.id, (fileRelationTable as any).file_id))
-                    .where(eq((fileRelationTable as any).parent_id, item.id))
+                    .where(and(
+                      eq((fileRelationTable as any).parent_id, item.id),
+                      eq((fileRelationTable as any).parent_type, 'block')
+                    ))
                     .orderBy(asc((fileRelationTable as any).sort));
 
                   if (fileResult.length > 0) {

@@ -169,9 +169,9 @@
 
       // Add file fields from file relations
       if (block.fileRelations) {
-        Object.entries(block.fileRelations).forEach(([fieldName, fileRels]) => {
-          // Convert file relations to array of file IDs
-          content[fieldName] = (fileRels as any[]).map((rel: any) => rel.file_id);
+        Object.entries(block.fileRelations).forEach(([fieldName, fileIds]) => {
+          // File IDs are already extracted on the server
+          content[fieldName] = fileIds as string[];
         });
       }
 
