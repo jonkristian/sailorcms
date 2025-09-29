@@ -3,14 +3,12 @@ import { db } from '$sailor/core/db/index.server';
 import { eq, desc, asc, count, and, or, sql, inArray } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import type { Pagination } from '$sailor/core/types';
-import { createACL } from '$sailor/core/rbac/acl';
 
 export const load = async ({ params, locals, url }) => {
-  // Authentication and basic permissions handled by hooks
-  // This route only needs to check specific collection access
-
-  // Non-null assertion: hooks set security on /sailor/* routes
-  const security = locals.security!;
+  // Check permission to view content
+  if (!(await locals.security.hasPermission('read', 'content'))) {
+    throw error(403, 'Access denied: You do not have permission to view content');
+  }
 
   const { slug } = params;
 
@@ -58,12 +56,8 @@ export const load = async ({ params, locals, url }) => {
     // Build where conditions for search and access control
     const whereConditions = [];
 
-    // Apply ACL filtering at database level
-    const acl = createACL(locals.user);
-    const accessControl = await acl.buildQueryConditions('collection', collectionTable);
-    if (accessControl) {
-      whereConditions.push(accessControl);
-    }
+    // Access control is handled by better-auth at the API level
+    // No database-level filtering needed
 
     // For nestable collections with no search, only paginate top-level items
     // (parent_id is null, empty string, or invalid values like '[]')
@@ -139,9 +133,7 @@ export const load = async ({ params, locals, url }) => {
 
         while (currentLevelIds.length > 0) {
           const childrenWhereConditions = [];
-          if (accessControl) {
-            childrenWhereConditions.push(accessControl);
-          }
+
           childrenWhereConditions.push(
             inArray((collectionTable as any).parent_id, currentLevelIds)
           );
@@ -218,10 +210,10 @@ export const load = async ({ params, locals, url }) => {
     // Calculate permissions for this route
     const permissions = {
       collections: {
-        create: await security.canSilent('create', 'collection'),
-        update: await security.canSilent('update', 'collection'),
-        delete: await security.canSilent('delete', 'collection'),
-        view: await security.canSilent('view', 'collection')
+        create: await locals.security.hasPermission('create', 'content'),
+        update: await locals.security.hasPermission('update', 'content'),
+        delete: await locals.security.hasPermission('delete', 'content'),
+        view: await locals.security.hasPermission('read', 'content')
       }
     };
 

@@ -7,7 +7,6 @@ export interface StorageSettings {
     local: LocalStorageConfig;
     s3?: S3StorageConfig; // Optional since it's only included when selected
   };
-  cache: CacheConfig;
   images: ImageConfig;
   upload: UploadConfig;
 }
@@ -26,38 +25,26 @@ export interface S3StorageConfig {
   publicUrl: string;
 }
 
+// Cache Configuration - Simplified
 export interface CacheConfig {
-  provider: 'local' | 's3' | 'disabled';
-  local: LocalCacheConfig;
-  s3: S3CacheConfig;
-}
-
-export interface LocalCacheConfig {
   enabled: boolean;
-  directory: string;
+  provider?: 'auto' | 'local' | 's3'; // auto = follow main storage
+  path?: string; // Override cache path (from CACHE_PATH env)
   maxSize: string; // Human readable like "1GB"
-}
-
-export interface S3CacheConfig {
-  bucket: string;
-  prefix: string;
-  region: string;
+  s3?: {
+    bucket: string; // Can be different from main storage
+    prefix: string; // e.g., "cache/" or "processed-images/"
+    region?: string; // Inherit from main S3 if not specified
+  };
 }
 
 export interface ImageConfig {
-  formats: string[];
   maxFileSize: string; // Human readable like "10.0MB"
   maxWidth: number; // Maximum width for image transformations
   maxHeight: number; // Maximum height for image transformations
-  defaultQuality: number; // Default quality for transformations
-  allowedTypes: string[];
 
   // Responsive image settings
   breakpoints?: number[]; // Default responsive breakpoints
-
-  sizes?: {
-    [key: string]: { width: number; height: number; quality: number };
-  };
 }
 
 export interface UploadConfig {
@@ -66,54 +53,20 @@ export interface UploadConfig {
   folderStructure: 'flat' | 'date' | 'type';
 }
 
-// System Settings
+// System Settings - Minimal (most via env vars)
 export interface SystemSettings {
-  debugMode: boolean;
+  // Most system settings now handled via environment variables
+  // This interface kept for future system-level settings
 }
 
-// Auth Settings
-export interface AuthSettings {
-  useSecureCookies: boolean;
-}
-
-// SEO Settings - Simplified for headless CMS
-export interface SEOSettings {
-  enabled: boolean;
-  titleTemplate: string;
-  titleSeparator: string;
-  defaultDescription: string;
-  language: string;
-}
-
-// Role Permission Types
-export type PermissionScope =
-  | 'all'
-  | 'public'
-  | 'own'
-  | 'published'
-  | 'draft'
-  | 'archived'
-  | boolean
-  | string[];
-
-export interface ResourcePermissions {
-  view: PermissionScope;
-  create: boolean;
-  update: PermissionScope;
-  delete: PermissionScope;
-}
+// Better-Auth integrated permission types
+export type BetterAuthAction = 'create' | 'read' | 'update' | 'delete';
+export type BetterAuthResource = 'content' | 'files' | 'users' | 'settings';
 
 export interface RoleDefinition {
   name: string;
   description: string;
-  permissions: {
-    collection: ResourcePermissions;
-    global: ResourcePermissions;
-    block: ResourcePermissions;
-    file: ResourcePermissions;
-    user: ResourcePermissions;
-    settings: ResourcePermissions;
-  };
+  permissions: Partial<Record<BetterAuthResource, BetterAuthAction[]>>;
 }
 
 export interface RoleSettings {
@@ -122,17 +75,11 @@ export interface RoleSettings {
   adminRoles: string[];
 }
 
-export interface RouteProtectionSettings {
-  customRoutes?: import('../rbac/route-protection').RouteProtection[];
-  overrideDefaults?: boolean;
-}
 
 // Main Settings Interface
 export interface CMSSettings {
   storage: StorageSettings;
+  cache: CacheConfig;
   system: SystemSettings;
-  seo: SEOSettings;
-  auth?: AuthSettings;
   roles?: RoleSettings;
-  routeProtection?: RouteProtectionSettings;
 }

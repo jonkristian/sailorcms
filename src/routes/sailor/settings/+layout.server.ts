@@ -1,4 +1,4 @@
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import { tryParseJson } from '$sailor/core/utils/common';
 
 export const load = async () => {

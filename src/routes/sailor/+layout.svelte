@@ -13,6 +13,7 @@
   import { getPageTitle } from '$sailor/core/ui/page-title';
   import { toast } from '$sailor/core/ui/toast';
   import { goto } from '$app/navigation';
+  import { getNavigationData } from '$sailor/remote/navigation.remote';
   import '$sailor/styles/sailor.css';
 
   let { children } = $props();
@@ -32,11 +33,15 @@
     collections: UnknownRecord[];
     globals: UnknownRecord[];
     canViewSettings: boolean;
+    canViewUsers: boolean;
+    canViewFiles: boolean;
     loading: boolean;
   }>({
     collections: [],
     globals: [],
     canViewSettings: false,
+    canViewUsers: false,
+    canViewFiles: false,
     loading: true
   });
   let headerActionsState = $derived((page.data.headerActions || []) as HeaderAction[]);
@@ -54,15 +59,10 @@
   });
 
   onMount(async () => {
-    // Load navigation data
+    // Load navigation data using remote function
     try {
-      const response = await fetch('/sailor/api/nav');
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          navData = { ...result.data, loading: false };
-        }
-      }
+      const result = await getNavigationData();
+      navData = { ...result, loading: false };
     } catch (error) {
       console.error('Failed to load navigation data:', error);
       navData.loading = false;

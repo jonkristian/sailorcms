@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { env } from '$env/dynamic/private';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 
 export const load: PageServerLoad = async () => {
   const hasGitHubOAuth = !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET);

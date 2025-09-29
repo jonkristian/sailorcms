@@ -4,7 +4,6 @@ import { db } from '$sailor/core/db/index.server';
 import { log } from '$sailor/core/utils/logger';
 import { eq, and, or, sql, asc, ne } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
 
@@ -48,16 +47,10 @@ export const cloneCollectionItems = command(
           }
 
           // Check permissions
-          const acl = createACL(locals.user);
-          const canCreate = await acl.can('create', 'collection', originalItem[0]);
+          const canCreate = await locals.security.hasPermission('create', 'content');
 
           if (!canCreate) {
-            const errorMessage = getPermissionErrorMessage(
-              locals.user!,
-              'create',
-              'collection',
-              originalItem[0]
-            );
+            const errorMessage = 'You do not have permission to create content';
             errorCount++;
             if (!errorMessages.includes(errorMessage)) {
               errorMessages.push(errorMessage);
@@ -164,16 +157,10 @@ export const deleteCollectionItems = command(
           }
 
           // Check permissions
-          const acl = createACL(locals.user);
-          const canDelete = await acl.can('delete', 'collection', itemToDelete[0]);
+          const canDelete = await locals.security.hasPermission('delete', 'content');
 
           if (!canDelete) {
-            const errorMessage = getPermissionErrorMessage(
-              locals.user!,
-              'delete',
-              'collection',
-              itemToDelete[0]
-            );
+            const errorMessage = 'You do not have permission to delete content';
             errorCount++;
             if (!errorMessages.includes(errorMessage)) {
               errorMessages.push(errorMessage);
@@ -261,11 +248,10 @@ export const updateCollectionItemsAuthor = command(
             continue;
           }
 
-          const acl = createACL(locals.user);
-          const canUpdate = await acl.can('update', 'collection', item[0]);
+          const canUpdate = await locals.security.hasPermission('update', 'content');
           if (!canUpdate) {
             errorCount++;
-            const msg = getPermissionErrorMessage(locals.user!, 'update', 'collection', item[0]);
+            const msg = 'You do not have permission to update content';
             if (!errorMessages.includes(msg)) {
               errorMessages.push(msg);
             }
@@ -328,9 +314,16 @@ export const updateCollectionItemsSort = command(
       }
 
       // Check permissions for each item being reordered
-      const acl = createACL(locals.user);
+      const canUpdate = await locals.security.hasPermission('update', 'content');
+      if (!canUpdate) {
+        return {
+          success: false,
+          error: 'You do not have permission to update content'
+        };
+      }
+
       for (const update of updates) {
-        // Get the item to check permissions
+        // Get the item to verify it exists
         const item = await db
           .select()
           .from(collectionTable)
@@ -339,14 +332,6 @@ export const updateCollectionItemsSort = command(
 
         if (item.length === 0) {
           return { success: false, error: `Item with ID '${update.id}' not found` };
-        }
-
-        const canUpdate = await acl.can('update', 'collection', item[0]);
-        if (!canUpdate) {
-          return {
-            success: false,
-            error: getPermissionErrorMessage(locals.user!, 'update', 'collection', item[0])
-          };
         }
       }
 
@@ -394,6 +379,14 @@ export const updateCollectionItemNesting = command(
       }
 
       // Check permissions for the item being moved
+      const canUpdate = await locals.security.hasPermission('update', 'content');
+      if (!canUpdate) {
+        return {
+          success: false,
+          error: 'You do not have permission to update content'
+        };
+      }
+
       const item = await db
         .select()
         .from(collectionTable)
@@ -402,15 +395,6 @@ export const updateCollectionItemNesting = command(
 
       if (item.length === 0) {
         return { success: false, error: `Item with ID '${itemId}' not found` };
-      }
-
-      const acl = createACL(locals.user);
-      const canUpdate = await acl.can('update', 'collection', item[0]);
-      if (!canUpdate) {
-        return {
-          success: false,
-          error: getPermissionErrorMessage(locals.user!, 'update', 'collection', item[0])
-        };
       }
 
       // Get existing siblings to calculate proper sort order

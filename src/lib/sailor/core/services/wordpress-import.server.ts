@@ -658,7 +658,7 @@ export class WordPressImportService {
             content: processedContent,
             downloadedImages,
             failedImages
-          } = await this.processContentImages(post.content, imageCache);
+          } = await this.processContentImages(post.content, imageCache, authorValue);
 
           // Apply content processing (HTML stripping, markdown conversion, etc.)
           const finalContent = options.fieldProcessing?.content
@@ -707,7 +707,9 @@ export class WordPressImportService {
             const imageFile = await this.downloadAndUploadFile(
               post.featured_image,
               imageCache,
-              post.featured_image_metadata
+              post.featured_image_metadata,
+              undefined,
+              authorValue
             );
             if (imageFile) {
               // Store the file ID for later processing
@@ -972,7 +974,8 @@ export class WordPressImportService {
     url: string,
     imageCache?: Map<string, { id: string; url: string }>,
     metadata?: { alt?: string; title?: string; description?: string; caption?: string },
-    uploadDate?: Date
+    uploadDate?: Date,
+    author?: string
   ): Promise<{ id: string; url: string; wasDownloaded: boolean } | null> {
     // Check cache first to avoid duplicate downloads
     if (imageCache?.has(url)) {
@@ -1018,7 +1021,8 @@ export class WordPressImportService {
       const uploadedFile = await uploadFile(file, {
         alt: metadata?.alt || '',
         title: metadata?.title || metadata?.caption || '',
-        created_at: uploadDate // Preserve WordPress upload date
+        created_at: uploadDate, // Preserve WordPress upload date
+        author: author || undefined // Use current user as author
       });
 
       // Check if this was a new upload by comparing the current time with created_at
@@ -1139,7 +1143,8 @@ export class WordPressImportService {
    */
   private static async processContentImages(
     content: string,
-    imageCache?: Map<string, { id: string; url: string }>
+    imageCache?: Map<string, { id: string; url: string }>,
+    currentUserId?: string
   ): Promise<{ content: string; downloadedImages: number; failedImages: number }> {
     const imageData = this.extractImageDataFromContent(content);
     let processedContent = content;
@@ -1154,7 +1159,7 @@ export class WordPressImportService {
           title: imageInfo.title
         };
 
-        const uploadedFile = await this.downloadAndUploadFile(imageInfo.url, imageCache, metadata);
+        const uploadedFile = await this.downloadAndUploadFile(imageInfo.url, imageCache, metadata, undefined, currentUserId);
 
         if (uploadedFile) {
           // Replace the URL in content with the new file URL
@@ -1191,7 +1196,7 @@ export class WordPressImportService {
 
     // Check if this is a media-only import
     if (options.collectionSlug === 'media-library') {
-      return this.importMediaFromAPI(options.apiConfig, onProgress);
+      return this.importMediaFromAPI(options.apiConfig, onProgress, options.currentUserId);
     }
 
     const result: ImportResult = {
@@ -1230,7 +1235,8 @@ export class WordPressImportService {
    */
   static async importMediaFromAPI(
     apiConfig: WordPressAPIConfig,
-    onProgress?: ImportProgressCallback
+    onProgress?: ImportProgressCallback,
+    currentUserId?: string
   ): Promise<ImportResult> {
     const result: ImportResult = {
       success: false,
@@ -1281,7 +1287,8 @@ export class WordPressImportService {
             mediaFile.source_url,
             imageCache,
             metadata,
-            uploadDate
+            uploadDate,
+            currentUserId // Use current user as author for media imports
           );
 
           if (uploadedFile) {
@@ -1580,8 +1587,8 @@ export class WordPressImportService {
           }
         }
 
-        // Extract author name from embedded data
-        let authorName = 'Unknown';
+        // Extract author name from embedded data - fallback to current user
+        let authorName = 'Current User'; // Will be mapped to current user ID
         if (apiPost._embedded?.author?.[0]) {
           authorName = apiPost._embedded.author[0].name;
         }

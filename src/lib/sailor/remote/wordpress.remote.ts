@@ -103,7 +103,7 @@ export const importWordPressContent = command(
         useCurrentUserAsAuthor,
         statusMapping,
         fieldMappings,
-        userId: locals.user.id
+        currentUserId: locals.user.id
       };
 
       const result = await WordPressImportService.importFromAPI({

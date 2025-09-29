@@ -1,6 +1,6 @@
 // SvelteKit remote functions for settings management
 import { command, getRequestEvent } from '$app/server';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 
 /**
  * Update site settings
@@ -20,9 +20,9 @@ export const updateSiteSettings = command(
   }) => {
     const { locals } = getRequestEvent();
 
-    // Authentication handled by hooks - admin check required for settings
-    if (locals.user!.role !== 'admin') {
-      return { success: false, error: 'Admin access required' };
+    // Check permission to update settings
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      return { success: false, error: 'Access denied: You do not have permission to update settings' };
     }
 
     if (!siteName || !siteName.trim()) {
@@ -38,11 +38,11 @@ export const updateSiteSettings = command(
           : SystemSettingsService.deleteSetting('site.url'),
         siteDescription && siteDescription.trim()
           ? SystemSettingsService.setSetting(
-              'site.description',
-              siteDescription.trim(),
-              'site',
-              'Site description'
-            )
+            'site.description',
+            siteDescription.trim(),
+            'site',
+            'Site description'
+          )
           : SystemSettingsService.deleteSetting('site.description'),
         SystemSettingsService.setRegistrationEnabled(allowRegistration)
       ]);
@@ -76,9 +76,9 @@ export const updateSetting = command(
   }) => {
     const { locals } = getRequestEvent();
 
-    // Authentication handled by hooks - admin check required for settings
-    if (locals.user!.role !== 'admin') {
-      return { success: false, error: 'Admin access required' };
+    // Check permission to update settings
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      return { success: false, error: 'Access denied: You do not have permission to update settings' };
     }
 
     if (!key || !category) {
@@ -191,14 +191,14 @@ export const getSettings = command('unchecked', async ({ keys }: { keys: string[
 export const getRawSettings = command('unchecked', async () => {
   const { locals } = getRequestEvent();
 
-  // Authentication handled by hooks - admin check required for settings payload
-  if (locals.user!.role !== 'admin') {
-    return { success: false, error: 'Admin access required' };
+  // Check permission to read settings
+  if (!(await locals.security.hasPermission('read', 'settings'))) {
+    return { success: false, error: 'Access denied: You do not have permission to read settings' };
   }
 
   try {
     const rawSettings = await SystemSettingsService.getAllSettings();
-    console.log('Raw settings from database:', rawSettings);
+
     return { success: true, settings: rawSettings };
   } catch (error) {
     console.error('Failed to get raw settings:', error);

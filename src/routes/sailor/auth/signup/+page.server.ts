@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { env } from '$env/dynamic/private';
 import { redirect, error } from '@sveltejs/kit';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 
 export const load: PageServerLoad = async () => {
   // Check if registrations are enabled

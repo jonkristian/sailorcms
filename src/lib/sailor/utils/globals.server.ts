@@ -4,8 +4,15 @@ import { globalTypes } from '../generated/schema';
 import * as schema from '../generated/schema';
 import type { GlobalTypes } from '../generated/types';
 import { TagService } from '../core/services/tag.server';
-import { createACL, type User } from '../core/rbac/acl';
 import { loadGlobalData } from '../core/content/content-data';
+
+type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  image?: string | null;
+};
 
 export interface GlobalWithData {
   id: string;
@@ -197,8 +204,7 @@ export async function getGlobal(
     // Check if this is a flat (singleton) global
     const isFlat = globalType.data_type === 'flat';
 
-    // Set up ACL filtering if user context is provided
-    const acl = user ? createACL(user) : null;
+    // Set up access control filtering if user context is provided
 
     if (isFlat) {
       // Handle singleton global
@@ -208,14 +214,8 @@ export async function getGlobal(
         return null;
       }
 
-      // Apply ACL filtering for singleton globals
+      // Apply access control filtering for singleton globals
       let globalQuery = db.select().from(globalTable);
-      if (acl) {
-        const aclConditions = await acl.buildQueryConditions('global', globalTable, 'view');
-        if (aclConditions) {
-          globalQuery = globalQuery.where(aclConditions);
-        }
-      }
 
       const globalResult = await globalQuery
         .where(eq((globalTable as any).id, globalSlug))
@@ -335,14 +335,6 @@ export async function getGlobal(
       // If slug is specified, get specific item
       if (slug) {
         whereConditions.push(eq((globalTable as any).slug, slug));
-      }
-
-      // Apply ACL filtering for repeatable globals
-      if (acl) {
-        const aclConditions = await acl.buildQueryConditions('global', globalTable, 'view');
-        if (aclConditions) {
-          whereConditions.push(aclConditions);
-        }
       }
 
       // Apply where conditions

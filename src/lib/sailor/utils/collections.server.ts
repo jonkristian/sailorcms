@@ -2,12 +2,19 @@ import { db } from '../core/db/index.server';
 import * as schema from '../generated/schema';
 import { sql, ne, eq, and, asc, desc, count, inArray } from 'drizzle-orm';
 import { loadBlocksForCollection, type BlockWithRelations } from './blocks.server';
-import { createACL, type User } from '../core/rbac/acl';
 import { toSnakeCase } from '../core/utils/string';
 import type { CollectionTypes } from '../generated/types';
 import type { Pagination } from '../core/types';
 import type { BreadcrumbItem } from './types';
 import { getCollectionType } from '../core/utils/db.server';
+
+type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  image?: string | null;
+};
 
 // Enhanced collection item type that extends generated types with utility fields
 export type CollectionItem = {
@@ -105,10 +112,10 @@ export async function getCollection(
   options: CollectionOptions & { slug: string }
 ): Promise<
   | (CollectionTypes & {
-      url: string;
-      breadcrumbs?: BreadcrumbItem[];
-      blocks?: BlockWithRelations[];
-    })
+    url: string;
+    breadcrumbs?: BreadcrumbItem[];
+    blocks?: BlockWithRelations[];
+  })
   | null
 >;
 
@@ -169,10 +176,6 @@ export async function getCollection(
       throw new Error(`Collection '${collectionSlug}' not found in schema`);
     }
 
-    // Set up ACL filtering if user context is provided
-    const acl = user ? createACL(user) : null;
-    const aclConditions = acl ? await acl.buildQueryConditions('collection', table, 'view') : null;
-
     // If slug or itemId is provided, get single item
     if (slug || itemId) {
       const whereConditions = [];
@@ -186,11 +189,6 @@ export async function getCollection(
 
       if (status !== 'all') {
         whereConditions.push(eq((table as any).status, status));
-      }
-
-      // Apply ACL filtering if user context provided
-      if (aclConditions) {
-        whereConditions.push(aclConditions);
       }
 
       const whereClause = whereConditions.length > 1 ? and(...whereConditions) : whereConditions[0];
@@ -241,11 +239,6 @@ export async function getCollection(
     const whereConditions = [];
     if (status !== 'all') {
       whereConditions.push(eq((table as any).status, status));
-    }
-
-    // Apply ACL filtering if user context provided
-    if (aclConditions) {
-      whereConditions.push(aclConditions);
     }
 
     // Handle relationship filtering
@@ -511,10 +504,10 @@ export async function getCollectionItem(
   }
 ): Promise<
   | (CollectionTypes & {
-      url: string;
-      breadcrumbs?: BreadcrumbItem[];
-      blocks?: BlockWithRelations[];
-    })
+    url: string;
+    breadcrumbs?: BreadcrumbItem[];
+    blocks?: BlockWithRelations[];
+  })
   | null
 > {
   let result: any;
@@ -533,10 +526,10 @@ export async function getCollectionItem(
   // getCollection returns single item when slug or itemId is provided
   return result && 'id' in result
     ? (result as CollectionTypes & {
-        url: string;
-        breadcrumbs?: BreadcrumbItem[];
-        blocks?: BlockWithRelations[];
-      })
+      url: string;
+      breadcrumbs?: BreadcrumbItem[];
+      blocks?: BlockWithRelations[];
+    })
     : null;
 }
 

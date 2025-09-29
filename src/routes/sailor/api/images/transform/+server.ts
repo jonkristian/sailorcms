@@ -1,7 +1,7 @@
 import { error, type RequestHandler } from '@sveltejs/kit';
-import { ImageProcessor } from '$sailor/core/services/image-processor.server';
+import { ImageProcessor } from '$sailor/core/services/image.server';
 import { getSettings } from '$sailor/core/settings';
-import { S3StorageService } from '$sailor/core/services/s3-storage.server';
+import { S3StorageService } from '$sailor/core/services/storage-s3.server';
 import { getFileObject } from '$sailor/utils/files.server';
 import { log } from '$sailor/core/utils/logger';
 

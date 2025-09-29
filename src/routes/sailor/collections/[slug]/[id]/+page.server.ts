@@ -6,14 +6,16 @@ import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { collectionTypes } from '$sailor/core/db/index.server';
 import { TagService } from '$sailor/core/services/tag.server';
 import { loadBlockData } from '$sailor/core/content/blocks.server';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
-import { createACL, requirePermission } from '$sailor/core/rbac/acl';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import type { PageServerLoad } from './$types';
 import { log } from '$sailor/core/utils/logger';
 import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';
 
 export const load: PageServerLoad = async ({ params, locals, request, url }) => {
-  // Authentication and authorization handled by hooks
+  // Check permission to view content
+  if (!(await locals.security.hasPermission('read', 'content'))) {
+    throw error(403, 'Access denied: You do not have permission to view content');
+  }
 
   const { slug, id } = params;
 
@@ -64,20 +66,11 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     throw error(404, `Collection table for '${slug}' not found`);
   }
 
-  // Create ACL instance for item-specific permission checks
-  const acl = createACL(locals.user);
-
-  // Try to get the existing item with access control
-  const accessControl = await acl.buildQueryConditions('collection', collectionTable);
-  const whereConditions = [eq((collectionTable as any).id, id)];
-  if (accessControl) {
-    whereConditions.push(accessControl);
-  }
-
+  // Try to get the existing item
   const existingItems = await db
     .select()
     .from(collectionTable)
-    .where(and(...whereConditions))
+    .where(eq((collectionTable as any).id, id))
     .limit(1);
 
   let page: Record<string, any>;
@@ -117,11 +110,10 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     page = existingItems[0] as Record<string, any>;
 
     // For edit routes, check if user can update this specific item
-    await requirePermission(acl, 'update', 'collection', page, {
-      request,
-      url,
-      user: locals.user!
-    });
+    const canUpdate = await locals.security.hasPermission('update', 'content');
+    if (!canUpdate) {
+      throw error(403, 'You do not have permission to update this content');
+    }
 
     // Load tags for existing item - load into tag fields
     try {

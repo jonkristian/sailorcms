@@ -1,6 +1,6 @@
 import { db } from '../db/index.server';
 import { settings } from '../../generated/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 
 export type SystemSetting = InferSelectModel<typeof settings>;
@@ -280,34 +280,88 @@ export class SystemSettingsService {
       );
     }
 
-    // SEO settings
-    if (env.SEO_ENABLED) {
-      await this.setSetting('seo.enabled', env.SEO_ENABLED === 'true', 'seo', 'SEO enabled', 'env');
+    // Cache settings
+    if (env.CACHE_ENABLED) {
+      await this.setSetting('cache.enabled', env.CACHE_ENABLED === 'true', 'cache', 'Cache enabled', 'env');
     }
 
-    // SEO configuration is managed through the admin interface
-    // via the Configuration global (analytics textarea)
+    if (env.CACHE_PROVIDER) {
+      await this.setSetting('cache.provider', env.CACHE_PROVIDER, 'cache', 'Cache provider override', 'env');
+    }
 
-    // System settings
-    if (env.DEBUG_MODE) {
-      await this.setSetting(
-        'system.debugMode',
-        env.DEBUG_MODE === 'true',
-        'system',
-        'Debug mode enabled',
-        'env'
+    if (env.CACHE_PATH) {
+      await this.setSetting('cache.path', env.CACHE_PATH, 'cache', 'Cache path override', 'env');
+    }
+
+    if (env.CACHE_MAX_SIZE) {
+      await this.setSetting('cache.maxSize', env.CACHE_MAX_SIZE, 'cache', 'Cache max size', 'env');
+    }
+
+    // Most system settings now handled directly via environment variables
+    // Database settings are only for user-configurable options
+  }
+
+  /**
+   * Simple cleanup: remove old template/env settings based on age
+   */
+  static async cleanupOldSettings(olderThanDays: number = 30): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+
+    const result = await db
+      .delete(settings)
+      .where(
+        and(
+          or(
+            eq(settings.source, 'template'),
+            eq(settings.source, 'env')
+          ),
+          // Only delete if older than cutoff and not user-modified
+          // User settings (source='user') are never auto-deleted
+        )
       );
+
+    return result.changes || 0;
+  }
+
+  /**
+   * Clear all template/env settings and reload them
+   */
+  static async refreshSettings(): Promise<{removed: number, reloaded: boolean}> {
+    // Remove all template and env settings
+    const removeResult = await db
+      .delete(settings)
+      .where(
+        or(
+          eq(settings.source, 'template'),
+          eq(settings.source, 'env')
+        )
+      );
+
+    // Reload fresh settings
+    await this.loadTemplateSettings();
+    await this.initializeFromEnv();
+
+    return {
+      removed: removeResult.changes || 0,
+      reloaded: true
+    };
+  }
+
+  /**
+   * Get stats about current settings
+   */
+  static async getSettingsStats(): Promise<{total: number, bySource: Record<string, number>}> {
+    const allSettings = await this.getAllSettings();
+    const bySource: Record<string, number> = {};
+
+    for (const setting of allSettings) {
+      bySource[setting.source] = (bySource[setting.source] || 0) + 1;
     }
 
-    // Auth settings
-    if (env.NODE_ENV) {
-      await this.setSetting(
-        'auth.useSecureCookies',
-        env.NODE_ENV === 'production',
-        'auth',
-        'Use secure cookies in production',
-        'env'
-      );
-    }
+    return {
+      total: allSettings.length,
+      bySource
+    };
   }
 }

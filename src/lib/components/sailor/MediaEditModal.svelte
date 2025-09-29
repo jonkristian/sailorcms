@@ -260,7 +260,7 @@
             {:else}
               <TagsInput
                 value={fileTags}
-                placeholder="Type tag name and press Enter (e.g. product, featured, summer-2024)"
+                placeholder="Type tag name and press Enter"
                 scope="media"
                 disabled={saving}
                 onChange={handleTagsChange}

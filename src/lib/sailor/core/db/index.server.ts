@@ -21,12 +21,13 @@ let db: any;
 if (!building) {
   db = await createDatabaseConnection();
 
-  // Initialize template settings on startup
+  // Initialize template settings and environment variables on startup
   try {
-    const { SystemSettingsService } = await import('../services/system-settings.server');
+    const { SystemSettingsService } = await import('../services/settings.server');
     await SystemSettingsService.loadTemplateSettings();
+    await SystemSettingsService.initializeFromEnv();
   } catch (error) {
-    console.warn('Warning: Failed to load template settings on startup:', error);
+    console.warn('Warning: Failed to load settings on startup:', error);
   }
 }
 

@@ -11,7 +11,7 @@
 
   const {
     value = [],
-    placeholder = 'Type tag name and press Enter (e.g. featured, important, draft)',
+    placeholder = 'Type tag name and press Enter',
     onChange,
     disabled = false,
     scope

@@ -13,40 +13,14 @@ export const settings: Partial<CMSSettings> = {
     // Paths to exclude from storage scanning (file import/sync operations)
     excludePaths: ['cache/', 'backup/', '.tmp/', '.git/'],
 
-    cache: {
-      provider: 'local' as const,
-      local: {
-        enabled: true,
-        directory: 'static/cache',
-        maxSize: '1GB'
-      },
-      s3: {
-        bucket: '',
-        prefix: 'processed-images/',
-        region: ''
-      }
-    },
     // Image processing configuration
     images: {
-      formats: ['webp', 'jpg', 'png'], // Preferred output formats
       maxFileSize: '10.0MB',
       maxWidth: 2560, // Maximum width for transformations
       maxHeight: 2560, // Maximum height for transformations
-      defaultQuality: 90, // Default quality for transformations
 
       // Responsive image breakpoints (used by getImage() function)
-      breakpoints: [375, 768, 1200, 1600], // Mobile, tablet, desktop, large
-
-      allowedTypes: [
-        'image/*',
-        'application/pdf',
-        '.doc',
-        '.docx',
-        '.txt',
-        '.csv',
-        '.xlsx',
-        '.pptx'
-      ]
+      breakpoints: [375, 768, 1200, 1600] // Mobile, tablet, desktop, large
     },
 
     // Upload constraints
@@ -57,149 +31,46 @@ export const settings: Partial<CMSSettings> = {
     }
   },
 
-  // ✅ SEO settings (override core defaults)
-  seo: {
+  // ✅ Cache settings (simple and clean)
+  cache: {
     enabled: true,
-    titleTemplate: '{title} | {siteName}', // How to format page titles
-    titleSeparator: '|',
-    defaultDescription: '', // Default meta description
-    language: 'en'
+    maxSize: '1GB'
   },
 
-  // ✅ System settings (minimal overrides)
-  system: {
-    debugMode: false // debugMode is set via DEBUG_MODE environment variable
-  },
+  // ✅ System settings (minimal - most via env vars)
+  system: {},
 
-  // ✅ Role-based permissions configuration
+  // ✅ Better-Auth integrated role definitions
   roles: {
-    // Define available roles and their permissions
+    // Role definitions that map directly to better-auth access control
     definitions: {
       user: {
         name: 'User',
-        description: 'Basic authenticated user with limited permissions',
+        description: 'Basic authenticated user with read-only content access',
         permissions: {
-          collection: {
-            view: ['published', 'own'],
-            create: true,
-            update: ['own'],
-            delete: ['own']
-          },
-          global: {
-            view: true,
-            create: false,
-            update: false,
-            delete: false
-          },
-          block: {
-            view: true,
-            create: true,
-            update: ['own'],
-            delete: ['own']
-          },
-          file: {
-            view: true,
-            create: true,
-            update: ['own'],
-            delete: ['own']
-          },
-          user: {
-            view: false,
-            create: false,
-            update: ['own'],
-            delete: false
-          },
-          settings: {
-            view: false,
-            create: false,
-            update: false,
-            delete: false
-          }
-        }
+          content: ['read'],      // Can read published content and own content
+          files: ['read']         // Can view files
+          // No access to users or settings
+        } as const
       },
       editor: {
         name: 'Editor',
-        description: 'Can edit and delete published content',
+        description: 'Content editor with full content and file management',
         permissions: {
-          collection: {
-            view: ['all'],
-            create: true,
-            update: ['published', 'draft', 'archived', 'own'],
-            delete: ['published', 'draft', 'archived', 'own']
-          },
-          global: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true
-          },
-          block: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true
-          },
-          file: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true // Editors can delete files
-          },
-          user: {
-            view: true,
-            create: false,
-            update: ['own'],
-            delete: false
-          },
-          settings: {
-            view: false,
-            create: false,
-            update: false,
-            delete: false
-          }
-        }
+          content: ['create', 'read', 'update', 'delete'],  // Full content access
+          files: ['create', 'read', 'update', 'delete'],     // Full file management
+          settings: ['read']
+        } as const
       },
       admin: {
         name: 'Administrator',
-        description: 'Full access to all features and settings',
+        description: 'Full system administrator with all permissions',
         permissions: {
-          collection: {
-            view: ['all'],
-            create: true,
-            update: ['all'],
-            delete: ['all']
-          },
-          global: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true
-          },
-          block: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true
-          },
-          file: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true
-          },
-          user: {
-            view: true,
-            create: true,
-            update: ['all'],
-            delete: true
-          },
-          settings: {
-            view: true,
-            create: true,
-            update: true,
-            delete: true
-          }
-        }
+          content: ['create', 'read', 'update', 'delete'],  // Full content access
+          files: ['create', 'read', 'update', 'delete'],    // Full file management
+          users: ['create', 'read', 'update', 'delete'],    // User management
+          settings: ['read', 'update']                       // Settings management
+        } as const
       }
     },
 

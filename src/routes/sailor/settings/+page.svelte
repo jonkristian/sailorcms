@@ -3,7 +3,7 @@
   import { Label } from '$lib/components/ui/label';
   import { Input } from '$lib/components/ui/input';
   import { Textarea } from '$lib/components/ui/textarea';
-  import { Save } from '@lucide/svelte';
+  import { Save, RotateCcw } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
@@ -13,6 +13,7 @@
   const { data } = $props<{ data: PageData }>();
 
   let submitting = $state(false);
+  let purging = $state(false);
   let formData = $state({
     siteName: data.settings.siteName,
     siteUrl: data.settings.siteUrl,
@@ -51,6 +52,34 @@
       toast.error('Failed to save site settings');
     } finally {
       submitting = false;
+    }
+  }
+
+  async function handlePurge() {
+    if (!confirm('This will remove all old template/environment settings and reload them fresh. Continue?')) {
+      return;
+    }
+
+    purging = true;
+    try {
+      const response = await fetch('?/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+
+      const result = await response.json();
+
+      if (result.type === 'success') {
+        toast.success(result.data?.message || 'Settings purged successfully');
+        await invalidateAll();
+      } else {
+        toast.error(result.data?.error || 'Failed to purge settings');
+      }
+    } catch (error) {
+      console.error('Purge error:', error);
+      toast.error('Failed to purge settings');
+    } finally {
+      purging = false;
     }
   }
 </script>
@@ -133,4 +162,36 @@
       </Card.Content>
     </Card.Root>
   </form>
+
+  <!-- Settings Management -->
+  <Card.Root class="mt-6">
+    <Card.Header>
+      <Card.Title class="text-lg">Settings Management</Card.Title>
+      <Card.Description>
+        Advanced settings maintenance and cleanup tools
+      </Card.Description>
+    </Card.Header>
+    <Card.Content>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between p-4 border rounded-lg">
+          <div>
+            <h4 class="font-medium">Purge & Reload Settings</h4>
+            <p class="text-muted-foreground text-sm">
+              Remove all old template and environment settings, then reload fresh copies.
+              This helps clean up outdated settings after updates.
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            onclick={handlePurge}
+            disabled={purging}
+            class="flex items-center gap-2"
+          >
+            <RotateCcw class="h-4 w-4" />
+            {purging ? 'Purging...' : 'Purge Settings'}
+          </Button>
+        </div>
+      </div>
+    </Card.Content>
+  </Card.Root>
 </div>

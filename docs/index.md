@@ -27,8 +27,8 @@ Sailor CMS is a modern, template-driven headless CMS built with SvelteKit. It pr
 🎨 **Template-Driven Development**
 : Define your content structure with TypeScript templates for complete type safety
 
-🔒 **Built-in RBAC System**
-: Comprehensive role-based access control with customizable permissions
+🔒 **Better Auth Integration**
+: Secure authentication and role-based access control powered by Better Auth
 
 📱 **Modern Tech Stack**
 : Built with SvelteKit, Drizzle ORM, and Better Auth
@@ -53,7 +53,7 @@ Sailor CMS is a modern, template-driven headless CMS built with SvelteKit. It pr
 ### Security & Permissions
 
 - [RBAC Overview]({{ site.baseurl }}{% link rbac/index.md %})
-- [Access Control Lists]({{ site.baseurl }}{% link rbac/acl.md %})
+- [Configuration & Usage]({{ site.baseurl }}{% link rbac/acl.md %})
 
 ### Deployment & Production
 

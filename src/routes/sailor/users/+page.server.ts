@@ -1,4 +1,4 @@
-import { redirect } from '@sveltejs/kit';
+import { redirect, error } from '@sveltejs/kit';
 import { db } from '$sailor/core/db/index.server';
 import { log } from '$sailor/core/utils/logger';
 import { users } from '$sailor/generated/schema';
@@ -7,14 +7,9 @@ import type { PageServerLoad } from './$types';
 import type { User } from '$sailor/generated/types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  // Check if user is authenticated
-  if (!locals.user?.id) {
-    throw redirect(302, '/sailor/auth/login');
-  }
-
-  // Check if user has admin privileges (can view settings)
-  if (locals.user.role !== 'admin') {
-    throw redirect(302, '/sailor');
+  // Check permission to view users
+  if (!(await locals.security.hasPermission('read', 'users'))) {
+    throw error(403, 'Access denied: You do not have permission to view users');
   }
 
   const searchQuery = url.searchParams.get('search') || '';

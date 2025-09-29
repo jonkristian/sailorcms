@@ -4,7 +4,6 @@ import { error, redirect, fail } from '@sveltejs/kit';
 import { eq, asc } from 'drizzle-orm';
 import crypto from 'crypto';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
-import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { normalizeRelationId } from '$sailor/core/utils/common';
 import { log } from '$sailor/core/utils/logger';
 
@@ -172,9 +171,8 @@ export const actions = {
     }
 
     // Check if user can update globals
-    const acl = createACL(locals.user);
-    if (!(await acl.can('update', 'global'))) {
-      return fail(403, { error: getPermissionErrorMessage(locals.user, 'update', 'global') });
+    if (!(await locals.security.hasPermission('update', 'content'))) {
+      return fail(403, { error: 'Access denied: You do not have permission to update content' });
     }
 
     try {

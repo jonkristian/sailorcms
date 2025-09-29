@@ -29,24 +29,44 @@ export class ImageProcessor {
   private static memoryCache = new Map<string, CacheEntry>();
   private static defaultTTL = 24 * 60 * 60 * 1000; // 24 hours
 
-  // Get cache storage provider (always follows main storage)
-  private static async getCacheProvider(): Promise<StorageProvider> {
-    return StorageProviderFactory.getProvider();
+  // Get cache configuration (provider and path)
+  private static async getCacheConfig(): Promise<{ provider: StorageProvider, path: string, enabled: boolean }> {
+    const settings = await getSettings();
+
+    // 1. Check if caching is enabled
+    const enabled = settings.cache?.enabled !== false;
+
+    // 2. Determine cache provider (env > settings > auto-detect)
+    const envProvider = process.env.CACHE_PROVIDER;
+    const settingsProvider = settings.cache?.provider;
+    const autoProvider = settings.storage.provider === 's3' ? 's3' : 'local';
+    const providerType = envProvider || settingsProvider || autoProvider;
+
+    // 3. Get the appropriate provider instance
+    let provider: StorageProvider;
+    if (providerType === 'local') {
+      const { LocalStorageProvider } = await import('./storage-provider.server');
+      provider = new LocalStorageProvider();
+    } else {
+      // For S3 or auto-detect to S3
+      provider = await StorageProviderFactory.getProvider();
+    }
+
+    // 4. Determine cache path (env > settings > default)
+    const envPath = process.env.CACHE_PATH;
+    const settingsPath = settings.cache?.path;
+    const defaultPath = `${settings.storage.providers?.local?.uploadDir || 'static/uploads'}/cache`;
+    const path = envPath || settingsPath || defaultPath;
+
+    return { provider, path, enabled };
   }
 
-  // Get cache directory (automatically derived from main storage)
+  // Get cache directory for local storage
   private static async getCacheDir(): Promise<string> {
-    const settings = await getSettings();
-    const uploadDir = settings.storage.providers?.local?.uploadDir || 'static/uploads';
-    return `${uploadDir}/cache`;
+    const { path } = await this.getCacheConfig();
+    return path;
   }
 
-  // Check if caching is enabled
-  private static async isCacheEnabled(): Promise<boolean> {
-    const settings = await getSettings();
-    // Cache is enabled by default unless explicitly disabled in settings
-    return settings.storage.cache.local.enabled !== false;
-  }
 
   // Generate cache key using predictable naming scheme
   private static generateCacheKey(imagePath: string, options: ImageTransformOptions): string {
@@ -100,10 +120,8 @@ export class ImageProcessor {
   }
 
   // Read from cache storage (unified for local/S3)
-  private static async readFromCache(
-    provider: StorageProvider,
-    cachePath: string
-  ): Promise<Buffer | null> {
+  private static async readFromCache(cachePath: string): Promise<Buffer | null> {
+    const { provider } = await this.getCacheConfig();
     const { LocalStorageProvider } = await import('./storage-provider.server');
 
     if (provider instanceof LocalStorageProvider) {
@@ -130,10 +148,10 @@ export class ImageProcessor {
 
   // Write to cache storage (unified for local/S3)
   private static async writeToCache(
-    provider: StorageProvider,
     cachePath: string,
     buffer: Buffer
   ): Promise<void> {
+    const { provider } = await this.getCacheConfig();
     const { LocalStorageProvider } = await import('./storage-provider.server');
 
     if (provider instanceof LocalStorageProvider) {
@@ -221,7 +239,7 @@ export class ImageProcessor {
     mimeType: string
   ): Promise<void> {
     try {
-      const { S3StorageService } = await import('./s3-storage.server');
+      const { S3StorageService } = await import('./storage-s3.server');
       const settings = await getSettings();
       const s3Config = settings.storage?.providers?.s3;
 
@@ -324,8 +342,7 @@ export class ImageProcessor {
     const cachePath = this.generateCachePath(cacheKey, format);
 
     // Check if caching is enabled
-    const cacheEnabled = await this.isCacheEnabled();
-    const cacheProvider = cacheEnabled ? await this.getCacheProvider() : null;
+    const { enabled: cacheEnabled } = await this.getCacheConfig();
 
     // Clean up expired cache entries
     this.cleanupMemoryCache();
@@ -341,10 +358,10 @@ export class ImageProcessor {
     }
 
     // 2. Check storage cache (storage provider-aware) - only if caching is enabled
-    if (cacheEnabled && cacheProvider) {
+    if (cacheEnabled) {
       try {
         // Try to read from cache storage (local file or S3)
-        const cachedData = await this.readFromCache(cacheProvider, cachePath);
+        const cachedData = await this.readFromCache(cachePath);
         if (cachedData) {
           // Populate memory cache
           this.memoryCache.set(cacheKey, {
@@ -369,9 +386,9 @@ export class ImageProcessor {
       const processed = await this.processImage(imagePath, options);
 
       // Cache to storage - only if caching is enabled
-      if (cacheEnabled && cacheProvider) {
+      if (cacheEnabled) {
         try {
-          await this.writeToCache(cacheProvider, cachePath, processed.buffer);
+          await this.writeToCache(cachePath, processed.buffer);
         } catch (error) {
           console.warn('Failed to write storage cache:', cachePath, error);
         }

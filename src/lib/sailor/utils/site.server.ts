@@ -15,7 +15,7 @@ import type { SiteConfig } from './types';
 export async function getSiteSettings(): Promise<SiteConfig> {
   try {
     // Get core site settings from SystemSettingsService
-    const { SystemSettingsService } = await import('$sailor/core/services/system-settings.server');
+    const { SystemSettingsService } = await import('$sailor/core/services/settings.server');
 
     const [siteName, siteUrl, siteDescription, registrationEnabled] = await Promise.all([
       SystemSettingsService.getSetting('site.name'),

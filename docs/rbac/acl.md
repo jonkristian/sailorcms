@@ -1,99 +1,118 @@
 ---
 layout: default
-title: Access Control Lists
+title: Configuration & Usage
 parent: RBAC & Security
 nav_order: 1
 ---
 
-# Access Control
+# Better Auth RBAC Configuration
 
-Sailor CMS includes a flexible role-based permissions system built on [Better Auth](https://better-auth.com/) with the admin plugin. This allows you to configure what each user role can access and modify.
+Sailor CMS uses [Better Auth's admin plugin](https://www.better-auth.com/docs/plugins/admin) for authentication and access control, providing a secure and battle-tested foundation for user management.
 
-## Overview
+## How It Works
 
-The permissions system uses Better Auth's admin plugin for user management and combines it with Sailor's custom ACL for content-specific permissions.
+The system integrates Better Auth's access control with Sailor's content management:
 
-Configure roles and permissions in your settings file (`src/lib/sailor/templates/settings.ts`), and the ACL system automatically handles runtime permission checking and enforcement.
+1. **Better Auth** handles authentication, sessions, and core permission checking
+2. **Sailor** maps content operations to Better Auth's permission system
+3. **Settings** define role permissions using Better Auth's format
+4. **Runtime** checks happen automatically on every request
 
-## Available Roles
+## Default Configuration
 
-By default, the system includes three roles:
+The system includes three pre-configured roles with sensible permissions:
 
-- **User** - Basic authenticated user with limited permissions
-- **Editor** - Can edit and delete published content
-- **Admin** - Full access to all features and settings
-
-## Resource Types
-
-The system supports permissions for these resource types:
-
-- **Collections** - Content items (posts, pages, etc.)
-- **Globals** - Global settings and configuration
-- **Blocks** - Reusable content blocks
-- **Files** - Media files and uploads
-- **Users** - User accounts and profiles
-
-## Permissions
-
-Each resource type supports these permissions:
-
-- **View** - Can see and read content
-- **Create** - Can create new content
-- **Update** - Can edit existing content
-- **Delete** - Can remove content
-
-## Permission Scopes
-
-Permissions can be scoped to specific content types:
-
-- **All** - All content of that type
-- **Public** - Published, draft, and archived content
-- **Published** - Only published content
-- **Draft** - Only draft content
-- **Archived** - Only archived content
-- **Own** - Only content the user owns
-
-### Permission Syntax
-
-Permissions can be defined in two formats:
-
+### User Role
 ```typescript
-// Boolean format (simple)
-view: true,          // Allow all
-create: false,       // Deny all
-
-// Array format (preferred - more explicit and extensible)
-view: ['all'],              // Allow all
-update: ['own'],            // Only own content
-delete: ['published', 'draft'],  // Only published and draft content
+user: {
+  name: 'User',
+  description: 'Basic authenticated user with read-only content access',
+  permissions: {
+    content: ['read'],      // Can read published content
+    files: ['read']         // Can view files
+  }
+}
 ```
 
-Both formats work, but the array format is recommended for consistency and future extensibility.
+### Editor Role
+```typescript
+editor: {
+  name: 'Editor',
+  description: 'Content editor with full content and file management',
+  permissions: {
+    content: ['create', 'read', 'update', 'delete'],  // Full content access
+    files: ['create', 'read', 'update', 'delete'],     // Full file management
+    settings: ['read']                                  // View-only settings
+  }
+}
+```
 
-## Configuration
+### Admin Role
+```typescript
+admin: {
+  name: 'Administrator',
+  description: 'Full system administrator with all permissions',
+  permissions: {
+    content: ['create', 'read', 'update', 'delete'],   // Full content access
+    files: ['create', 'read', 'update', 'delete'],     // Full file management
+    users: ['create', 'read', 'update', 'delete'],     // User management
+    settings: ['read', 'update']                        // Settings management
+  }
+}
+```
 
-### 1. Define Role Permissions
+## Permission Checking
 
-Edit `src/lib/sailor/templates/settings.ts`:
+### Automatic Route Protection
+
+Routes are automatically protected based on user permissions:
+
+```typescript
+// In page server files - automatic permission checking
+export const load = async ({ locals }) => {
+  // locals.security.hasPermission() is available everywhere
+  if (!(await locals.security.hasPermission('read', 'content'))) {
+    throw error(403, 'Access denied');
+  }
+  // ... load content
+};
+```
+
+### Manual Permission Checks
+
+For fine-grained control, check permissions explicitly:
+
+```typescript
+// Check if user can create content
+const canCreate = await locals.security.hasPermission('create', 'content');
+
+// Check if user can manage other users
+const canManageUsers = await locals.security.hasPermission('read', 'users');
+
+// Check if user can modify settings
+const canEditSettings = await locals.security.hasPermission('update', 'settings');
+```
+
+## Customizing Roles
+
+### Modifying Existing Roles
+
+Edit `src/lib/sailor/templates/settings.ts` to customize role permissions:
 
 ```typescript
 export const settings: Partial<CMSSettings> = {
   roles: {
     definitions: {
-      user: {
-        name: 'User',
-        description: 'Basic authenticated user with limited permissions',
+      // Override editor to restrict file deletion
+      editor: {
+        name: 'Editor',
+        description: 'Content editor with limited file permissions',
         permissions: {
-          collection: {
-            view: ['public', 'own'],
-            create: true,
-            update: ['own'],
-            delete: ['own']
-          }
-          // ... other resource types
+          content: ['create', 'read', 'update', 'delete'],
+          files: ['create', 'read', 'update'],  // No delete permission
+          settings: ['read']
         }
       }
-      // ... other roles
     },
     defaultRole: 'user',
     adminRoles: ['admin', 'editor']
@@ -101,160 +120,103 @@ export const settings: Partial<CMSSettings> = {
 };
 ```
 
-### 2. Use ACL
+### Adding Custom Roles
 
-The ACL system automatically reads from your settings configuration:
-
-```typescript
-import { createACL, requirePermission } from '$sailor/core/rbac/acl';
-
-// In your server actions or load functions
-const acl = createACL(locals.user);
-
-// Method 1: Check permission and handle manually
-if (await acl.can('delete', 'collection', item)) {
-  // Allow deletion
-} else {
-  // Show permission error
-}
-
-// Method 2: Check permission and auto-redirect on failure (recommended)
-await requirePermission(acl, 'update', 'collection', item, { request, url, user: locals.user });
-```
-
-## Error Handling
-
-When users lack permissions, the system automatically:
-
-1. **Redirects back to where they came from** (using browser referer)
-2. **Shows a toast notification** explaining why access was denied
-3. **Falls back to dashboard** if referer is unavailable or unsafe
-
-This happens automatically for:
-
-- **Route-level access** (handled by hooks)
-- **Item-level access** (handled by `requirePermission()` helper)
-
-## Viewing Current Roles
-
-You can view the current roles and their permissions at `/sailor/settings/roles` (admin only).
-
-This page displays:
-
-- All defined roles and their names
-- Current permission configuration for each role
-- Which roles have admin privileges
-
-Note: Role permissions are configured in code via `settings.ts` - they cannot be edited through the UI.
-
-## Adding New Roles
-
-1. Add the role definition to `settings.ts`:
+Add new roles alongside the existing ones:
 
 ```typescript
-definitions: {
-  // ... existing roles
-  moderator: {
-    name: 'Moderator',
-    description: 'Can moderate content but not manage users',
-    permissions: {
-      collection: {
-        view: ['all'],
-        create: true,
-        update: ['published', 'draft'],
-        delete: ['published', 'draft']
-      },
-      // ... other permissions
-    }
+export const settings: Partial<CMSSettings> = {
+  roles: {
+    definitions: {
+      // Keep existing roles (user, editor, admin)
+
+      // Add custom role
+      moderator: {
+        name: 'Moderator',
+        description: 'Content moderator with review permissions',
+        permissions: {
+          content: ['read', 'update'],  // Can review and edit, but not create/delete
+          files: ['read'],              // View-only file access
+          settings: ['read']            // View-only settings
+        }
+      }
+    },
+    defaultRole: 'user',
+    adminRoles: ['admin', 'editor', 'moderator']  // Add to admin roles if needed
   }
-}
+};
 ```
 
-2. Update the `adminRoles` array if the new role should have elevated permissions:
+### Update Database Schema
 
-```typescript
-adminRoles: ['admin', 'editor', 'moderator'];
-```
-
-3. **Update the database schema** to include the new role:
+After adding new roles, update the database schema:
 
 ```bash
 npx sailor db:update
 ```
 
-This regenerates the TypeScript types and database schema to include your new role in the `UserRole` type.
+This ensures your new roles are available in the user interface and TypeScript types.
+
+## Resource Types
+
+The system maps Sailor's content types to Better Auth resources:
+
+| Sailor Content | Better Auth Resource | Description |
+|---------------|---------------------|-------------|
+| Collections, Globals, Blocks | `content` | All content management |
+| Media, Uploads | `files` | File and media management |
+| User accounts | `users` | User administration |
+| CMS settings | `settings` | System configuration |
 
 ## Best Practices
 
-1. **Start Simple** - Begin with the default roles and adjust as needed
-2. **Test Thoroughly** - Always test permission changes in a development environment
-3. **Document Changes** - Keep track of permission modifications for your team
-4. **Principle of Least Privilege** - Give users only the permissions they need
-5. **Regular Reviews** - Periodically review and audit role permissions
+### Security First
+- **Start restrictive** - Grant minimum permissions first, expand as needed
+- **Test thoroughly** - Always verify permission changes work as expected
+- **Regular audits** - Periodically review who has what access
 
-## Examples
+### Role Design
+- **Clear names** - Use descriptive role names that explain their purpose
+- **Logical grouping** - Group related permissions together
+- **Documentation** - Document custom roles and their intended use
 
-### Custom Role: Content Manager
-
+### Development Workflow
 ```typescript
-contentManager: {
-  name: 'Content Manager',
-  description: 'Manages all content but cannot access user settings',
-  permissions: {
-    collection: {
-      view: ['all'],
-      create: true,
-      update: ['all'],
-      delete: ['all']
-    },
-    global: {
-      view: true,
-      create: true,
-      update: true,
-      delete: true
-    },
-    block: {
-      view: true,
-      create: true,
-      update: true,
-      delete: true
-    },
-    file: {
-      view: true,
-      create: true,
-      update: true,
-      delete: true
-    },
-    user: {
-      view: false,
-      create: false,
-      update: false,
-      delete: false
-    }
-  }
-}
+// 1. Define roles in settings.ts
+// 2. Run database update
+// 3. Test in development environment
+// 4. Deploy with confidence
 ```
 
-### Restrictive Role: Guest Author
+## Troubleshooting
 
-```typescript
-guestAuthor: {
-  name: 'Guest Author',
-  description: 'Can only create and edit their own draft content',
-  permissions: {
-    collection: {
-      view: ['published', 'own'],
-      create: true,
-      update: ['own'],
-      delete: ['own']
-    },
-    global: {
-      view: false,
-      create: false,
-      update: false,
-      delete: false
-    },
-    // ... other restrictive permissions
-  }
-}
-```
+### Permission Denied Errors
+
+If users get unexpected permission denials:
+
+1. **Check role assignment** - Verify the user has the correct role
+2. **Review permissions** - Ensure the role has the needed permissions
+3. **Clear cache** - Restart the development server
+4. **Check logs** - Look for Better Auth permission check failures
+
+### Common Issues
+
+**Q: User can't access admin pages**
+A: Ensure their role is in the `adminRoles` array in settings
+
+**Q: New role not showing in UI**
+A: Run `npx sailor db:update` to regenerate schema
+
+**Q: Permission changes not taking effect**
+A: Restart the development server to reload settings
+
+## Integration with Better Auth
+
+The system leverages Better Auth's proven patterns:
+
+- **Access control statements** define available permissions
+- **Roles** combine permissions into logical groups
+- **Runtime checks** use Better Auth's permission API
+- **Session management** handled by Better Auth core
+
+This provides enterprise-grade security with minimal configuration overhead.

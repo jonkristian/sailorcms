@@ -38,6 +38,14 @@ export const postsCollection: CollectionDefinition = {
       label: 'Excerpt',
       position: 'main'
     },
+    featured_image: {
+      type: 'file',
+      label: 'Featured Image',
+      file: {
+        fileType: 'image',
+        accept: 'image/*'
+      }
+    },
     categories: {
       type: 'relation',
       label: 'Categories',

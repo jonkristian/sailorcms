@@ -30,11 +30,20 @@ export class S3StorageService {
       throw new Error('S3 storage provider not configured');
     }
 
+    // Read credentials from environment variables for security
+    // (they are intentionally not stored in database)
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error('S3 credentials not found in environment variables (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)');
+    }
+
     return new S3Client({
       region: s3Config.region,
       credentials: {
-        accessKeyId: s3Config.accessKeyId,
-        secretAccessKey: s3Config.secretAccessKey
+        accessKeyId,
+        secretAccessKey
       },
       endpoint: s3Config.endpoint,
       forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com' // For custom endpoints like MinIO

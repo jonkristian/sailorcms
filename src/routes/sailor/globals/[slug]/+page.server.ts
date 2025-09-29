@@ -7,10 +7,10 @@ import { TagService } from '$sailor/core/services/tag.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
 
 export const load = async ({ params, locals }) => {
-  // Authentication and basic permissions handled by hooks
-  // This route only needs to check specific global access
-  // Non-null assertion: hooks set security on /sailor/* routes
-  const security = locals.security!;
+  // Check permission to view content
+  if (!(await locals.security.hasPermission('read', 'content'))) {
+    throw error(403, 'Access denied: You do not have permission to view content');
+  }
   const { slug } = params;
 
   // Get global definition from database
@@ -201,10 +201,10 @@ export const load = async ({ params, locals }) => {
   // Calculate permissions for this route
   const permissions = {
     globals: {
-      create: await security.canSilent('create', 'global'),
-      update: await security.canSilent('update', 'global'),
-      delete: await security.canSilent('delete', 'global'),
-      view: await security.canSilent('view', 'global')
+      create: await locals.security.hasPermission('create', 'content'),
+      update: await locals.security.hasPermission('update', 'content'),
+      delete: await locals.security.hasPermission('delete', 'content'),
+      view: await locals.security.hasPermission('read', 'content')
     }
   };
 

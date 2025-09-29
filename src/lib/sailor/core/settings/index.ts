@@ -11,35 +11,10 @@ const defaultCMSSettings: CMSSettings = {
         publicUrl: '/uploads'
       }
     },
-    cache: {
-      provider: 'local',
-      local: {
-        enabled: true,
-        directory: 'static/cache',
-        maxSize: '1GB'
-      },
-      s3: {
-        bucket: '',
-        prefix: 'processed-images/',
-        region: ''
-      }
-    },
     images: {
-      formats: ['webp', 'jpg', 'png'],
       maxFileSize: '10.0MB',
       maxWidth: 2560,
-      maxHeight: 2560,
-      defaultQuality: 85,
-      allowedTypes: [
-        'image/*',
-        'application/pdf',
-        '.doc',
-        '.docx',
-        '.txt',
-        '.csv',
-        '.xlsx',
-        '.pptx'
-      ]
+      maxHeight: 2560
     },
     upload: {
       maxFileSize: '10.0MB',
@@ -47,16 +22,11 @@ const defaultCMSSettings: CMSSettings = {
       folderStructure: 'flat'
     }
   },
-  seo: {
+  cache: {
     enabled: true,
-    titleTemplate: '{title} | {siteName}',
-    titleSeparator: '|',
-    defaultDescription: '',
-    language: 'en'
+    maxSize: '1GB'
   },
-  system: {
-    debugMode: false
-  }
+  system: {}
 };
 
 // Deep merge helper for nested objects
@@ -85,7 +55,7 @@ export async function getSettings(): Promise<CMSSettings> {
   // 2. Apply user overrides from templates/settings.ts
   try {
     const generatedSettings = await import('../../generated/settings');
-    const userSettings = (generatedSettings.settings || {}) as Partial<CMSSettings>;
+    const userSettings = (generatedSettings.settings || {}) as unknown as Partial<CMSSettings>;
     settings = deepMerge<CMSSettings>(settings, userSettings);
   } catch (error) {
     if (error instanceof Error) {
@@ -97,7 +67,7 @@ export async function getSettings(): Promise<CMSSettings> {
 
   // 3. Apply database overrides (environment variables, etc.)
   try {
-    const { SystemSettingsService } = await import('../services/system-settings.server');
+    const { SystemSettingsService } = await import('../services/settings.server');
     const dbSettings = await SystemSettingsService.getAllSettings();
     const dbSettingsObj: any = {};
 

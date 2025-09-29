@@ -1,9 +1,14 @@
-import { fail } from '@sveltejs/kit';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
+import { fail, error } from '@sveltejs/kit';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import { log } from '$sailor/core/utils/logger';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ parent }) => {
+export const load: PageServerLoad = async ({ parent, locals }) => {
+  // Check permission to view settings
+  if (!(await locals.security.hasPermission('read', 'settings'))) {
+    throw error(403, 'Access denied: You do not have permission to view settings');
+  }
+
   // Get shared settings data from layout
   const { settingsData } = await parent();
 
@@ -33,12 +38,19 @@ export const load: PageServerLoad = async ({ parent }) => {
       siteDescription: siteDescription || '',
       allowRegistration: allowRegistration
     },
-    headerActions
+    headerActions,
+    permissions: {
+      canUpdate: await locals.security.hasPermission('update', 'settings')
+    }
   };
 };
 
 export const actions: Actions = {
-  save: async ({ request }) => {
+  save: async ({ request, locals }) => {
+    // Check if user has permission to update settings
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      return fail(403, { error: 'You do not have permission to update settings' });
+    }
     const formData = await request.formData();
     const siteName = formData.get('siteName') as string;
     const siteUrl = formData.get('siteUrl') as string;
@@ -59,11 +71,11 @@ export const actions: Actions = {
           : SystemSettingsService.deleteSetting('site.url'),
         siteDescription && siteDescription.trim()
           ? SystemSettingsService.setSetting(
-              'site.description',
-              siteDescription.trim(),
-              'site',
-              'Site description'
-            )
+            'site.description',
+            siteDescription.trim(),
+            'site',
+            'Site description'
+          )
           : SystemSettingsService.deleteSetting('site.description'),
         SystemSettingsService.setRegistrationEnabled(allowRegistration)
       ]);
@@ -72,6 +84,21 @@ export const actions: Actions = {
     } catch (error) {
       log.error('Settings update exception', {}, error as Error);
       return fail(500, { error: 'Failed to save site settings' });
+    }
+  },
+
+  purge: async ({ locals }) => {
+    // Check if user has permission to update settings
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      return fail(403, { error: 'You do not have permission to purge settings' });
+    }
+    try {
+      const result = await SystemSettingsService.refreshSettings();
+      log.info(`Settings purged: ${result.removed} old settings removed, reloaded fresh settings`);
+      return { success: true, message: `Purged ${result.removed} old settings and reloaded fresh templates` };
+    } catch (error) {
+      log.error('Failed to purge settings:', {}, error as Error);
+      return fail(500, { error: 'Failed to purge settings' });
     }
   }
 };

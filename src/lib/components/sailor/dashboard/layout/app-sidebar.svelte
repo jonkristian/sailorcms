@@ -14,11 +14,11 @@
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
 
   let {
-    navData = { collections: [], globals: [], canViewSettings: false, loading: true },
+    navData = { collections: [], globals: [], canViewSettings: false, canViewUsers: false, canViewFiles: false, loading: true },
     user: sessionUser,
     ...restProps
   } = $props<{
-    navData?: { collections: any[]; globals: any[]; canViewSettings: boolean; loading: boolean };
+    navData?: { collections: any[]; globals: any[]; canViewSettings: boolean; canViewUsers: boolean; canViewFiles: boolean; loading: boolean };
     user?: any;
   }>();
 
@@ -33,24 +33,32 @@
     };
   });
 
-  const mainItems = [
-    {
-      name: 'Dashboard',
-      url: '/sailor',
-      icon: Sailboat
-    },
-    {
-      name: 'Media Library',
-      url: '/sailor/media',
-      icon: Folder
+  const mainItems = $derived(() => {
+    const items = [
+      {
+        name: 'Dashboard',
+        url: '/sailor',
+        icon: Sailboat
+      }
+    ];
+
+    // Add Media Library if user can view files
+    if (navData.canViewFiles) {
+      items.push({
+        name: 'Media Library',
+        url: '/sailor/media',
+        icon: Folder
+      });
     }
-  ];
+
+    return items;
+  });
 
   const secondaryItems = $derived(() => {
     const items = [];
 
-    // Add Users if user can view settings (admin)
-    if (navData.canViewSettings) {
+    // Add Users if user has user management permission
+    if (navData.canViewUsers) {
       items.push({
         title: 'Users',
         url: '/sailor/users',
@@ -96,7 +104,7 @@
     </Sidebar.Menu>
   </Sidebar.Header>
   <Sidebar.Content>
-    <NavMain items={mainItems} />
+    <NavMain items={mainItems()} />
     <NavCollections collections={navData.collections} loading={navData.loading} />
     <NavGlobals globals={navData.globals} loading={navData.loading} />
     <NavSecondary items={secondaryItems()} class="mt-auto" />

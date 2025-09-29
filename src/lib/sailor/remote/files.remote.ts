@@ -3,7 +3,6 @@ import { command, query, getRequestEvent } from '$app/server';
 import { db } from '$sailor/core/db/index.server';
 import { files as filesTable, users as usersTable } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
-import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { TagService } from '$sailor/core/services/tag.server';
 import { getFileTypeFromMime } from '$sailor/core/files/file';
 import { type FileListItem } from '$sailor/core/files/file.server';
@@ -50,11 +49,10 @@ export const deleteFiles = command('unchecked', async ({ ids }: { ids: string[] 
         const file = fileResults[0];
 
         // Check if user can delete this file
-        const acl = createACL(locals.user!);
-        const canDelete = await acl.can('delete', 'file', file);
+        const canDelete = await locals.security.hasPermission('delete', 'files');
 
         if (!canDelete) {
-          const errorMessage = getPermissionErrorMessage(locals.user!, 'delete', 'file', file);
+          const errorMessage = 'You do not have permission to delete files';
           errorCount++;
           if (!errorMessages.includes(errorMessage)) {
             errorMessages.push(errorMessage);
@@ -168,11 +166,10 @@ export const uploadFiles = command(
           const file = reconstructFile(fileData);
 
           // Check permissions (create permission for files)
-          const acl = createACL(locals.user!);
-          const canCreate = await acl.can('create', 'file', {});
+          const canCreate = await locals.security.hasPermission('create', 'files');
 
           if (!canCreate) {
-            const errorMsg = getPermissionErrorMessage(locals.user!, 'create', 'file', {});
+            const errorMsg = 'You do not have permission to create files';
             errors.push({
               filename: fileData.name,
               error: errorMsg
@@ -355,13 +352,12 @@ export const updateFile = command(
       const file = fileResults[0];
 
       // Check permissions
-      const acl = createACL(locals.user!);
-      const canUpdate = await acl.can('update', 'file', file);
+      const canUpdate = await locals.security.hasPermission('update', 'files');
 
       if (!canUpdate) {
         return {
           success: false,
-          error: getPermissionErrorMessage(locals.user!, 'update', 'file', file)
+          error: 'You do not have permission to update files'
         };
       }
 
@@ -465,11 +461,10 @@ export const updateFilesTags = command(
             continue;
           }
 
-          const acl = createACL(locals.user!);
-          const canUpdate = await acl.can('update', 'file', file);
+          const canUpdate = await locals.security.hasPermission('update', 'files');
           if (!canUpdate) {
             errorCount++;
-            errorMessages.push(getPermissionErrorMessage(locals.user!, 'update', 'file', file));
+            errorMessages.push('You do not have permission to update files');
             continue;
           }
 
@@ -758,6 +753,8 @@ export const checkFiles = command('unchecked', async () => {
 export const importFiles = command(
   'unchecked',
   async ({ dryRun = false }: { dryRun?: boolean }) => {
+    const { locals } = getRequestEvent();
+
     try {
       const stats = { scanned: 0, imported: 0, errors: 0, skipped: 0 };
 
@@ -819,7 +816,7 @@ export const importFiles = command(
             size: file.size || 0,
             path: file.path,
             url: publicUrl,
-            author: null, // No author for imported files
+            author: locals.user?.id || null, // Set current user as author for imported files
             created_at: new Date(),
             updated_at: new Date()
           });

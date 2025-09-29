@@ -4,7 +4,6 @@ import { db } from '$sailor/core/db/index.server';
 import { log } from '$sailor/core/utils/logger';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { createACL, getPermissionErrorMessage } from '$sailor/core/rbac/acl';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
 
@@ -162,17 +161,10 @@ export const saveCollectionItem = command(
 
         if (existing.length > 0) {
           // Check if user can update this item
-          const acl = createACL(locals.user);
-          const canUpdate = await acl.can('update', 'collection', existing[0]);
+          const canUpdate = await locals.security.hasPermission('update', 'content');
 
           if (!canUpdate) {
-            const errorMessage = getPermissionErrorMessage(
-              locals.user!,
-              'update',
-              'collection',
-              existing[0]
-            );
-            throw new Error(errorMessage);
+            throw new Error('You do not have permission to update this content');
           }
 
           // Update existing item using core-first + sanitized payload spread
@@ -212,14 +204,10 @@ export const saveCollectionItem = command(
             .where(eq((collectionTable as any).id, itemId));
         } else {
           // Create new item
-          const acl = createACL(locals.user);
-          const canCreate = await acl.can('create', 'collection', { collection: collectionSlug });
+          const canCreate = await locals.security.hasPermission('create', 'content');
 
           if (!canCreate) {
-            const errorMessage = getPermissionErrorMessage(locals.user!, 'create', 'collection', {
-              collection: collectionSlug
-            });
-            throw new Error(errorMessage);
+            throw new Error('You do not have permission to create content');
           }
 
           // Build base core fields

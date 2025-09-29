@@ -1,4 +1,4 @@
-import { command } from '$app/server';
+import { command, getRequestEvent } from '$app/server';
 import { db } from '$sailor/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { asc, sql, eq } from 'drizzle-orm';
@@ -15,6 +15,13 @@ export const getUsers = command(
     limit?: number;
     search?: string;
   } = {}) => {
+    const { locals } = getRequestEvent();
+
+    // Check permission to view users
+    if (!(await locals.security.hasPermission('read', 'users'))) {
+      return { success: false, error: 'Access denied: You do not have permission to view users' };
+    }
+
     try {
       const cleanLimit = Math.max(1, Math.min(1000, limit));
       const cleanSearch = search.trim();
@@ -52,6 +59,13 @@ export const getUsers = command(
  * Get user roles for selection
  */
 export const getUserRoles = command('unchecked', async () => {
+  const { locals } = getRequestEvent();
+
+  // Check permission to view users
+  if (!(await locals.security.hasPermission('read', 'users'))) {
+    return { success: false, error: 'Access denied: You do not have permission to view users' };
+  }
+
   try {
     const roles = await db.query.roles.findMany({
       orderBy: (roles: any, { asc }: any) => [asc(roles.name)]

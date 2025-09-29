@@ -2,7 +2,6 @@ import { redirect, fail, error } from '@sveltejs/kit';
 import { log } from '$sailor/core/utils/logger';
 import { db } from '$sailor/core/db/index.server';
 import { eq, ne, and } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
 import { users, accounts, sessions } from '$sailor/generated/schema';
 import {
   adoptUserContent,
@@ -16,9 +15,9 @@ import type { Actions, PageServerLoad } from './$types';
 export type AvailableUser = Pick<User, 'id' | 'name' | 'email'>;
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-  // Check if user is authenticated and admin
-  if (!locals.user?.id || locals.user.role !== 'admin') {
-    throw redirect(302, '/sailor');
+  // Check permission to view users
+  if (!(await locals.security.hasPermission('read', 'users'))) {
+    throw error(403, 'Access denied: You do not have permission to view users');
   }
 
   const userId = params.id;
@@ -101,9 +100,9 @@ export const actions: Actions = {
       });
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return fail(400, {
-        error: 'Password must be at least 6 characters long',
+        error: 'Password must be at least 8 characters long',
         values: { name, email, role }
       });
     }
@@ -135,32 +134,38 @@ export const actions: Actions = {
         });
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Use better-auth admin plugin to create user
+      const { auth } = await import('$sailor/core/auth.server');
 
-      // Create user and credential account in a transaction
-      await db.transaction(async (tx: any) => {
-        // Create user (without password - better-auth doesn't use users.password)
-        await tx.insert(users).values({
-          id: userId,
-          name,
+      const newUser = await auth.api.createUser({
+        body: {
           email,
-          role: role as 'admin' | 'editor' | 'user',
-          created_at: new Date(),
-          updated_at: new Date()
-        });
-
-        // Create credential account for better-auth
-        await tx.insert(accounts).values({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          account_id: email,
-          provider_id: 'credential',
-          password: hashedPassword,
-          created_at: new Date(),
-          updated_at: new Date()
-        });
+          password,
+          name,
+          role: role as 'admin' | 'editor' | 'user'
+        }
       });
+
+      if (!newUser?.user?.id) {
+        throw new Error('Failed to create user through better-auth admin');
+      }
+
+      // Update the user with our custom ID if needed
+      if (newUser.user.id !== userId) {
+        await db.transaction(async (tx: any) => {
+          // Update user ID
+          await tx
+            .update(users)
+            .set({ id: userId, updated_at: new Date() })
+            .where(eq(users.id, newUser.user.id));
+
+          // Update account user_id to match our custom ID
+          await tx
+            .update(accounts)
+            .set({ user_id: userId, updated_at: new Date() })
+            .where(eq(accounts.user_id, newUser.user.id));
+        });
+      }
     } catch (error) {
       log.error('Failed to create user', {}, error as Error);
       log.error('Error details', {
@@ -204,9 +209,9 @@ export const actions: Actions = {
       });
     }
 
-    if (password && password.length < 6) {
+    if (password && password.length < 8) {
       return fail(400, {
-        error: 'Password must be at least 6 characters long',
+        error: 'Password must be at least 8 characters long',
         values: { name, email, role }
       });
     }
@@ -251,47 +256,26 @@ export const actions: Actions = {
           })
           .where(eq(users.id, userId));
 
-        // Update password in credential account if provided
+        // Update password using better-auth admin plugin if provided
         if (password) {
-          const hashedPassword = await bcrypt.hash(password, 10);
+          const { auth } = await import('$sailor/core/auth.server');
 
-          // Update existing credential account or create one if it doesn't exist
-          const existingAccount = await tx.query.accounts.findFirst({
-            where: and(eq(accounts.user_id, userId), eq(accounts.provider_id, 'credential'))
+          await auth.api.setUserPassword({
+            body: {
+              userId,
+              newPassword: password
+            }
           });
-
-          if (existingAccount) {
-            // Update existing credential account
-            await tx
-              .update(accounts)
-              .set({
-                password: hashedPassword,
-                account_id: email, // Update account_id in case email changed
-                updated_at: new Date()
-              })
-              .where(eq(accounts.id, existingAccount.id));
-          } else {
-            // Create new credential account if none exists
-            await tx.insert(accounts).values({
-              id: crypto.randomUUID(),
-              user_id: userId,
-              account_id: email,
-              provider_id: 'credential',
-              password: hashedPassword,
-              created_at: new Date(),
-              updated_at: new Date()
-            });
-          }
-        } else {
-          // If no password provided but email changed, update account_id
-          await tx
-            .update(accounts)
-            .set({
-              account_id: email,
-              updated_at: new Date()
-            })
-            .where(and(eq(accounts.user_id, userId), eq(accounts.provider_id, 'credential')));
         }
+
+        // If email changed, update account_id
+        await tx
+          .update(accounts)
+          .set({
+            account_id: email,
+            updated_at: new Date()
+          })
+          .where(and(eq(accounts.user_id, userId), eq(accounts.provider_id, 'credential')));
       });
     } catch (error) {
       log.error('Failed to update user', { userId }, error as Error);

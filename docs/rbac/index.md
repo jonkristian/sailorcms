@@ -7,43 +7,44 @@ has_children: true
 
 # Role-Based Access Control
 
-Sailor CMS includes a comprehensive Role-Based Access Control (RBAC) system that allows you to define exactly who can access and modify different types of content.
+Sailor CMS includes a robust Role-Based Access Control (RBAC) system built on [Better Auth's admin plugin](https://www.better-auth.com/docs/plugins/admin) that provides secure user management and fine-grained permissions.
 
 ## Overview
 
-The RBAC system is built on top of Better Auth's admin plugin and provides:
+The RBAC system leverages Better Auth's proven access control patterns and provides:
 
-- **Flexible Role Definitions**: Create custom roles with specific permissions
-- **Resource-Level Control**: Control access to collections, globals, blocks, files, and users
-- **Granular Permissions**: Define view, create, update, and delete permissions separately
-- **Scope-Based Access**: Control access based on content status (published, draft, etc.) and ownership
+- **Simple Role Management**: Built-in admin, editor, and user roles with logical defaults
+- **Resource-Based Permissions**: Control access to content, files, users, and settings
+- **Better Auth Integration**: Seamless authentication and session management
+- **Extensible Design**: Easy to add custom roles and permissions
 
-## Key Concepts
+## Key Features
 
-### Roles
+### Built-in Roles
 
-User roles like `admin`, `editor`, and `user` that define what actions a user can perform.
+- **Admin** - Full system access including user management and settings
+- **Editor** - Content and file management without user administration
+- **User** - Read-only access to published content and files
 
-### Permissions
+### Protected Resources
 
-Specific actions like `view`, `create`, `update`, and `delete` that can be allowed or restricted.
+- **Content** - Collections, globals, and all content types
+- **Files** - Media uploads and file management
+- **Users** - User accounts and profile management
+- **Settings** - System configuration and preferences
 
-### Resources
+### Permission Actions
 
-Different types of content that can be protected: `collection`, `global`, `block`, `file`, `user`, and `settings`.
-
-### Scopes
-
-Fine-grained access control based on:
-
-- **Ownership**: `own` - only content you created
-- **Status**: `published`, `draft`, `archived` - based on content status
-- **Visibility**: `public`, `all` - based on content visibility
+All resources support standard CRUD operations:
+- **create** - Add new content/users/files
+- **read** - View and access content
+- **update** - Edit existing content
+- **delete** - Remove content permanently
 
 ---
 
 ## Quick Start
 
-The RBAC system works out of the box with sensible defaults, but you can customize it extensively through your settings configuration.
+The system works immediately with secure defaults. Customize roles in your settings file only if you need different permissions.
 
-[Learn more about ACL Implementation]({{ site.baseurl }}{% link rbac/acl.md %})
+[Learn more about Configuration]({{ site.baseurl }}{% link rbac/acl.md %})

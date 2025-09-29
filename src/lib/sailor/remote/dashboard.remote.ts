@@ -3,8 +3,7 @@ import { query, getRequestEvent } from '$app/server';
 import { db } from '$sailor/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { desc, count, eq } from 'drizzle-orm';
-import { SystemSettingsService } from '$sailor/core/services/system-settings.server';
-import { createACL } from '$sailor/core/rbac/acl';
+import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import { getDashboardActivityLink } from '$sailor/core/utils/routing';
 
 interface DashboardStats {
@@ -63,12 +62,10 @@ interface DashboardData {
  */
 export const getDashboardData = query(async (): Promise<DashboardData> => {
   const { locals } = getRequestEvent();
-  const acl = createACL(locals.user);
-
   try {
     // Check permissions for different resources
-    const canViewUsers = await acl.hasAnyPermission('user', 'view');
-    const canViewSettings = await acl.hasAnyPermission('settings', 'view');
+    const canViewUsers = await locals.security.hasPermission('read', 'users');
+    const canViewSettings = await locals.security.hasPermission('read', 'settings');
     // Build queries based on permissions
     const queries = [
       // Stats queries (always show collections and globals)
@@ -83,9 +80,9 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
       // Only show user count if user can view users
       canViewUsers
         ? db
-            .select({ count: count() })
-            .from(schema.users)
-            .then((r: any) => r[0]?.count || 0)
+          .select({ count: count() })
+          .from(schema.users)
+          .then((r: any) => r[0]?.count || 0)
         : Promise.resolve(0),
       // Files count (most users can see this)
       db
@@ -113,18 +110,18 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
       // Recent users (only if user can view users)
       canViewUsers
         ? db
-            .select({
-              id: schema.users.id,
-              name: schema.users.name,
-              email: schema.users.email,
-              image: schema.users.image,
-              role: schema.users.role,
-              created_at: schema.users.created_at,
-              updated_at: schema.users.updated_at
-            })
-            .from(schema.users)
-            .orderBy(desc(schema.users.created_at))
-            .limit(4)
+          .select({
+            id: schema.users.id,
+            name: schema.users.name,
+            email: schema.users.email,
+            image: schema.users.image,
+            role: schema.users.role,
+            created_at: schema.users.created_at,
+            updated_at: schema.users.updated_at
+          })
+          .from(schema.users)
+          .orderBy(desc(schema.users.created_at))
+          .limit(4)
         : Promise.resolve([]),
 
       // Get collection types for building activity queries

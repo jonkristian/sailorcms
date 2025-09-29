@@ -294,6 +294,7 @@ export async function uploadFile(
     maxSize?: number;
     accept?: string;
     created_at?: Date;
+    author?: string;
   } = {}
 ): Promise<FileType> {
   // Get settings for validation
@@ -365,7 +366,7 @@ export async function uploadFile(
     alt_text: options.alt || undefined,
     title: options.title || undefined,
     description: options.description || undefined,
-    author: 'system', // TODO: Get from session
+    author: options.author || '',
     created_at: options.created_at || new Date(), // Use custom date if provided
     updated_at: new Date()
   };

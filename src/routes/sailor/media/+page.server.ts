@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit';
 import { db } from '$sailor/core/db/index.server';
 import { files as filesTable, users } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
@@ -7,7 +8,8 @@ import { StorageProviderFactory } from '$sailor/core/services/storage-provider.s
 import type { Pagination } from '$sailor/core/types';
 
 export const load = async ({
-  url
+  url,
+  locals
 }): Promise<{
   files: any[];
   availableTags: any[];
@@ -18,7 +20,10 @@ export const load = async ({
     tags: string[];
   };
 }> => {
-  // Authentication and authorization handled by hooks
+  // Check permission to view files
+  if (!(await locals.security.hasPermission('read', 'files'))) {
+    throw error(403, 'Access denied: You do not have permission to view files');
+  }
 
   // Get pagination parameters from URL
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
