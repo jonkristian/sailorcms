@@ -71,12 +71,13 @@ export class GlobalGenerator {
     const tables = [];
     const arrayTableName = `${parentTable}_${this.toSnakeCase(fieldName)}`;
 
-    // Create the main array table
+    // Create the main array table, passing depth to determine correct foreign key field
     const arrayTable = this.tableGen.createArrayTable(
       arrayTableName,
       parentTable,
       { name: fieldName, ...fieldDef },
-      entityInfo
+      entityInfo,
+      depth
     );
     tables.push(arrayTable);
 

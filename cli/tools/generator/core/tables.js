@@ -24,26 +24,32 @@ export class TableGenerator {
   /**
    * Create an array/child table for storing array field items
    */
-  createArrayTable(tableName, parentTable, field, entityInfo) {
-    // Determine foreign key field name based on parent table type
+  createArrayTable(tableName, parentTable, field, entityInfo, depth = 0) {
+    // Determine foreign key field name based on depth
+    // depth = 0 means first-level array (directly under main entity table)
+    // depth > 0 means nested array (array within array)
     let foreignKeyField;
-    if (parentTable.startsWith('block_') && parentTable.split('_').length > 2) {
-      // Nested array (e.g., block_features_features_cta) - use parent_id
+    if (depth > 0) {
+      // Nested array - use parent_id only
       foreignKeyField = 'parent_id';
     } else {
-      // Top-level array - use type-specific ID (block_id, global_id, collection_id)
+      // First-level array - use type-specific ID (block_id, global_id, collection_id)
       foreignKeyField = `${parentTable.split('_')[0]}_id`;
     }
 
     const fields = {
       id: this.getPrimaryKeyField(),
       [foreignKeyField]: this.getTextField({ notNull: true }),
-      parent_id: this.getTextField(), // Core field for hierarchical relationships
       sort: this.getIntegerField({ notNull: true, default: 0 }),
       created_at: this.getTimestampField(),
       updated_at: this.getTimestampField(),
       ...this.buildArrayItemFields(field)
     };
+
+    // Add parent_id only for first-level arrays (to support future hierarchical features)
+    if (depth === 0) {
+      fields.parent_id = this.getTextField();
+    }
 
     const table = this.createTableDefinition(tableName, fields);
 
