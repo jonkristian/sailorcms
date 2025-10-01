@@ -1,6 +1,6 @@
 // Site configuration utilities
 
-import type { SiteConfig } from './types';
+import type { SiteConfig } from '../types';
 
 /**
  * Get site configuration from core CMS settings

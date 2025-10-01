@@ -1,23 +1,29 @@
-// Server-side utilities
+// Main barrel export - maintains backward compatibility
+// Developers can import from '$sailor/utils' or from specific categories
+
+// Data utilities (server-side)
 export {
-  // Clean, modern API
-  getCollectionItems, // Multiple items: getCollectionItems('posts', { query: 'children', value: 'parent-id' })
-  getCollectionItem, // Single item: getCollectionItem('posts', { query: 'slug', value: 'my-post' })
+  getCollections,
+  getGlobals,
+  getAvailableGlobalTypes,
+  globalTypeExists,
+  getSiteSettings,
+  type CollectionItem,
+  type CollectionsOptions,
+  type CollectionsMultipleResult,
+  type CollectionsSingleResult,
+  type GlobalsMultipleResult,
+  type GlobalsOptions,
+  type GlobalsSingleResult
+} from './data';
 
-  // Original complex function (for advanced usage)
-  getCollection
-} from './collections.server';
-export {
-  // Clean, modern API
-  getGlobalItems, // Multiple items: getGlobalItems('menus', { query: 'slug', value: 'main' })
-  getGlobalItem, // Single item: getGlobalItem('menus', { query: 'slug', value: 'main' })
+// Content utilities (universal)
+export { renderContent, getExcerpt } from './content';
 
-  // Original complex function (for advanced usage)
-  getGlobal
-} from './globals.server';
-export { getSiteSettings } from './site.server';
+// SEO utilities are server-side only - import directly from './content/seo' when needed
+// export { extractSEO, generateMetaTags } from './content';
 
-// Client-side utilities
+// File utilities (client-side)
 export {
   getFile,
   getImage,
@@ -28,11 +34,17 @@ export {
   getDefaultBreakpoints
 } from './files';
 
-// Universal utilities
-export { renderContent, getExcerpt } from './content';
-export { extractSEO, generateMetaTags } from './seo';
-export { buildNavigationTree, generateBreadcrumbs, createPagination } from './navigation';
-export { formatDate, timeAgo, sortByDate } from './datetime';
+// UI utilities (universal)
+export {
+  buildNavigationTree,
+  generateBreadcrumbs,
+  createPagination,
+  formatDate,
+  timeAgo,
+  sortByDate
+} from './ui';
+
+// Core utilities (re-exported for convenience)
 export { debounce } from '../core/utils/debounce';
 export { getRoleColor, copyUserId, shortenUserId } from '../core/utils/user';
 

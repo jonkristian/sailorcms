@@ -5,6 +5,16 @@
 import { redirect, error, type RequestEvent, type ResolveOptions } from '@sveltejs/kit';
 import { auth } from '$sailor/core/auth.server';
 import { handleSailorLogging, log } from '$sailor/core/utils/logger';
+import { initializeDatabase } from '$sailor/core/db/index.server';
+
+// Initialize database on server startup (avoid top-level await)
+let dbInitialized = false;
+async function ensureDatabaseInitialized() {
+  if (!dbInitialized) {
+    await initializeDatabase();
+    dbInitialized = true;
+  }
+}
 
 type User = {
   id: string;
@@ -22,11 +32,12 @@ async function checkRouteAccess(pathname: string, user: User | null | undefined)
   const publicRoutes = [
     '/sailor/auth/login',
     '/sailor/auth/signup',
-    '/sailor/api/auth'
+    '/sailor/api/auth',
+    '/sailor/api/images'
   ];
 
   // Check if this is a public route
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return;
   }
 
@@ -48,6 +59,9 @@ export async function handleSailorHooks(
   event: RequestEvent,
   resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>
 ): Promise<Response> {
+  // Initialize database on first request
+  await ensureDatabaseInitialized();
+
   return handleSailorLogging(event, async () => {
     // Handle auth API routes
     if (event.url.pathname.startsWith('/sailor/api/auth')) {
@@ -87,7 +101,6 @@ export async function handleSailorHooks(
             }
           });
 
-
           return result?.success === true;
         } catch (error) {
           console.warn('Better-auth permission check failed:', {
@@ -118,7 +131,12 @@ export async function handleSailorHooks(
         }
 
         // Check for SvelteKit redirect response objects
-        if (err && typeof err === 'object' && (err as any).status && ((err as any).status === 302 || (err as any).status === 301)) {
+        if (
+          err &&
+          typeof err === 'object' &&
+          (err as any).status &&
+          ((err as any).status === 302 || (err as any).status === 301)
+        ) {
           throw err;
         }
 

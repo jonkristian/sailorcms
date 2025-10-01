@@ -75,7 +75,6 @@ export interface RoleSettings {
   adminRoles: string[];
 }
 
-
 // Main Settings Interface
 export interface CMSSettings {
   storage: StorageSettings;

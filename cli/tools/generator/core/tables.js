@@ -25,9 +25,20 @@ export class TableGenerator {
    * Create an array/child table for storing array field items
    */
   createArrayTable(tableName, parentTable, field, entityInfo) {
+    // Determine foreign key field name based on parent table type
+    let foreignKeyField;
+    if (parentTable.startsWith('block_') && parentTable.split('_').length > 2) {
+      // Nested array (e.g., block_features_features_cta) - use parent_id
+      foreignKeyField = 'parent_id';
+    } else {
+      // Top-level array - use type-specific ID (block_id, global_id, collection_id)
+      foreignKeyField = `${parentTable.split('_')[0]}_id`;
+    }
+
     const fields = {
       id: this.getPrimaryKeyField(),
-      [`${parentTable.split('_')[0]}_id`]: this.getTextField({ notNull: true }), // block_id, global_id, collection_id
+      [foreignKeyField]: this.getTextField({ notNull: true }),
+      parent_id: this.getTextField(), // Core field for hierarchical relationships
       sort: this.getIntegerField({ notNull: true, default: 0 }),
       created_at: this.getTimestampField(),
       updated_at: this.getTimestampField(),
@@ -42,7 +53,7 @@ export class TableGenerator {
       parent: {
         table: parentTable,
         field: field.name,
-        foreignKey: `${parentTable.split('_')[0]}_id`
+        foreignKey: foreignKeyField
       }
     });
 
@@ -51,7 +62,7 @@ export class TableGenerator {
       fromTable: tableName,
       toTable: parentTable,
       type: 'many-to-one',
-      foreignKey: `${parentTable.split('_')[0]}_id`,
+      foreignKey: foreignKeyField,
       references: 'id'
     });
 

@@ -6,8 +6,8 @@
  * canonical_url, and noindex fields.
  */
 
-import { getFile } from './files.server';
-import type { SEOData, CollectionTypes, GlobalTypes } from './types';
+import { getFile } from '../files/server';
+import type { SEOData, CollectionTypes, GlobalTypes } from '../types';
 
 /**
  * Generate page title with site name

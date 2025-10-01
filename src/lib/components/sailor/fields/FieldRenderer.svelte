@@ -95,6 +95,9 @@
   {#if field.type !== 'file' && field.showLabel !== false}
     <Label class={variant === 'main' ? 'mb-3 text-lg font-semibold' : ''}>
       {field.label || fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1)}
+      {#if field.required}
+        <span class="ml-1 text-red-500">*</span>
+      {/if}
     </Label>
   {/if}
 
@@ -283,6 +286,7 @@
         : ''}
       items={value || []}
       itemSchema={field.items.properties || {}}
+      required={field.required}
       onChange={updateValue}
     />
   {:else if field.type === 'number'}
@@ -295,7 +299,7 @@
       oninput={(e) => updateValue(Number(e.currentTarget.value))}
     />
   {:else if field.type === 'boolean'}
-    <BooleanField value={value || false} onChange={updateValue} />
+    <BooleanField value={value || false} required={field.required} onChange={updateValue} />
   {:else if field.type === 'select'}
     <SelectField
       value={value || ''}
@@ -313,9 +317,9 @@
       {currentItemId}
     />
   {:else if field.type === 'file'}
-    <FileField value={value || ''} {field} onChange={updateValue} />
+    <FileField value={value || ''} {field} required={field.required} onChange={updateValue} />
   {:else if field.type === 'tags'}
-    <TagsInput value={value || []} onChange={updateValue} />
+    <TagsInput value={value || []} required={field.required} onChange={updateValue} />
   {:else}
     <TextField
       value={value || ''}

@@ -71,11 +71,11 @@ export const actions: Actions = {
           : SystemSettingsService.deleteSetting('site.url'),
         siteDescription && siteDescription.trim()
           ? SystemSettingsService.setSetting(
-            'site.description',
-            siteDescription.trim(),
-            'site',
-            'Site description'
-          )
+              'site.description',
+              siteDescription.trim(),
+              'site',
+              'Site description'
+            )
           : SystemSettingsService.deleteSetting('site.description'),
         SystemSettingsService.setRegistrationEnabled(allowRegistration)
       ]);
@@ -95,7 +95,10 @@ export const actions: Actions = {
     try {
       const result = await SystemSettingsService.refreshSettings();
       log.info(`Settings purged: ${result.removed} old settings removed, reloaded fresh settings`);
-      return { success: true, message: `Purged ${result.removed} old settings and reloaded fresh templates` };
+      return {
+        success: true,
+        message: `Purged ${result.removed} old settings and reloaded fresh templates`
+      };
     } catch (error) {
       log.error('Failed to purge settings:', {}, error as Error);
       return fail(500, { error: 'Failed to purge settings' });

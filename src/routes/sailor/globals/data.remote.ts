@@ -10,6 +10,64 @@ import { toSnakeCase } from '$sailor/core/utils/string';
 import { log } from '$sailor/core/utils/logger';
 
 /**
+ * Reorder array items with drag & drop support
+ */
+export const reorderArrayItems = command(
+  'unchecked',
+  async ({
+    globalSlug,
+    fieldName,
+    items
+  }: {
+    globalSlug: string;
+    fieldName: string;
+    items: Array<{ id: string; parent_id?: string | null }>;
+  }) => {
+    const { locals } = getRequestEvent();
+
+    if (!locals.user?.id) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!globalSlug || !fieldName || !Array.isArray(items) || items.length === 0) {
+      return { success: false, error: 'Global slug, field name, and items array are required' };
+    }
+
+    // Check if user can update globals
+    const canUpdate = await locals.security.hasPermission('update', 'content');
+
+    if (!canUpdate) {
+      return {
+        success: false,
+        error: 'You do not have permission to update content'
+      };
+    }
+
+    try {
+      // Convert camelCase field name to snake_case for table name
+      const snakeCaseFieldName = toSnakeCase(fieldName);
+      const tableName = `global_${globalSlug}_${snakeCaseFieldName}`;
+
+      await db.transaction(async (tx: any) => {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          await tx.run(
+            sql`UPDATE ${sql.identifier(tableName)}
+                SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestamp()}
+                WHERE id = ${item.id}`
+          );
+        }
+      });
+
+      return { success: true };
+    } catch (error) {
+      log.error('Error reordering array items', {}, error as Error);
+      return { success: false, error: 'Failed to reorder array items' };
+    }
+  }
+);
+
+/**
  * Update tags for a global item
  */
 export const updateGlobalItemTags = command(
@@ -321,41 +379,66 @@ export const updateFlatGlobal = command(
           // Convert camelCase field name to snake_case for table name
           const snakeCaseFieldName = toSnakeCase(fieldName);
           const relationTableName = `global_${globalSlug}_${snakeCaseFieldName}`;
-
-          // Delete existing items
           const relationTable = schema[relationTableName as keyof typeof schema];
-          if (relationTable) {
-            await tx.delete(relationTable).where(eq((relationTable as any).global_id, itemId));
+
+          if (!relationTable) continue;
+
+          // Get existing items from database
+          const existingItems = await tx
+            .select()
+            .from(relationTable)
+            .where(eq((relationTable as any).global_id, itemId));
+
+          // Create maps for efficient lookup
+          const existingItemsMap = new Map(existingItems.map((item: any) => [item.id, item]));
+          const newItemsMap = new Map(arrayItems.map((item: any) => [item.id, item]));
+
+          // Find items to delete (exist in DB but not in new array)
+          const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
+
+          // Delete removed items
+          for (const item of itemsToDelete) {
+            await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
           }
 
-          // Insert new items
+          // Update or insert items
           for (let i = 0; i < arrayItems.length; i++) {
             const item = arrayItems[i];
-            const columns = ['id', 'global_id', 'sort', 'created_at', 'updated_at'];
-            const values = [
-              generateUUID(),
-              itemId,
-              i,
-              getCurrentTimestamp(),
-              getCurrentTimestamp()
-            ];
+            const existingItem = existingItemsMap.get(item.id);
 
-            // Add field properties
-            Object.keys(fieldDef.items.properties).forEach((propKey) => {
-              columns.push(propKey);
-              values.push(item[propKey] || null);
-            });
+            if (existingItem) {
+              // Update existing item with new sort order and any changed data
+              const updateData: Record<string, any> = {
+                sort: i,
+                updated_at: getCurrentTimestamp()
+              };
 
-            await tx.run(
-              sql`INSERT INTO ${sql.identifier(relationTableName)} (${sql.join(
-                columns.map((c) => sql.identifier(c)),
-                sql`, `
-              )})
-                  VALUES (${sql.join(
-                values.map((v) => sql`${v}`),
-                sql`, `
-              )})`
-            );
+              // Add field properties that might have changed
+              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                updateData[propKey] = item[propKey] || null;
+              });
+
+              await tx
+                .update(relationTable)
+                .set(updateData)
+                .where(eq((relationTable as any).id, item.id));
+            } else {
+              // Insert new item
+              const insertData: Record<string, any> = {
+                id: item.id || generateUUID(),
+                global_id: itemId,
+                sort: i,
+                created_at: getCurrentTimestamp(),
+                updated_at: getCurrentTimestamp()
+              };
+
+              // Add field properties
+              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                insertData[propKey] = item[propKey] || null;
+              });
+
+              await tx.insert(relationTable).values(insertData);
+            }
           }
         }
       });
@@ -587,41 +670,66 @@ export const updateRepeatableGlobal = command(
           // Convert camelCase field name to snake_case for table name
           const snakeCaseFieldName = toSnakeCase(fieldName);
           const relationTableName = `global_${globalSlug}_${snakeCaseFieldName}`;
-
-          // Delete existing items
           const relationTable = schema[relationTableName as keyof typeof schema];
-          if (relationTable) {
-            await tx.delete(relationTable).where(eq((relationTable as any).global_id, finalItemId));
+
+          if (!relationTable) continue;
+
+          // Get existing items from database
+          const existingItems = await tx
+            .select()
+            .from(relationTable)
+            .where(eq((relationTable as any).global_id, finalItemId));
+
+          // Create maps for efficient lookup
+          const existingItemsMap = new Map(existingItems.map((item: any) => [item.id, item]));
+          const newItemsMap = new Map(arrayItems.map((item: any) => [item.id, item]));
+
+          // Find items to delete (exist in DB but not in new array)
+          const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
+
+          // Delete removed items
+          for (const item of itemsToDelete) {
+            await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
           }
 
-          // Insert new items
+          // Update or insert items
           for (let i = 0; i < arrayItems.length; i++) {
             const item = arrayItems[i];
-            const columns = ['id', 'global_id', 'sort', 'created_at', 'updated_at'];
-            const values = [
-              generateUUID(),
-              finalItemId,
-              i,
-              getCurrentTimestamp(),
-              getCurrentTimestamp()
-            ];
+            const existingItem = existingItemsMap.get(item.id);
 
-            // Add field properties
-            Object.keys(fieldDef.items.properties).forEach((propKey) => {
-              columns.push(propKey);
-              values.push(item[propKey] || null);
-            });
+            if (existingItem) {
+              // Update existing item with new sort order and any changed data
+              const updateData: Record<string, any> = {
+                sort: i,
+                updated_at: getCurrentTimestamp()
+              };
 
-            await tx.run(
-              sql`INSERT INTO ${sql.identifier(relationTableName)} (${sql.join(
-                columns.map((c) => sql.identifier(c)),
-                sql`, `
-              )})
-                  VALUES (${sql.join(
-                values.map((v) => sql`${v}`),
-                sql`, `
-              )})`
-            );
+              // Add field properties that might have changed
+              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                updateData[propKey] = item[propKey] || null;
+              });
+
+              await tx
+                .update(relationTable)
+                .set(updateData)
+                .where(eq((relationTable as any).id, item.id));
+            } else {
+              // Insert new item
+              const insertData: Record<string, any> = {
+                id: item.id || generateUUID(),
+                global_id: finalItemId,
+                sort: i,
+                created_at: getCurrentTimestamp(),
+                updated_at: getCurrentTimestamp()
+              };
+
+              // Add field properties
+              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                insertData[propKey] = item[propKey] || null;
+              });
+
+              await tx.insert(relationTable).values(insertData);
+            }
           }
         }
       });
@@ -635,12 +743,8 @@ export const updateRepeatableGlobal = command(
             )
             .filter(Boolean);
 
-          // Use existing remote function to handle tags for this global item
-          await updateGlobalItemTags({
-            globalSlug: globalSlug,
-            itemId: finalItemId,
-            tags: tagNames
-          });
+          // Use direct service call to avoid circular dependency
+          await TagService.tagEntity(`global_${globalSlug}`, finalItemId, tagNames);
         } catch (error) {
           log.error(`Failed to save tags for field ${fieldName}`, {}, error as Error);
         }
@@ -658,7 +762,9 @@ export const updateRepeatableGlobal = command(
               fieldName,
               globalSlug,
               snake,
-              availableTables: Object.keys(schema).filter(key => key.includes(`global_${globalSlug}`))
+              availableTables: Object.keys(schema).filter((key) =>
+                key.includes(`global_${globalSlug}`)
+              )
             });
             continue;
           }
@@ -680,10 +786,12 @@ export const updateRepeatableGlobal = command(
           // Clear existing
           await (db as any)
             .delete(relationTable)
-            .where(and(
-              eq((relationTable as any).parent_id, finalItemId),
-              eq((relationTable as any).parent_type, 'global')
-            ));
+            .where(
+              and(
+                eq((relationTable as any).parent_id, finalItemId),
+                eq((relationTable as any).parent_type, 'global')
+              )
+            );
 
           if (fileId) {
             const insertData = {
@@ -708,13 +816,17 @@ export const updateRepeatableGlobal = command(
             log.debug(`No file ID provided for ${fieldName}, skipping insertion`);
           }
         } catch (error) {
-          log.error(`Failed to save file field ${fieldName}`, {
-            fieldName,
-            globalSlug,
-            relationTableName: `global_${globalSlug}_${toSnakeCase(fieldName)}`,
-            fileValue,
-            finalItemId
-          }, error as Error);
+          log.error(
+            `Failed to save file field ${fieldName}`,
+            {
+              fieldName,
+              globalSlug,
+              relationTableName: `global_${globalSlug}_${toSnakeCase(fieldName)}`,
+              fileValue,
+              finalItemId
+            },
+            error as Error
+          );
         }
       }
 
@@ -867,20 +979,22 @@ export const updateRelationalGlobal = command(
 
           await tx.run(
             sql`INSERT INTO ${sql.identifier(`global_${globalSlug}`)}
-                (id, sort, author, last_modified_by, created_at, updated_at${insertFields.length > 0
-                ? sql`, ${sql.join(
-                  insertFields.map((f) => sql.identifier(f)),
-                  sql`, `
-                )}`
-                : sql``
-              })
-                VALUES (${finalItemId}, 0, ${authorValue}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${insertValues.length > 0
-                ? sql`, ${sql.join(
-                  insertValues.map((v) => sql`${v}`),
-                  sql`, `
-                )}`
-                : sql``
-              })`
+                (id, sort, author, last_modified_by, created_at, updated_at${
+                  insertFields.length > 0
+                    ? sql`, ${sql.join(
+                        insertFields.map((f) => sql.identifier(f)),
+                        sql`, `
+                      )}`
+                    : sql``
+                })
+                VALUES (${finalItemId}, 0, ${authorValue}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
+                  insertValues.length > 0
+                    ? sql`, ${sql.join(
+                        insertValues.map((v) => sql`${v}`),
+                        sql`, `
+                      )}`
+                    : sql``
+                })`
           );
         }
 
@@ -892,68 +1006,76 @@ export const updateRelationalGlobal = command(
           // Convert camelCase field name to snake_case for table name
           const snakeCaseFieldName = toSnakeCase(fieldName);
           const relationTableName = `global_${globalSlug}_${snakeCaseFieldName}`;
-
-          // Delete existing items
           const relationTable = schema[relationTableName as keyof typeof schema];
-          if (relationTable) {
-            await tx.delete(relationTable).where(eq((relationTable as any).global_id, finalItemId));
+
+          if (!relationTable) continue;
+
+          // Get existing items from database
+          const existingItems = await tx
+            .select()
+            .from(relationTable)
+            .where(eq((relationTable as any).global_id, finalItemId));
+
+          // Create maps for efficient lookup
+          const existingItemsMap = new Map(existingItems.map((item: any) => [item.id, item]));
+          const newItemsMap = new Map(arrayItems.map((item: any) => [item.id, item]));
+
+          // Find items to delete (exist in DB but not in new array)
+          const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
+
+          // Delete removed items
+          for (const item of itemsToDelete) {
+            await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
           }
 
-          // Insert new items with full relational support
+          // Update or insert items with full relational support
           for (let i = 0; i < arrayItems.length; i++) {
             const item = arrayItems[i];
+            const existingItem = existingItemsMap.get(item.id);
 
-            const columns = ['id', 'global_id', 'sort', 'created_at', 'updated_at'];
-            const values = [
-              item.id || generateUUID(), // Use existing ID if available
-              finalItemId,
-              item.sort !== undefined ? item.sort : i, // Use item's sort if available, otherwise use index
-              getCurrentTimestamp(),
-              getCurrentTimestamp()
-            ];
+            if (existingItem) {
+              // Update existing item with new sort order and any changed data
+              const updateData: Record<string, any> = {
+                sort: item.sort !== undefined ? item.sort : i,
+                updated_at: getCurrentTimestamp()
+              };
 
-            // Add field properties with full object support
-            Object.keys(fieldDef.items.properties).forEach((propKey) => {
-              columns.push(propKey);
-              values.push(item[propKey] || null);
-            });
+              // Add field properties that might have changed
+              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                updateData[propKey] = item[propKey] || null;
+              });
 
-            // Add parent_id for nestable arrays only if defined in schema
-            if (
-              fieldDef.nestable &&
-              fieldDef.items?.properties?.parent_id !== undefined &&
-              item.parent_id !== undefined
-            ) {
-              columns.push('parent_id');
-              values.push(item.parent_id);
+              // Add parent_id for nestable arrays only if defined in schema
+              if (fieldDef.nestable && fieldDef.items?.properties?.parent_id !== undefined) {
+                updateData.parent_id = item.parent_id || null;
+              }
+
+              await tx
+                .update(relationTable)
+                .set(updateData)
+                .where(eq((relationTable as any).id, item.id));
+            } else {
+              // Insert new item
+              const insertData: Record<string, any> = {
+                id: item.id || generateUUID(),
+                global_id: finalItemId,
+                sort: item.sort !== undefined ? item.sort : i,
+                created_at: getCurrentTimestamp(),
+                updated_at: getCurrentTimestamp()
+              };
+
+              // Add field properties
+              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                insertData[propKey] = item[propKey] || null;
+              });
+
+              // Add parent_id for nestable arrays only if defined in schema
+              if (fieldDef.nestable && fieldDef.items?.properties?.parent_id !== undefined) {
+                insertData.parent_id = item.parent_id || null;
+              }
+
+              await tx.insert(relationTable).values(insertData);
             }
-
-            const updateSetters = Object.keys(fieldDef.items.properties).map(
-              (key) => sql`${sql.identifier(key)} = excluded.${sql.identifier(key)}`
-            );
-            updateSetters.push(sql`${sql.identifier('sort')} = excluded.${sql.identifier('sort')}`);
-            updateSetters.push(
-              sql`${sql.identifier('updated_at')} = excluded.${sql.identifier('updated_at')}`
-            );
-
-            // Add parent_id to conflict resolution only if present in schema
-            if (fieldDef.nestable && fieldDef.items?.properties?.parent_id !== undefined) {
-              updateSetters.push(
-                sql`${sql.identifier('parent_id')} = excluded.${sql.identifier('parent_id')}`
-              );
-            }
-
-            await tx.run(
-              sql`INSERT INTO ${sql.identifier(relationTableName)} (${sql.join(
-                columns.map((c) => sql.identifier(c)),
-                sql`, `
-              )})
-                  VALUES (${sql.join(
-                values.map((v) => sql`${v}`),
-                sql`, `
-              )})
-                  ON CONFLICT(id) DO UPDATE SET ${sql.join(updateSetters, sql`, `)}`
-            );
           }
         }
       });
@@ -976,7 +1098,7 @@ export const bulkUpdateGlobalItems = command(
     items
   }: {
     globalSlug: string;
-    items: Array<{ id: string; tags?: any[];[key: string]: any }>;
+    items: Array<{ id: string; tags?: any[]; [key: string]: any }>;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -1089,9 +1211,9 @@ export const bulkUpdateGlobalItems = command(
                 sql`, `
               )})
                   VALUES (${sql.join(
-                insertValues.map((v) => sql`${v}`),
-                sql`, `
-              )})`
+                    insertValues.map((v) => sql`${v}`),
+                    sql`, `
+                  )})`
             );
           }
         }
@@ -1105,12 +1227,8 @@ export const bulkUpdateGlobalItems = command(
               .map((tag: any) => (typeof tag === 'object' ? tag.name : String(tag)))
               .filter(Boolean);
 
-            // Use existing remote function to handle tags for this global item
-            await updateGlobalItemTags({
-              globalSlug: globalSlug,
-              itemId: item.id,
-              tags: tagNames
-            });
+            // Use direct service call to avoid circular dependency
+            await TagService.tagEntity(`global_${globalSlug}`, item.id, tagNames);
           } catch (error) {
             log.error(`Failed to save tags for item ${item.id}`, {}, error as Error);
           }

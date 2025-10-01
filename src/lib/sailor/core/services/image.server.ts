@@ -30,7 +30,11 @@ export class ImageProcessor {
   private static defaultTTL = 24 * 60 * 60 * 1000; // 24 hours
 
   // Get cache configuration (provider and path)
-  private static async getCacheConfig(): Promise<{ provider: StorageProvider, path: string, enabled: boolean }> {
+  private static async getCacheConfig(): Promise<{
+    provider: StorageProvider;
+    path: string;
+    enabled: boolean;
+  }> {
     const settings = await getSettings();
 
     // 1. Check if caching is enabled
@@ -66,7 +70,6 @@ export class ImageProcessor {
     const { path } = await this.getCacheConfig();
     return path;
   }
-
 
   // Generate cache key using predictable naming scheme
   private static generateCacheKey(imagePath: string, options: ImageTransformOptions): string {
@@ -146,10 +149,7 @@ export class ImageProcessor {
   }
 
   // Write to cache storage (unified for local/S3)
-  private static async writeToCache(
-    cachePath: string,
-    buffer: Buffer
-  ): Promise<void> {
+  private static async writeToCache(cachePath: string, buffer: Buffer): Promise<void> {
     const { provider } = await this.getCacheConfig();
     const { LocalStorageProvider } = await import('./storage-provider.server');
 
@@ -261,7 +261,9 @@ export class ImageProcessor {
       const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
 
       if (!accessKeyId || !secretAccessKey) {
-        throw new Error('S3 credentials not found in environment variables (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)');
+        throw new Error(
+          'S3 credentials not found in environment variables (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)'
+        );
       }
 
       const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');

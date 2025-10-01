@@ -30,7 +30,7 @@
 
   // Determine if this is a single-select relation
   const isSingleSelect =
-    field.relation?.type === 'one-to-one' || field.relation?.type === 'many-to-one';
+    field.relation?.type === 'one-to-one' || field.relation?.type === 'one-to-many';
 
   let selectedItems = $state<Array<{ id: string; title: string }>>(parseValue(value));
   let availableItems = $state<Array<{ id: string; title: string }>>([]);

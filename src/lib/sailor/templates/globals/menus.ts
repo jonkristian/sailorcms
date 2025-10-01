@@ -10,7 +10,8 @@ export const menusGlobal: GlobalDefinition = {
   icon: 'Menu',
   dataType: 'relational',
   options: {
-    sortable: true
+    sortable: true,
+    nestable: true
   },
   fields: {
     // Core fields auto-added by generator:

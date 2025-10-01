@@ -11,11 +11,13 @@
     value = $bindable(''),
     field,
     onChange,
+    required = false,
     readonly = false
   } = $props<{
     value?: string | string[];
     field: any;
     onChange: (value: string | string[]) => void;
+    required?: boolean;
     readonly?: boolean;
   }>();
 

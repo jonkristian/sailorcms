@@ -23,6 +23,7 @@ The system integrates Better Auth's access control with Sailor's content managem
 The system includes three pre-configured roles with sensible permissions:
 
 ### User Role
+
 ```typescript
 user: {
   name: 'User',
@@ -35,6 +36,7 @@ user: {
 ```
 
 ### Editor Role
+
 ```typescript
 editor: {
   name: 'Editor',
@@ -48,6 +50,7 @@ editor: {
 ```
 
 ### Admin Role
+
 ```typescript
 admin: {
   name: 'Administrator',
@@ -109,7 +112,7 @@ export const settings: Partial<CMSSettings> = {
         description: 'Content editor with limited file permissions',
         permissions: {
           content: ['create', 'read', 'update', 'delete'],
-          files: ['create', 'read', 'update'],  // No delete permission
+          files: ['create', 'read', 'update'], // No delete permission
           settings: ['read']
         }
       }
@@ -135,14 +138,14 @@ export const settings: Partial<CMSSettings> = {
         name: 'Moderator',
         description: 'Content moderator with review permissions',
         permissions: {
-          content: ['read', 'update'],  // Can review and edit, but not create/delete
-          files: ['read'],              // View-only file access
-          settings: ['read']            // View-only settings
+          content: ['read', 'update'], // Can review and edit, but not create/delete
+          files: ['read'], // View-only file access
+          settings: ['read'] // View-only settings
         }
       }
     },
     defaultRole: 'user',
-    adminRoles: ['admin', 'editor', 'moderator']  // Add to admin roles if needed
+    adminRoles: ['admin', 'editor', 'moderator'] // Add to admin roles if needed
   }
 };
 ```
@@ -161,26 +164,29 @@ This ensures your new roles are available in the user interface and TypeScript t
 
 The system maps Sailor's content types to Better Auth resources:
 
-| Sailor Content | Better Auth Resource | Description |
-|---------------|---------------------|-------------|
-| Collections, Globals, Blocks | `content` | All content management |
-| Media, Uploads | `files` | File and media management |
-| User accounts | `users` | User administration |
-| CMS settings | `settings` | System configuration |
+| Sailor Content               | Better Auth Resource | Description               |
+| ---------------------------- | -------------------- | ------------------------- |
+| Collections, Globals, Blocks | `content`            | All content management    |
+| Media, Uploads               | `files`              | File and media management |
+| User accounts                | `users`              | User administration       |
+| CMS settings                 | `settings`           | System configuration      |
 
 ## Best Practices
 
 ### Security First
+
 - **Start restrictive** - Grant minimum permissions first, expand as needed
 - **Test thoroughly** - Always verify permission changes work as expected
 - **Regular audits** - Periodically review who has what access
 
 ### Role Design
+
 - **Clear names** - Use descriptive role names that explain their purpose
 - **Logical grouping** - Group related permissions together
 - **Documentation** - Document custom roles and their intended use
 
 ### Development Workflow
+
 ```typescript
 // 1. Define roles in settings.ts
 // 2. Run database update

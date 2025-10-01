@@ -13,12 +13,14 @@
     value = [],
     placeholder = 'Type tag name and press Enter',
     onChange,
+    required = false,
     disabled = false,
     scope
   } = $props<{
     value?: Tag[] | string[];
     placeholder?: string;
     onChange: (tags: Tag[]) => void;
+    required?: boolean;
     disabled?: boolean;
     scope?: string; // Optional scope for context-aware search
   }>();

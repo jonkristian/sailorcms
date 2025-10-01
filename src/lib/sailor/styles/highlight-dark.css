@@ -1,0 +1,4 @@
+/* Dark theme - only active when in dark mode */
+html.dark {
+  @import 'highlight.js/styles/github-dark.css';
+}

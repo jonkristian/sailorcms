@@ -34,7 +34,7 @@ interface MultiSelectFilter {
 interface FilterConfig {
   search?: boolean;
   sort?: {
-    options: SortOption[];
+    options: SortOption[] | (() => SortOption[]);
     defaultSort: string;
     defaultOrder: 'asc' | 'desc';
   };
@@ -43,7 +43,7 @@ interface FilterConfig {
 }
 
 interface FilterOptions {
-  baseUrl: string;
+  baseUrl: string | (() => string);
   config: FilterConfig;
   debounceMs?: number;
 }
@@ -52,7 +52,10 @@ interface FilterOptions {
  * Composable for managing table filters with URL synchronization
  */
 export function useTableFilters(options: FilterOptions) {
-  const { baseUrl, config, debounceMs = 300 } = options;
+  const { baseUrl: baseUrlOption, config, debounceMs = 300 } = options;
+
+  // Get baseUrl - either static string or reactive getter
+  const getBaseUrl = () => (typeof baseUrlOption === 'function' ? baseUrlOption() : baseUrlOption);
 
   // Initialize filter state from URL or defaults
   const urlParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -124,7 +127,8 @@ export function useTableFilters(options: FilterOptions) {
     }
 
     const queryString = params.toString();
-    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+    const currentBaseUrl = getBaseUrl();
+    return queryString ? `${currentBaseUrl}?${queryString}` : currentBaseUrl;
   }
 
   function applyFilters() {
@@ -198,7 +202,7 @@ export function useTableFilters(options: FilterOptions) {
       }
     }
 
-    goto(baseUrl, { replaceState: true, keepFocus: true, noScroll: true });
+    goto(getBaseUrl(), { replaceState: true, keepFocus: true, noScroll: true });
   }
 
   // Derived state for UI

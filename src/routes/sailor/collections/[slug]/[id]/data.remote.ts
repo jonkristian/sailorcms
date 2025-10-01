@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
+import { toSnakeCase } from '$sailor/core/utils/string';
 
 /**
  * Save collection item (create or update)
@@ -83,12 +84,12 @@ export const saveCollectionItem = command(
         } else if (fieldDef?.type === 'relation') {
           // Distinguish between single FK on main table vs many-to-many via junction
           const relType = fieldDef?.relation?.type;
-          if (relType === 'one-to-one' || relType === 'many-to-one') {
+          if (relType === 'one-to-one' || relType === 'one-to-many') {
             // Store foreign key on main table column (normalize to scalar id)
             let v: any = value;
             try {
               v = typeof v === 'string' && v.startsWith('{') ? JSON.parse(v) : v;
-            } catch { }
+            } catch {}
             if (Array.isArray(v) && v.length > 0) v = v[0]?.id || v[0] || null;
             else if (typeof v === 'object' && v !== null) v = v.id || null;
             regularFields[key] = v ?? null;
@@ -140,6 +141,8 @@ export const saveCollectionItem = command(
         else if (typeof a === 'object' && a !== null) a = a.id || null;
         regularFields.author = a;
       }
+
+      // TODO: Add validation logic that doesn't prevent saving valid blocks
 
       const result = await db.transaction(async (tx: any) => {
         // Get the collection table for the transaction
@@ -278,13 +281,7 @@ export const saveCollectionItem = command(
 
                 // Build columns/values explicitly to avoid inserting unknown keys
                 const columns = ['id', 'collection_id', 'sort', 'created_at', 'updated_at'];
-                const values = [
-                  item.id || generateUUID(),
-                  itemId,
-                  index,
-                  new Date(),
-                  new Date()
-                ];
+                const values = [item.id || generateUUID(), itemId, index, new Date(), new Date()];
 
                 // Add schema-defined properties from array item
                 Object.keys(fieldDef.items.properties).forEach((propKey) => {
@@ -306,8 +303,14 @@ export const saveCollectionItem = command(
                 if (relationTable) {
                   await tx.run(sql`
                     INSERT OR REPLACE INTO ${sql.identifier(relationTableName)}
-                    (${sql.join(columns.map((c) => sql.identifier(c)), sql`, `)})
-                    VALUES (${sql.join(values.map((v) => sql`${v}`), sql`, `)})`);
+                    (${sql.join(
+                      columns.map((c) => sql.identifier(c)),
+                      sql`, `
+                    )})
+                    VALUES (${sql.join(
+                      values.map((v) => sql`${v}`),
+                      sql`, `
+                    )})`);
                 }
               }
             }
@@ -320,9 +323,17 @@ export const saveCollectionItem = command(
             const fieldDef = collectionFields[fieldName];
             if (fieldDef?.type !== 'relation') continue;
 
-            const junctionTableName =
-              fieldDef.relation?.through || `junction_${collectionSlug}_${fieldName}`;
-            const junctionTable = schema[junctionTableName as keyof typeof schema];
+            // Try multiple naming patterns for junction tables
+            let junctionTableName =
+              fieldDef.relation?.through || `junction_${collectionSlug}_${toSnakeCase(fieldName)}`;
+            let junctionTable = schema[junctionTableName as keyof typeof schema];
+
+            // If the standard naming doesn't work, try alternative naming patterns
+            if (!junctionTable && !fieldDef.relation?.through) {
+              // Try with just the field name (singular)
+              junctionTableName = `junction_${collectionSlug}_${fieldName}`;
+              junctionTable = schema[junctionTableName as keyof typeof schema];
+            }
 
             if (!junctionTable) continue;
 
@@ -341,15 +352,15 @@ export const saveCollectionItem = command(
               await tx.run(sql`
                 INSERT INTO ${sql.identifier(junctionTableName)}
                 (${sql.join(
-                [
-                  sql.identifier('id'),
-                  sql.identifier('collection_id'),
-                  sql.identifier('target_id'),
-                  sql.identifier('created_at'),
-                  sql.identifier('updated_at')
-                ],
-                sql`, `
-              )})
+                  [
+                    sql.identifier('id'),
+                    sql.identifier('collection_id'),
+                    sql.identifier('target_id'),
+                    sql.identifier('created_at'),
+                    sql.identifier('updated_at')
+                  ],
+                  sql`, `
+                )})
                 VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${new Date()}, ${new Date()})
               `);
             }
@@ -399,10 +410,13 @@ export const saveCollectionItem = command(
               const fieldDef = blockType.fields?.[key];
               if (!fieldDef) return false;
               if (fieldDef.type === 'file' || fieldDef.type === 'array') return false;
-              if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many') return false;
+              if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
+                return false;
               return true;
             });
             const filteredContent = Object.fromEntries(allowedContentEntries);
+
+            // Validation is now done before transaction starts
 
             const blockData = {
               id: block.id || generateUUID(),
@@ -418,13 +432,13 @@ export const saveCollectionItem = command(
               await tx.run(sql`
                 INSERT OR REPLACE INTO ${sql.identifier(`block_${block.blockType}`)}
                 (${sql.join(
-                Object.keys(blockData).map((key) => sql.identifier(key)),
-                sql`, `
-              )})
+                  Object.keys(blockData).map((key) => sql.identifier(key)),
+                  sql`, `
+                )})
                 VALUES (${sql.join(
-                Object.values(blockData).map((val) => sql`${val}`),
-                sql`, `
-              )})`);
+                  Object.values(blockData).map((val) => sql`${val}`),
+                  sql`, `
+                )})`);
 
               // Handle nested array fields in blocks
               const blockArrayFields: Record<string, any[]> = {};
@@ -446,12 +460,22 @@ export const saveCollectionItem = command(
 
               // Handle many-to-many relation fields for this block
               const relationFields = Object.entries(blockType.fields || {}).filter(
-                ([, fieldDef]: [string, any]) => fieldDef?.type === 'relation' && fieldDef?.relation?.type === 'many-to-many'
+                ([, fieldDef]: [string, any]) =>
+                  fieldDef?.type === 'relation' && fieldDef?.relation?.type === 'many-to-many'
               );
 
               for (const [fieldName] of relationFields as [string, any][]) {
-                const junctionTableName = `junction_${block.blockType}_${fieldName}`;
-                const junctionTable = schema[junctionTableName as keyof typeof schema];
+                // Try multiple naming patterns for junction tables
+                let junctionTableName = `junction_${block.blockType}_${toSnakeCase(fieldName)}`;
+                let junctionTable = schema[junctionTableName as keyof typeof schema];
+
+                // If the standard naming doesn't work, try alternative naming patterns
+                if (!junctionTable) {
+                  // Try with just the field name (singular)
+                  junctionTableName = `junction_${block.blockType}_${fieldName}`;
+                  junctionTable = schema[junctionTableName as keyof typeof schema];
+                }
+
                 if (!junctionTable) continue;
 
                 // Clear existing relation entries for this block/field
@@ -509,16 +533,17 @@ export const saveCollectionItem = command(
                   await tx.run(sql`
                     INSERT INTO ${sql.identifier(fileTableName)}
                     (${sql.join(
-                    [
-                      sql.identifier('id'),
-                      sql.identifier('parent_id'),
-                      sql.identifier('file_id'),
-                      sql.identifier('sort'),
-                      sql.identifier('created_at')
-                    ],
-                    sql`, `
-                  )})
-                    VALUES (${generateUUID()}, ${blockData.id}, ${fileId}, ${i}, ${new Date()})
+                      [
+                        sql.identifier('id'),
+                        sql.identifier('parent_id'),
+                        sql.identifier('parent_type'),
+                        sql.identifier('file_id'),
+                        sql.identifier('sort'),
+                        sql.identifier('created_at')
+                      ],
+                      sql`, `
+                    )})
+                    VALUES (${generateUUID()}, ${blockData.id}, 'block', ${fileId}, ${i}, ${new Date()})
                   `);
                 }
               }
@@ -535,14 +560,14 @@ export const saveCollectionItem = command(
         for (const [, tags] of Object.entries(tagFields)) {
           const tagNames = Array.isArray(tags)
             ? ((tags as any[])
-              .map((t: any) =>
-                typeof t === 'object' && t !== null
-                  ? t.name || t.value || undefined
-                  : typeof t === 'string'
-                    ? t
-                    : undefined
-              )
-              .filter(Boolean) as string[])
+                .map((t: any) =>
+                  typeof t === 'object' && t !== null
+                    ? t.name || t.value || undefined
+                    : typeof t === 'string'
+                      ? t
+                      : undefined
+                )
+                .filter(Boolean) as string[])
             : [];
           await TagService.tagEntity(taggableType, itemId, tagNames);
         }

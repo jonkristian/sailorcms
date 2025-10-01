@@ -121,6 +121,29 @@
     updateField(fieldKey, items);
   }
 
+  // Handle array reordering with immediate save
+  async function handleArrayReorder(fieldKey: string, items: any[]) {
+    try {
+      const { reorderArrayItems } = await import('../../data.remote.js');
+
+      const result = await reorderArrayItems({
+        globalSlug: data.global.slug,
+        fieldName: fieldKey,
+        items
+      });
+
+      if (result.success) {
+        // Reload data to show the updated order
+        await invalidateAll();
+      } else {
+        toast.error('Failed to reorder items');
+      }
+    } catch (error) {
+      console.error('Reorder error:', error);
+      toast.error('Failed to reorder items');
+    }
+  }
+
   // Organize fields by position, excluding hidden fields
   const allFields = Object.entries(data.global.fields).filter(
     ([_, field]) => !(field as any).hidden
@@ -164,6 +187,9 @@
                   items={getFieldValue(fieldKey) || []}
                   itemSchema={typedField.items?.properties || {}}
                   onChange={(items) => handleArrayFieldChange(fieldKey, items)}
+                  onReorder={(items) => handleArrayReorder(fieldKey, items)}
+                  globalSlug={data.global.slug}
+                  fieldName={fieldKey}
                   nestable={typedField.nestable || false}
                 />
               {:else}
@@ -198,6 +224,9 @@
                         items={getFieldValue(fieldKey) || []}
                         itemSchema={typedField.items?.properties || {}}
                         onChange={(items) => handleArrayFieldChange(fieldKey, items)}
+                        onReorder={(items) => handleArrayReorder(fieldKey, items)}
+                        globalSlug={data.global.slug}
+                        fieldName={fieldKey}
                         nestable={typedField.nestable || false}
                       />
                     </div>
@@ -237,6 +266,9 @@
                   items={getFieldValue(fieldKey) || []}
                   itemSchema={typedField.items?.properties || {}}
                   onChange={(items) => handleArrayFieldChange(fieldKey, items)}
+                  onReorder={(items) => handleArrayReorder(fieldKey, items)}
+                  globalSlug={data.global.slug}
+                  fieldName={fieldKey}
                   nestable={typedField.nestable || false}
                 />
               {:else}

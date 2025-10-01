@@ -22,7 +22,10 @@ export const updateSiteSettings = command(
 
     // Check permission to update settings
     if (!(await locals.security.hasPermission('update', 'settings'))) {
-      return { success: false, error: 'Access denied: You do not have permission to update settings' };
+      return {
+        success: false,
+        error: 'Access denied: You do not have permission to update settings'
+      };
     }
 
     if (!siteName || !siteName.trim()) {
@@ -38,11 +41,11 @@ export const updateSiteSettings = command(
           : SystemSettingsService.deleteSetting('site.url'),
         siteDescription && siteDescription.trim()
           ? SystemSettingsService.setSetting(
-            'site.description',
-            siteDescription.trim(),
-            'site',
-            'Site description'
-          )
+              'site.description',
+              siteDescription.trim(),
+              'site',
+              'Site description'
+            )
           : SystemSettingsService.deleteSetting('site.description'),
         SystemSettingsService.setRegistrationEnabled(allowRegistration)
       ]);
@@ -78,7 +81,10 @@ export const updateSetting = command(
 
     // Check permission to update settings
     if (!(await locals.security.hasPermission('update', 'settings'))) {
-      return { success: false, error: 'Access denied: You do not have permission to update settings' };
+      return {
+        success: false,
+        error: 'Access denied: You do not have permission to update settings'
+      };
     }
 
     if (!key || !category) {

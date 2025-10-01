@@ -132,4 +132,4 @@
 </Sidebar.Provider>
 
 <Toaster duration={3000} />
-<ModeWatcher />
+<ModeWatcher defaultMode="system" track={true} />

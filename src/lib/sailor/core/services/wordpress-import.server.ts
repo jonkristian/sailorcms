@@ -1,6 +1,6 @@
 import { db } from '$sailor/core/db/index.server';
 import { sql, eq } from 'drizzle-orm';
-import { uploadFile } from '$sailor/utils/files.server';
+import { uploadFile } from '../../utils/files/server';
 import { TagService } from './tag.server';
 import * as schema from '../../generated/schema';
 import { taggables } from '../../generated/schema';
@@ -1159,7 +1159,13 @@ export class WordPressImportService {
           title: imageInfo.title
         };
 
-        const uploadedFile = await this.downloadAndUploadFile(imageInfo.url, imageCache, metadata, undefined, currentUserId);
+        const uploadedFile = await this.downloadAndUploadFile(
+          imageInfo.url,
+          imageCache,
+          metadata,
+          undefined,
+          currentUserId
+        );
 
         if (uploadedFile) {
           // Replace the URL in content with the new file URL
@@ -1596,8 +1602,8 @@ export class WordPressImportService {
         }
 
         // Extract content and excerpt based on field mappings (safely)
-        const content = options.fieldMappings?.content ? (apiPost.content?.rendered || '') : '';
-        const excerpt = options.fieldMappings?.excerpt ? (apiPost.excerpt?.rendered || '') : '';
+        const content = options.fieldMappings?.content ? apiPost.content?.rendered || '' : '';
+        const excerpt = options.fieldMappings?.excerpt ? apiPost.excerpt?.rendered || '' : '';
 
         const convertedPost: WordPressPost = {
           id: crypto.randomUUID(),

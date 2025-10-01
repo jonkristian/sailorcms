@@ -138,8 +138,8 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
       if ((fieldDef as any).type === 'relation') {
         const relType = (fieldDef as any).relation?.type;
-        // For single FK relations (one-to-one, many-to-one) resolve server-side to avoid client loops
-        if (relType === 'one-to-one' || relType === 'many-to-one') {
+        // For single FK relations (one-to-one, one-to-many) resolve server-side to avoid client loops
+        if (relType === 'one-to-one' || relType === 'one-to-many') {
           const targetId = page[fieldName];
           if (targetId) {
             try {
@@ -204,6 +204,22 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
           }
         } catch {
           // Relation table doesn't exist yet
+          page[fieldName] = [];
+        }
+      }
+    }
+
+    // Load array fields for collection
+    for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
+      if ((fieldDef as any).type === 'array') {
+        try {
+          const arrayTableName = `collection_${slug}_${fieldName}`;
+          const arrayResult = await db.run(
+            sql`SELECT * FROM ${sql.identifier(arrayTableName)} WHERE collection_id = ${id} ORDER BY "sort"`
+          );
+          page[fieldName] = arrayResult.rows || [];
+        } catch (error) {
+          // Array table doesn't exist yet
           page[fieldName] = [];
         }
       }

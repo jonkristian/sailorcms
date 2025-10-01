@@ -31,6 +31,14 @@ export class CollectionGenerator {
       tables.push(blockTable);
     }
 
+    // Create array tables for template fields
+    const templateFields = definition.fields || {};
+    for (const [fieldName, fieldDef] of Object.entries(templateFields)) {
+      if (fieldDef.type === 'array') {
+        tables.push(...this.createArrayTables(mainTable.name, fieldName, fieldDef, entityInfo));
+      }
+    }
+
     // Handle relation fields (foreign keys, junction tables)
     const allFields = this.mergeFields(definition, coreFields);
     const relationTables = this.createRelationTables(mainTable.name, allFields, entityInfo);
@@ -52,6 +60,42 @@ export class CollectionGenerator {
     const tableFields = this.buildMainTableFields(allFields, definition);
 
     return this.tableGen.createMainTable(tableName, tableFields, entityInfo);
+  }
+
+  /**
+   * Create array tables (with potential nesting)
+   */
+  createArrayTables(parentTable, fieldName, fieldDef, entityInfo, depth = 0) {
+    const tables = [];
+    const arrayTableName = `${parentTable}_${this.toSnakeCase(fieldName)}`;
+
+    // Create the main array table
+    const arrayTable = this.tableGen.createArrayTable(
+      arrayTableName,
+      parentTable,
+      { name: fieldName, ...fieldDef },
+      entityInfo
+    );
+    tables.push(arrayTable);
+
+    // Handle nested arrays and files within this array
+    if (fieldDef.items?.properties) {
+      for (const [itemFieldName, itemFieldDef] of Object.entries(fieldDef.items.properties)) {
+        if (itemFieldDef.type === 'array') {
+          tables.push(
+            ...this.createArrayTables(
+              arrayTableName,
+              itemFieldName,
+              itemFieldDef,
+              entityInfo,
+              depth + 1
+            )
+          );
+        }
+      }
+    }
+
+    return tables;
   }
 
   /**
@@ -114,13 +158,36 @@ export class CollectionGenerator {
         // But we need to track the relation for proper Drizzle relation generation
         const targetTable = this.resolveTargetTable(relation);
 
-        this.tableGen.metadata.addRelation({
-          fromTable: mainTableName,
-          toTable: targetTable,
-          type: relation.type === 'one-to-one' ? 'many-to-one' : 'one-to-many',
-          foreignKey: fieldName,
-          references: 'id'
-        });
+        if (relation.type === 'one-to-many') {
+          // For one-to-many: register both sides of the relationship
+
+          // From collection to target (many-to-one): "Pages belong to Category"
+          this.tableGen.metadata.addRelation({
+            fromTable: mainTableName,
+            toTable: targetTable,
+            type: 'many-to-one',
+            foreignKey: fieldName,
+            references: 'id'
+          });
+
+          // From target to collection (one-to-many): "Category has many Pages"
+          this.tableGen.metadata.addRelation({
+            fromTable: targetTable,
+            toTable: mainTableName,
+            type: 'one-to-many',
+            foreignKey: fieldName,
+            references: 'id'
+          });
+        } else {
+          // one-to-one relations are just many-to-one from the referencing table's perspective
+          this.tableGen.metadata.addRelation({
+            fromTable: mainTableName,
+            toTable: targetTable,
+            type: 'many-to-one',
+            foreignKey: fieldName,
+            references: 'id'
+          });
+        }
       }
     }
 
@@ -197,7 +264,10 @@ export class CollectionGenerator {
         const relation = fieldDef.relation;
         if (relation && relation.type !== 'many-to-many') {
           // one-to-one and one-to-many relations add foreign key to main table
-          fields[fieldName] = this.tableGen.getTextField();
+          const targetTable = this.resolveTargetTable(relation);
+          fields[fieldName] = this.tableGen.getTextField({
+            references: { table: targetTable, field: 'id' }
+          });
         }
         continue;
       }

@@ -1,34 +1,29 @@
-import {
-  getCollectionItem,
-  getCollectionItems,
-  extractSEO,
-  generateMetaTags,
-  getSiteSettings
-} from '$sailor/utils/index';
+import { getCollections, getSiteSettings } from '$sailor/utils/index';
+import { extractSEO, generateMetaTags } from '$sailor/utils/content/seo';
+import type { CollectionsSingleResult, CollectionsMultipleResult } from '$sailor/utils/types';
 import { getCollectionOptions } from '$sailor/core/utils/db.server';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, url }) => {
   // Get blog post by slug using new clean API
-  const post = await getCollectionItem('posts', {
-    query: 'slug',
-    value: params.slug,
+  const post = (await getCollections('posts', {
+    itemSlug: params.slug,
     status: 'published'
-  });
+  })) as CollectionsSingleResult;
 
   if (!post) {
     throw error(404, 'Post not found');
   }
 
   // Get related posts (exclude current)
-  const relatedPostsResult = await getCollectionItems('posts', {
+  const relatedPostsResult = (await getCollections('posts', {
     status: 'published',
     includeBlocks: false, // Better performance for related posts
     limit: 4 // Get 4 so we can filter out current and still have 3
-  });
+  })) as CollectionsMultipleResult;
 
-  const relatedPosts = relatedPostsResult.items.filter((p: any) => p.id !== post.id).slice(0, 3);
+  const relatedPosts = relatedPostsResult.items.filter((p) => p.id !== post.id).slice(0, 3);
 
   // Get site configuration for proper site name
   const siteConfig = await getSiteSettings();

@@ -48,8 +48,8 @@ export const settings: Partial<CMSSettings> = {
         name: 'User',
         description: 'Basic authenticated user with read-only content access',
         permissions: {
-          content: ['read'],      // Can read published content and own content
-          files: ['read']         // Can view files
+          content: ['read'], // Can read published content and own content
+          files: ['read'] // Can view files
           // No access to users or settings
         } as const
       },
@@ -57,8 +57,8 @@ export const settings: Partial<CMSSettings> = {
         name: 'Editor',
         description: 'Content editor with full content and file management',
         permissions: {
-          content: ['create', 'read', 'update', 'delete'],  // Full content access
-          files: ['create', 'read', 'update', 'delete'],     // Full file management
+          content: ['create', 'read', 'update', 'delete'], // Full content access
+          files: ['create', 'read', 'update', 'delete'], // Full file management
           settings: ['read']
         } as const
       },
@@ -66,10 +66,10 @@ export const settings: Partial<CMSSettings> = {
         name: 'Administrator',
         description: 'Full system administrator with all permissions',
         permissions: {
-          content: ['create', 'read', 'update', 'delete'],  // Full content access
-          files: ['create', 'read', 'update', 'delete'],    // Full file management
-          users: ['create', 'read', 'update', 'delete'],    // User management
-          settings: ['read', 'update']                       // Settings management
+          content: ['create', 'read', 'update', 'delete'], // Full content access
+          files: ['create', 'read', 'update', 'delete'], // Full file management
+          users: ['create', 'read', 'update', 'delete'], // User management
+          settings: ['read', 'update'] // Settings management
         } as const
       }
     },

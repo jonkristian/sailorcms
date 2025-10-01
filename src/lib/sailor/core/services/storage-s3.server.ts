@@ -36,7 +36,9 @@ export class S3StorageService {
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
 
     if (!accessKeyId || !secretAccessKey) {
-      throw new Error('S3 credentials not found in environment variables (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)');
+      throw new Error(
+        'S3 credentials not found in environment variables (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)'
+      );
     }
 
     return new S3Client({

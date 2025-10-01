@@ -2,7 +2,7 @@
  * Simple navigation utilities for Sailor CMS
  */
 
-import type { NavigationItem, BreadcrumbItem, PaginationInfo } from './types';
+import type { NavigationItem, BreadcrumbItem, PaginationInfo } from '../types';
 
 type MenuInputItem = {
   id?: string;

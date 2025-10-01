@@ -42,7 +42,7 @@ export class GlobalGenerator {
     const allFields = this.mergeFields(definition, coreFields);
 
     // Build table fields, excluding arrays and files (they get separate tables)
-    const tableFields = this.buildMainTableFields(allFields, definition);
+    const tableFields = this.buildMainTableFields(allFields, definition, tableName);
 
     return this.tableGen.createMainTable(tableName, tableFields, entityInfo);
   }
@@ -147,13 +147,36 @@ export class GlobalGenerator {
         // But we need to track the relation for proper Drizzle relation generation
         const targetTable = this.resolveTargetTable(relation);
 
-        this.tableGen.metadata.addRelation({
-          fromTable: mainTableName,
-          toTable: targetTable,
-          type: relation.type === 'one-to-one' ? 'many-to-one' : 'one-to-many',
-          foreignKey: fieldName,
-          references: 'id'
-        });
+        if (relation.type === 'one-to-many') {
+          // For one-to-many: register both sides of the relationship
+
+          // From global to target (many-to-one): "Pages belong to Category"
+          this.tableGen.metadata.addRelation({
+            fromTable: mainTableName,
+            toTable: targetTable,
+            type: 'many-to-one',
+            foreignKey: fieldName,
+            references: 'id'
+          });
+
+          // From target to global (one-to-many): "Category has many Pages"
+          this.tableGen.metadata.addRelation({
+            fromTable: targetTable,
+            toTable: mainTableName,
+            type: 'one-to-many',
+            foreignKey: fieldName,
+            references: 'id'
+          });
+        } else {
+          // one-to-one relations are just many-to-one from the referencing table's perspective
+          this.tableGen.metadata.addRelation({
+            fromTable: mainTableName,
+            toTable: targetTable,
+            type: 'many-to-one',
+            foreignKey: fieldName,
+            references: 'id'
+          });
+        }
       }
     }
 
@@ -213,7 +236,7 @@ export class GlobalGenerator {
   /**
    * Build main table fields, excluding arrays, files, and relations
    */
-  buildMainTableFields(allFields, definition) {
+  buildMainTableFields(allFields, definition, tableName) {
     const fields = {
       id: this.tableGen.getPrimaryKeyField(),
       created_at: this.tableGen.getTimestampField(),
@@ -235,7 +258,16 @@ export class GlobalGenerator {
         const relation = fieldDef.relation;
         if (relation && relation.type !== 'many-to-many') {
           // one-to-one and one-to-many relations add foreign key to main table
-          fields[fieldName] = this.tableGen.getTextField();
+          const targetTable = this.resolveTargetTable(relation);
+
+          // Skip foreign key constraint for self-referential tables to avoid circular dependency
+          if (targetTable === tableName) {
+            fields[fieldName] = this.tableGen.getTextField();
+          } else {
+            fields[fieldName] = this.tableGen.getTextField({
+              references: { table: targetTable, field: 'id' }
+            });
+          }
         }
         continue; // Don't process as regular field
       }

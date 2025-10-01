@@ -111,9 +111,37 @@ export const load = async ({ params, locals }) => {
     }
   }
 
-  // Load array field data from relational tables (for both singleton and regular globals)
+  // Load array and file field data from relational tables (for both singleton and regular globals)
   for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {
-    if ((fieldDef as any).type === 'array') {
+    if ((fieldDef as any).type === 'file') {
+      // Load file relations - return the file ID for UI components to resolve
+      try {
+        const fileTableName = `global_${slug}_${fieldName}`;
+        const fileRelationTable = schema[fileTableName as keyof typeof schema];
+
+        if (fileRelationTable) {
+          const fileResult = await db
+            .select()
+            .from(fileRelationTable)
+            .where(eq((fileRelationTable as any).parent_id, item.id))
+            .orderBy(asc((fileRelationTable as any).sort))
+            .limit(1);
+
+          if (fileResult.length > 0) {
+            const fileId = fileResult[0].file_id;
+            // Provide only the file ID; front-end resolves to file object/URL
+            item[fieldName] = fileId;
+          } else {
+            item[fieldName] = '';
+          }
+        } else {
+          item[fieldName] = '';
+        }
+      } catch (err) {
+        console.warn(`Failed to load file field ${fieldName}:`, err);
+        item[fieldName] = '';
+      }
+    } else if ((fieldDef as any).type === 'array') {
       try {
         const relTableName = `global_${slug}_${fieldName}`;
         const relationTable = schema[relTableName as keyof typeof schema];

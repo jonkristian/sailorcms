@@ -104,12 +104,21 @@ export class SQLiteAdapter extends DatabaseAdapter {
 
   getTextFieldDefinition(
     name: string,
-    options: { notNull?: boolean; unique?: boolean } = {}
+    options: {
+      notNull?: boolean;
+      unique?: boolean;
+      references?: { table: string; field: string };
+    } = {}
   ): string {
     let definition = `text('${name}')`;
 
     if (options.notNull) definition += '.notNull()';
     if (options.unique) definition += '.unique()';
+    if (options.references) {
+      // For self-referential tables, we need special handling to avoid circular dependencies
+      // We'll defer the reference using a string-based approach
+      definition += `.references(() => ${options.references.table}.${options.references.field})`;
+    }
 
     return definition;
   }

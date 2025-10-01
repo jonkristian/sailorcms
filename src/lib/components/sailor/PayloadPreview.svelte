@@ -6,7 +6,6 @@
   import { htmlToTiptapJson } from '$lib/sailor/core/content/content';
   import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
   import CategoryTree from './CategoryTree.svelte';
-  import { mode } from 'mode-watcher';
 
   let {
     type = 'collection',
@@ -33,12 +32,6 @@
   let parsedData = $state<any>(null);
   let error = $state<string | null>(null);
   let loading = $state(false);
-  let isDark = $state(mode.current === 'dark');
-
-  // Update isDark when mode changes
-  $effect(() => {
-    isDark = mode.current === 'dark';
-  });
 
   /**
    * Recursively convert HTML content in wysiwyg fields to JSON
@@ -174,14 +167,6 @@
     }
   });
 </script>
-
-<svelte:head>
-  {#if isDark}
-    <link rel="stylesheet" href="/node_modules/highlight.js/styles/github-dark.css" />
-  {:else}
-    <link rel="stylesheet" href="/node_modules/highlight.js/styles/github.css" />
-  {/if}
-</svelte:head>
 
 <Sheet bind:open>
   <SheetTrigger type="button" class="h-8 w-8">

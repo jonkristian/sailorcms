@@ -1,7 +1,7 @@
 // Re-export the unified loader functions
-export { loadBlockData } from './content-data';
+export { loadBlockData } from '../../utils/data/content-loader';
 import * as schema from '../../generated/schema';
-import { sql } from 'drizzle-orm';
+import { sql, and } from 'drizzle-orm';
 import { getCurrentTimestamp } from '../utils/date';
 import { randomUUID } from 'crypto';
 
@@ -32,12 +32,19 @@ export async function saveNestedArrayFields(
 
     // 1. Delete items that are in the DB but not in the client-side list
     if (clientItemIds.length > 0) {
-      await tx.run(sql`
-        DELETE FROM ${sql.identifier(relationTableName)}
-        WHERE ${sql.identifier(parentIdField)} = ${currentParentId} AND id NOT IN (${sql.join(
-          clientItemIds.map((id) => sql`${id}`),
-          sql`, `
-        )})`);
+      // Use inArray from drizzle-orm for proper NOT IN handling
+      const { notInArray, eq } = await import('drizzle-orm');
+      const relationTable = schema[relationTableName as keyof typeof schema];
+      if (relationTable) {
+        await tx
+          .delete(relationTable)
+          .where(
+            and(
+              eq((relationTable as any)[parentIdField], currentParentId),
+              notInArray((relationTable as any).id, clientItemIds)
+            )
+          );
+      }
     } else {
       // If the client sends an empty list, delete all items for this parent
       const relationTable = schema[relationTableName as keyof typeof schema];
@@ -130,6 +137,7 @@ export async function saveNestedArrayFields(
 
       // Handle nested arrays recursively
       if (Object.keys(nestedArrayFields).length > 0) {
+        // For nested arrays, use 'parent_id' for consistent naming
         await saveNestedArrayFields(
           tx,
           block,

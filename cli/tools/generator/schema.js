@@ -133,6 +133,19 @@ export class SchemaGenerator {
   generateGlobalTables() {
     const { globalDefinitions } = this.definitions;
 
+    // First pass: Register all global tables in metadata (without relations)
+    for (const [slug, definition] of Object.entries(globalDefinitions)) {
+      const tableName = `global_${slug}`;
+      const allFields = this.globalGen.mergeFields(definition, this.coreFields);
+
+      this.metadata.registerTable(tableName, {
+        type: 'global',
+        slug: slug,
+        fields: Object.keys(allFields)
+      });
+    }
+
+    // Second pass: Generate tables with relations (now all tables are registered)
     for (const [slug, definition] of Object.entries(globalDefinitions)) {
       const tables = this.globalGen.generateTables(slug, definition, this.coreFields);
       this.allTables.push(...tables);
@@ -264,7 +277,10 @@ export class SchemaGenerator {
       } else if (fieldName === 'updated_at') {
         fields.push(`  updated_at: ${this.adapter.getTimestampDefinition('updated_at')}`);
       } else if (fieldName === 'parent_id') {
-        fields.push(`  parent_id: ${this.adapter.getTextFieldDefinition('parent_id')}`);
+        // Check if parent_id has foreign key reference (for self-referential relations)
+        const options = {};
+        if (fieldDef.references) options.references = fieldDef.references;
+        fields.push(`  parent_id: ${this.adapter.getTextFieldDefinition('parent_id', options)}`);
       } else if (fieldName.endsWith('_id')) {
         fields.push(
           `  ${fieldName}: ${this.adapter.getTextFieldDefinition(fieldName, { notNull: true })}`
@@ -276,7 +292,19 @@ export class SchemaGenerator {
       } else if (fieldName === 'slug') {
         fields.push(`  slug: ${this.adapter.getTextFieldDefinition('slug', { unique: true })}`);
       } else {
-        fields.push(`  ${fieldName}: ${this.adapter.getTextFieldDefinition(fieldName)}`);
+        // Handle field definitions with potential foreign key references
+        const options = {};
+        if (fieldDef.notNull) options.notNull = fieldDef.notNull;
+        if (fieldDef.unique) options.unique = fieldDef.unique;
+        if (fieldDef.references) options.references = fieldDef.references;
+
+        if (fieldDef.type === 'integer') {
+          fields.push(
+            `  ${fieldName}: ${this.adapter.getIntegerFieldDefinition(fieldName, options)}`
+          );
+        } else {
+          fields.push(`  ${fieldName}: ${this.adapter.getTextFieldDefinition(fieldName, options)}`);
+        }
       }
     }
 

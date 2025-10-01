@@ -28,7 +28,7 @@ export const categoriesGlobal: GlobalDefinition = {
       position: 'sidebar',
       description: 'Select a parent category to create a hierarchy',
       relation: {
-        type: 'one-to-one',
+        type: 'one-to-many',
         targetGlobal: 'categories'
       }
     },
@@ -49,16 +49,15 @@ export const categoriesGlobal: GlobalDefinition = {
       }
     },
     status: {
+      type: 'select',
+      label: 'Status',
       position: 'sidebar',
       order: 3,
-      override: {
-        type: 'select',
-        options: [
-          { label: 'Active', value: 'active' },
-          { label: 'Inactive', value: 'inactive' }
-        ],
-        default: 'active'
-      }
+      options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' }
+      ],
+      default: 'active'
     }
   }
 };

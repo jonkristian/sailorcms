@@ -10,36 +10,16 @@
   import * as Collapsible from '$lib/components/ui/collapsible/index';
   import { Check, X, Shield, User, Users, ChevronDown } from '@lucide/svelte';
   import Header from '$lib/components/sailor/Header.svelte';
+  import type { BetterAuthResource, BetterAuthAction } from '$lib/sailor/core/settings/types';
 
   const { data } = $props();
   const { roleSettings } = data;
 
-  const resources = ['collection', 'global', 'block', 'file', 'user', 'settings'];
-  const permissions = ['view', 'create', 'update', 'delete'];
+  const resources: BetterAuthResource[] = ['content', 'files', 'users', 'settings'];
+  const permissions: BetterAuthAction[] = ['create', 'read', 'update', 'delete'];
 
-  function formatValue(value: string | boolean): string {
-    if (typeof value === 'boolean') return value ? 'check' : 'x';
-    // Shorten longer values for better display
-    if (value === 'own_private') return 'own';
-    if (value === 'own_profile') return 'prof';
-    if (value === 'published') return 'pub';
-    if (value === 'archived') return 'arch';
-    if (value === 'draft') return 'draft';
-    return value;
-  }
-
-  function getValueClass(value: string | boolean): string {
-    if (typeof value === 'boolean') {
-      return value ? 'text-green-600' : 'text-red-500';
-    }
-    if (value === 'all') return 'text-blue-600';
-    if (value === 'public') return 'text-green-600';
-    if (value === 'own_private') return 'text-orange-600';
-    if (value === 'own_profile') return 'text-purple-600';
-    if (value === 'published') return 'text-blue-600';
-    if (value === 'draft') return 'text-yellow-600';
-    if (value === 'archived') return 'text-gray-600';
-    return 'text-gray-600';
+  function getValueClass(hasPermission: boolean): string {
+    return hasPermission ? 'text-green-600' : 'text-red-500';
   }
 
   // Get role statistics
@@ -129,7 +109,7 @@
                   class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
                 >
                   <div class="flex items-center gap-3">
-                    <span class="font-medium">{role.name}</span>
+                    <span class="text-sm font-medium">{role.name}</span>
                     {#if roleSettings?.adminRoles.includes(roleKey)}
                       <Badge
                         variant="default"
@@ -152,29 +132,29 @@
               </Collapsible.Trigger>
               <Collapsible.Content>
                 <div class="bg-surface/50 mt-2 rounded-lg p-4">
-                  <div class="space-y-3">
+                  <div class="space-y-4">
                     {#each resources as resource}
                       <div class="rounded-lg border p-3">
-                        <div class="mb-2 font-medium capitalize">{resource}</div>
-                        <div class="flex flex-wrap gap-4">
+                        <div class="text-muted-foreground mb-2 text-sm font-medium capitalize">
+                          {resource}
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                           {#each permissions as perm}
+                            {@const hasPermission =
+                              role.permissions?.[resource]?.includes?.(perm) ?? false}
                             <div class="flex min-w-0 items-center gap-2">
                               <span class="text-muted-foreground text-sm whitespace-nowrap"
                                 >{perm}:</span
                               >
                               <span
-                                class="bg-muted/50 rounded px-2 py-1 text-center font-mono text-xs {getValueClass(
-                                  (role.permissions as any)[resource][perm]
+                                class="bg-muted rounded px-2 py-1 text-center text-sm {getValueClass(
+                                  hasPermission
                                 )}"
                               >
-                                {#if typeof (role.permissions as any)[resource][perm] === 'boolean'}
-                                  {#if (role.permissions as any)[resource][perm]}
-                                    <Check class="h-4 w-4" />
-                                  {:else}
-                                    <X class="h-4 w-4" />
-                                  {/if}
+                                {#if hasPermission}
+                                  <Check class="h-3 w-3" />
                                 {:else}
-                                  {formatValue((role.permissions as any)[resource][perm])}
+                                  <X class="h-3 w-3" />
                                 {/if}
                               </span>
                             </div>

@@ -11,12 +11,20 @@
     items = [],
     itemSchema,
     onChange,
+    onReorder,
+    globalSlug,
+    fieldName,
+    required = false,
     nestable = false
   } = $props<{
     label?: string;
     items: any[];
     itemSchema: Record<string, any>;
     onChange: (items: any[]) => void;
+    onReorder?: (items: any[]) => Promise<void>;
+    globalSlug?: string;
+    fieldName?: string;
+    required?: boolean;
     nestable?: boolean;
   }>();
 
@@ -78,37 +86,25 @@
         description: item.description,
         status: item.status || 'active',
         parent_id: nestable ? item.parent_id || null : null,
-        // Only include the original item fields, not the extra display fields
-        ...Object.fromEntries(
-          Object.entries(item).filter(
-            ([key]) => !['id', 'name', 'description', 'status', 'parent_id'].includes(key)
-          )
-        )
+        // Include all original item data
+        ...item
       };
     });
   }
 
   // Handle drag and drop data changes
-  function handleDataChange(updatedData: any[]) {
-    // Convert the flat data back to the original item format
-    const convertedItems = updatedData.map((flatItem: any) => {
-      // Just pass through all the original fields, no filtering needed
-      const originalItem: any = {
-        id: flatItem.id
-      };
-
-      // Add back all the original fields
-      Object.entries(flatItem).forEach(([key, value]) => {
-        if (key !== 'id') {
-          // Only exclude id since we already set it
-          originalItem[key] = value;
-        }
-      });
-
-      return originalItem;
-    });
-
-    onChange(convertedItems);
+  async function handleDataChange(updatedData: any[]) {
+    // If we have reorder function and required props, use immediate reordering
+    if (onReorder && globalSlug && fieldName) {
+      const reorderData = updatedData.map((item) => ({
+        id: item.id,
+        parent_id: item.parent_id || null
+      }));
+      await onReorder(reorderData);
+    } else {
+      // Fallback to standard onChange
+      onChange(updatedData);
+    }
   }
 
   // Handle edit for drag and drop - open modal

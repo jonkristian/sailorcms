@@ -1,0 +1,4 @@
+/* Light theme - only active when NOT in dark mode */
+html:not(.dark) {
+  @import 'highlight.js/styles/github.css';
+}

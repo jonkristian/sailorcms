@@ -4,6 +4,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Highlight.js themes for code syntax highlighting */
+@import './highlight-light.css';
+@import './highlight-dark.css';
+
 @custom-variant dark (&:is(.dark *));
 
 /* CMS CSS Variables */

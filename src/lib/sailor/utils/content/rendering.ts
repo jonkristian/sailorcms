@@ -3,7 +3,7 @@
  * Extends the existing core/utils/content.ts with developer-focused features
  */
 
-import { tiptapJsonToHtml, isTiptapJson } from '../core/content/content';
+import { tiptapJsonToHtml, isTiptapJson } from '../../core/content/content';
 
 /**
  * Render content to HTML (handles TipTap JSON and HTML strings)

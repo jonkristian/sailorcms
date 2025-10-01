@@ -12,26 +12,44 @@ async function createDatabaseConnection() {
   return adapter.createDrizzleInstance(client, schema);
 }
 
-// Create the database instance synchronously for Better Auth
-// Check SvelteKit environment for build detection
-import { building } from '$app/environment';
+// Create the database instance with lazy initialization to avoid top-level await
+let dbInstance: any = null;
+let dbPromise: Promise<any> | null = null;
 
-// Only create database connection when not building
-let db: any;
-if (!building) {
-  db = await createDatabaseConnection();
+async function initializeDatabase() {
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      const connection = await createDatabaseConnection();
 
-  // Initialize template settings and environment variables on startup
-  try {
-    const { SystemSettingsService } = await import('../services/settings.server');
-    await SystemSettingsService.loadTemplateSettings();
-    await SystemSettingsService.initializeFromEnv();
-  } catch (error) {
-    console.warn('Warning: Failed to load settings on startup:', error);
+      // Set dbInstance FIRST so the db proxy works
+      dbInstance = connection;
+
+      // Initialize template settings and environment variables on startup
+      try {
+        const { SystemSettingsService } = await import('../services/settings.server');
+        await SystemSettingsService.loadTemplateSettings();
+        await SystemSettingsService.initializeFromEnv();
+      } catch (error) {
+        console.warn('Warning: Failed to load settings on startup:', error);
+      }
+
+      return connection;
+    })();
   }
+  return dbPromise;
 }
 
-export { db };
+// Proxy to handle lazy initialization
+const db = new Proxy({} as any, {
+  get(target, prop) {
+    if (!dbInstance) {
+      throw new Error('Database not initialized. Call initializeDatabase() first or use getDb().');
+    }
+    return dbInstance[prop];
+  }
+});
+
+export { db, initializeDatabase };
 
 // Get database instance (for other uses)
 export async function getDb() {

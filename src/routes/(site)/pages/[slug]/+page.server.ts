@@ -1,21 +1,17 @@
-import {
-  getCollectionItem,
-  extractSEO,
-  generateMetaTags,
-  getSiteSettings
-} from '$sailor/utils/index';
+import { getCollections, getSiteSettings } from '$sailor/utils/index';
+import { extractSEO, generateMetaTags } from '$sailor/utils/content/seo';
+import type { CollectionsSingleResult } from '$sailor/utils/types';
 import { getCollectionOptions } from '$sailor/core/utils/db.server';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, url }) => {
   // Get single page by slug using new clean API
-  const page = await getCollectionItem('pages', {
-    query: 'slug',
-    value: params.slug,
+  const page = (await getCollections('pages', {
+    itemSlug: params.slug,
     status: 'published',
     includeBlocks: true // Include blocks for page content
-  });
+  })) as CollectionsSingleResult;
 
   if (!page) {
     throw error(404, 'Page not found');

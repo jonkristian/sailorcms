@@ -282,11 +282,23 @@ export class SystemSettingsService {
 
     // Cache settings
     if (env.CACHE_ENABLED) {
-      await this.setSetting('cache.enabled', env.CACHE_ENABLED === 'true', 'cache', 'Cache enabled', 'env');
+      await this.setSetting(
+        'cache.enabled',
+        env.CACHE_ENABLED === 'true',
+        'cache',
+        'Cache enabled',
+        'env'
+      );
     }
 
     if (env.CACHE_PROVIDER) {
-      await this.setSetting('cache.provider', env.CACHE_PROVIDER, 'cache', 'Cache provider override', 'env');
+      await this.setSetting(
+        'cache.provider',
+        env.CACHE_PROVIDER,
+        'cache',
+        'Cache provider override',
+        'env'
+      );
     }
 
     if (env.CACHE_PATH) {
@@ -308,18 +320,13 @@ export class SystemSettingsService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
-    const result = await db
-      .delete(settings)
-      .where(
-        and(
-          or(
-            eq(settings.source, 'template'),
-            eq(settings.source, 'env')
-          ),
-          // Only delete if older than cutoff and not user-modified
-          // User settings (source='user') are never auto-deleted
-        )
-      );
+    const result = await db.delete(settings).where(
+      and(
+        or(eq(settings.source, 'template'), eq(settings.source, 'env'))
+        // Only delete if older than cutoff and not user-modified
+        // User settings (source='user') are never auto-deleted
+      )
+    );
 
     return result.changes || 0;
   }
@@ -327,16 +334,11 @@ export class SystemSettingsService {
   /**
    * Clear all template/env settings and reload them
    */
-  static async refreshSettings(): Promise<{removed: number, reloaded: boolean}> {
+  static async refreshSettings(): Promise<{ removed: number; reloaded: boolean }> {
     // Remove all template and env settings
     const removeResult = await db
       .delete(settings)
-      .where(
-        or(
-          eq(settings.source, 'template'),
-          eq(settings.source, 'env')
-        )
-      );
+      .where(or(eq(settings.source, 'template'), eq(settings.source, 'env')));
 
     // Reload fresh settings
     await this.loadTemplateSettings();
@@ -351,7 +353,7 @@ export class SystemSettingsService {
   /**
    * Get stats about current settings
    */
-  static async getSettingsStats(): Promise<{total: number, bySource: Record<string, number>}> {
+  static async getSettingsStats(): Promise<{ total: number; bySource: Record<string, number> }> {
     const allSettings = await this.getAllSettings();
     const bySource: Record<string, number> = {};
 

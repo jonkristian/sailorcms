@@ -56,7 +56,11 @@
   }
 
   async function handlePurge() {
-    if (!confirm('This will remove all old template/environment settings and reload them fresh. Continue?')) {
+    if (
+      !confirm(
+        'This will remove all old template/environment settings and reload them fresh. Continue?'
+      )
+    ) {
       return;
     }
 
@@ -167,18 +171,16 @@
   <Card.Root class="mt-6">
     <Card.Header>
       <Card.Title class="text-lg">Settings Management</Card.Title>
-      <Card.Description>
-        Advanced settings maintenance and cleanup tools
-      </Card.Description>
+      <Card.Description>Advanced settings maintenance and cleanup tools</Card.Description>
     </Card.Header>
     <Card.Content>
       <div class="space-y-4">
-        <div class="flex items-center justify-between p-4 border rounded-lg">
+        <div class="flex items-center justify-between rounded-lg border p-4">
           <div>
             <h4 class="font-medium">Purge & Reload Settings</h4>
             <p class="text-muted-foreground text-sm">
-              Remove all old template and environment settings, then reload fresh copies.
-              This helps clean up outdated settings after updates.
+              Remove all old template and environment settings, then reload fresh copies. This helps
+              clean up outdated settings after updates.
             </p>
           </div>
           <Button

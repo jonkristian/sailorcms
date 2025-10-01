@@ -14,11 +14,25 @@
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
 
   let {
-    navData = { collections: [], globals: [], canViewSettings: false, canViewUsers: false, canViewFiles: false, loading: true },
+    navData = {
+      collections: [],
+      globals: [],
+      canViewSettings: false,
+      canViewUsers: false,
+      canViewFiles: false,
+      loading: true
+    },
     user: sessionUser,
     ...restProps
   } = $props<{
-    navData?: { collections: any[]; globals: any[]; canViewSettings: boolean; canViewUsers: boolean; canViewFiles: boolean; loading: boolean };
+    navData?: {
+      collections: any[];
+      globals: any[];
+      canViewSettings: boolean;
+      canViewUsers: boolean;
+      canViewFiles: boolean;
+      loading: boolean;
+    };
     user?: any;
   }>();
 

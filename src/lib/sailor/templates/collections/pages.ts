@@ -42,6 +42,37 @@ export const pagesCollection: CollectionDefinition = {
         accept: 'image/*'
       }
     },
+    image_test: {
+      type: 'file',
+      label: 'Images',
+      position: 'main',
+      file: {
+        fileType: 'image',
+        accept: 'image/*'
+      }
+    },
+    details_test: {
+      type: 'array',
+      required: true,
+      label: 'Details',
+      position: 'main',
+      items: {
+        type: 'object',
+        label: 'Detail',
+        properties: {
+          title: {
+            type: 'string',
+            required: true,
+            label: 'Title'
+          },
+          content: {
+            type: 'textarea',
+            required: true,
+            label: 'Description'
+          }
+        }
+      }
+    },
     excerpt: {
       type: 'textarea',
       label: 'Excerpt',
@@ -51,6 +82,14 @@ export const pagesCollection: CollectionDefinition = {
       type: 'tags',
       label: 'Tags',
       description: 'Add tags to help organize and categorize this page'
+    },
+    category: {
+      type: 'relation',
+      label: 'Category',
+      relation: {
+        type: 'one-to-many',
+        targetGlobal: 'categories'
+      }
     }
   }
 };

@@ -6,14 +6,22 @@
 // Re-export generated types for developer convenience
 export type { CollectionTypes, GlobalTypes, File, Tag } from '../generated/types';
 
-// Import types for re-exporting
-import type { CollectionTypes, GlobalTypes } from '../generated/types';
-import type { CollectionItem, CollectionResult, CollectionOptions } from './collections.server';
-import type { GlobalResult, GlobalOptions } from './globals.server';
+import type {
+  CollectionItem,
+  CollectionsOptions,
+  CollectionsMultipleResult,
+  CollectionsSingleResult
+} from './data/collections';
+import type { GlobalsMultipleResult, GlobalsOptions, GlobalsSingleResult } from './data/globals';
 
 // Re-export utility function types for better developer experience
-export type { CollectionItem, CollectionResult, CollectionOptions };
-export type { GlobalResult, GlobalOptions };
+export type {
+  CollectionItem,
+  CollectionsOptions,
+  CollectionsMultipleResult,
+  CollectionsSingleResult
+};
+export type { GlobalsMultipleResult, GlobalsOptions, GlobalsSingleResult };
 
 // Helper types for accessing specific collections and globals dynamically
 // No hardcoded types - these work with any generated collection/global
@@ -88,10 +96,10 @@ export interface ResponsiveImageData {
 }
 
 // Collection helper types for stricter typing
-export type GetCollectionSingle = CollectionTypes | null;
+export type GetCollectionSingle = CollectionsSingleResult;
 
-export type GetCollectionMultiple = CollectionResult<CollectionTypes>;
+export type GetCollectionMultiple = CollectionsMultipleResult;
 
 // Global helper types
-export type GetGlobalSingle = GlobalTypes | null;
-export type GetGlobalMultiple = GlobalTypes | GlobalResult<GlobalTypes> | null;
+export type GetGlobalSingle = GlobalsSingleResult;
+export type GetGlobalMultiple = GlobalsMultipleResult;

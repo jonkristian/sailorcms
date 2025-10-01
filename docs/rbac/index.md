@@ -36,6 +36,7 @@ The RBAC system leverages Better Auth's proven access control patterns and provi
 ### Permission Actions
 
 All resources support standard CRUD operations:
+
 - **create** - Add new content/users/files
 - **read** - View and access content
 - **update** - Edit existing content
