@@ -8,7 +8,40 @@ import type { BreadcrumbItem } from '../types';
 import { getCollectionType } from '../../core/utils/db.server';
 import * as schema from '../../generated/schema';
 import { getGlobals } from './globals';
-import { loadContentData } from './content-loader';
+import { loadFileFields } from './loaders/file-loader';
+import { loadArrayFields } from './loaders/array-loader';
+import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
+
+/**
+ * Load all fields (files, arrays, relations) for a collection
+ * Collection-specific implementation that knows about collection table naming conventions
+ */
+async function loadCollectionFields(
+  collection: any,
+  collectionSlug: string,
+  collectionSchema: Record<string, any>,
+  loadFullFileObjects: boolean = false
+): Promise<void> {
+  const tablePrefix = `collection_${collectionSlug}`;
+
+  // Load file fields
+  await loadFileFields(collection, collectionSchema, tablePrefix, loadFullFileObjects);
+
+  // Load array fields
+  await loadArrayFields(collection, collectionSchema, tablePrefix, 'collection_id', loadFullFileObjects);
+
+  // Load one-to-one and one-to-many relations
+  await loadOneToXRelations(collection, collectionSchema, loadFullFileObjects);
+
+  // Load many-to-many relations
+  await loadManyToManyRelations(
+    collection,
+    collectionSchema,
+    collectionSlug,
+    'collection_id',
+    loadFullFileObjects
+  );
+}
 
 type User = {
   id: string;
@@ -64,17 +97,17 @@ export interface CollectionsOptions {
   user?: User | null; // User context for ACL filtering
 }
 
-// Return types
-export type CollectionsSingleResult =
-  | (CollectionTypes & {
+// Return types with generic support
+export type CollectionsSingleResult<T extends CollectionTypes = CollectionTypes> =
+  | (T & {
       url: string;
       breadcrumbs?: BreadcrumbItem[];
       blocks?: BlockWithRelations[];
     })
   | null;
 
-export type CollectionsMultipleResult = {
-  items: (CollectionTypes & {
+export type CollectionsMultipleResult<T extends CollectionTypes = CollectionTypes> = {
+  items: (T & {
     url: string;
     breadcrumbs?: BreadcrumbItem[];
     blocks?: BlockWithRelations[];
@@ -84,7 +117,7 @@ export type CollectionsMultipleResult = {
   pagination?: Pagination;
   grouped?: Record<
     string,
-    (CollectionTypes & {
+    (T & {
       url: string;
       breadcrumbs?: BreadcrumbItem[];
       blocks?: BlockWithRelations[];
@@ -100,17 +133,17 @@ export type CollectionsMultipleResult = {
  *
  * @example
  * ```typescript
- * // Multiple items
- * const posts = await getCollections('posts', { user: locals.user });
- * const children = await getCollections('posts', { parentId: 'parent-id', user: locals.user });
- * const siblings = await getCollections('posts', { siblingOf: 'item-id', user: locals.user });
+ * // Multiple items (properly typed)
+ * const posts = await getCollections<Post>('posts', { user: locals.user });
+ * const children = await getCollections<Page>('pages', { parentId: 'parent-id', user: locals.user });
+ * const siblings = await getCollections<Page>('pages', { siblingOf: 'item-id', user: locals.user });
  *
- * // Single items
- * const post = await getCollections('posts', { itemSlug: 'my-post', user: locals.user });
- * const item = await getCollections('posts', { itemId: 'item-id', user: locals.user });
+ * // Single items (properly typed)
+ * const post = await getCollections<Post>('posts', { itemSlug: 'my-post', user: locals.user });
+ * const page = await getCollections<Page>('pages', { itemId: 'item-id', user: locals.user });
  *
  * // With pagination
- * const posts = await getCollections('posts', {
+ * const posts = await getCollections<Post>('posts', {
  *   limit: 10,
  *   currentPage: 2,
  *   baseUrl: '/blog',
@@ -118,16 +151,31 @@ export type CollectionsMultipleResult = {
  * });
  *
  * // Filter by related content
- * const techPosts = await getCollections('posts', {
+ * const techPosts = await getCollections<Post>('posts', {
  *   whereRelated: { field: 'categories', value: 'technology' },
  *   user: locals.user
  * });
  * ```
  */
-export async function getCollections(
+// Overload: When itemSlug or itemId is provided, return single result
+export async function getCollections<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: CollectionsOptions & { itemSlug: string }
+): Promise<CollectionsSingleResult<T>>;
+export async function getCollections<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: CollectionsOptions & { itemId: string }
+): Promise<CollectionsSingleResult<T>>;
+// Overload: Otherwise, return multiple result
+export async function getCollections<T extends CollectionTypes = CollectionTypes>(
   collectionSlug: string,
   options?: CollectionsOptions
-): Promise<CollectionsSingleResult | CollectionsMultipleResult> {
+): Promise<CollectionsMultipleResult<T>>;
+// Implementation
+export async function getCollections<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options?: CollectionsOptions
+): Promise<CollectionsSingleResult<T> | CollectionsMultipleResult<T>> {
   const {
     itemSlug,
     itemId,
@@ -162,7 +210,7 @@ export async function getCollections(
 
     // Handle single item queries
     if (isSingleQuery) {
-      return await handleSingleCollectionItem(table, collectionSlug, {
+      return await handleSingleCollectionItem<T>(table, collectionSlug, {
         itemSlug,
         itemId,
         status,
@@ -174,7 +222,7 @@ export async function getCollections(
     }
 
     // Handle multiple items queries
-    return await handleMultipleCollectionItems(table, collectionSlug, {
+    return await handleMultipleCollectionItems<T>(table, collectionSlug, {
       parentId,
       siblingOf,
       excludeCurrent,
@@ -202,7 +250,7 @@ export async function getCollections(
 /**
  * Handle single collection item query
  */
-async function handleSingleCollectionItem(
+async function handleSingleCollectionItem<T extends CollectionTypes = CollectionTypes>(
   table: any,
   collectionSlug: string,
   options: {
@@ -214,7 +262,7 @@ async function handleSingleCollectionItem(
     includeAuthors: boolean;
     user?: User | null;
   }
-): Promise<CollectionsSingleResult> {
+): Promise<CollectionsSingleResult<T>> {
   const { itemSlug, itemId, status, includeBlocks, includeBreadcrumbs, includeAuthors, user } =
     options;
 
@@ -244,13 +292,13 @@ async function handleSingleCollectionItem(
     includeAuthors
   });
 
-  return item as CollectionsSingleResult;
+  return item as CollectionsSingleResult<T>;
 }
 
 /**
  * Handle multiple collection items query
  */
-async function handleMultipleCollectionItems(
+async function handleMultipleCollectionItems<T extends CollectionTypes = CollectionTypes>(
   table: any,
   collectionSlug: string,
   options: {
@@ -274,7 +322,7 @@ async function handleMultipleCollectionItems(
     };
     user?: User | null;
   }
-): Promise<CollectionsMultipleResult> {
+): Promise<CollectionsMultipleResult<T>> {
   const {
     parentId,
     siblingOf,
@@ -428,7 +476,7 @@ async function handleMultipleCollectionItems(
     result.grouped = groupItemsByField(enrichedItems, groupBy);
   }
 
-  return result;
+  return result as CollectionsMultipleResult<T>;
 }
 
 /**
@@ -447,16 +495,12 @@ async function enrichCollectionItem(
 
   const enrichedItem = { ...item } as CollectionItem;
 
-  // Populate collection item fields (files, arrays, relations) using unified loader
+  // Populate collection item fields (files, arrays, relations)
   try {
     const collectionDef = await getCollectionType(collectionSlug);
     const collectionSchema = collectionDef ? collectionDef.fields || {} : {};
     if (Object.keys(collectionSchema).length > 0) {
-      await loadContentData(enrichedItem, collectionSchema as Record<string, any>, {
-        contentType: 'collection',
-        slug: collectionSlug,
-        loadFullFileObjects: false
-      });
+      await loadCollectionFields(enrichedItem, collectionSlug, collectionSchema, false);
     }
   } catch (err) {
     console.warn(
@@ -638,7 +682,9 @@ async function getAllDescendantItems(parentSlug: string, targetType: string): Pr
     if (childrenResult && 'items' in childrenResult && childrenResult.items) {
       // Recursively get children of each child
       for (const child of childrenResult.items) {
-        await getChildren(child.slug);
+        if ('slug' in child && typeof child.slug === 'string') {
+          await getChildren(child.slug);
+        }
       }
     }
   }

@@ -1,9 +1,6 @@
 // Data utilities - Server-side data fetching and processing
 // These utilities handle loading content from the database and processing it
 
-// Content loader utilities (shared data loading logic)
-export { loadGlobalData } from './content-loader';
-
 // Collection utilities
 export {
   getCollections,

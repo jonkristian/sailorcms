@@ -1,9 +1,9 @@
-// Re-export the unified loader functions
-export { loadBlockData } from '../../utils/data/content-loader';
 import * as schema from '../../generated/schema';
 import { sql, and } from 'drizzle-orm';
-import { getCurrentTimestamp } from '../utils/date';
 import { randomUUID } from 'crypto';
+
+// Re-export block field loading for admin UI
+export { loadBlockFields } from '../../utils/data/blocks';
 
 /**
  * Save nested array fields for blocks - handles both saving and deleting array items

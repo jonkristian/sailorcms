@@ -4,7 +4,9 @@ import { blockTypes as blockTypesTable, files, globalTypes } from '../../generat
 import * as schema from '../../generated/schema';
 import { toSnakeCase } from '../../core/utils/string';
 import { log } from '../../core/utils/logger';
-import { loadBlockData } from './content-loader';
+import { loadFileFields } from './loaders/file-loader';
+import { loadArrayFields } from './loaders/array-loader';
+import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
 
 export interface BlockWithRelations {
   id: string;
@@ -55,6 +57,37 @@ export type BlocksMultipleResult = {
   items: BlockWithRelations[];
   total: number;
 };
+
+/**
+ * Load all fields (files, arrays, relations) for a block
+ * Block-specific implementation that knows about block table naming conventions
+ */
+export async function loadBlockFields(
+  block: any,
+  blockSlug: string,
+  blockSchema: Record<string, any>,
+  loadFullFileObjects: boolean = false
+): Promise<void> {
+  const tablePrefix = `block_${blockSlug}`;
+
+  // Load file fields
+  await loadFileFields(block, blockSchema, tablePrefix, loadFullFileObjects);
+
+  // Load array fields
+  await loadArrayFields(block, blockSchema, tablePrefix, 'block_id', loadFullFileObjects);
+
+  // Load one-to-one and one-to-many relations
+  await loadOneToXRelations(block, blockSchema, loadFullFileObjects);
+
+  // Load many-to-many relations
+  await loadManyToManyRelations(
+    block,
+    blockSchema,
+    blockSlug,
+    'block_id',
+    loadFullFileObjects
+  );
+}
 
 /**
  * Load blocks with all their relations for a collection
@@ -155,14 +188,13 @@ export async function loadBlocks(options: LoadBlocksOptions = {}): Promise<Block
             blockType: blockType.slug
           };
 
-          // Use unified content loader for all relations (files, arrays, many-to-many)
+          // Load all fields (files, arrays, relations) if requested
           if (includeFileRelations || includeArrayRelations) {
             const blockSchema = JSON.parse(blockType.schema);
-            await loadBlockData(
+            await loadBlockFields(
               enrichedBlock,
               blockType.slug,
               blockSchema,
-              undefined, // parentTableName
               false // loadFullFileObjects = false for better performance
             );
           }
@@ -254,11 +286,10 @@ export async function loadBlockById(
 
     if (blockTypeDef) {
       const blockSchema = JSON.parse(blockTypeDef.schema);
-      await loadBlockData(
+      await loadBlockFields(
         enrichedBlock,
         blockType,
         blockSchema,
-        undefined, // parentTableName
         true // loadFullFileObjects = true for single block queries
       );
     }
@@ -423,11 +454,10 @@ async function enrichBlock(
   // Load relations if requested
   if (withRelations) {
     const blockSchema = JSON.parse(blockTypeDef.schema);
-    await loadBlockData(
+    await loadBlockFields(
       enrichedBlock,
       blockType,
       blockSchema,
-      undefined, // parentTableName
       loadFullFileObjects
     );
   }

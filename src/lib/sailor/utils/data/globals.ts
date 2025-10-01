@@ -6,7 +6,40 @@ import type { GlobalTypes } from '../../generated/types';
 import { TagService } from '../../core/services/tag.server';
 import { toSnakeCase } from '../../core/utils/string';
 import { log } from '../../core/utils/logger';
-import { loadContentData as loadGlobalData } from './content-loader';
+import { loadFileFields } from './loaders/file-loader';
+import { loadArrayFields } from './loaders/array-loader';
+import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
+
+/**
+ * Load all fields (files, arrays, relations) for a global
+ * Global-specific implementation that knows about global table naming conventions
+ */
+async function loadGlobalFields(
+  global: any,
+  globalSlug: string,
+  globalSchema: Record<string, any>,
+  loadFullFileObjects: boolean = false
+): Promise<void> {
+  const tablePrefix = `global_${globalSlug}`;
+
+  // Load file fields
+  await loadFileFields(global, globalSchema, tablePrefix, loadFullFileObjects);
+
+  // Load array fields
+  await loadArrayFields(global, globalSchema, tablePrefix, 'global_id', loadFullFileObjects);
+
+  // Load one-to-one and one-to-many relations
+  await loadOneToXRelations(global, globalSchema, loadFullFileObjects);
+
+  // Load many-to-many relations
+  await loadManyToManyRelations(
+    global,
+    globalSchema,
+    globalSlug,
+    'global_id',
+    loadFullFileObjects
+  );
+}
 
 type User = {
   id: string;
@@ -60,12 +93,12 @@ export interface GlobalsOptions {
 }
 
 // Return types
-export type GlobalsSingleResult = GlobalTypes | null;
-export type GlobalsMultipleResult = {
-  items: GlobalTypes[];
+export type GlobalsSingleResult<T extends GlobalTypes = GlobalTypes> = T | null;
+export type GlobalsMultipleResult<T extends GlobalTypes = GlobalTypes> = {
+  items: T[];
   total: number;
   hasMore?: boolean;
-  grouped?: Record<string, GlobalTypes[]>;
+  grouped?: Record<string, T[]>;
 };
 
 /**
@@ -91,10 +124,26 @@ export type GlobalsMultipleResult = {
  * });
  * ```
  */
-export async function getGlobals(
+// Overload: When itemSlug is provided, return single result
+export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  options: GlobalsOptions & { itemSlug: string }
+): Promise<GlobalsSingleResult<T>>;
+// Overload: When itemId is provided, return single result
+export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  options: GlobalsOptions & { itemId: string }
+): Promise<GlobalsSingleResult<T>>;
+// Overload: Otherwise, return multiple result
+export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
   globalSlug: string,
   options?: GlobalsOptions
-): Promise<GlobalsSingleResult | GlobalsMultipleResult> {
+): Promise<GlobalsMultipleResult<T>>;
+// Implementation
+export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  options?: GlobalsOptions
+): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
   const {
     itemSlug,
     itemId,
@@ -109,7 +158,7 @@ export async function getGlobals(
     order = 'asc',
     limit,
     offset = 0,
-    user
+    user: _user // Reserved for future ACL implementation
   } = options || {};
 
   // Determine if this is a single item query
@@ -130,7 +179,7 @@ export async function getGlobals(
 
     // Handle singleton globals
     if (isFlat) {
-      return await handleSingletonGlobal(globalSlug, globalType, {
+      return await handleSingletonGlobal<T>(globalSlug, globalType, {
         withRelations,
         withTags,
         loadFullFileObjects
@@ -138,7 +187,7 @@ export async function getGlobals(
     }
 
     // Handle repeatable globals
-    return await handleRepeatableGlobal(globalSlug, globalType, {
+    return await handleRepeatableGlobal<T>(globalSlug, globalType, {
       isSingleQuery,
       itemSlug,
       itemId,
@@ -153,7 +202,7 @@ export async function getGlobals(
       order,
       limit,
       offset,
-      user
+      user: _user
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -165,7 +214,7 @@ export async function getGlobals(
 /**
  * Handle singleton (flat) globals
  */
-async function handleSingletonGlobal(
+async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
   globalSlug: string,
   globalType: any,
   options: {
@@ -173,7 +222,7 @@ async function handleSingletonGlobal(
     withTags: boolean;
     loadFullFileObjects: boolean;
   }
-): Promise<GlobalsSingleResult> {
+): Promise<GlobalsSingleResult<T>> {
   const { withRelations, withTags, loadFullFileObjects } = options;
 
   const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
@@ -194,7 +243,7 @@ async function handleSingletonGlobal(
   }
 
   const globalData = globalResult[0] as any;
-  const enrichedGlobal = await enrichGlobalItem(globalData, globalSlug, globalType, {
+  const enrichedGlobal = await enrichGlobalItem<T>(globalData, globalSlug, globalType, {
     withRelations,
     withTags,
     loadFullFileObjects
@@ -206,7 +255,7 @@ async function handleSingletonGlobal(
 /**
  * Handle repeatable globals
  */
-async function handleRepeatableGlobal(
+async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
   globalSlug: string,
   globalType: any,
   options: {
@@ -226,7 +275,7 @@ async function handleRepeatableGlobal(
     offset: number;
     user?: User | null;
   }
-): Promise<GlobalsSingleResult | GlobalsMultipleResult> {
+): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
   const {
     isSingleQuery,
     itemSlug,
@@ -241,7 +290,8 @@ async function handleRepeatableGlobal(
     orderBy,
     order,
     limit,
-    offset
+    offset,
+    user: _user // Reserved for future ACL implementation
   } = options;
 
   const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
@@ -307,7 +357,7 @@ async function handleRepeatableGlobal(
   if (isSingleQuery) {
     if (results.length === 0) return null;
 
-    const item = await enrichGlobalItem(results[0], globalSlug, globalType, {
+    const item = await enrichGlobalItem<T>(results[0], globalSlug, globalType, {
       withRelations,
       withTags,
       loadFullFileObjects
@@ -318,7 +368,7 @@ async function handleRepeatableGlobal(
   // Multiple items
   const enrichedItems = await Promise.all(
     results.map((item: Record<string, any>) =>
-      enrichGlobalItem(item, globalSlug, globalType, {
+      enrichGlobalItem<T>(item, globalSlug, globalType, {
         withRelations,
         withTags,
         loadFullFileObjects
@@ -326,7 +376,7 @@ async function handleRepeatableGlobal(
     )
   );
 
-  const result: GlobalsMultipleResult = {
+  const result: GlobalsMultipleResult<T> = {
     items: enrichedItems,
     total: enrichedItems.length,
     hasMore: limit ? offset + enrichedItems.length < enrichedItems.length : false
@@ -343,7 +393,7 @@ async function handleRepeatableGlobal(
 /**
  * Enrich a single global item with relations, tags, and data
  */
-async function enrichGlobalItem(
+async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
   item: Record<string, any>,
   globalSlug: string,
   globalType: Record<string, any>,
@@ -352,7 +402,7 @@ async function enrichGlobalItem(
     withTags: boolean;
     loadFullFileObjects: boolean;
   }
-): Promise<GlobalTypes> {
+): Promise<T> {
   const { withRelations, withTags, loadFullFileObjects } = options;
 
   // Parse dates properly
@@ -419,11 +469,7 @@ async function enrichGlobalItem(
       const globalFields = JSON.parse(globalType.schema);
       const preservedItems = enrichedItem.items;
 
-      await loadGlobalData(enrichedItem, globalFields, {
-        contentType: 'global',
-        slug: globalSlug,
-        loadFullFileObjects
-      });
+      await loadGlobalFields(enrichedItem, globalSlug, globalFields, loadFullFileObjects);
 
       enrichedItem.items = preservedItems;
     } catch (err) {
@@ -431,7 +477,7 @@ async function enrichGlobalItem(
     }
   }
 
-  return enrichedItem;
+  return enrichedItem as T;
 }
 
 /**

@@ -5,7 +5,7 @@ import { sql, eq, and } from 'drizzle-orm';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { collectionTypes } from '$sailor/core/db/index.server';
 import { TagService } from '$sailor/core/services/tag.server';
-import { loadBlockData } from '$sailor/core/content/blocks.server';
+import { loadBlockFields } from '$sailor/core/content/blocks.server';
 import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import type { PageServerLoad } from './$types';
 import { log } from '$sailor/core/utils/logger';
@@ -234,7 +234,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
 
         for (const block of blocksResult.rows) {
           // Load the main block data with array fields
-          await loadBlockData(block, blockSlug, blockDef.fields || {}, undefined, false);
+          await loadBlockFields(block, blockSlug, blockDef.fields || {}, false);
 
           // Get relation data from the processed block
           let relationData: any[] = [];
