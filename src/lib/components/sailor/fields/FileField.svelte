@@ -21,7 +21,8 @@
     readonly?: boolean;
   }>();
 
-  const fileOptions = field.file || {};
+  // Support both field.items (preferred) and field.file (legacy) for configuration
+  const fileOptions = field.items || field.file || {};
   const multiple = fileOptions.multiple || false;
   const fileType = fileOptions.fileType || 'all';
 
