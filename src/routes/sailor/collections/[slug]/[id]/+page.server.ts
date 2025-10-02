@@ -238,7 +238,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
 
         for (const block of blocksResult.rows) {
           // Load the main block data with array fields
-          await loadBlockFields(block, blockSlug, blockDef.fields || {}, false);
+          await loadBlockFields(block, blockSlug, blockDef.fields || {});
 
           // Get relation data from the processed block
           let relationData: any[] = [];

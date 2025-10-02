@@ -63,12 +63,14 @@ export interface FieldDefinition {
     through?: string; // For many-to-many relationships
   };
   // For array fields - OR for file fields (preferred for file fields going forward)
-  items?: FieldDefinition | {
-    accept?: string; // MIME types or file extensions
-    maxSize?: number; // Max file size in bytes
-    multiple?: boolean; // Allow multiple file selection
-    fileType?: 'image' | 'document' | 'all'; // Type of files to accept
-  };
+  items?:
+    | FieldDefinition
+    | {
+        accept?: string; // MIME types or file extensions
+        maxSize?: number; // Max file size in bytes
+        multiple?: boolean; // Allow multiple file selection
+        fileType?: 'image' | 'document' | 'all'; // Type of files to accept
+      };
   nestable?: boolean; // Enable parent-child relationships for array items
   // For object fields
   properties?: Record<string, FieldDefinition>;

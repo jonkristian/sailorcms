@@ -32,13 +32,7 @@ async function loadGlobalFields(
   await loadOneToXRelations(global, globalSchema, loadFullFileObjects);
 
   // Load many-to-many relations
-  await loadManyToManyRelations(
-    global,
-    globalSchema,
-    globalSlug,
-    'global_id',
-    loadFullFileObjects
-  );
+  await loadManyToManyRelations(global, globalSchema, globalSlug, 'global_id', loadFullFileObjects);
 }
 
 type User = {

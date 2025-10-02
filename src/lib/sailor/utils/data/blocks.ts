@@ -80,13 +80,7 @@ export async function loadBlockFields(
   await loadOneToXRelations(block, blockSchema, loadFullFileObjects);
 
   // Load many-to-many relations
-  await loadManyToManyRelations(
-    block,
-    blockSchema,
-    blockSlug,
-    'block_id',
-    loadFullFileObjects
-  );
+  await loadManyToManyRelations(block, blockSchema, blockSlug, 'block_id', loadFullFileObjects);
 }
 
 /**
@@ -454,12 +448,7 @@ async function enrichBlock(
   // Load relations if requested
   if (withRelations) {
     const blockSchema = JSON.parse(blockTypeDef.schema);
-    await loadBlockFields(
-      enrichedBlock,
-      blockType,
-      blockSchema,
-      loadFullFileObjects
-    );
+    await loadBlockFields(enrichedBlock, blockType, blockSchema, loadFullFileObjects);
   }
 
   return enrichedBlock;

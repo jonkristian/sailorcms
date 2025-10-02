@@ -28,7 +28,13 @@ async function loadCollectionFields(
   await loadFileFields(collection, collectionSchema, tablePrefix, loadFullFileObjects);
 
   // Load array fields
-  await loadArrayFields(collection, collectionSchema, tablePrefix, 'collection_id', loadFullFileObjects);
+  await loadArrayFields(
+    collection,
+    collectionSchema,
+    tablePrefix,
+    'collection_id',
+    loadFullFileObjects
+  );
 
   // Load one-to-one and one-to-many relations
   await loadOneToXRelations(collection, collectionSchema, loadFullFileObjects);

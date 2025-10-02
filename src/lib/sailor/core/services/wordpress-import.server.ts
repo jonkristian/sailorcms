@@ -854,7 +854,7 @@ export class WordPressImportService {
           );
         }
 
-        // Handle featured image - store file ID in the collection table if the field exists
+        // Handle featured image - store file ID in relation table (all file fields use relation tables)
         if (
           featuredImageFileId &&
           fieldMappings.featured_image &&
@@ -862,30 +862,32 @@ export class WordPressImportService {
           collectionFields[fieldMappings.featured_image]
         ) {
           try {
-            const collectionTable =
-              schema[`collection_${options.collectionSlug}` as keyof typeof schema];
-            if (collectionTable) {
-              // Validate that the field mapping is valid before attempting update
-              const fieldName = fieldMappings.featured_image.trim();
-              if (fieldName && collectionFields[fieldName]) {
-                await db
-                  .update(collectionTable)
-                  .set({ [fieldName]: featuredImageFileId })
-                  .where(eq((collectionTable as any).id, post.id));
-              }
+            const fieldName = fieldMappings.featured_image.trim();
+            const relationTableName = `collection_${options.collectionSlug}_${fieldName}`;
+            const relationTable = schema[relationTableName as keyof typeof schema];
+
+            // All file fields use relation tables
+            const fileRelationData = {
+              id: crypto.randomUUID(),
+              parent_id: post.id,
+              parent_type: 'collection' as const,
+              file_id: featuredImageFileId,
+              sort: 0,
+              created_at: getCurrentTimestamp()
+            };
+
+            if (relationTable) {
+              await db.insert(relationTable).values(fileRelationData);
             } else {
-              // Fallback to raw SQL for dynamic collection tables
-              const fieldName = fieldMappings.featured_image.trim();
-              if (fieldName && collectionFields[fieldName]) {
-                await db.run(
-                  sql`UPDATE ${sql.identifier(`collection_${options.collectionSlug}`)} 
-                      SET ${sql.identifier(fieldName)} = ${featuredImageFileId} 
-                      WHERE id = ${post.id}`
-                );
-              }
+              // Fallback to raw SQL for dynamic relation tables
+              await db.run(
+                sql`INSERT INTO ${sql.identifier(relationTableName)}
+                    (id, parent_id, parent_type, file_id, sort, created_at)
+                    VALUES (${fileRelationData.id}, ${fileRelationData.parent_id}, ${fileRelationData.parent_type}, ${fileRelationData.file_id}, ${fileRelationData.sort}, ${fileRelationData.created_at})`
+              );
             }
           } catch (error) {
-            console.warn(`Failed to update featured image for '${post.title}':`, error);
+            console.warn(`Failed to insert featured image relation for '${post.title}':`, error);
           }
         }
 

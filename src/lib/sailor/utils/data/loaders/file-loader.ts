@@ -25,9 +25,10 @@ export async function loadFileFields(
       const snakeCaseFieldName = toSnakeCase(fieldName);
 
       // Check both camelCase and snake_case for the current value
-      let currentValue = item[fieldName] !== undefined && item[fieldName] !== null
-        ? item[fieldName]
-        : item[snakeCaseFieldName];
+      let currentValue =
+        item[fieldName] !== undefined && item[fieldName] !== null
+          ? item[fieldName]
+          : item[snakeCaseFieldName];
 
       // Step 1: If no value yet, try to load file IDs from relation table
       if (currentValue === undefined || currentValue === null) {

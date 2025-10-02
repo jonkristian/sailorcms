@@ -29,9 +29,12 @@ async function loadNestedContent(
   contentType: 'block' | 'global' | 'collection'
 ): Promise<void> {
   const tablePrefix = `${contentType}_${targetSlug}`;
-  const foreignKeyField = contentType === 'block' ? 'block_id' :
-                          contentType === 'collection' ? 'collection_id' :
-                          'global_id';
+  const foreignKeyField =
+    contentType === 'block'
+      ? 'block_id'
+      : contentType === 'collection'
+        ? 'collection_id'
+        : 'global_id';
 
   // Load file fields
   await loadFileFields(item, targetSchema, tablePrefix, loadFullFileObjects);
@@ -43,7 +46,13 @@ async function loadNestedContent(
   await loadOneToXRelations(item, targetSchema, loadFullFileObjects);
 
   // Load many-to-many relations (recursively with correct content type)
-  await loadManyToManyRelations(item, targetSchema, targetSlug, foreignKeyField, loadFullFileObjects);
+  await loadManyToManyRelations(
+    item,
+    targetSchema,
+    targetSlug,
+    foreignKeyField,
+    loadFullFileObjects
+  );
 }
 
 /**
@@ -129,7 +138,13 @@ export async function loadOneToXRelations(
 
               // Recursively load nested content data for the related object using the correct loader
               if (Object.keys(targetSchema).length > 0) {
-                await loadNestedContent(relatedObject, targetSlug, targetSchema, loadFullFileObjects, targetContentType);
+                await loadNestedContent(
+                  relatedObject,
+                  targetSlug,
+                  targetSchema,
+                  loadFullFileObjects,
+                  targetContentType
+                );
               }
             } catch (schemaError) {
               // If we can't load the schema, just use the object as-is
@@ -251,7 +266,13 @@ export async function loadManyToManyRelations(
 
               // Load nested content data for the related object using the correct loader
               if (Object.keys(targetSchema).length > 0) {
-                await loadNestedContent(relatedObject, targetSlug, targetSchema, loadFullFileObjects, targetContentType);
+                await loadNestedContent(
+                  relatedObject,
+                  targetSlug,
+                  targetSchema,
+                  loadFullFileObjects,
+                  targetContentType
+                );
               }
             } catch (schemaError) {
               // If we can't load the schema, just return the object as-is
@@ -267,10 +288,7 @@ export async function loadManyToManyRelations(
         item[fieldName] = relatedObjects;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        console.error(
-          `Failed to load many-to-many relation for ${fieldName}:`,
-          errorMessage
-        );
+        console.error(`Failed to load many-to-many relation for ${fieldName}:`, errorMessage);
         item[fieldName] = [];
       }
     }

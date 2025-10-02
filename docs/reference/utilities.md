@@ -98,39 +98,43 @@ const posts = await getCollections<Post>('posts', {
 
 ### Collection Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `itemSlug` | `string` | Get specific item by slug (returns single item) |
-| `itemId` | `string` | Get specific item by ID (returns single item) |
-| `parentId` | `string` | Get children of this parent |
-| `siblingOf` | `string` | Get siblings of this item |
-| `excludeCurrent` | `boolean` | Exclude current item from siblings query (default: `true`) |
-| `status` | `'published' \| 'draft' \| 'all'` | Filter by status (default: `'published'`) |
-| `includeBlocks` | `boolean` | Load blocks for items (default: `true`) |
-| `includeBreadcrumbs` | `boolean` | Generate breadcrumb navigation (default: `false`) |
-| `includeAuthors` | `boolean` | Populate author details (default: `false`) |
-| `orderBy` | `string` | Field to order by (default: `'created_at'`) |
-| `order` | `'asc' \| 'desc'` | Sort order (default: `'desc'`) |
-| `groupBy` | `string` | Group results by field |
-| `limit` | `number` | Limit number of results |
-| `offset` | `number` | Offset for pagination |
-| `baseUrl` | `string` | Base URL for pagination links |
-| `currentPage` | `number` | Current page for pagination |
-| `whereRelated` | `object` | Filter by related content: `{ field, value, recursive? }` |
-| `user` | `User \| null` | User context for ACL filtering |
+| Option               | Type                              | Description                                                |
+| -------------------- | --------------------------------- | ---------------------------------------------------------- |
+| `itemSlug`           | `string`                          | Get specific item by slug (returns single item)            |
+| `itemId`             | `string`                          | Get specific item by ID (returns single item)              |
+| `parentId`           | `string`                          | Get children of this parent                                |
+| `siblingOf`          | `string`                          | Get siblings of this item                                  |
+| `excludeCurrent`     | `boolean`                         | Exclude current item from siblings query (default: `true`) |
+| `status`             | `'published' \| 'draft' \| 'all'` | Filter by status (default: `'published'`)                  |
+| `includeBlocks`      | `boolean`                         | Load blocks for items (default: `true`)                    |
+| `includeBreadcrumbs` | `boolean`                         | Generate breadcrumb navigation (default: `false`)          |
+| `includeAuthors`     | `boolean`                         | Populate author details (default: `false`)                 |
+| `orderBy`            | `string`                          | Field to order by (default: `'created_at'`)                |
+| `order`              | `'asc' \| 'desc'`                 | Sort order (default: `'desc'`)                             |
+| `groupBy`            | `string`                          | Group results by field                                     |
+| `limit`              | `number`                          | Limit number of results                                    |
+| `offset`             | `number`                          | Offset for pagination                                      |
+| `baseUrl`            | `string`                          | Base URL for pagination links                              |
+| `currentPage`        | `number`                          | Current page for pagination                                |
+| `whereRelated`       | `object`                          | Filter by related content: `{ field, value, recursive? }`  |
+| `user`               | `User \| null`                    | User context for ACL filtering                             |
 
 ### Return Types
 
 **Single Item Query** (when `itemSlug` or `itemId` is provided):
+
 ```typescript
-type CollectionsSingleResult<T> = T & {
-  url: string;
-  breadcrumbs?: BreadcrumbItem[];
-  blocks?: BlockWithRelations[];
-} | null;
+type CollectionsSingleResult<T> =
+  | (T & {
+      url: string;
+      breadcrumbs?: BreadcrumbItem[];
+      blocks?: BlockWithRelations[];
+    })
+  | null;
 ```
 
 **Multiple Items Query** (default):
+
 ```typescript
 type CollectionsMultipleResult<T> = {
   items: (T & {
@@ -195,32 +199,34 @@ const techCategories = await getGlobals<Category>('categories', {
 
 ### Global Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `itemSlug` | `string` | Get specific item by slug (returns single item) |
-| `itemId` | `string` | Get specific item by ID (returns single item) |
-| `parentId` | `string` | Get children of this parent |
-| `siblingOf` | `string` | Get siblings of this item |
-| `excludeCurrent` | `boolean` | Exclude current item from siblings query (default: `true`) |
-| `withRelations` | `boolean` | Include relations for items (default: `true`) |
-| `withTags` | `boolean` | Include tags for items (default: `false`) |
-| `loadFullFileObjects` | `boolean` | Load full file objects vs just IDs (default: `false`) |
-| `groupBy` | `string` | Group results by field |
-| `orderBy` | `string` | Field to order by (default: `'sort'`) |
-| `order` | `'asc' \| 'desc'` | Sort order (default: `'asc'`) |
-| `limit` | `number` | Limit number of results |
-| `offset` | `number` | Offset for pagination |
-| `whereRelated` | `object` | Filter by related content: `{ field, value }` |
-| `user` | `User \| null` | User context for ACL filtering |
+| Option                | Type              | Description                                                |
+| --------------------- | ----------------- | ---------------------------------------------------------- |
+| `itemSlug`            | `string`          | Get specific item by slug (returns single item)            |
+| `itemId`              | `string`          | Get specific item by ID (returns single item)              |
+| `parentId`            | `string`          | Get children of this parent                                |
+| `siblingOf`           | `string`          | Get siblings of this item                                  |
+| `excludeCurrent`      | `boolean`         | Exclude current item from siblings query (default: `true`) |
+| `withRelations`       | `boolean`         | Include relations for items (default: `true`)              |
+| `withTags`            | `boolean`         | Include tags for items (default: `false`)                  |
+| `loadFullFileObjects` | `boolean`         | Load full file objects vs just IDs (default: `false`)      |
+| `groupBy`             | `string`          | Group results by field                                     |
+| `orderBy`             | `string`          | Field to order by (default: `'sort'`)                      |
+| `order`               | `'asc' \| 'desc'` | Sort order (default: `'asc'`)                              |
+| `limit`               | `number`          | Limit number of results                                    |
+| `offset`              | `number`          | Offset for pagination                                      |
+| `whereRelated`        | `object`          | Filter by related content: `{ field, value }`              |
+| `user`                | `User \| null`    | User context for ACL filtering                             |
 
 ### Return Types
 
 **Single Item Query** (when `itemSlug` or `itemId` is provided):
+
 ```typescript
 type GlobalsSingleResult<T> = T | null;
 ```
 
 **Multiple Items Query** (default):
+
 ```typescript
 type GlobalsMultipleResult<T> = {
   items: T[];
