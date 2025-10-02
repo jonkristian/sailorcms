@@ -342,8 +342,13 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
   // Add preview link if not a new item and has slug (left side)
   if (!isNewItem && page.slug) {
     // Use collection's basePath option, fallback to /${slug}/ if not defined
-    const basePath = collectionDefinition.options?.basePath || `/${slug}/`;
-    const previewUrl = `${basePath}${page.slug}`;
+    let basePath = collectionDefinition.options?.basePath || `/${slug}/`;
+    // Normalize basePath: ensure it starts and ends with /
+    if (!basePath.startsWith('/')) basePath = `/${basePath}`;
+    if (!basePath.endsWith('/')) basePath = `${basePath}/`;
+    // Normalize slug: ensure it doesn't start with /
+    const normalizedSlug = page.slug.startsWith('/') ? page.slug.slice(1) : page.slug;
+    const previewUrl = `${basePath}${normalizedSlug}`;
     headerActions.push({
       type: 'preview-link',
       props: {
