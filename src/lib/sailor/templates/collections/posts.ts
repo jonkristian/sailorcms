@@ -41,7 +41,7 @@ export const postsCollection: CollectionDefinition = {
     featured_image: {
       type: 'file',
       label: 'Featured Image',
-      file: {
+      items: {
         fileType: 'image',
         accept: 'image/*'
       }

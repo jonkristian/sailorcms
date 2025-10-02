@@ -123,7 +123,7 @@ export const postsCollection: CollectionDefinition = {
     featured_image: {
       type: 'file',
       label: 'Featured Image',
-      file: { fileType: 'image' }
+      items: { fileType: 'image' }
     },
     tags: {
       type: 'tags',
@@ -180,7 +180,7 @@ export const heroBlock = {
     background_image: {
       type: 'file',
       label: 'Background Image',
-      file: { fileType: 'image' }
+      items: { fileType: 'image' }
     },
     cta_buttons: {
       type: 'array',
@@ -261,7 +261,7 @@ export const settingsGlobal: GlobalDefinition = {
     logo: {
       type: 'file',
       label: 'Site Logo',
-      file: { fileType: 'image' }
+      items: { fileType: 'image' }
     }
   }
 };
@@ -318,8 +318,8 @@ fields: {
   content: { type: 'richText', label: 'Content' },
 
   // Media
-  image: { type: 'file', label: 'Image', file: { fileType: 'image' } },
-  gallery: { type: 'array', label: 'Gallery', items: { type: 'file', file: { fileType: 'image' } } },
+  image: { type: 'file', label: 'Image', items: { fileType: 'image' } },
+  gallery: { type: 'file', label: 'Gallery', items: { fileType: 'image', multiple: true } },
 
   // Selection
   category: { type: 'select', label: 'Category', options: ['News', 'Tutorial', 'Review'] },
@@ -401,9 +401,9 @@ export const productsCollection: CollectionDefinition = {
     price: { type: 'number', required: true, label: 'Price' },
     description: { type: 'wysiwyg', label: 'Description' },
     images: {
-      type: 'array',
+      type: 'file',
       label: 'Product Images',
-      items: { type: 'file', file: { fileType: 'image' } }
+      items: { fileType: 'image', multiple: true }
     },
     category: { type: 'select', label: 'Category', options: ['Electronics', 'Clothing', 'Books'] }
   }
@@ -428,7 +428,7 @@ export const postsCollection: CollectionDefinition = {
   fields: {
     excerpt: { type: 'textarea', label: 'Excerpt' },
     content: { type: 'richText', label: 'Content' },
-    featured_image: { type: 'file', label: 'Featured Image', file: { fileType: 'image' } },
+    featured_image: { type: 'file', label: 'Featured Image', items: { fileType: 'image' } },
     tags: { type: 'tags', label: 'Tags' }
   }
 };

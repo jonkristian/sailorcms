@@ -22,7 +22,7 @@ export const heroBlock = {
     background_image: {
       type: 'file',
       label: 'Background Image',
-      file: {
+      items: {
         fileType: 'image',
         accept: 'image/*'
       }

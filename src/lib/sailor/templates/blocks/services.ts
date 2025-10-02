@@ -36,7 +36,7 @@ export const servicesBlock = {
           image: {
             type: 'file',
             label: 'Image',
-            file: {
+            items: {
               fileType: 'image'
             }
           },

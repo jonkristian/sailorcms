@@ -43,7 +43,7 @@ export const categoriesGlobal: GlobalDefinition = {
       label: 'Image',
       position: 'main',
       width: 'full',
-      file: {
+      items: {
         fileType: 'image',
         accept: 'image/*'
       }

@@ -22,7 +22,7 @@ export const mediaTextBlock = {
     image: {
       type: 'file',
       label: 'Image',
-      file: {
+      items: {
         fileType: 'image'
       }
     },

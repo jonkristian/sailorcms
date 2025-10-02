@@ -14,7 +14,7 @@ export const galleryBlock = {
       type: 'file',
       required: true,
       label: 'Images',
-      file: {
+      items: {
         multiple: true,
         fileType: 'image',
         accept: 'image/*'

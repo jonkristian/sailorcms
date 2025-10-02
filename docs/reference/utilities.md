@@ -11,38 +11,38 @@ Simple helper functions for loading content in your SvelteKit app.
 
 ## Collections
 
+The `getCollections()` function is your one-stop solution for all collection queries. It intelligently returns either a single item or multiple items based on the options you provide.
+
 ```typescript
-import { getCollectionItems, getCollectionItem, getCollection } from '$lib/sailor/utils';
+import { getCollections } from '$sailor/utils';
+import type { Post, Page } from '$sailor/generated/types';
 
-// Multiple items - always returns { items: TypedItem[] }
-const posts = await getCollectionItems('posts');
+// Multiple items - returns { items, total, hasMore, pagination?, grouped? }
+const posts = await getCollections<Post>('posts');
 
-// Get children of a parent item
-const subpages = await getCollectionItems('pages', {
-  query: 'children',
-  value: 'parent-page-id'
+// Single item by slug - returns Item | null
+const post = await getCollections<Post>('posts', {
+  itemSlug: 'my-post'
+});
+
+// Single item by ID - returns Item | null
+const post = await getCollections<Post>('posts', {
+  itemId: 'some-uuid'
+});
+
+// Get children of a parent
+const subpages = await getCollections<Page>('pages', {
+  parentId: 'parent-page-id'
 });
 
 // Get siblings of an item
-const relatedPosts = await getCollectionItems('posts', {
-  query: 'siblings',
-  value: 'current-post-id',
+const relatedPosts = await getCollections<Post>('posts', {
+  siblingOf: 'current-post-id',
   excludeCurrent: true
 });
 
-// Single items - returns TypedItem | null
-const post = await getCollectionItem('posts', {
-  query: 'slug',
-  value: 'my-post'
-});
-
-const postById = await getCollectionItem('posts', {
-  query: 'id',
-  value: 'some-uuid'
-});
-
 // Items automatically include hierarchical URL property
-const pages = await getCollectionItems('pages');
+const pages = await getCollections<Page>('pages');
 pages.items.forEach((page) => {
   console.log(page.url); // "/parent-page/child-page" (hierarchical)
   console.log(page.title); // "Child Page Title"
@@ -50,7 +50,7 @@ pages.items.forEach((page) => {
 });
 
 // Optional: include breadcrumb navigation
-const pagesWithBreadcrumbs = await getCollectionItems('pages', {
+const pagesWithBreadcrumbs = await getCollections<Page>('pages', {
   includeBreadcrumbs: true
 });
 pagesWithBreadcrumbs.items.forEach((page) => {
@@ -58,8 +58,8 @@ pagesWithBreadcrumbs.items.forEach((page) => {
   console.log(page.breadcrumbs); // [{ title: "Parent Page", url: "/parent-page", slug: "parent-page" }]
 });
 
-// Pagination support in clean API
-const paginatedPosts = await getCollectionItems('posts', {
+// Pagination support
+const paginatedPosts = await getCollections<Post>('posts', {
   limit: 10,
   currentPage: 2,
   baseUrl: '/blog'
@@ -69,57 +69,165 @@ console.log(paginatedPosts.total); // Total count
 console.log(paginatedPosts.hasMore); // Has more pages?
 console.log(paginatedPosts.pagination); // Full pagination info
 
-// Complex queries with pagination, filtering, grouping
-const posts = await getCollection('posts', {
+// Filter by status
+const drafts = await getCollections<Post>('posts', {
+  status: 'draft' // 'published', 'draft', or 'all'
+});
+
+// Filter by related content
+const techPosts = await getCollections<Post>('posts', {
+  whereRelated: {
+    field: 'categories',
+    value: 'technology'
+  }
+});
+
+// Complex queries with filtering, ordering, grouping
+const posts = await getCollections<Post>('posts', {
   limit: 10,
   currentPage: 2,
   baseUrl: '/blog',
   status: 'published',
   includeBlocks: false,
   groupBy: 'tags',
+  orderBy: 'created_at',
+  order: 'desc',
   whereRelated: { field: 'categories', value: 'tech' }
 });
 ```
 
+### Collection Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `itemSlug` | `string` | Get specific item by slug (returns single item) |
+| `itemId` | `string` | Get specific item by ID (returns single item) |
+| `parentId` | `string` | Get children of this parent |
+| `siblingOf` | `string` | Get siblings of this item |
+| `excludeCurrent` | `boolean` | Exclude current item from siblings query (default: `true`) |
+| `status` | `'published' \| 'draft' \| 'all'` | Filter by status (default: `'published'`) |
+| `includeBlocks` | `boolean` | Load blocks for items (default: `true`) |
+| `includeBreadcrumbs` | `boolean` | Generate breadcrumb navigation (default: `false`) |
+| `includeAuthors` | `boolean` | Populate author details (default: `false`) |
+| `orderBy` | `string` | Field to order by (default: `'created_at'`) |
+| `order` | `'asc' \| 'desc'` | Sort order (default: `'desc'`) |
+| `groupBy` | `string` | Group results by field |
+| `limit` | `number` | Limit number of results |
+| `offset` | `number` | Offset for pagination |
+| `baseUrl` | `string` | Base URL for pagination links |
+| `currentPage` | `number` | Current page for pagination |
+| `whereRelated` | `object` | Filter by related content: `{ field, value, recursive? }` |
+| `user` | `User \| null` | User context for ACL filtering |
+
+### Return Types
+
+**Single Item Query** (when `itemSlug` or `itemId` is provided):
+```typescript
+type CollectionsSingleResult<T> = T & {
+  url: string;
+  breadcrumbs?: BreadcrumbItem[];
+  blocks?: BlockWithRelations[];
+} | null;
+```
+
+**Multiple Items Query** (default):
+```typescript
+type CollectionsMultipleResult<T> = {
+  items: (T & {
+    url: string;
+    breadcrumbs?: BreadcrumbItem[];
+    blocks?: BlockWithRelations[];
+  })[];
+  total: number;
+  hasMore: boolean;
+  pagination?: Pagination;
+  grouped?: Record<string, T[]>;
+};
+```
+
 ## Globals
 
+The `getGlobals()` function handles all global queries with the same intelligent single/multiple return pattern.
+
 ```typescript
-import { getGlobalItems, getGlobalItem, getGlobal } from '$lib/sailor/utils';
+import { getGlobals } from '$sailor/utils';
+import type { Menu, Category } from '$sailor/generated/types';
 
-// Multiple items from repeatable globals - includes metadata
-const menus = await getGlobalItems('menus');
-const faqs = await getGlobalItems('faq');
-console.log(faqs.items); // Array of FAQ items
-console.log(faqs.total); // Total count
-console.log(faqs.grouped); // Grouped by field (if requested)
+// Multiple items from repeatable globals
+const menus = await getGlobals<Menu>('menus');
+console.log(menus.items); // Array of menu items
+console.log(menus.total); // Total count
 
-// Filter by slug in repeatable global
-const faqsInCategory = await getGlobalItems('faq', {
-  query: 'slug',
-  value: 'category-slug'
+// Single item by slug
+const mainMenu = await getGlobals<Menu>('menus', {
+  itemSlug: 'main'
 });
 
-// Single item from repeatable global
-const mainMenu = await getGlobalItem('menus', {
-  query: 'slug',
-  value: 'main'
+// Single item by ID
+const menuById = await getGlobals<Menu>('menus', {
+  itemId: 'some-uuid'
 });
 
-const menuById = await getGlobalItem('menus', {
-  query: 'id',
-  value: 'some-uuid'
+// Filter by parent (for nested/hierarchical globals)
+const topCategories = await getGlobals<Category>('categories', {
+  parentId: null // or specific parent ID
 });
 
-// Singleton global (settings, site config) - returns the object directly
-const settings = await getGlobal('configuration');
+// Get siblings of an item
+const relatedCategories = await getGlobals<Category>('categories', {
+  siblingOf: 'current-category-id'
+});
 
 // Complex queries with grouping, tags, ordering
-const faqsByTags = await getGlobal('faq', {
+const faqsByTags = await getGlobals('faq', {
   withTags: true,
   groupBy: 'tags',
   orderBy: 'title',
-  order: 'asc'
+  order: 'asc',
+  limit: 50
 });
+
+// Filter by related content
+const techCategories = await getGlobals<Category>('categories', {
+  whereRelated: { field: 'parent', value: 'technology' }
+});
+```
+
+### Global Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `itemSlug` | `string` | Get specific item by slug (returns single item) |
+| `itemId` | `string` | Get specific item by ID (returns single item) |
+| `parentId` | `string` | Get children of this parent |
+| `siblingOf` | `string` | Get siblings of this item |
+| `excludeCurrent` | `boolean` | Exclude current item from siblings query (default: `true`) |
+| `withRelations` | `boolean` | Include relations for items (default: `true`) |
+| `withTags` | `boolean` | Include tags for items (default: `false`) |
+| `loadFullFileObjects` | `boolean` | Load full file objects vs just IDs (default: `false`) |
+| `groupBy` | `string` | Group results by field |
+| `orderBy` | `string` | Field to order by (default: `'sort'`) |
+| `order` | `'asc' \| 'desc'` | Sort order (default: `'asc'`) |
+| `limit` | `number` | Limit number of results |
+| `offset` | `number` | Offset for pagination |
+| `whereRelated` | `object` | Filter by related content: `{ field, value }` |
+| `user` | `User \| null` | User context for ACL filtering |
+
+### Return Types
+
+**Single Item Query** (when `itemSlug` or `itemId` is provided):
+```typescript
+type GlobalsSingleResult<T> = T | null;
+```
+
+**Multiple Items Query** (default):
+```typescript
+type GlobalsMultipleResult<T> = {
+  items: T[];
+  total: number;
+  hasMore?: boolean;
+  grouped?: Record<string, T[]>;
+};
 ```
 
 ## Files & Images
@@ -127,7 +235,7 @@ const faqsByTags = await getGlobal('faq', {
 ### Client-side (Browser Components)
 
 ```typescript
-import { getFile, getImage } from '$lib/sailor/utils/files';
+import { getFile, getImage } from '$sailor/utils/files';
 
 // Get any file URL (works with UUIDs or file paths)
 const fileUrl = getFile('file-id-123');
@@ -152,7 +260,7 @@ const responsive = getImage('file-id-123', {
 
 // CMS provides default breakpoints: [375, 768, 1200, 1600]
 // Override if needed for your project:
-import { setDefaultBreakpoints } from '$lib/sailor/utils/files';
+import { setDefaultBreakpoints } from '$sailor/utils/files';
 setDefaultBreakpoints([375, 768, 1024, 1400]);
 
 // getImage() is responsive by default (modern web best practice)
@@ -173,7 +281,7 @@ const html = getImage('file-id-123', {
 ### Server-side (Page Load Functions)
 
 ```typescript
-import { getFile, getImage, getImagesByTags } from '$lib/sailor/utils/files.server';
+import { getFile, getImage, getImagesByTags } from '$sailor/utils/files/server';
 
 // Get file URL by database ID (for SEO meta tags, etc.)
 const fileUrl = await getFile('file-id-123');
@@ -207,7 +315,7 @@ const specificImages = await getImagesByTags(['nature', 'sunset'], {
 ## Content Utilities
 
 ```typescript
-import { renderContent, getExcerpt } from '$lib/sailor/utils/content';
+import { renderContent, getExcerpt } from '$sailor/utils/content';
 
 // Convert TipTap JSON content to HTML
 const html = renderContent(post.content);
@@ -231,7 +339,7 @@ const excerpt = getExcerpt(post.content, 160, ' [read more]');
 ## Settings
 
 ```typescript
-import { getSiteSettings } from '$lib/sailor/utils';
+import { getSiteSettings } from '$sailor/utils';
 
 // Site-specific settings (contact email, social media, etc.)
 const config = await getSiteSettings();
@@ -240,10 +348,10 @@ const config = await getSiteSettings();
 ## SEO
 
 ```typescript
-import { extractSEO, generateMetaTags } from '$lib/sailor/utils/seo';
+import { extractSEO, generateMetaTags } from '$sailor/utils/seo';
 
 // Get post with SEO fields (automatically included with seo: true)
-const post = await getCollection('posts', { slug: 'my-post' });
+const post = await getCollections('posts', { itemSlug: 'my-post' });
 
 // Extract SEO data with smart fallbacks
 const seo = extractSEO(post, {
@@ -314,7 +422,7 @@ const retina = getImage('logo.png', {
 })}
 
 <!-- Perfect for loops with fallback -->
-{#each posts as post}
+{#each posts.items as post}
   {@html getImage(post.featured_image, {
     html: true,
     alt: post.title,
@@ -350,7 +458,7 @@ Collections load blocks by default. File fields contain complete file objects:
 ```svelte
 <script>
   // In +page.server.ts
-  // const page = await getCollection('pages', { slug: 'home' });
+  // const page = await getCollections('pages', { itemSlug: 'home' });
 
   let { data } = $props();
 </script>
@@ -373,7 +481,7 @@ Use content utilities to handle TipTap JSON content and create excerpts:
 
 ```svelte
 <script>
-  import { renderContent, getExcerpt } from '$lib/sailor/utils/content';
+  import { renderContent, getExcerpt } from '$sailor/utils/content';
 
   let { data } = $props();
   const excerpt = getExcerpt(data.post.content, 160);
@@ -396,10 +504,11 @@ Use content utilities to handle TipTap JSON content and create excerpts:
 
 ```typescript
 // +page.server.ts
-import { getCollectionItems } from '$lib/sailor/utils';
+import { getCollections } from '$sailor/utils';
+import type { Post } from '$sailor/generated/types';
 
 export async function load() {
-  const posts = await getCollectionItems('posts');
+  const posts = await getCollections<Post>('posts');
   return { posts }; // posts.items contains typed array with .url property
 }
 ```
@@ -408,12 +517,13 @@ export async function load() {
 
 ```typescript
 // +page.server.ts
-import { getCollection } from '$lib/sailor/utils';
+import { getCollections } from '$sailor/utils';
+import type { Post } from '$sailor/generated/types';
 
 export async function load({ url }) {
   const page = Number(url.searchParams.get('page')) || 1;
 
-  const posts = await getCollection('posts', {
+  const posts = await getCollections<Post>('posts', {
     limit: 10,
     currentPage: page,
     baseUrl: '/blog'
@@ -427,10 +537,11 @@ export async function load({ url }) {
 
 ```typescript
 // +layout.server.ts
-import { getGlobalItems, getSiteSettings } from '$lib/sailor/utils';
+import { getGlobals, getSiteSettings } from '$sailor/utils';
+import type { Menu } from '$sailor/generated/types';
 
 export async function load() {
-  const navigation = await getGlobalItems('menus');
+  const navigation = await getGlobals<Menu>('menus');
   const config = await getSiteSettings();
 
   return { navigation, config };
@@ -441,12 +552,13 @@ export async function load() {
 
 ```typescript
 // +page.server.ts
-import { getCollectionItem, getSiteSettings } from '$lib/sailor/utils';
+import { getCollections, getSiteSettings } from '$sailor/utils';
+import { extractSEO } from '$sailor/utils/seo';
+import type { Post } from '$sailor/generated/types';
 
 export async function load({ params }) {
-  const post = await getCollectionItem('posts', {
-    query: 'slug',
-    value: params.slug
+  const post = await getCollections<Post>('posts', {
+    itemSlug: params.slug
   });
 
   const config = await getSiteSettings();
@@ -467,36 +579,13 @@ All functions return safe defaults on errors:
 
 ```typescript
 // Safe defaults - no try/catch needed
-const posts = await getCollectionItems('nonexistent'); // { items: [] }
-const post = await getCollectionItem('posts', { query: 'slug', value: 'missing' }); // null
-const menus = await getGlobalItems('missing'); // { items: [] }
-const menu = await getGlobalItem('menus', { query: 'slug', value: 'missing' }); // null
-const posts = await getCollection('nonexistent'); // { items: [], total: 0 }
-const settings = await getGlobal('missing'); // null
+const posts = await getCollections('nonexistent'); // { items: [], total: 0, hasMore: false }
+const post = await getCollections('posts', { itemSlug: 'missing' }); // null
+const menus = await getGlobals('missing'); // { items: [], total: 0 }
+const menu = await getGlobals('menus', { itemSlug: 'missing' }); // null
 ```
 
-## Options Reference
-
-### Collection Options
-
-- `slug`: `string` - Get specific item by slug
-- `status`: `'published' | 'draft' | 'all'` (default: `'published'`)
-- `includeBlocks`: `boolean` (default: `true`)
-- `limit`: `number`
-- `currentPage`: `number` - For pagination
-- `baseUrl`: `string` - For pagination URLs
-- `orderBy`: `string` (default: `'created_at'`)
-- `order`: `'asc' | 'desc'` (default: `'desc'`)
-- `groupBy`: `string` - Group results by field
-
-### Global Options
-
-- `withTags`: `boolean` - Load tags
-- `groupBy`: `string` - Group items by field
-- `orderBy`: `string` (default: `'sort'`)
-- `order`: `'asc' | 'desc'` (default: `'asc'`)
-
-### Image Options
+## Image Options
 
 **Basic Transform Options:**
 
@@ -524,49 +613,62 @@ const settings = await getGlobal('missing'); // null
 - Use `setDefaultBreakpoints([375, 768, 1024])` to override CMS defaults
 - Use `getDefaultBreakpoints()` to get current defaults
 
-### Content Options
-
-- **`renderContent(content)`** - `content: any` - TipTap JSON or HTML string
-- **`getExcerpt(content, length?, suffix?)`** - `content: any`, `length: number` (default: 160), `suffix: string` (default: '...')
-
-### Server-side File Options
-
-**`getImagesByTags(tags, options?)`** - Get images by tags with pagination
-
-- `tags`: `string[]` - Array of tag names to filter by
-- `options.limit`: `number` (default: 50) - Number of images to return
-- `options.offset`: `number` (default: 0) - Number of images to skip
-- `options.matchAll`: `boolean` (default: false) - Match ALL tags (true) or ANY tag (false)
-
-**Returns:** `{ images: ImageWithTags[], total: number, hasMore: boolean }`
-
-## Query Patterns
-
-The utilities use consistent query patterns across collections and globals:
-
-### Collections
+## UI Utilities
 
 ```typescript
-// Multiple items
-await getCollectionItems('posts'); // All items
-await getCollectionItems('pages', { query: 'children', value: 'parent-id' }); // Children
-await getCollectionItems('posts', { query: 'siblings', value: 'post-id' }); // Siblings
+import {
+  buildNavigationTree,
+  generateBreadcrumbs,
+  createPagination,
+  formatDate,
+  timeAgo,
+  sortByDate
+} from '$sailor/utils/ui';
 
-// Single items
-await getCollectionItem('posts', { query: 'slug', value: 'my-post' });
-await getCollectionItem('posts', { query: 'id', value: 'some-uuid' });
+// Build hierarchical navigation tree from flat items
+const tree = buildNavigationTree(pages.items);
+
+// Generate breadcrumb trail
+const breadcrumbs = generateBreadcrumbs(page);
+
+// Create pagination object
+const pagination = createPagination({
+  total: 100,
+  pageSize: 10,
+  currentPage: 3,
+  baseUrl: '/blog'
+});
+
+// Format dates
+const formatted = formatDate(post.created_at); // "Jan 15, 2024"
+const relative = timeAgo(post.created_at); // "2 days ago"
+
+// Sort items by date
+const sorted = sortByDate(items, 'created_at', 'desc');
 ```
 
-### Globals
+## Type Safety
+
+All utilities provide full TypeScript support with generics:
 
 ```typescript
-// Multiple items
-await getGlobalItems('menus'); // All items
-await getGlobalItems('faq', { query: 'slug', value: 'category-slug' }); // Filtered
+import type { Post, Page, Menu, Category } from '$sailor/generated/types';
 
-// Single items
-await getGlobalItem('menus', { query: 'slug', value: 'main' });
-await getGlobalItem('menus', { query: 'id', value: 'some-uuid' });
+// Fully typed collection results
+const posts = await getCollections<Post>('posts');
+posts.items[0].title; // ✓ Typed as string
+posts.items[0].content; // ✓ Typed correctly
+
+// Fully typed single items
+const post = await getCollections<Post>('posts', { itemSlug: 'my-post' });
+if (post) {
+  post.title; // ✓ Typed as string
+  post.url; // ✓ Auto-generated URL property
+}
+
+// Fully typed globals
+const menus = await getGlobals<Menu>('menus');
+menus.items[0].name; // ✓ Typed correctly
 ```
 
-These utilities provide clean, predictable APIs with excellent TypeScript support and consistent return types.
+These utilities provide clean, predictable APIs with excellent TypeScript support and consistent return types following SOLID principles.

@@ -127,13 +127,15 @@ File upload with type restrictions.
 {
   type: 'file',
   label: 'Featured Image',
-  file: {
+  items: {
     fileType: 'image', // 'image', 'document', 'any'
     multiple: false,   // Allow multiple files
     maxSize: '10MB'    // Size limit
   }
 }
 ```
+
+> **Note**: The `file:` property is also supported for backwards compatibility, but `items:` is preferred.
 
 **File Type Options:**
 
@@ -147,7 +149,7 @@ File upload with type restrictions.
 {
   type: 'file',
   label: 'Gallery Images',
-  file: {
+  items: {
     fileType: 'image',
     multiple: true
   }
@@ -242,7 +244,7 @@ Repeatable content with nested structure.
       photo: {
         type: 'file',
         label: 'Profile Photo',
-        file: { fileType: 'image' }
+        items: { fileType: 'image' }
       }
     }
   }
@@ -284,7 +286,7 @@ Nested object with defined properties.
     og_image: {
       type: 'file',
       label: 'Social Share Image',
-      file: { fileType: 'image' }
+      items: { fileType: 'image' }
     }
   }
 }
@@ -464,7 +466,7 @@ export const postsCollection = {
     featured_image: {
       type: 'file',
       label: 'Featured Image',
-      file: { fileType: 'image' }
+      items: { fileType: 'image' }
     },
     category: {
       type: 'relation',
@@ -511,7 +513,7 @@ export const productsCollection = {
     images: {
       type: 'file',
       label: 'Product Images',
-      file: {
+      items: {
         fileType: 'image',
         multiple: true
       }

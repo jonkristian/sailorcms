@@ -63,7 +63,9 @@ export async function loadFileFields(
           const results = relationTable ? fileRelationResult : fileRelationResult.rows;
 
           if (results && results.length > 0) {
-            const multiple = !!(typedFieldDef.file && typedFieldDef.file.multiple);
+            // Support both field.items (preferred) and field.file (legacy)
+            const fileConfig = typedFieldDef.items || typedFieldDef.file || {};
+            const multiple = !!fileConfig.multiple;
             if (multiple) {
               // Preserve order when multiple
               currentValue = results.map((r: any) => r.file_id).filter(Boolean);

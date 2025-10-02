@@ -37,7 +37,7 @@ export const pagesCollection: CollectionDefinition = {
     featured_image: {
       type: 'file',
       label: 'Featured Image',
-      file: {
+      items: {
         fileType: 'image',
         accept: 'image/*'
       }
@@ -46,7 +46,7 @@ export const pagesCollection: CollectionDefinition = {
       type: 'file',
       label: 'Images',
       position: 'main',
-      file: {
+      items: {
         fileType: 'image',
         accept: 'image/*'
       }
