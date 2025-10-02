@@ -57,6 +57,7 @@ export class BlockGenerator {
       if (fieldDef.type === 'array') {
         tables.push(...this.createArrayTables(mainTableName, fieldName, fieldDef, entityInfo));
       } else if (fieldDef.type === 'file') {
+        // Always create relation table for file fields (allows changing multiple flag without migration)
         tables.push(this.createFileTable(mainTableName, fieldName, fieldDef, entityInfo));
       }
     }
@@ -232,8 +233,7 @@ export class BlockGenerator {
       }
 
       if (fieldDef.type === 'file') {
-        // File fields store the file ID as a foreign key to the files table
-        fields[fieldName] = this.tableGen.getTextField();
+        // All file fields use relation tables (no columns on main table)
         continue;
       }
 

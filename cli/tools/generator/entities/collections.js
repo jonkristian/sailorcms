@@ -31,11 +31,14 @@ export class CollectionGenerator {
       tables.push(blockTable);
     }
 
-    // Create array tables for template fields
+    // Create array and file tables for template fields
     const templateFields = definition.fields || {};
     for (const [fieldName, fieldDef] of Object.entries(templateFields)) {
       if (fieldDef.type === 'array') {
         tables.push(...this.createArrayTables(mainTable.name, fieldName, fieldDef, entityInfo));
+      } else if (fieldDef.type === 'file') {
+        // Always create relation table for file fields (allows changing multiple flag without migration)
+        tables.push(this.createFileTable(mainTable.name, fieldName, fieldDef, entityInfo));
       }
     }
 
@@ -97,6 +100,19 @@ export class CollectionGenerator {
     }
 
     return tables;
+  }
+
+  /**
+   * Create a file relation table
+   */
+  createFileTable(parentTable, fieldName, fieldDef, entityInfo) {
+    const fileTableName = `${parentTable}_${this.toSnakeCase(fieldName)}`;
+    return this.tableGen.createFileTable(
+      fileTableName,
+      parentTable,
+      { name: fieldName, ...fieldDef },
+      entityInfo
+    );
   }
 
   /**
@@ -274,8 +290,7 @@ export class CollectionGenerator {
       }
 
       if (fieldDef.type === 'file') {
-        // File fields store the file ID as a foreign key to the files table
-        fields[fieldName] = this.tableGen.getTextField();
+        // All file fields use relation tables (no columns on main table)
         continue;
       }
 

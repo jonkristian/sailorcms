@@ -72,6 +72,7 @@ export const saveCollectionItem = command(
       const arrayFields: Record<string, any[]> = {};
       const relationFields: Record<string, any[]> = {};
       const tagFields: Record<string, any[]> = {};
+      const fileFields: Record<string, any> = {};
 
       Object.entries(formData).forEach(([key, value]) => {
         // Skip blocks - they're handled separately
@@ -81,6 +82,9 @@ export const saveCollectionItem = command(
 
         if (fieldDef?.type === 'array') {
           arrayFields[key] = value as any[];
+        } else if (fieldDef?.type === 'file') {
+          // All file fields use relation tables (allows changing multiple flag without migration)
+          fileFields[key] = value;
         } else if (fieldDef?.type === 'relation') {
           // Distinguish between single FK on main table vs many-to-many via junction
           const relType = fieldDef?.relation?.type;
@@ -317,6 +321,53 @@ export const saveCollectionItem = command(
           }
         }
 
+        // Handle file fields (relation tables - same pattern as blocks)
+        if (Object.keys(fileFields).length > 0) {
+          for (const [fieldName, fieldValue] of Object.entries(fileFields)) {
+            const fileTableName = `collection_${collectionSlug}_${fieldName}`;
+            const fileTable = schema[fileTableName as keyof typeof schema];
+            if (!fileTable) continue;
+
+            // Clear existing file relations for this collection item/field
+            await tx.run(sql`
+              DELETE FROM ${sql.identifier(fileTableName)}
+              WHERE parent_id = ${itemId} AND parent_type = 'collection'
+            `);
+
+            if (!fieldValue) continue;
+
+            // Handle both single and multiple files (wrap single in array like blocks do)
+            const rawValues: any[] = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+            const fileIds: (string | null)[] = rawValues.map((val) => {
+              if (val && typeof val === 'object') {
+                return (val as any).id ?? null;
+              }
+              return (val as any) ?? null;
+            });
+
+            // Insert new file relations
+            for (let i = 0; i < fileIds.length; i++) {
+              const fileId = fileIds[i];
+              if (!fileId) continue;
+              await tx.run(sql`
+                INSERT INTO ${sql.identifier(fileTableName)}
+                (${sql.join(
+                  [
+                    sql.identifier('id'),
+                    sql.identifier('parent_id'),
+                    sql.identifier('parent_type'),
+                    sql.identifier('file_id'),
+                    sql.identifier('sort'),
+                    sql.identifier('created_at')
+                  ],
+                  sql`, `
+                )})
+                VALUES (${generateUUID()}, ${itemId}, 'collection', ${fileId}, ${i}, ${new Date()})
+              `);
+            }
+          }
+        }
+
         // Handle relation fields for collection (junction tables)
         if (Object.keys(relationFields).length > 0) {
           for (const [fieldName, relationItems] of Object.entries(relationFields)) {
@@ -373,7 +424,7 @@ export const saveCollectionItem = command(
           for (const blockTypeSlug of Object.keys(availableBlocks)) {
             const blockTable = schema[`block_${blockTypeSlug}` as keyof typeof schema];
             if (blockTable) {
-              // First clear file relation tables for this block type
+              // First clear file relation tables (all file fields use relation tables)
               const fileFields = Object.entries(
                 availableBlocks[blockTypeSlug]?.fields || {}
               ).filter(([, fieldDef]: [string, any]) => (fieldDef as any)?.type === 'file');
@@ -405,11 +456,12 @@ export const saveCollectionItem = command(
             if (!blockType) continue;
 
             // Only include fields that map to actual columns on the block table
-            // Exclude 'file' fields (stored in relation tables), 'array' fields (handled below), and 'many-to-many' relation fields (stored in junction tables)
+            // Exclude 'array', 'file', and 'many-to-many relation' fields (all stored in separate tables)
             const allowedContentEntries = Object.entries(block.content || {}).filter(([key]) => {
               const fieldDef = blockType.fields?.[key];
               if (!fieldDef) return false;
-              if (fieldDef.type === 'file' || fieldDef.type === 'array') return false;
+              if (fieldDef.type === 'array') return false;
+              if (fieldDef.type === 'file') return false; // All file fields use relation tables
               if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
                 return false;
               return true;
@@ -500,12 +552,12 @@ export const saveCollectionItem = command(
                 }
               }
 
-              // Handle file fields for this block
+              // Handle all file fields for this block (all use relation tables)
               const fileFields = Object.entries(blockType.fields || {}).filter(
                 ([, fieldDef]: [string, any]) => fieldDef?.type === 'file'
               );
 
-              for (const [fieldName, fieldDef] of fileFields as [string, any][]) {
+              for (const [fieldName] of fileFields as [string, any][]) {
                 const fileTableName = `block_${block.blockType}_${fieldName}`;
                 const fileTable = schema[fileTableName as keyof typeof schema];
                 if (!fileTable) continue;
@@ -519,6 +571,7 @@ export const saveCollectionItem = command(
                 const fieldValue = (block.content || {})[fieldName];
                 if (!fieldValue) continue;
 
+                // Handle both single and multiple - wrap single in array
                 const rawValues: any[] = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
                 const fileIds: (string | null)[] = rawValues.map((val) => {
                   if (val && typeof val === 'object') {

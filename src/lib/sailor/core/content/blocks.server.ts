@@ -2,8 +2,8 @@ import * as schema from '../../generated/schema';
 import { sql, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
-// Re-export block field loading for admin UI
-export { loadBlockFields } from '../../utils/data/blocks';
+// Re-export block field loading for admin UI - uses core loaders, not utils
+export { loadBlockFields } from '../data/loaders/blocks';
 
 /**
  * Save nested array fields for blocks - handles both saving and deleting array items

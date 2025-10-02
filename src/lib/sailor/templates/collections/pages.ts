@@ -42,35 +42,14 @@ export const pagesCollection: CollectionDefinition = {
         accept: 'image/*'
       }
     },
-    image_test: {
+    gallery: {
       type: 'file',
-      label: 'Images',
+      label: 'Galleri',
       position: 'main',
       items: {
+        multiple: true,
         fileType: 'image',
         accept: 'image/*'
-      }
-    },
-    details_test: {
-      type: 'array',
-      required: true,
-      label: 'Details',
-      position: 'main',
-      items: {
-        type: 'object',
-        label: 'Detail',
-        properties: {
-          title: {
-            type: 'string',
-            required: true,
-            label: 'Title'
-          },
-          content: {
-            type: 'textarea',
-            required: true,
-            label: 'Description'
-          }
-        }
       }
     },
     excerpt: {

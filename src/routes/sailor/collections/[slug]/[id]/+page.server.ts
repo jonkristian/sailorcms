@@ -6,6 +6,7 @@ import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { collectionTypes } from '$sailor/core/db/index.server';
 import { TagService } from '$sailor/core/services/tag.server';
 import { loadBlockFields } from '$sailor/core/content/blocks.server';
+import { loadFileFields } from '$sailor/core/data/loaders/file-loader';
 import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import type { PageServerLoad } from './$types';
 import { log } from '$sailor/core/utils/logger';
@@ -224,6 +225,9 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
         }
       }
     }
+
+    // Load file fields for collection
+    await loadFileFields(page, collectionDefinition.fields, `collection_${slug}`);
 
     // Get raw blocks data for each block type using dynamic schemas
     for (const [blockSlug, blockDef] of Object.entries(availableBlocks)) {
