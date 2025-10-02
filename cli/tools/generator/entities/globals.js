@@ -57,6 +57,7 @@ export class GlobalGenerator {
       if (fieldDef.type === 'array') {
         tables.push(...this.createArrayTables(mainTableName, fieldName, fieldDef, entityInfo));
       } else if (fieldDef.type === 'file') {
+        // Always create relation table for file fields (allows changing multiple flag without migration)
         tables.push(this.createFileTable(mainTableName, fieldName, fieldDef, entityInfo));
       }
     }
@@ -244,13 +245,12 @@ export class GlobalGenerator {
       updated_at: this.tableGen.getTimestampField()
     };
 
-    // Add all merged core+template fields (skip arrays - they get separate tables)
+    // Add all merged core+template fields (skip arrays and files - they get separate tables)
     for (const [fieldName, fieldDef] of Object.entries(allFields)) {
       if (fieldDef.type === 'array') continue;
 
       if (fieldDef.type === 'file') {
-        // File fields store the file ID as a foreign key to the files table
-        fields[fieldName] = this.tableGen.getTextField();
+        // All file fields use relation tables (no columns on main table)
         continue;
       }
 
