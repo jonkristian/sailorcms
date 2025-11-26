@@ -1,4 +1,6 @@
 import { loadFileFields } from './file-loader';
+import { loadArrayFields } from '$sailor/utils/data/loaders/array-loader';
+import { loadOneToXRelations, loadManyToManyRelations } from '$sailor/utils/data/loaders/relation-loader';
 
 /**
  * Core block field loader for admin UI
@@ -14,6 +16,10 @@ export async function loadBlockFields(
   // Load file fields for this block
   await loadFileFields(block, blockSchema, tablePrefix);
 
-  // TODO: Load array fields when needed
-  // TODO: Load relation fields when needed
+  // Load array fields for this block
+  await loadArrayFields(block, blockSchema, tablePrefix, 'block_id', false);
+
+  // Load relation fields for this block
+  await loadOneToXRelations(block, blockSchema, false);
+  await loadManyToManyRelations(block, blockSchema, blockSlug, 'block_id', false);
 }
