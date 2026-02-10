@@ -4,6 +4,8 @@ A **smooth Sailin'** template-driven CMS that installs into your existing Svelte
 
 > ⚠️ EXPERIMENTAL: Sailor CMS is primarily built for my own needs, and it can be considered early beta. It uses the experimental remote functions. Use at your own risk!
 
+![Sailor CMS Dashboard](.github/screenshots/screenshot.png)
+
 ## ✨ Key Features
 
 - 🚀 **Install into Existing Projects** - Add Sailor to any SvelteKit project with one command
