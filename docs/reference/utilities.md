@@ -354,13 +354,13 @@ const config = await getSiteSettings();
 ## SEO
 
 ```typescript
-import { extractSEO, generateMetaTags } from '$sailor/utils/seo';
+import { extractSEO, generateMetaTags } from '$sailor/utils/content/seo';
 
 // Get post with SEO fields (automatically included with seo: true)
 const post = await getCollections('posts', { itemSlug: 'my-post' });
 
 // Extract SEO data with smart fallbacks
-const seo = extractSEO(post, {
+const seo = await extractSEO(post, {
   siteName: 'My Blog',
   baseUrl: 'https://myblog.com',
   basePath: '/articles/' // Use collection's basePath option
@@ -559,7 +559,7 @@ export async function load() {
 ```typescript
 // +page.server.ts
 import { getCollections, getSiteSettings } from '$sailor/utils';
-import { extractSEO } from '$sailor/utils/seo';
+import { extractSEO } from '$sailor/utils/content/seo';
 import type { Post } from '$sailor/generated/types';
 
 export async function load({ params }) {
@@ -569,7 +569,7 @@ export async function load({ params }) {
 
   const config = await getSiteSettings();
 
-  const seo = extractSEO(post, {
+  const seo = await extractSEO(post, {
     siteName: config.siteName,
     baseUrl: 'https://yoursite.com',
     basePath: '/articles/'

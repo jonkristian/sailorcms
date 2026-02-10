@@ -13,9 +13,9 @@ Sailor CMS is built with SvelteKit, which means it can be deployed anywhere Node
 
 ### Modern Platforms
 
-- **Vercel** - Zero-config deployments with automatic HTTPS
-- **Netlify** - Git-based deployments with form handling
-- **Coolify** - Self-hosted alternative to Heroku
+- **Coolify** - Self-hosted alternative to Heroku (recommended, works with the default `adapter-node`)
+- **Vercel** - Zero-config deployments with automatic HTTPS (requires `@sveltejs/adapter-vercel`)
+- **Netlify** - Git-based deployments with form handling (requires `@sveltejs/adapter-netlify`)
 
 ### Traditional Hosting
 
@@ -30,12 +30,14 @@ Sailor CMS is built with SvelteKit, which means it can be deployed anywhere Node
 
 ## Quick Deployment
 
-The fastest way to get started is with Vercel:
+The fastest way to get started is with Coolify or any Node.js hosting platform:
 
 1. Push your Sailor CMS project to GitHub
-2. Connect your GitHub repository to Vercel
+2. Connect your repository to your hosting platform
 3. Set your environment variables
 4. Deploy!
+
+> **Note**: Sailor CMS ships with `@sveltejs/adapter-node` by default. If you want to deploy to Vercel or Netlify, you'll need to swap the adapter in your `svelte.config.js`. See the [SvelteKit adapter docs](https://svelte.dev/docs/kit/adapters) for details.
 
 [Learn more about specific deployment methods]({{ site.baseurl }}{% link deployment-guide/deployment.md %})
 

@@ -14,7 +14,7 @@ A Smooth Sailin' CMS for SvelteKit - Build type-safe, flexible content managemen
 {: .fs-6 .fw-300 }
 
 [Get started now]({{ site.baseurl }}{% link getting-started.md %}){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/jonkristian/sailor-cms){: .btn .fs-5 .mb-4 .mb-md-0 }
+[View on GitHub](https://github.com/jonkristian/sailorcms){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ---
 
@@ -65,6 +65,6 @@ Sailor CMS is a modern, template-driven headless CMS built with SvelteKit. It pr
 
 Need help? Here are the best places to get support:
 
-- 🐛 **[GitHub Issues](https://github.com/jonkristian/sailor-cms/issues)** - Bug reports and feature requests
-- 💬 **[Discussions](https://github.com/jonkristian/sailor-cms/discussions)** - Community Q&A and ideas
+- 🐛 **[GitHub Issues](https://github.com/jonkristian/sailorcms/issues)** - Bug reports and feature requests
+- 💬 **[Discussions](https://github.com/jonkristian/sailorcms/discussions)** - Community Q&A and ideas
 - 🤝 **[Contributing]({{ site.baseurl }}{% link contributing.md %})** - Help improve Sailor CMS

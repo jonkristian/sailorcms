@@ -32,10 +32,14 @@ src/lib/sailor/
 ├── templates/       # Define content types here
 ├── generated/       # Auto-generated (don't edit)
 ├── core/           # Core CMS functionality
+├── remote/         # Remote function handlers
+├── utils/          # Utility functions (content, files, UI)
+├── composables/    # Reusable Svelte composables
+├── styles/         # CMS styling
 └── scripts/        # Utility scripts
 
-src/routes/sailor/   # Admin interface
-src/components/sailor/ # Admin UI components
+src/routes/sailor/           # Admin interface
+src/lib/components/sailor/   # Admin UI components
 ```
 
 ## Development Guidelines

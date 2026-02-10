@@ -142,6 +142,7 @@ export const postsCollection: CollectionDefinition = {
 | `blocks`     | `boolean` | Enable/disable blocks functionality (default: `true`)                                                      |
 | `basePath`   | `string`  | Base URL path for preview links and SEO canonical URLs                                                     |
 | `sortable`   | `boolean` | Enable drag-and-drop sorting on the collection table                                                       |
+| `nestable`   | `boolean` | Enable parent-child hierarchical relationships                                                             |
 
 ### Registration
 
@@ -233,7 +234,7 @@ export { galleryBlock as gallery } from './gallery';
 
 Site-wide settings and repeatable content.
 
-### Singleton Global
+### Flat Global (Single Entry)
 
 ```typescript
 // src/lib/sailor/templates/globals/settings.ts
@@ -244,8 +245,8 @@ export const settingsGlobal: GlobalDefinition = {
   slug: 'settings',
   description: 'Global site configuration',
   icon: 'Settings',
+  dataType: 'flat', // Single entry, no title/slug/status fields
   options: {
-    singleton: true, // Only one entry allowed
     titleField: 'site_name'
   },
   fields: {
@@ -267,7 +268,7 @@ export const settingsGlobal: GlobalDefinition = {
 };
 ```
 
-### Repeatable Global
+### Repeatable Global (Multiple Entries)
 
 ```typescript
 // src/lib/sailor/templates/globals/menus.ts
@@ -276,8 +277,8 @@ export const menusGlobal: GlobalDefinition = {
   slug: 'menus',
   description: 'Navigation menus',
   icon: 'Menu',
+  dataType: 'repeatable', // Multiple entries with title/slug/status fields
   options: {
-    singleton: false, // Multiple entries allowed
     sortable: true // Enable sorting for menu items
   },
   fields: {
@@ -326,7 +327,7 @@ fields: {
   tags: { type: 'tags', label: 'Tags' },
 
   // Relationships
-  author: { type: 'relationship', label: 'Author', collection: 'users' },
+  author: { type: 'relation', label: 'Author', relation: { type: 'manyToOne', targetCollection: 'users' } },
 
   // Layout
   layout: { type: 'blocks', label: 'Page Layout' }
@@ -365,13 +366,6 @@ export const settings: Partial<CMSSettings> = {
       allowedTypes: ['*/*'],
       folderStructure: 'flat'
     }
-  },
-  seo: {
-    enabled: true,
-    titleTemplate: '{title} | {siteName}',
-    titleSeparator: '|',
-    defaultDescription: 'Your site description',
-    language: 'en'
   },
   system: {
     debugMode: false

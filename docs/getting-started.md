@@ -74,13 +74,13 @@ When you've registered your account you would most likely want to give that acco
 
 Sailor comes with pre-built templates including Posts, Pages, FAQ, Menus, and various block types. These are ready to use immediately - no coding required!
 
-Learn more about templates and how to customize them in the **[Templates Guide](templates.md)**.
+Learn more about templates and how to customize them in the **[Templates Guide](core-concepts/templates.md)**.
 
 ## Using Content in Your Frontend
 
 Once you have content in your CMS, you'll want to display it on your website. Sailor provides simple utility functions to load your content.
 
-See **[Utilities Guide](utilities.md)** for complete examples and API reference.
+See **[Utilities Guide](reference/utilities.md)** for complete examples and API reference.
 
 ## Essential Commands
 
@@ -106,7 +106,7 @@ npx sailor users:verify user@example.com # Verify a user
 
 ## Deployment
 
-Ready to deploy your Sailor CMS to production? See the complete **[Deployment Guide](deployment.md)** for step-by-step instructions for Coolify deployment, including:
+Ready to deploy your Sailor CMS to production? See the complete **[Deployment Guide](deployment-guide/deployment.md)** for step-by-step instructions for Coolify deployment, including:
 
 - SQLite with persistent storage
 - Environment variable configuration
@@ -115,10 +115,10 @@ Ready to deploy your Sailor CMS to production? See the complete **[Deployment Gu
 
 ## Next Steps
 
-- **[Deployment Guide](deployment.md)** - Deploy to production with Coolify
-- **[Templates Guide](templates.md)** - Learn about collections, blocks, and globals
-- **[Field Types](field-types.md)** - Complete field reference
-- **[Utilities](utilities.md)** - Frontend helper functions
+- **[Deployment Guide](deployment-guide/deployment.md)** - Deploy to production with Coolify
+- **[Templates Guide](core-concepts/templates.md)** - Learn about collections, blocks, and globals
+- **[Field Types](core-concepts/field-types.md)** - Complete field reference
+- **[Utilities](reference/utilities.md)** - Frontend helper functions
 
 ## Troubleshooting
 

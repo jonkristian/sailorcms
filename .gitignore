@@ -10,6 +10,7 @@ node_modules
 /dist
 /static/cache
 /static/uploads
+/ignored
 
 # OS
 .DS_Store
