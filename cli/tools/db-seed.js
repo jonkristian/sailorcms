@@ -356,6 +356,22 @@ export async function seedAll() {
   }
 }
 
+export function registerDbSeed(program) {
+  program
+    .command('db:seed')
+    .description('Seed database with roles, collections, blocks, and globals from templates')
+    .action(async () => {
+      try {
+        console.log('🌱 Seeding database from templates...');
+        await seedAll();
+        console.log('✅ Database seeded successfully!');
+      } catch (error) {
+        console.error('❌ Error seeding database:', error.message);
+        process.exit(1);
+      }
+    });
+}
+
 // Run if this file is executed directly (use more reliable detection)
 if (process.argv[1] && process.argv[1].endsWith('db-seed.js')) {
   seedAll()

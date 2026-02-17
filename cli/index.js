@@ -11,6 +11,7 @@ import { registerDbGenerate } from './tools/db-generate.js';
 import { registerUserCommands } from './tools/users-manage.js';
 import { registerDbBackup } from './tools/db-backup.js';
 import { registerDbRestore } from './tools/db-restore.js';
+import { registerDbSeed } from './tools/db-seed.js';
 
 // Load environment variables and start CLI
 (async () => {
@@ -42,6 +43,7 @@ import { registerDbRestore } from './tools/db-restore.js';
   registerDbUpdate(program);
   registerDbBackup(program);
   registerDbRestore(program);
+  registerDbSeed(program);
   registerUserCommands(program);
 
   program.parse();
