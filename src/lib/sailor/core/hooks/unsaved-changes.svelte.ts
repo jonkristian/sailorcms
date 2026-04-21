@@ -16,58 +16,34 @@
  */
 
 import { browser } from '$app/environment';
-import { beforeNavigate, goto } from '$app/navigation';
+import { beforeNavigate } from '$app/navigation';
 
 export function useUnsavedChanges() {
   let hasChanges = $state(false);
-  let showDialog = $state(false);
-  let pendingNavigation: (() => void) | null = null;
-  let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
-  let isHandlingNavigation = $state(false); // Track if we're already handling navigation
 
-  // Handle browser navigation (back button, close tab, etc.)
+  // Native browser prompt for reload / close / external nav
   $effect(() => {
     if (!browser) return;
 
-    beforeUnloadHandler = (e: BeforeUnloadEvent) => {
-      // Only show native dialog if our custom dialog is not already shown or being handled
-      if (hasChanges && !showDialog && !isHandlingNavigation) {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
         e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
+        e.returnValue = '';
       }
     };
 
-    window.addEventListener('beforeunload', beforeUnloadHandler);
-
-    return () => {
-      if (beforeUnloadHandler) {
-        window.removeEventListener('beforeunload', beforeUnloadHandler);
-      }
-    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
   });
 
-  // Handle SvelteKit navigation
-  beforeNavigate(({ cancel, to }) => {
-    if (hasChanges && browser) {
+  // Native confirm() for SvelteKit client-side navigation
+  beforeNavigate(({ cancel }) => {
+    if (!hasChanges || !browser) return;
+    const leave = window.confirm('You have unsaved changes. Leave this page?');
+    if (leave) {
+      hasChanges = false;
+    } else {
       cancel();
-
-      // Mark that we're handling navigation to prevent double dialogs
-      isHandlingNavigation = true;
-
-      // Store the navigation function to be called if user confirms
-      pendingNavigation = () => {
-        hasChanges = false;
-        isHandlingNavigation = false;
-        // Use SvelteKit's proper navigation
-        if (to) {
-          goto(to.url.href);
-        } else {
-          history.back();
-        }
-      };
-
-      showDialog = true;
     }
   });
 
@@ -75,32 +51,10 @@ export function useUnsavedChanges() {
     hasChanges = value;
   }
 
-  function confirmExit() {
-    showDialog = false;
-    if (pendingNavigation) {
-      pendingNavigation();
-      pendingNavigation = null;
-    }
-  }
-
-  function cancelExit() {
-    showDialog = false;
-    isHandlingNavigation = false;
-    pendingNavigation = null;
-  }
-
   return {
     get hasChanges() {
       return hasChanges;
     },
-    get showDialog() {
-      return showDialog;
-    },
-    set showDialog(value: boolean) {
-      showDialog = value;
-    },
-    setHasChanges,
-    confirmExit,
-    cancelExit
+    setHasChanges
   };
 }

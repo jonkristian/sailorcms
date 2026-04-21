@@ -21,7 +21,7 @@
     showSelection = false,
     isSelected = false,
     onSelectNode
-  } = $props<{
+  }: {
     title: string;
     subtitle?: string;
     open?: boolean;
@@ -37,9 +37,12 @@
     showSelection?: boolean;
     isSelected?: boolean;
     onSelectNode?: (checked: boolean) => void;
-  }>();
+  } = $props();
 
-  let isOpen = $state(open);
+  let isOpen = $state(
+    // svelte-ignore state_referenced_locally
+    open
+  );
 
   // Update internal state when prop changes
   $effect(() => {
@@ -82,7 +85,7 @@
         </div>
         {#if tags && tags.length > 0}
           <div class="flex gap-1">
-            {#each tags.slice(0, 3) as tag (typeof tag === 'string' ? tag : tag.id || tag.name)}
+            {#each tags.slice(0, 3) as tag (typeof tag === 'string' ? tag : tag.name)}
               <span class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs">
                 {typeof tag === 'string' ? tag : tag.name}
               </span>

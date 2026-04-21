@@ -29,17 +29,23 @@
   let { value, field, required = false, onChange, currentItemId, readonly = false } = $props();
 
   // Determine if this is a single-select relation
-  const isSingleSelect =
-    field.relation?.type === 'one-to-one' || field.relation?.type === 'one-to-many';
+  let isSingleSelect = $derived(
+    field.relation?.type === 'one-to-one' || field.relation?.type === 'one-to-many'
+  );
 
-  let selectedItems = $state<Array<{ id: string; title: string }>>(parseValue(value));
-  let availableItems = $state<Array<{ id: string; title: string }>>([]);
+  let selectedItems: Array<{ id: string; title: string }> = $state(
+    parseValue(
+      // svelte-ignore state_referenced_locally
+      value
+    )
+  );
+  let availableItems: Array<{ id: string; title: string }> = $state([]);
   let open = $state(false);
   let searchTerm = $state('');
-  let triggerRef = $state<HTMLButtonElement>(null!);
+  let triggerRef: HTMLButtonElement = $state(null!);
   let loading = $state(false);
   let triedResolve = $state(false);
-  let contentWidth = $state<number>(0);
+  let contentWidth: number = $state(0);
 
   $effect(() => {
     const next = parseValue(value);
@@ -295,7 +301,7 @@
   <div class="flex w-full items-center gap-2">
     <Popover.Trigger
       bind:ref={triggerRef}
-      class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      class="border-input bg-input-bg ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-9 w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
       role="combobox"
       aria-expanded={open}
       aria-controls="relation-field-content"

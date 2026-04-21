@@ -9,16 +9,16 @@
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
 
-  const { global, items, onAddNew, onDelete, onBulkDelete } = $props<{
+  const { global, items, onAddNew, onDelete, onBulkDelete }: {
     global: any;
     items: any[];
     onAddNew?: () => void;
     onDelete: (itemId: string) => void;
     onBulkDelete?: (itemIds: string[]) => void;
-  }>();
+  } = $props();
 
   // Use composables for selection and delete functionality
-  const selection = useBulkSelection(items);
+  const selection = useBulkSelection(() => items);
 
   // Create custom delete handler that uses the provided onDelete/onBulkDelete functions
   async function handleCustomDelete(itemIds: string[]) {
@@ -34,6 +34,7 @@
 
   const bulkDelete = useBulkDelete({
     customDeleteHandler: handleCustomDelete,
+    // svelte-ignore state_referenced_locally
     itemType: global.name.singular.toLowerCase(),
     onSuccess: () => {
       selection.clearSelection();
@@ -45,16 +46,18 @@
   }
 
   // Generate columns based on fields with showInTable: true, or use defaults
-  const tableColumns = Object.entries(global.fields)
-    .filter(([_, field]) => (field as any).showInTable === true)
-    .sort(([_, a], [__, b]) => ((a as any).order || 99) - ((b as any).order || 99))
-    .map(([key, field]) => ({
-      key,
-      label: (field as any).label || (field as any).title || key
-    }));
+  let tableColumns = $derived(
+    Object.entries(global.fields)
+      .filter(([_, field]) => (field as any).showInTable === true)
+      .sort(([_, a], [__, b]) => ((a as any).order || 99) - ((b as any).order || 99))
+      .map(([key, field]) => ({
+        key,
+        label: (field as any).label || (field as any).title || key
+      }))
+  );
 
   // If no table fields defined, use default columns
-  const columns =
+  let columns = $derived(
     tableColumns.length > 0
       ? [...tableColumns, { key: 'created_at', label: 'Created' }]
       : [
@@ -62,10 +65,11 @@
           { key: 'slug', label: 'Slug' },
           { key: 'status', label: 'Status' },
           { key: 'updated_at', label: 'Last Updated' }
-        ];
+        ]
+  );
 
   // First column should be clickable to open detail view
-  const firstColumnKey = columns[0]?.key;
+  let firstColumnKey = $derived(columns[0]?.key);
 </script>
 
 <div class="space-y-6">

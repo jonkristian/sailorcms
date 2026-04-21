@@ -13,20 +13,20 @@
     onChange,
     required = false,
     readonly = false
-  } = $props<{
+  }: {
     value?: string | string[];
     field: any;
     onChange: (value: string | string[]) => void;
     required?: boolean;
     readonly?: boolean;
-  }>();
+  } = $props();
 
   // Support both field.items (preferred) and field.file (legacy) for configuration
-  const fileOptions = field.items || field.file || {};
-  const multiple = fileOptions.multiple || false;
-  const fileType = fileOptions.fileType || 'all';
+  let fileOptions = $derived(field.items || field.file || {});
+  let multiple = $derived(fileOptions.multiple || false);
+  let fileType = $derived(fileOptions.fileType || 'all');
 
-  let selectedForDeletion = $state<Set<string>>(new Set());
+  let selectedForDeletion: Set<string> = $state(new Set());
   let open = $state(false);
 
   function handleSelect(newValue: string | string[]) {
@@ -128,124 +128,31 @@
     }
   }
 
-  // Get file items formatted for Grid component
-  let fileItems = $state<
-    Array<{ id: string; value: string; url: string; label: string; type: string }>
-  >([]);
+  const fileValues = $derived(Array.isArray(value) ? value : value ? [value] : []);
 
-  // Update fileItems when value changes
-  $effect(() => {
-    const fileValues = Array.isArray(value) ? value : value ? [value] : [];
-
-    if (fileValues.length === 0) {
-      fileItems = [];
-      return;
-    }
-
-    // Get files directly from the query
-    const selectedValues = Array.isArray(value) ? value : value ? [value] : [];
-
-    if (selectedValues.length > 0) {
-      getFiles({
-        ids: selectedValues,
-        limit: 50,
-        type: fileType
-      }).then((result) => {
-        if (result.success && result.files && Array.isArray((result as any).files)) {
-          const files = (result as any).files.map((file: any) => ({
-            value: file.id,
-            label: file.name,
-            url: file.url,
-            type: file.mime_type?.includes('image') ? 'image' : 'document',
-            size: file.size,
-            created_at: file.created_at
-          }));
-
-          if (files.length === 0) {
-            fileItems = [];
-            return;
-          }
-
-          const mappedItems = fileValues.map((fileValue) => {
-            const file = files.find((f: any) => f.value === fileValue);
-
-            if (!file) {
-              // Create placeholder for missing file - FileWithControls will handle display
-              return {
-                id: fileValue,
-                value: fileValue,
-                url: '',
-                label: 'Missing file',
-                type: fileType // Let FileWithControls component decide how to display
-              };
-            }
-
-            // For existing files, pass through the file data - FileWithControls handles type logic
-            return {
-              id: fileValue,
-              value: fileValue,
-              url: file.url,
-              label: file.label || 'Unknown file',
-              type: file.type || fileType // Use file.type if available, fallback to fieldType
-            };
-          });
-
-          fileItems = mappedItems;
-        } else {
-          fileItems = [];
-        }
-      });
-    } else {
-      getFiles({
-        limit: 50,
-        offset: 0,
-        type: fileType
-      }).then((result) => {
-        if (result.success && result.files && Array.isArray((result as any).files)) {
-          const files = (result as any).files.map((file: any) => ({
-            value: file.id,
-            label: file.name,
-            url: file.url,
-            type: file.mime_type?.includes('image') ? 'image' : 'document',
-            size: file.size,
-            created_at: file.created_at
-          }));
-
-          if (files.length === 0) {
-            fileItems = [];
-            return;
-          }
-
-          const mappedItems = fileValues.map((fileValue) => {
-            const file = files.find((f: any) => f.value === fileValue);
-
-            if (!file) {
-              // Create placeholder for missing file - FileWithControls component decide how to display
-              return {
-                id: fileValue,
-                value: fileValue,
-                url: '',
-                label: 'Missing file',
-                type: fileType // Let FileWithControls component decide how to display
-              };
-            }
-
-            // For existing files, pass through the file data - FileWithControls handles type logic
-            return {
-              id: fileValue,
-              value: fileValue,
-              url: file.url,
-              label: file.label || 'Unknown file',
-              type: file.type || fileType // Use file.type if available, fallback to fieldType
-            };
-          });
-
-          fileItems = mappedItems;
-        } else {
-          fileItems = [];
-        }
-      });
-    }
+  const fileItems: Array<{
+    id: string;
+    value: string;
+    url: string;
+    label: string;
+    type: string;
+  }> = $derived.by(() => {
+    if (fileValues.length === 0) return [];
+    const result = getFiles({ ids: fileValues, limit: 50, type: fileType }).current;
+    const files = result?.success ? ((result as any).files ?? []) : [];
+    return fileValues.map((fv: string) => {
+      const f = files.find((file: any) => file.id === fv);
+      if (!f) {
+        return { id: fv, value: fv, url: '', label: 'Missing file', type: fileType };
+      }
+      return {
+        id: fv,
+        value: fv,
+        url: f.url,
+        label: f.name || 'Unknown file',
+        type: f.mime_type?.includes('image') ? 'image' : 'document'
+      };
+    });
   });
 </script>
 

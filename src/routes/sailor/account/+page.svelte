@@ -11,7 +11,8 @@
   } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
   import { toast } from '$sailor/core/ui/toast';
-  import { User, Key, Shield, Github, Globe, CheckCircle, XCircle, Copy } from '@lucide/svelte';
+  import { User, Key, Shield, Globe, CheckCircle, XCircle, Copy } from '@lucide/svelte';
+  import GithubIcon from '$lib/components/sailor/icons/GithubIcon.svelte';
   import { formatDate } from '$sailor/core/utils/date';
   import { invalidateAll } from '$app/navigation';
   import { getRoleColor, copyUserId, shortenUserId } from '$lib/sailor/core/utils/user';
@@ -22,6 +23,7 @@
 
   let submitting = $state(false);
   let formData = $state({
+    // svelte-ignore state_referenced_locally
     name: data.user.name || '',
     currentPassword: '',
     newPassword: '',
@@ -60,7 +62,7 @@
   const getProviderIcon = (provider: string) => {
     switch (provider) {
       case 'github':
-        return Github;
+        return GithubIcon;
       default:
         return Globe;
     }

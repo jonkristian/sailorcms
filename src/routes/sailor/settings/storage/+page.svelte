@@ -7,13 +7,13 @@
   import type { PageData } from './$types';
   import Header from '$lib/components/sailor/Header.svelte';
 
-  const { data } = $props<{ data: PageData }>();
+  const { data }: { data: PageData } = $props();
 
   import { repairFileUrls, checkFiles, importFiles } from '$sailor/remote/files.remote.js';
 
   // State for tracking scan results
-  let importScanResult = $state<any>(null);
-  let repairScanResult = $state<any>(null);
+  let importScanResult: any = $state(null);
+  let repairScanResult: any = $state(null);
   let isScanning = $state(false);
 
   async function repair(dryRun = false) {
@@ -54,7 +54,7 @@
     }
   }
 
-  function getProviderColor(provider: string) {
+  function getProviderColor(provider: string | undefined) {
     switch (provider) {
       case 's3':
         return 'bg-blue-100 text-blue-800';

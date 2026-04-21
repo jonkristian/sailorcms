@@ -19,18 +19,27 @@
     target = '_self',
     onSubmit,
     onCancel
-  } = $props<{
+  }: {
     open: boolean;
     url?: string;
     text?: string;
     target?: string;
     onSubmit: (url: string, text: string, target: string) => void;
     onCancel: () => void;
-  }>();
+  } = $props();
 
-  let linkUrl = $state(url);
-  let linkText = $state(text);
-  let linkTarget = $state(target);
+  let linkUrl = $state(
+    // svelte-ignore state_referenced_locally
+    url
+  );
+  let linkText = $state(
+    // svelte-ignore state_referenced_locally
+    text
+  );
+  let linkTarget = $state(
+    // svelte-ignore state_referenced_locally
+    target
+  );
 
   // Update local state when props change
   $effect(() => {

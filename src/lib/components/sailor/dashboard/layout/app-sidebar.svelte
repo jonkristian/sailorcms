@@ -24,7 +24,7 @@
     },
     user: sessionUser,
     ...restProps
-  } = $props<{
+  }: {
     navData?: {
       collections: any[];
       globals: any[];
@@ -34,7 +34,7 @@
       loading: boolean;
     };
     user?: any;
-  }>();
+  } = $props();
 
   const user = $derived.by(() => {
     if (!sessionUser?.name) return null;

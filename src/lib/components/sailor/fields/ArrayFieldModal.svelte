@@ -4,16 +4,19 @@
 
   import FieldRenderer from './FieldRenderer.svelte';
 
-  const { isOpen, item, itemSchema, onSave, onClose, itemIndex } = $props<{
+  const { isOpen, item, itemSchema, onSave, onClose, itemIndex }: {
     isOpen: boolean;
     item: any;
     itemSchema: any;
     onSave: (updatedItem: any) => void;
     onClose: () => void;
     itemIndex: number;
-  }>();
+  } = $props();
 
-  let formData = $state({ ...item });
+  let formData = $state({
+    // svelte-ignore state_referenced_locally
+    ...item
+  });
 
   // Update formData when item changes
   $effect(() => {
@@ -39,10 +42,12 @@
   }
 
   // Generate form fields based on item schema
-  const formFields = Object.entries(itemSchema as Record<string, any>).map(([key, field]) => ({
-    key,
-    field
-  }));
+  let formFields = $derived(
+    Object.entries(itemSchema as Record<string, any>).map(([key, field]) => ({
+      key,
+      field
+    }))
+  );
 </script>
 
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>

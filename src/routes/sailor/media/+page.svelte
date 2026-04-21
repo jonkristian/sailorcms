@@ -34,9 +34,12 @@
   let { data } = $props();
 
   // Extract available tags from server data
-  let availableTags = $state<Tag[]>(data.availableTags || []);
+  let availableTags: Tag[] = $state(
+    // svelte-ignore state_referenced_locally
+    data.availableTags || []
+  );
   // Initialize view mode from URL parameters, defaulting to 'table'
-  let viewMode = $state<'table' | 'grid'>(
+  let viewMode: 'table' | 'grid' = $state(
     (page.url.searchParams.get('viewMode') as 'table' | 'grid') || 'table'
   );
 
@@ -74,7 +77,7 @@
 
   // Upload progress state
   let uploadProgressOpen = $state(false);
-  let uploadFilesList = $state<
+  let uploadFilesList: 
     Array<{
       name: string;
       size: number;
@@ -82,22 +85,22 @@
       progress: number;
       error?: string;
     }>
-  >([]);
+   = $state([]);
 
   // Edit modal state
   let editModalOpen = $state(false);
-  let editingFile = $state<FileType | null>(null);
+  let editingFile: FileType | null = $state(null);
 
   // Delete confirmation dialog state
   let deleteDialogOpen = $state(false);
   let deleteDialogLoading = $state(false);
-  let pendingDeleteItems = $state<{ ids: string[]; count: number }>({ ids: [], count: 0 });
+  let pendingDeleteItems: { ids: string[]; count: number } = $state({ ids: [], count: 0 });
 
   // Bulk operations state
   let bulkAction = $state('');
   let tagsDialogOpen = $state(false);
-  let tagsDialogMode = $state<'add' | 'remove' | 'replace'>('add');
-  let selectedTags = $state<Tag[]>([]);
+  let tagsDialogMode: 'add' | 'remove' | 'replace' = $state('add');
+  let selectedTags: Tag[] = $state([]);
 
   // Use server-provided pagination data
   let pagination = $derived(data.pagination);

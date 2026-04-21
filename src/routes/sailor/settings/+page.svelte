@@ -10,14 +10,18 @@
   import * as Card from '$lib/components/ui/card';
   import Header from '$lib/components/sailor/Header.svelte';
 
-  const { data } = $props<{ data: PageData }>();
+  const { data }: { data: PageData } = $props();
 
   let submitting = $state(false);
   let purging = $state(false);
   let formData = $state({
+    // svelte-ignore state_referenced_locally
     siteName: data.settings.siteName,
+    // svelte-ignore state_referenced_locally
     siteUrl: data.settings.siteUrl,
+    // svelte-ignore state_referenced_locally
     siteDescription: data.settings.siteDescription,
+    // svelte-ignore state_referenced_locally
     allowRegistration: data.settings.allowRegistration
   });
 

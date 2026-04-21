@@ -41,7 +41,7 @@
     icon?: string;
   };
 
-  let { globals = [], loading = false } = $props<{ globals: Global[]; loading?: boolean }>();
+  let { globals = [], loading = false }: { globals: Global[]; loading?: boolean } = $props();
 
   const items = $derived(() => {
     return globals.map((global: Global) => ({

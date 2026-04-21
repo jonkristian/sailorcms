@@ -16,23 +16,23 @@
     required = false,
     disabled = false,
     scope
-  } = $props<{
+  }: {
     value?: Tag[] | string[];
     placeholder?: string;
     onChange: (tags: Tag[]) => void;
     required?: boolean;
     disabled?: boolean;
     scope?: string; // Optional scope for context-aware search
-  }>();
+  } = $props();
 
   let tagsInput = $state('');
   let inputElement: HTMLInputElement;
   let showSuggestions = $state(false);
-  let suggestions = $state<Tag[]>([]);
+  let suggestions: Tag[] = $state([]);
   let selectedSuggestionIndex = $state(-1);
 
   // Simplified state management - always use the value prop as source of truth
-  let displayTags = $state<Tag[]>([]);
+  let displayTags: Tag[] = $state([]);
 
   function areTagsEqual(a: Tag[], b: Tag[]) {
     if (a.length !== b.length) return false;
@@ -233,7 +233,7 @@
       oninput={handleTagsInput}
       onkeydown={handleKeydown}
       onblur={handleInputBlur}
-      class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-9 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      class="border-input bg-input-bg ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-9 w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
     />
 
     {#if showSuggestions && suggestions.length > 0}

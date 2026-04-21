@@ -11,7 +11,7 @@
     global,
     formData = $bindable(),
     permissions
-  } = $props<{
+  }: {
     global: any;
     formData: Record<string, any>;
     submitting: boolean;
@@ -23,7 +23,7 @@
         view: boolean;
       };
     };
-  }>();
+  } = $props();
 
   let submitting = $state(false);
 
@@ -35,7 +35,7 @@
     return Object.entries(global.fields).map(([key, field]: [string, any]) => ({ key, field }));
   };
 
-  const formFields = getFormFields(global);
+  let formFields = $derived(getFormFields(global));
 
   // Handle array field changes
   function handleArrayFieldChange(fieldKey: string, items: any[]) {

@@ -7,12 +7,12 @@
     title,
     onclick = undefined,
     href = undefined
-  } = $props<{
+  }: {
     icon: Component;
     title: string;
     onclick?: () => void;
     href?: string;
-  }>();
+  } = $props();
 </script>
 
 {#if href}

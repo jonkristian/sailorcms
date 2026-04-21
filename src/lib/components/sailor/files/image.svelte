@@ -9,7 +9,7 @@
     height,
     quality = 80,
     format
-  } = $props<{
+  }: {
     src: string | null | undefined;
     alt?: string;
     className?: string;
@@ -17,7 +17,7 @@
     height?: number;
     quality?: number;
     format?: 'jpg' | 'png' | 'webp';
-  }>();
+  } = $props();
 
   let imageUrl = $derived.by(() => {
     if (!src) return '';

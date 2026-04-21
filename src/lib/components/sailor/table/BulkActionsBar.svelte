@@ -10,7 +10,7 @@
     filters,
     children,
     extraActions
-  } = $props<{
+  }: {
     selectedCount: number;
     totalCount: number;
     itemType?: string;
@@ -22,7 +22,7 @@
     filters?: Snippet;
     children?: Snippet;
     extraActions?: Snippet;
-  }>();
+  } = $props();
 
   const pluralItemType = $derived(itemType + (itemType.endsWith('s') ? '' : 's'));
 </script>

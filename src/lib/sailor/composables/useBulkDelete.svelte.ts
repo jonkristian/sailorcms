@@ -15,7 +15,7 @@ interface BulkDeleteOptions {
 export function useBulkDelete(options: BulkDeleteOptions) {
   let deleteDialogOpen = $state(false);
   let deleteDialogLoading = $state(false);
-  let pendingDeleteItems = $state<{ ids: string[]; count: number }>({ ids: [], count: 0 });
+  let pendingDeleteItems: { ids: string[]; count: number } = $state({ ids: [], count: 0 });
 
   function initiateBulkDelete(selectedIds: string[]) {
     if (selectedIds.length === 0) return;

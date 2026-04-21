@@ -25,7 +25,7 @@
     showDragHandle = false,
     dragEnabled = false,
     itemId = (item: any) => item.id
-  } = $props<{
+  }: {
     items: any[];
     columns: Array<{
       key: string;
@@ -36,7 +36,7 @@
     actions?: Array<{
       label: string;
       onClick: (item: any) => void;
-      variant?: 'default' | 'destructive' | 'secondary';
+      variant?: 'default' | 'destructive';
       separator?: boolean;
     }>;
     onEdit?: (item: any) => void;
@@ -45,7 +45,7 @@
     showDragHandle?: boolean;
     dragEnabled?: boolean;
     itemId?: (item: any) => string;
-  }>();
+  } = $props();
 
   function handleEdit(item: any) {
     if (onEdit) {

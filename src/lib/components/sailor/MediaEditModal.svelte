@@ -27,12 +27,12 @@
   let altText = $state('');
   let title = $state('');
   let description = $state('');
-  let fileTags = $state<{ id: string; name: string }[]>([]);
+  let fileTags: { id: string; name: string }[] = $state([]);
   let saving = $state(false);
   let loadingTags = $state(false);
 
   // Track file ID to prevent unnecessary tag loading
-  let currentFileId = $state<string | null>(null);
+  let currentFileId: string | null = $state(null);
 
   // Update form when file changes
   $effect(() => {

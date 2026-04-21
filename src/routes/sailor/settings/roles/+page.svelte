@@ -13,7 +13,7 @@
   import type { BetterAuthResource, BetterAuthAction } from '$lib/sailor/core/settings/types';
 
   const { data } = $props();
-  const { roleSettings } = data;
+  let roleSettings = $derived(data.roleSettings);
 
   const resources: BetterAuthResource[] = ['content', 'files', 'users', 'settings'];
   const permissions: BetterAuthAction[] = ['create', 'read', 'update', 'delete'];
@@ -23,8 +23,8 @@
   }
 
   // Get role statistics
-  const roleCount = roleSettings ? Object.keys(roleSettings.definitions).length : 0;
-  const adminRoleCount = roleSettings?.adminRoles.length ?? 0;
+  let roleCount = $derived(roleSettings ? Object.keys(roleSettings.definitions).length : 0);
+  let adminRoleCount = $derived(roleSettings?.adminRoles.length ?? 0);
   const resourceCount = resources.length;
   const permissionCount = permissions.length;
 </script>

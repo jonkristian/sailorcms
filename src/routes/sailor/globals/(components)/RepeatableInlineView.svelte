@@ -19,7 +19,7 @@
     exposeSaveFunction,
     exposeExpandCollapseFunction,
     permissions
-  } = $props<{
+  }: {
     global: any;
     items: any[];
     submitting: boolean;
@@ -34,7 +34,7 @@
         view: boolean;
       };
     };
-  }>();
+  } = $props();
 
   // Use permissions passed from layout
   let canDelete = $derived(permissions.globals.delete);
@@ -42,13 +42,14 @@
   let canCreate = $derived(permissions.globals.create);
 
   // Convert items to FlatItem format for the DnD system
-  let localItems = $state<FlatItem[]>(
+  let localItems: FlatItem[] = $state(
+    // svelte-ignore state_referenced_locally
     items.map((item: Record<string, any>) => ({
       ...item,
       name: getDisplayTitle(item, global)
-    }))
+    })) as FlatItem[]
   );
-  let expandedItems = $state<SvelteSet<string>>(new SvelteSet());
+  let expandedItems: SvelteSet<string> = $state(new SvelteSet());
 
   // Generate form fields based on global definition (excluding core fields except title)
   const getFormFields = (global: any) => {
@@ -57,7 +58,7 @@
       .map(([key, field]: [string, any]) => ({ key, field }));
   };
 
-  const formFields = getFormFields(global);
+  let formFields = $derived(getFormFields(global));
 
   // Expand/collapse all items
   function expandCollapseAll(expand: boolean) {
@@ -69,15 +70,17 @@
   }
 
   // Expose functions to parent
-  if (exposeAddFunction) {
-    exposeAddFunction(addItem);
-  }
-  if (exposeSaveFunction) {
-    exposeSaveFunction(saveAllItems);
-  }
-  if (exposeExpandCollapseFunction) {
-    exposeExpandCollapseFunction(expandCollapseAll);
-  }
+  $effect(() => {
+    if (exposeAddFunction) {
+      exposeAddFunction(addItem);
+    }
+    if (exposeSaveFunction) {
+      exposeSaveFunction(saveAllItems);
+    }
+    if (exposeExpandCollapseFunction) {
+      exposeExpandCollapseFunction(expandCollapseAll);
+    }
+  });
 
   // Handle data changes from the Blocks component
   function handleDataChange(updatedData: FlatItem[]) {

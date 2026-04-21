@@ -1,7 +1,47 @@
-import { command } from '$app/server';
+import { command, query } from '$app/server';
 import { db } from '$sailor/core/db/index.server';
 import { asc, desc, eq } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+
+/**
+ * Find a non-colliding slug for a given collection/global table.
+ * Appends -2, -3, etc. until the slug is free (ignoring `excludeId`).
+ */
+export const getUniqueSlug = query(
+  'unchecked',
+  async ({
+    entityType,
+    slug,
+    excludeId
+  }: {
+    entityType: string;
+    slug: string;
+    excludeId?: string | null;
+  }) => {
+    if (!slug) return { success: true, slug };
+    if (!/^[a-zA-Z0-9_-]+$/.test(entityType)) {
+      return { success: false, error: 'Invalid entity type' };
+    }
+    const table = schema[entityType as keyof typeof schema] as any;
+    if (!table || !table.slug) return { success: true, slug };
+
+    let candidate = slug;
+    let counter = 2;
+    while (counter < 1000) {
+      const existing = await db
+        .select({ id: table.id })
+        .from(table)
+        .where(eq(table.slug, candidate))
+        .limit(1);
+      if (existing.length === 0 || (excludeId && existing[0].id === excludeId)) {
+        return { success: true, slug: candidate };
+      }
+      candidate = `${slug}-${counter}`;
+      counter++;
+    }
+    return { success: true, slug: candidate };
+  }
+);
 
 /**
  * Get items from a collection table for relation fields

@@ -3,20 +3,18 @@
   import { ModeWatcher } from 'mode-watcher';
   import * as Sidebar from '$lib/components/ui/sidebar/index.js';
   import { AppSidebar, SiteHeader } from '$lib/components/sailor/dashboard';
-  import { Eye, Save } from '@lucide/svelte/icons';
+  import { Eye, Save } from '@lucide/svelte';
   import PayloadPreview from '$lib/components/sailor/PayloadPreview.svelte';
   import HeaderActionButton from '$lib/components/sailor/HeaderActionButton.svelte';
   import { Button } from '$lib/components/ui/button';
   import ThemeToggle from '$lib/components/sailor/ThemeToggle.svelte';
-  import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { getPageTitle } from '$sailor/core/ui/page-title';
   import { toast } from '$sailor/core/ui/toast';
   import { goto } from '$app/navigation';
-  import { getNavigationData } from '$sailor/remote/navigation.remote';
   import '$sailor/styles/sailor.css';
 
-  let { children } = $props();
+  let { children, data } = $props();
 
   let pageTitle = $derived(getPageTitle(page.url.pathname));
 
@@ -29,20 +27,13 @@
         props: { submitting: boolean; submittingText?: string; text: string };
       };
 
-  let navData = $state<{
-    collections: UnknownRecord[];
-    globals: UnknownRecord[];
-    canViewSettings: boolean;
-    canViewUsers: boolean;
-    canViewFiles: boolean;
-    loading: boolean;
-  }>({
-    collections: [],
-    globals: [],
-    canViewSettings: false,
-    canViewUsers: false,
-    canViewFiles: false,
-    loading: true
+  const navData = $derived({
+    collections: (data.navData?.collections || []) as UnknownRecord[],
+    globals: (data.navData?.globals || []) as UnknownRecord[],
+    canViewSettings: data.navData?.canViewSettings ?? false,
+    canViewUsers: data.navData?.canViewUsers ?? false,
+    canViewFiles: data.navData?.canViewFiles ?? false,
+    loading: false
   });
   let headerActionsState = $derived((page.data.headerActions || []) as HeaderAction[]);
 
@@ -58,16 +49,6 @@
     }
   });
 
-  onMount(async () => {
-    // Load navigation data using remote function
-    try {
-      const result = await getNavigationData();
-      navData = { ...result, loading: false };
-    } catch (error) {
-      console.error('Failed to load navigation data:', error);
-      navData.loading = false;
-    }
-  });
 </script>
 
 <svelte:head>

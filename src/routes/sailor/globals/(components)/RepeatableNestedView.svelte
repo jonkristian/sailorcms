@@ -15,7 +15,7 @@
     exposeAddFunction,
     formData = $bindable(),
     permissions
-  } = $props<{
+  }: {
     global: any;
     items: any[];
     exposeAddFunction?: (fn: () => void) => void;
@@ -28,20 +28,22 @@
         view: boolean;
       };
     };
-  }>();
+  } = $props();
 
   // Expose the handleAddNew function to parent if requested
-  if (exposeAddFunction) {
-    exposeAddFunction(handleAddNew);
-  }
+  $effect(() => {
+    if (exposeAddFunction) {
+      exposeAddFunction(handleAddNew);
+    }
+  });
 
   // Modal state
   let isModalOpen = $state(false);
-  let editingItem = $state<any>(null);
+  let editingItem: any = $state(null);
   let isNewItem = $state(false);
 
   // Use local state for flatItems to manage updates properly
-  let flatItems = $state<FlatItem[]>([]);
+  let flatItems: FlatItem[] = $state([]);
   let lastDragSaveTime = $state(0);
   let previousItemsLength = $state(0);
 

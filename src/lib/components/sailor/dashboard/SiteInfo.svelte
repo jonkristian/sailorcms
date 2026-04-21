@@ -13,7 +13,7 @@
 
   let { siteInfo }: Props = $props();
 
-  const hasInfo = siteInfo.name || siteInfo.url || siteInfo.description;
+  let hasInfo = $derived(siteInfo.name || siteInfo.url || siteInfo.description);
 </script>
 
 <Card.Root>

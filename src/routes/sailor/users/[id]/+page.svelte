@@ -19,7 +19,7 @@
   // Extract the type of availableUsers from PageData
   type AvailableUser = NonNullable<PageData['availableUsers']>[number];
 
-  const { data, form } = $props<{ data: PageData; form?: ActionData }>();
+  const { data, form }: { data: PageData; form?: ActionData } = $props();
 
   let deleteDialogOpen = $state(false);
   let roleChangeWarningOpen = $state(false);
@@ -37,10 +37,13 @@
   ];
 
   let formData = $state({
+    // svelte-ignore state_referenced_locally
     name: form?.values?.name || data.targetUser?.name || '',
+    // svelte-ignore state_referenced_locally
     email: form?.values?.email || data.targetUser?.email || '',
     password: '',
     confirmPassword: '',
+    // svelte-ignore state_referenced_locally
     role: form?.values?.role || data.targetUser?.role || 'user'
   });
 

@@ -1,24 +1,20 @@
 <script lang="ts">
-  import * as Select from '$lib/components/ui/select';
+  import { Switch } from '$lib/components/ui/switch';
 
-  const { value, description, required, onChange } = $props<{
-    value: boolean;
+  const {
+    value,
+    onChange
+  }: {
+    value: boolean | string;
     description?: string;
     required?: boolean;
     onChange: (value: boolean) => void;
-  }>();
+  } = $props();
+
+  const checked = $derived(value === true || value === 'true');
 </script>
 
-<Select.Root
-  type="single"
-  value={value === true || value === 'true' ? 'true' : 'false'}
-  onValueChange={(newValue) => onChange(newValue === 'true')}
->
-  <Select.Trigger class="w-full justify-between text-left font-normal">
-    {value === true || value === 'true' ? 'True' : 'False'}
-  </Select.Trigger>
-  <Select.Content>
-    <Select.Item value="true">True</Select.Item>
-    <Select.Item value="false">False</Select.Item>
-  </Select.Content>
-</Select.Root>
+<div class="flex items-center gap-3">
+  <Switch {checked} onCheckedChange={onChange} />
+  <span class="text-muted-foreground text-sm">{checked ? 'Yes' : 'No'}</span>
+</div>

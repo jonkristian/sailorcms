@@ -72,7 +72,7 @@ export function useTableFilters(options: FilterOptions) {
   );
 
   // Select filters state
-  const selectFilters = $state<Record<string, string>>({});
+  const selectFilters: Record<string, string> = $state({});
   if (config.select) {
     for (const filter of config.select) {
       selectFilters[filter.key] = urlParams.get(filter.key) || filter.default;
@@ -80,7 +80,7 @@ export function useTableFilters(options: FilterOptions) {
   }
 
   // Multi-select filters state
-  const multiSelectFilters = $state<Record<string, string[]>>({});
+  const multiSelectFilters: Record<string, string[]> = $state({});
   if (config.multiSelect) {
     for (const filter of config.multiSelect) {
       const urlValue = urlParams.get(filter.key);

@@ -38,9 +38,12 @@
   // State
   let open = $state(false);
   let searchQuery = $state('');
-  let searchResults = $state<Tag[]>([]);
+  let searchResults: Tag[] = $state([]);
   let loading = $state(false);
-  let selectedTagsState = $state<Tag[]>([...selectedTags]);
+  let selectedTagsState: Tag[] = $state([
+    // svelte-ignore state_referenced_locally
+    ...selectedTags
+  ]);
 
   // Reactive updates
   $effect(() => {
@@ -168,7 +171,7 @@
   <Popover.Root bind:open>
     <Popover.Trigger>
       <div
-        class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+        class="border-input bg-input-bg ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-9 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
         role="combobox"
         aria-expanded={open}
         aria-controls="tag-selector-content"

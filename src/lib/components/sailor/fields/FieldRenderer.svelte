@@ -10,7 +10,7 @@
     currentItemId = null,
     entityType = null,
     readonly = false
-  } = $props<{
+  }: {
     field: Record<string, any>;
     value: any;
     onChange: (value: any) => void;
@@ -21,16 +21,19 @@
     currentItemId?: string | null;
     entityType?: string | null; // e.g., 'collection_posts', 'global_faq'
     readonly?: boolean;
-  }>();
+  } = $props();
 
   import { Input } from '$lib/components/ui/input';
+  import * as InputGroup from '$lib/components/ui/input-group';
   import { Label } from '$lib/components/ui/label';
   import { Button } from '$lib/components/ui/button';
   import { RefreshCw } from '@lucide/svelte';
   import { slugify } from '$sailor/core/utils/common';
   import { toast } from '$sailor/core/ui/toast';
+  import { getUniqueSlug } from '$sailor/remote/collections.remote.js';
   import ArrayField from './ArrayField.svelte';
   import BooleanField from './BooleanField.svelte';
+  import DateField from './DateField.svelte';
   import SelectField from './SelectField.svelte';
   import TextField from './TextField.svelte';
   import TextareaField from './TextareaField.svelte';
@@ -39,7 +42,7 @@
   import TagsInput from './TagsInput.svelte';
 
   // Dynamic import for WysiwygField to prevent bundling when not needed
-  let WysiwygFieldComponent = $state<any>(null);
+  let WysiwygFieldComponent: any = $state(null);
   let loadingWysiwyg = $state(false);
 
   async function loadWysiwygField() {
@@ -64,23 +67,45 @@
   }
 
   // Check if this is a slug field
-  const isSlugField = fieldKey === 'slug' || field.title?.toLowerCase().includes('slug');
+  let isSlugField = $derived(fieldKey === 'slug' || field.title?.toLowerCase().includes('slug'));
 
   // Function to generate slug from title
-  function generateSlugFromTitle() {
-    if (titleValue) {
-      const generatedSlug = slugify(titleValue, {
-        lowercase: true,
-        removeStopWords: false,
-        maxLength: 60
-      });
-      updateValue(generatedSlug);
-      toast.success('Slug generated from title');
-    } else if (onGenerateSlug) {
-      onGenerateSlug(titleValue || '');
-    } else {
-      toast.info('Please enter a title first, then generate the slug');
+  async function generateSlugFromTitle() {
+    if (!titleValue) {
+      if (onGenerateSlug) {
+        onGenerateSlug('');
+      } else {
+        toast.info('Please enter a title first, then generate the slug');
+      }
+      return;
     }
+
+    const base = slugify(titleValue, {
+      lowercase: true,
+      removeStopWords: false,
+      maxLength: 60
+    });
+
+    let finalSlug = base;
+    if (entityType) {
+      try {
+        const result = await getUniqueSlug({
+          entityType,
+          slug: base,
+          excludeId: currentItemId
+        }).run();
+        if (result.success && result.slug) finalSlug = result.slug;
+      } catch (err) {
+        console.warn('Slug uniqueness check failed, using base slug', err);
+      }
+    }
+
+    updateValue(finalSlug);
+    toast.success(
+      finalSlug === base
+        ? 'Slug generated from title'
+        : `Slug generated from title (suffixed to avoid a conflict)`
+    );
   }
 
   // Load WysiwygField when needed
@@ -105,18 +130,18 @@
     <!-- Read-only display mode -->
     <div class="space-y-1 text-sm">
       {#if field.type === 'boolean'}
-        <div class="inline-flex items-center gap-2 rounded-md bg-black/30 px-3 py-2">
-          <span class="h-3 w-3 rounded-full {value ? 'bg-green-500' : 'bg-black/30-foreground'}"
+        <div class="inline-flex items-center gap-2 rounded-lg bg-input-bg px-3 py-2">
+          <span class="h-3 w-3 rounded-full {value ? 'bg-green-500' : 'bg-muted-foreground/40'}"
           ></span>
           <span class="font-medium">{value ? 'Yes' : 'No'}</span>
         </div>
       {:else if field.type === 'select'}
-        <div class="rounded-md bg-black/30 px-3 py-2 font-medium">
+        <div class="rounded-lg bg-input-bg px-3 py-2 font-medium">
           {field.options?.find((opt: any) => opt.value === value)?.label || value || '-'}
         </div>
       {:else if field.type === 'tags'}
         {#if Array.isArray(value) && value.length > 0}
-          <div class="rounded-md bg-black/30 px-3 py-2">
+          <div class="rounded-lg bg-input-bg px-3 py-2">
             <div class="flex flex-wrap gap-1">
               {#each value as tag}
                 <span
@@ -127,11 +152,11 @@
             </div>
           </div>
         {:else}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 italic">No tags</div>
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 italic">No tags</div>
         {/if}
       {:else if field.type === 'email'}
         {#if value}
-          <div class="rounded-md bg-black/30 px-3 py-2">
+          <div class="rounded-lg bg-input-bg px-3 py-2">
             <a
               href="mailto:{value}"
               class="text-foreground hover:text-primary font-medium underline-offset-4 transition-colors hover:underline"
@@ -139,11 +164,11 @@
             >
           </div>
         {:else}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 italic">No email</div>
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 italic">No email</div>
         {/if}
       {:else if field.type === 'link'}
         {#if value}
-          <div class="rounded-md bg-black/30 px-3 py-2">
+          <div class="rounded-lg bg-input-bg px-3 py-2">
             {#if value.includes('@')}
               <a
                 href="mailto:{value}"
@@ -169,76 +194,87 @@
             {/if}
           </div>
         {:else}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 italic">No link</div>
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 italic">No link</div>
         {/if}
       {:else if field.type === 'relation'}
         {#if Array.isArray(value) && value.length > 0}
-          <div class="space-y-1 rounded-md bg-black/30 px-3 py-2">
+          <div class="space-y-1 rounded-lg bg-input-bg px-3 py-2">
             {#each value as item}
               <div class="bg-background rounded border px-2 py-1 text-sm">{item}</div>
             {/each}
           </div>
         {:else if value}
-          <div class="rounded-md bg-black/30 px-3 py-2">
+          <div class="rounded-lg bg-input-bg px-3 py-2">
             <div class="bg-background rounded border px-2 py-1 text-sm">{value}</div>
           </div>
         {:else}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 italic">
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 italic">
             No selection
           </div>
         {/if}
       {:else if field.type === 'file'}
         {#if Array.isArray(value) && value.length > 0}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 font-medium">
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 font-medium">
             {value.length} files selected
           </div>
         {:else if value}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 font-medium">
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 font-medium">
             1 file selected
           </div>
         {:else}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 italic">No files</div>
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 italic">No files</div>
         {/if}
       {:else if field.type === 'array'}
         {#if Array.isArray(value) && value.length > 0}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 font-medium">
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 font-medium">
             {value.length} items
           </div>
         {:else}
-          <div class="text-muted-foreground rounded-md bg-black/30 px-3 py-2 italic">No items</div>
+          <div class="text-muted-foreground rounded-lg bg-input-bg px-3 py-2 italic">No items</div>
         {/if}
       {:else if field.type === 'textarea' || field.type === 'wysiwyg' || field.type === 'text'}
         <div
-          class="min-h-[80px] rounded-md bg-black/30 px-3 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+          class="min-h-[80px] rounded-lg bg-input-bg px-3 py-3 text-sm leading-relaxed whitespace-pre-wrap"
         >
           {value || '-'}
         </div>
+      {:else if field.type === 'date'}
+        <div class="rounded-lg bg-input-bg px-3 py-2 font-medium">
+          {value
+            ? new Date(value).toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '-'}
+        </div>
       {:else}
-        <div class="rounded-md bg-black/30 px-3 py-2 font-medium">{value || '-'}</div>
+        <div class="rounded-lg bg-input-bg px-3 py-2 font-medium">{value || '-'}</div>
       {/if}
     </div>
   {:else if field.type === 'string' || field.type === 'text' || field.type === 'textarea' || field.type === 'wysiwyg' || field.type === 'email' || field.type === 'link'}
     {#if isSlugField}
-      <div class="flex gap-2">
-        <div class="flex-1">
-          <TextField
-            value={value || ''}
-            placeholder={field.placeholder}
-            required={field.required}
-            onChange={updateValue}
-          />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onclick={generateSlugFromTitle}
-          title="Generate slug from title"
-          disabled={!titleValue || readonly}
-        >
-          <RefreshCw class="h-4 w-4" />
-        </Button>
-      </div>
+      <InputGroup.Root>
+        <InputGroup.Input
+          type="text"
+          value={value || ''}
+          placeholder={field.placeholder}
+          required={field.required}
+          oninput={(e) => updateValue((e.target as HTMLInputElement).value)}
+        />
+        <InputGroup.Addon align="inline-end">
+          <InputGroup.Button
+            size="icon-xs"
+            onclick={generateSlugFromTitle}
+            title="Generate slug from title"
+            disabled={!titleValue || readonly}
+          >
+            <RefreshCw class="h-3.5 w-3.5" />
+          </InputGroup.Button>
+        </InputGroup.Addon>
+      </InputGroup.Root>
     {:else if field.type === 'wysiwyg'}
       {#if loadingWysiwyg}
         <div class="flex items-center justify-center rounded-lg border p-8">
@@ -252,12 +288,13 @@
       {:else if WysiwygFieldComponent}
         <WysiwygFieldComponent
           value={value || ''}
+          mode={field.mode}
           placeholder={field.placeholder}
           required={field.required}
           onChange={updateValue}
         />
       {:else}
-        <div class="bg-black/30/30 rounded-lg border p-4 text-center">
+        <div class="bg-input-bg rounded-lg border p-4 text-center">
           <p class="text-muted-foreground">Click to load rich text editor</p>
           <Button variant="outline" size="sm" onclick={loadWysiwygField} class="mt-2">
             Load Editor
@@ -286,6 +323,13 @@
         : ''}
       items={value || []}
       itemSchema={field.items.properties || {}}
+      required={field.required}
+      onChange={updateValue}
+    />
+  {:else if field.type === 'date'}
+    <DateField
+      value={value || ''}
+      placeholder={field.placeholder}
       required={field.required}
       onChange={updateValue}
     />

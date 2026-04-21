@@ -2,13 +2,15 @@
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import { Editor } from '@tiptap/core';
+  import type { Editor as TiptapEditor } from '@tiptap/core';
   import StarterKit from '@tiptap/starter-kit';
   import Link from '@tiptap/extension-link';
   import TextAlign from '@tiptap/extension-text-align';
   import Underline from '@tiptap/extension-underline';
   import { CustomImageExtension } from '$sailor/core/editor/extensions/CustomImageExtension';
   import { getFiles } from '$sailor/remote/files.remote.js';
-  import { Button } from '$lib/components/ui/button';
+  import * as Tooltip from '$lib/components/ui/tooltip';
+  import TooltipButton from '$lib/components/sailor/TooltipButton.svelte';
   import { Separator } from '$lib/components/ui/separator';
   import { LinkDialog } from '$lib/components/sailor/dialogs';
   import {
@@ -42,80 +44,151 @@
   } from '$lib/sailor/core/content/content';
   import FilePicker from '$lib/components/sailor/files/file-picker.svelte';
 
-  const { value, placeholder, required, onChange } = $props<{
-    value: string | object; // Can be HTML string or JSON object
+  type EditorMode = 'minimal' | 'compact' | 'full';
+
+  const { value, mode = 'full', placeholder, required, height, maxHeight, onChange }: {
+    value: string | object;
+    mode?: EditorMode;
     placeholder?: string;
     required?: boolean;
+    height?: string;
+    maxHeight?: string;
     onChange: (value: string | object) => void;
-  }>();
+  } = $props();
 
-  let editor = $state() as Editor | undefined;
+  const defaultMinHeight = $derived(
+    mode === 'minimal' ? '60px' : mode === 'compact' ? '120px' : '400px'
+  );
+  const computedMinHeight = $derived(height || defaultMinHeight);
+  const computedMaxHeight = $derived(maxHeight || 'none');
+
+  let editorState = $state<{ editor: TiptapEditor | null }>({ editor: null });
+  const editor = $derived(editorState.editor);
   let element = $state() as HTMLElement;
   let showSource = $state(false);
   let sourceContent = $state('');
   let showLinkDialog = $state(false);
   let currentLinkData = $state(null) as { url: string; text: string; target: string } | null;
   let showImagePicker = $state(false);
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Helper function to get initial content
+  // Sanitize stored HTML: wrap bare text nodes in <p>, drop empty <p>s
+  function sanitizeContent(content: string): string {
+    if (!content || !content.trim()) return '';
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${content}</div>`, 'text/html');
+    const container = doc.body.firstChild as HTMLElement;
+    if (!container) return `<p>${content}</p>`;
+
+    const result: string[] = [];
+    container.childNodes.forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent?.trim();
+        if (text) result.push(`<p>${text}</p>`);
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (el.tagName === 'P' && !el.textContent?.trim()) return;
+        result.push(el.outerHTML);
+      }
+    });
+    return result.join('') || `<p>${content}</p>`;
+  }
+
   function getInitialContent() {
-    // If value is already JSON, convert to HTML for editor
-    if (typeof value === 'object') {
-      // Convert JSON to HTML for TipTap
-      const htmlContent = tiptapJsonToHtml(value);
-      return htmlContent;
+    if (typeof value === 'object') return tiptapJsonToHtml(value);
+    if (typeof value === 'string' && value.trim()) return sanitizeContent(value);
+    return value;
+  }
+
+  function getExtensions() {
+    if (mode === 'minimal') {
+      return [
+        StarterKit.configure({
+          heading: false,
+          bulletList: false,
+          orderedList: false,
+          blockquote: false,
+          codeBlock: false,
+          code: false,
+          horizontalRule: false,
+          link: false,
+          underline: false
+        }),
+        Link.configure({
+          openOnClick: false,
+          HTMLAttributes: { class: 'text-blue-600 underline hover:text-blue-800' }
+        }),
+        Underline
+      ];
     }
 
-    // If value is HTML string, use as is
-    return value;
+    if (mode === 'compact') {
+      return [
+        StarterKit.configure({
+          codeBlock: false,
+          horizontalRule: false,
+          link: false,
+          underline: false
+        }),
+        Link.configure({
+          openOnClick: false,
+          HTMLAttributes: { class: 'text-blue-600 underline hover:text-blue-800' }
+        }),
+        Underline
+      ];
+    }
+
+    // Full
+    return [
+      StarterKit.configure({ link: false, underline: false }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { class: 'text-blue-600 underline hover:text-blue-800' }
+      }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Underline,
+      CustomImageExtension
+    ];
   }
 
   onMount(() => {
     if (!browser) return;
 
-    editor = new Editor({
-      element: element,
-      extensions: [
-        StarterKit.configure({
-          link: false, // We'll configure Link separately
-          underline: false // We'll configure Underline separately
-        }),
-        Link.configure({
-          openOnClick: false,
-          HTMLAttributes: {
-            class: 'text-blue-600 underline hover:text-blue-800'
+    editorState = {
+      editor: new Editor({
+        element,
+        extensions: getExtensions(),
+        content: getInitialContent(),
+        editorProps: {
+          attributes: {
+            class: 'focus:outline-none p-4 prose prose-sm max-w-none'
           }
-        }),
-        TextAlign.configure({
-          types: ['heading', 'paragraph']
-        }),
-        Underline,
-        CustomImageExtension
-      ],
-      content: getInitialContent(),
-      editorProps: {
-        attributes: {
-          class: 'focus:outline-none min-h-[200px] p-4 prose prose-sm max-w-none'
+        },
+        onUpdate: ({ editor: e }) => {
+          if (showSource) return;
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(
+            () => {
+              const htmlContent = e
+                .getHTML()
+                .replace(/<p>\s*<\/p>/g, '')
+                .replace(/<p>\n<\/p>/g, '')
+                .trim();
+              onChange(htmlContent);
+            },
+            mode === 'minimal' ? 300 : 500
+          );
+        },
+        onTransaction: ({ editor: e }) => {
+          editorState = { editor: e };
         }
-      },
-      onUpdate: ({ editor }) => {
-        // Only save as HTML when not in source view mode
-        if (!showSource) {
-          const htmlContent = editor.getHTML();
-          onChange(htmlContent);
-        }
-      },
-      onTransaction: () => {
-        // force re-render so `editor.isActive` works as expected
-        editor = editor;
-      }
-    });
+      })
+    };
   });
 
   onDestroy(() => {
-    if (editor) {
-      editor.destroy();
-    }
+    if (debounceTimer) clearTimeout(debounceTimer);
+    editor?.destroy();
   });
 
   // Toolbar actions
@@ -285,18 +358,14 @@
   async function handleImageSelect(selectedValue: string | string[]) {
     if (typeof selectedValue === 'string' && selectedValue) {
       try {
-        // Get the file data to access the URL
-        const result = await getFiles({
-          ids: [selectedValue],
-          limit: 1
-        });
+        const result = await getFiles({ ids: [selectedValue], limit: 1 }).run();
 
         if (result.success && (result as any).files && (result as any).files.length > 0) {
           const file = (result as any).files[0];
           editor
             ?.chain()
             .focus()
-            .setCustomImage({ src: file.url, alt: file.label, alignment: 'none' })
+            .setCustomImage({ src: file.url, alt: file.name || '', alignment: 'none' })
             .run();
         }
       } catch (error) {
@@ -307,256 +376,271 @@
   }
 </script>
 
+<Tooltip.Provider delayDuration={200}>
 <div class="space-y-2">
   <!-- Unified editor container with border around both toolbar and content -->
-  <div class="bg-background rounded-md border">
+  <div class="bg-input-bg border-input rounded-lg border">
     <!-- Static toolbar for basic formatting -->
-    <div class="bg-muted/30 flex flex-wrap items-center justify-between gap-0.5 border-b p-1.5">
+    <div
+      class="border-input flex flex-wrap items-center justify-between gap-0.5 border-b p-1.5"
+    >
       <div class="flex items-center gap-0.5">
-        <Button
+        <TooltipButton
           type="button"
           variant="ghost"
           size="sm"
           class={cn('h-7 w-7 p-0', editor?.isActive('bold') && 'bg-accent')}
           onclick={toggleBold}
-          title="Bold"
+          tooltip="Bold"
         >
           <Bold class="h-3.5 w-3.5" />
-        </Button>
-        <Button
+        </TooltipButton>
+        <TooltipButton
           type="button"
           variant="ghost"
           size="sm"
           class={cn('h-7 w-7 p-0', editor?.isActive('italic') && 'bg-accent')}
           onclick={toggleItalic}
-          title="Italic"
+          tooltip="Italic"
         >
           <Italic class="h-3.5 w-3.5" />
-        </Button>
-        <Button
+        </TooltipButton>
+        <TooltipButton
           type="button"
           variant="ghost"
           size="sm"
           class={cn('h-7 w-7 p-0', editor?.isActive('underline') && 'bg-accent')}
           onclick={toggleUnderline}
-          title="Underline"
+          tooltip="Underline"
         >
           <UnderlineIcon class="h-3.5 w-3.5" />
-        </Button>
-        <Button
+        </TooltipButton>
+        <TooltipButton
           type="button"
           variant="ghost"
           size="sm"
           class={cn('h-7 w-7 p-0', editor?.isActive('strike') && 'bg-accent')}
           onclick={toggleStrike}
-          title="Strikethrough"
+          tooltip="Strikethrough"
         >
           <Strikethrough class="h-3.5 w-3.5" />
-        </Button>
+        </TooltipButton>
+
+        {#if mode !== 'minimal'}
+          <Separator orientation="vertical" class="h-5" />
+
+          {#if mode === 'full'}
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 1 }) && 'bg-accent')}
+              onclick={() => setHeading(1)}
+              tooltip="Heading 1"
+            >
+              <Heading1 class="h-3.5 w-3.5" />
+            </TooltipButton>
+          {/if}
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 2 }) && 'bg-accent')}
+            onclick={() => setHeading(2)}
+            tooltip="Heading 2"
+          >
+            <Heading2 class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 3 }) && 'bg-accent')}
+            onclick={() => setHeading(3)}
+            tooltip="Heading 3"
+          >
+            <Heading3 class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 4 }) && 'bg-accent')}
+            onclick={() => setHeading(4)}
+            tooltip="Heading 4"
+          >
+            <Heading4 class="h-3.5 w-3.5" />
+          </TooltipButton>
+          {#if mode === 'full'}
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 5 }) && 'bg-accent')}
+              onclick={() => setHeading(5)}
+              tooltip="Heading 5"
+            >
+              <Heading5 class="h-3.5 w-3.5" />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 6 }) && 'bg-accent')}
+              onclick={() => setHeading(6)}
+              tooltip="Heading 6"
+            >
+              <Heading6 class="h-3.5 w-3.5" />
+            </TooltipButton>
+          {/if}
+
+          <Separator orientation="vertical" class="h-5" />
+
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('bulletList') && 'bg-accent')}
+            onclick={toggleBulletList}
+            tooltip="Bullet List"
+          >
+            <List class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('orderedList') && 'bg-accent')}
+            onclick={toggleOrderedList}
+            tooltip="Numbered List"
+          >
+            <ListOrdered class="h-3.5 w-3.5" />
+          </TooltipButton>
+
+          <Separator orientation="vertical" class="h-5" />
+
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('blockquote') && 'bg-accent')}
+            onclick={toggleBlockquote}
+            tooltip="Blockquote"
+          >
+            <Quote class="h-3.5 w-3.5" />
+          </TooltipButton>
+
+          <Separator orientation="vertical" class="h-5" />
+
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('code') && 'bg-accent')}
+            onclick={toggleCode}
+            tooltip="Inline Code"
+          >
+            <Code class="h-3.5 w-3.5" />
+          </TooltipButton>
+        {/if}
+
+        {#if mode === 'full'}
+          <Separator orientation="vertical" class="h-5" />
+
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="h-7 w-7 p-0"
+            onclick={openImagePicker}
+            tooltip="Insert Image"
+          >
+            <ImageIcon class="h-3.5 w-3.5" />
+          </TooltipButton>
+
+          <Separator orientation="vertical" class="h-5" />
+
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'left' }) && 'bg-accent')}
+            onclick={() => setTextAlign('left')}
+            tooltip="Align Left"
+          >
+            <AlignLeft class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'center' }) && 'bg-accent')}
+            onclick={() => setTextAlign('center')}
+            tooltip="Align Center"
+          >
+            <AlignCenter class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'right' }) && 'bg-accent')}
+            onclick={() => setTextAlign('right')}
+            tooltip="Align Right"
+          >
+            <AlignRight class="h-3.5 w-3.5" />
+          </TooltipButton>
+        {/if}
 
         <Separator orientation="vertical" class="h-5" />
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 1 }) && 'bg-accent')}
-          onclick={() => setHeading(1)}
-          title="Heading 1"
-        >
-          <Heading1 class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 2 }) && 'bg-accent')}
-          onclick={() => setHeading(2)}
-          title="Heading 2"
-        >
-          <Heading2 class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 3 }) && 'bg-accent')}
-          onclick={() => setHeading(3)}
-          title="Heading 3"
-        >
-          <Heading3 class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 4 }) && 'bg-accent')}
-          onclick={() => setHeading(4)}
-          title="Heading 4"
-        >
-          <Heading4 class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 5 }) && 'bg-accent')}
-          onclick={() => setHeading(5)}
-          title="Heading 5"
-        >
-          <Heading5 class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 6 }) && 'bg-accent')}
-          onclick={() => setHeading(6)}
-          title="Heading 6"
-        >
-          <Heading6 class="h-3.5 w-3.5" />
-        </Button>
-
-        <Separator orientation="vertical" class="h-5" />
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('bulletList') && 'bg-accent')}
-          onclick={toggleBulletList}
-          title="Bullet List"
-        >
-          <List class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('orderedList') && 'bg-accent')}
-          onclick={toggleOrderedList}
-          title="Numbered List"
-        >
-          <ListOrdered class="h-3.5 w-3.5" />
-        </Button>
-
-        <Separator orientation="vertical" class="h-5" />
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('blockquote') && 'bg-accent')}
-          onclick={toggleBlockquote}
-          title="Blockquote"
-        >
-          <Quote class="h-3.5 w-3.5" />
-        </Button>
-
-        <Separator orientation="vertical" class="h-5" />
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('code') && 'bg-accent')}
-          onclick={toggleCode}
-          title="Inline Code"
-        >
-          <Code class="h-3.5 w-3.5" />
-        </Button>
-
-        <Separator orientation="vertical" class="h-5" />
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class="h-7 w-7 p-0"
-          onclick={openImagePicker}
-          title="Insert Image"
-        >
-          <ImageIcon class="h-3.5 w-3.5" />
-        </Button>
-
-        <Separator orientation="vertical" class="h-5" />
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'left' }) && 'bg-accent')}
-          onclick={() => setTextAlign('left')}
-          title="Align Left"
-        >
-          <AlignLeft class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'center' }) && 'bg-accent')}
-          onclick={() => setTextAlign('center')}
-          title="Align Center"
-        >
-          <AlignCenter class="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'right' }) && 'bg-accent')}
-          onclick={() => setTextAlign('right')}
-          title="Align Right"
-        >
-          <AlignRight class="h-3.5 w-3.5" />
-        </Button>
-
-        <Separator orientation="vertical" class="h-5" />
-
-        <Button
+        <TooltipButton
           type="button"
           variant="ghost"
           size="sm"
           class={cn('h-7 w-7 p-0', editor?.isActive('link') && 'bg-accent')}
           onclick={addLink}
-          title="Add Link"
+          tooltip="Add Link"
         >
           <LinkIcon class="h-3.5 w-3.5" />
-        </Button>
+        </TooltipButton>
         {#if editor?.isActive('link')}
-          <Button
+          <TooltipButton
             type="button"
             variant="ghost"
             size="sm"
             class="h-7 w-7 p-0"
             onclick={removeLink}
-            title="Remove Link"
+            tooltip="Remove Link"
           >
             <Link2 class="h-3.5 w-3.5" />
-          </Button>
+          </TooltipButton>
         {/if}
       </div>
 
-      <Button
+      <TooltipButton
         type="button"
         variant="ghost"
         size="sm"
         class={cn('h-7 w-7 p-0', showSource && 'bg-accent')}
         onclick={toggleSourceView}
-        title="Toggle Source View"
+        tooltip="Toggle Source View"
       >
         <Eye class="h-3.5 w-3.5" />
-      </Button>
+      </TooltipButton>
     </div>
 
     <!-- Editor content area -->
-    <div class="min-h-[200px]">
+    <div
+      class="resize-y overflow-auto"
+      style="min-height: {computedMinHeight}; max-height: {computedMaxHeight}; height: {computedMinHeight};"
+    >
       {#if showSource}
         <textarea
           bind:value={sourceContent}
           oninput={updateSourceContent}
-          class="min-h-[200px] w-full resize-none border-0 bg-transparent p-4 font-mono text-sm outline-none"
+          class="w-full resize-none border-0 bg-transparent p-4 font-mono text-sm outline-none"
+          style="min-height: {computedMinHeight};"
           placeholder="Enter HTML content..."
         ></textarea>
       {:else if browser}
@@ -571,6 +655,7 @@
     </div>
   {/if}
 </div>
+</Tooltip.Provider>
 
 <!-- Link Dialog -->
 <LinkDialog
@@ -588,6 +673,7 @@
   fileType="image"
   multiple={false}
   open={showImagePicker}
+  selectOnRowClick={true}
   onSelect={handleImageSelect}
   onOpenChange={(isOpen) => (showImagePicker = isOpen)}
 />
@@ -596,8 +682,7 @@
   /* TipTap Editor Content Styling */
   :global(.ProseMirror) {
     outline: none;
-    min-height: 200px;
-    height: 100%;
+    min-height: 100%;
     padding: 1rem;
   }
 

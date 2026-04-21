@@ -77,11 +77,7 @@ export class S3StorageService {
       Key: key,
       Body: buffer,
       ContentType: file.type,
-      ACL: 'public-read', // Make the file publicly accessible
-      Metadata: {
-        originalName: file.name,
-        uploadedAt: new Date().toISOString()
-      }
+      ACL: 'public-read'
     });
 
     try {

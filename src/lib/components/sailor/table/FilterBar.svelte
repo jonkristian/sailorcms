@@ -35,13 +35,13 @@
     hasActiveFilters: boolean;
   }
 
-  const { config, tableFilters } = $props<{
+  const { config, tableFilters }: {
     config: FilterConfig;
     tableFilters?: FilterState;
-  }>();
+  } = $props();
 
   // Multi-select state for comboboxes
-  let openComboboxes = $state<Record<string, boolean>>({});
+  let openComboboxes: Record<string, boolean> = $state({});
 
   // Ensure combobox open state is initialized to a boolean for all multiSelect keys
   $effect(() => {
@@ -55,7 +55,7 @@
   });
 
   // Local state for single-select values to work seamlessly with Select's bind:value
-  let selectValues = $state<Record<string, string>>({});
+  let selectValues: Record<string, string> = $state({});
 
   // Initialize local select values from filters on mount/changes
   $effect(() => {

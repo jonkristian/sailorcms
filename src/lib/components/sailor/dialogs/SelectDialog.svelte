@@ -18,7 +18,7 @@
     items = [] as SelectItem[],
     selected = $bindable('' as string),
     onConfirm
-  } = $props<{
+  }: {
     open: boolean;
     title?: string;
     description?: string;
@@ -27,7 +27,7 @@
     items: SelectItem[];
     selected?: string;
     onConfirm?: (value: string) => void;
-  }>();
+  } = $props();
 
   function handleConfirm() {
     if (!selected) return;

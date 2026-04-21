@@ -18,20 +18,24 @@
   import { getDisplayTitle } from '$lib/sailor/core/content/display';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { useUnsavedChanges } from '$sailor/core/hooks/unsaved-changes.svelte';
-  import { ExitWarningDialog } from '$lib/components/sailor/dialogs';
+  import { untrack } from 'svelte';
 
   const { data } = $props();
 
   const unsavedChanges = useUnsavedChanges();
 
-  let formData = $state({
-    ...(data.page || {}),
-    title: data.page?.title || '',
-    slug: data.page?.slug || '',
-    status: data.page?.status || 'draft',
-    meta_title: data.page?.meta_title || '',
-    meta_description: data.page?.meta_description || ''
-  } as Record<string, any>);
+  function buildFormData(page: any): Record<string, any> {
+    return {
+      ...(page || {}),
+      title: page?.title || '',
+      slug: page?.slug || '',
+      status: page?.status || 'draft',
+      meta_title: page?.meta_title || '',
+      meta_description: page?.meta_description || ''
+    };
+  }
+
+  let formData: Record<string, any> = $state(untrack(() => buildFormData(data.page)));
 
   let submitting = $state(false);
 
@@ -98,6 +102,9 @@
         userChanges = {};
         blocksChanged = false;
         await invalidateAll();
+        // Re-hydrate form state from refreshed server data so server-side mutations
+        // (auto-suffixed slug, generated fields, etc.) aren't overwritten by stale local state
+        formData = buildFormData(data.page);
       } else {
         toast.error(result.error || 'Failed to save collection');
       }
@@ -111,10 +118,11 @@
 
   let showBlockSelector = $state(false);
   let blockStates = $state(new Map<string, boolean>()); // For collapsible state
-  let selectedBlocks = $state<Set<string>>(new Set()); // For selection state
+  let selectedBlocks: Set<string> = $state(new Set()); // For selection state
 
   // Initialize blocks from data
   let blocks = $state(
+    // svelte-ignore state_referenced_locally
     (data.page?.blocks || []).map((block: any) => {
       // Convert the new structure to the format expected by the UI
       const blockData = block.data;
@@ -186,7 +194,7 @@
   );
 
   // Initialize available blocks from data
-  let availableBlocks = data.availableBlocks || [];
+  let availableBlocks = $derived(data.availableBlocks || []);
 
   // Create drag-and-drop data
   let dragDropData = $derived(
@@ -203,7 +211,7 @@
   );
 
   // Track form changes for unsaved changes warning
-  let userChanges = $state<Record<string, any>>({});
+  let userChanges: Record<string, any> = $state({});
   let blocksChanged = $state(false);
 
   $effect(() => {
@@ -857,9 +865,3 @@
   </DialogContent>
 </Dialog>
 
-<!-- Exit Warning Dialog -->
-<ExitWarningDialog
-  bind:open={unsavedChanges.showDialog}
-  onConfirm={unsavedChanges.confirmExit}
-  onCancel={unsavedChanges.cancelExit}
-/>

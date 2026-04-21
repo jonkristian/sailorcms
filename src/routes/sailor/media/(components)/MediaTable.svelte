@@ -14,14 +14,14 @@
     authorName?: string | null;
   };
 
-  let { files, selectedItems, onSelect, onSelectAll, onEdit, onDelete } = $props<{
+  let { files, selectedItems, onSelect, onSelectAll, onEdit, onDelete }: {
     files: FileWithTags[];
     selectedItems: string[];
     onSelect: (id: string) => void;
     onSelectAll: (selected: boolean) => void;
     onEdit: (file: FileWithTags) => void;
     onDelete: (id: string) => void;
-  }>();
+  } = $props();
 
   // Define columns for DataTable
   const columns = [

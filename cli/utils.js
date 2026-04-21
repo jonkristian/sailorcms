@@ -6,6 +6,28 @@ import { fileURLToPath, pathToFileURL } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Remove files/dirs in `tgtDir` that no longer exist in `srcDir`. Recurses into
+// matching subdirs. Any entry name in `skip` is left untouched in the target.
+async function cleanDir(srcDir, tgtDir, skip = []) {
+  if (!(await fs.pathExists(tgtDir))) return;
+  const srcEntries = (await fs.pathExists(srcDir)) ? new Set(await fs.readdir(srcDir)) : new Set();
+  const tgtEntries = await fs.readdir(tgtDir);
+  for (const entry of tgtEntries) {
+    if (skip.includes(entry)) continue;
+    const srcPath = path.join(srcDir, entry);
+    const tgtPath = path.join(tgtDir, entry);
+    if (!srcEntries.has(entry)) {
+      await fs.remove(tgtPath);
+      console.log(`🧹 Removed obsolete: ${tgtPath}`);
+      continue;
+    }
+    const stat = await fs.stat(tgtPath);
+    if (stat.isDirectory()) {
+      await cleanDir(srcPath, tgtPath);
+    }
+  }
+}
+
 export async function setupSailorFiles(targetDir, force = false) {
   const mainProjectDir = path.join(__dirname, '..');
   const targetSrcDir = path.join(targetDir, 'src');
@@ -138,63 +160,19 @@ export async function updateSailorCoreFiles(targetDir) {
     });
     console.log('📝 Updated sailor core files');
 
-    // CLEANUP: Remove files/folders in targetSailorDir that do not exist in mainSailorDir (except templates)
-    const cleanDir = async (srcDir, tgtDir, skip = []) => {
-      const srcEntries = new Set(await fs.readdir(srcDir));
-      const tgtEntries = await fs.readdir(tgtDir);
-      for (const entry of tgtEntries) {
-        if (skip.includes(entry)) continue;
-        const srcPath = path.join(srcDir, entry);
-        const tgtPath = path.join(tgtDir, entry);
-        const existsInSrc = srcEntries.has(entry);
-        if (!existsInSrc) {
-          await fs.remove(tgtPath);
-          console.log(`🧹 Removed obsolete: ${tgtPath}`);
-        } else {
-          // If directory, recurse
-          const stat = await fs.stat(tgtPath);
-          if (stat.isDirectory()) {
-            await cleanDir(
-              srcPath,
-              tgtPath,
-              entry === 'templates' ? await fs.readdir(tgtPath) : []
-            );
-          }
-        }
-      }
-    };
+    // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
     await cleanDir(mainSailorDir, targetSailorDir, ['templates', 'generated']);
   }
 
-  // Update components (only clean up ui subfolder)
+  // Update components — CMS-managed subfolders (ui/ and sailor/) get cleaned so
+  // files removed from the reference are also removed on update. Any other user
+  // subfolders under components/ are left alone.
   const mainComponentsDir = path.join(mainProjectDir, 'src', 'lib', 'components');
   const targetComponentsDir = path.join(targetLibDir, 'components');
   if (await fs.pathExists(mainComponentsDir)) {
     await fs.copy(mainComponentsDir, targetComponentsDir, { overwrite: true });
-    // CLEANUP: Only remove files/folders in targetComponentsDir/ui that do not exist in mainComponentsDir/ui
-    const mainUiDir = path.join(mainComponentsDir, 'ui');
-    const targetUiDir = path.join(targetComponentsDir, 'ui');
-    if ((await fs.pathExists(mainUiDir)) && (await fs.pathExists(targetUiDir))) {
-      const cleanDir = async (srcDir, tgtDir) => {
-        const srcEntries = new Set(await fs.readdir(srcDir));
-        const tgtEntries = await fs.readdir(tgtDir);
-        for (const entry of tgtEntries) {
-          const srcPath = path.join(srcDir, entry);
-          const tgtPath = path.join(tgtDir, entry);
-          const existsInSrc = srcEntries.has(entry);
-          if (!existsInSrc) {
-            await fs.remove(tgtPath);
-            console.log(`🧹 Removed obsolete: ${tgtPath}`);
-          } else {
-            // If directory, recurse
-            const stat = await fs.stat(tgtPath);
-            if (stat.isDirectory()) {
-              await cleanDir(srcPath, tgtPath);
-            }
-          }
-        }
-      };
-      await cleanDir(mainUiDir, targetUiDir);
+    for (const sub of ['ui', 'sailor']) {
+      await cleanDir(path.join(mainComponentsDir, sub), path.join(targetComponentsDir, sub));
     }
   }
 
@@ -226,6 +204,8 @@ export async function updateRoutes(targetDir) {
     const mainSailorRoutesDir = path.join(mainProjectRoutesDir, 'sailor');
     if (await fs.pathExists(mainSailorRoutesDir)) {
       await fs.copy(mainSailorRoutesDir, sailorRoutesDir, { overwrite: true });
+      // Remove route files that no longer exist in the reference
+      await cleanDir(mainSailorRoutesDir, sailorRoutesDir);
     }
   }
 }

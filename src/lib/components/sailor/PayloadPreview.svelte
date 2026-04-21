@@ -16,7 +16,7 @@
     open = $bindable(false),
     initialPayload = $bindable<unknown | null>(null),
     fields = $bindable<Record<string, any>>({})
-  } = $props<{
+  }: {
     type?: 'collection' | 'global' | 'settings';
     id: string;
     slug?: string;
@@ -25,12 +25,12 @@
     open?: boolean;
     initialPayload?: unknown | null;
     fields?: Record<string, any>;
-  }>();
+  } = $props();
 
-  let highlightedPayload = $state<string>('');
-  let rawPayload = $state<string>('');
-  let parsedData = $state<any>(null);
-  let error = $state<string | null>(null);
+  let highlightedPayload: string = $state('');
+  let rawPayload: string = $state('');
+  let parsedData: any = $state(null);
+  let error: string | null = $state(null);
   let loading = $state(false);
 
   /**

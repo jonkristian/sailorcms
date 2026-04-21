@@ -8,19 +8,18 @@
   import { Separator } from '$lib/components/ui/separator';
   import { formatDetailedDate } from '$sailor/core/utils/date';
   import { useUnsavedChanges } from '$sailor/core/hooks/unsaved-changes.svelte';
-  import { ExitWarningDialog } from '$lib/components/sailor/dialogs';
   import {
     updateFlatGlobal,
     updateRepeatableGlobal,
     updateRelationalGlobal
   } from '../../data.remote.js';
 
-  const { data } = $props<{ data: any }>();
+  const { data }: { data: any } = $props();
 
   const unsavedChanges = useUnsavedChanges();
 
   // User changes to form data
-  let userChanges = $state<Record<string, any>>({});
+  let userChanges: Record<string, any> = $state({});
 
   // Get current value for a field (user changes or server data)
   function getFieldValue(fieldKey: string) {
@@ -145,20 +144,28 @@
   }
 
   // Organize fields by position, excluding hidden fields
-  const allFields = Object.entries(data.global.fields).filter(
-    ([_, field]) => !(field as any).hidden
+  let allFields = $derived(
+    Object.entries(data.global.fields).filter(([_, field]) => !(field as any).hidden)
   );
 
-  const mainFields = allFields.filter(
-    ([_, field]) => (field as any).position === 'main' || (field as any).type === 'array'
+  let mainFields = $derived(
+    allFields.filter(
+      ([_, field]) => (field as any).position === 'main' || (field as any).type === 'array'
+    )
   );
-  const sidebarFields = allFields.filter(
-    ([_, field]) =>
-      (field as any).position === 'sidebar' ||
-      (!(field as any).position && (field as any).type !== 'array')
+  let sidebarFields = $derived(
+    allFields.filter(
+      ([_, field]) =>
+        (field as any).position === 'sidebar' ||
+        (!(field as any).position && (field as any).type !== 'array')
+    )
   );
-  const headerFields = allFields.filter(([_, field]) => (field as any).position === 'header');
-  const footerFields = allFields.filter(([_, field]) => (field as any).position === 'footer');
+  let headerFields = $derived(
+    allFields.filter(([_, field]) => (field as any).position === 'header')
+  );
+  let footerFields = $derived(
+    allFields.filter(([_, field]) => (field as any).position === 'footer')
+  );
 
   // Track form changes for unsaved changes warning
   $effect(() => {
@@ -364,9 +371,3 @@
   </form>
 </div>
 
-<!-- Exit Warning Dialog -->
-<ExitWarningDialog
-  bind:open={unsavedChanges.showDialog}
-  onConfirm={unsavedChanges.confirmExit}
-  onCancel={unsavedChanges.cancelExit}
-/>

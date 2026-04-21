@@ -2,11 +2,14 @@
   let { data } = $props();
 
   // Extract site settings with fallbacks
-  const siteName = data.siteSettings?.siteName || 'Sailor CMS';
-  const siteDescription =
-    data.siteSettings?.siteDescription || 'Your modern content management system.';
-  const contactEmail: string | undefined = data.siteSettings?.contactEmail;
-  const socialMedia: Array<{ title: string; url: string }> = data.siteSettings?.socialMedia || [];
+  let siteName = $derived(data.siteSettings?.siteName || 'Sailor CMS');
+  let siteDescription = $derived(
+    data.siteSettings?.siteDescription || 'Your modern content management system.'
+  );
+  let contactEmail: string | undefined = $derived(data.siteSettings?.contactEmail);
+  let socialMedia: Array<{ title: string; url: string }> = $derived(
+    data.siteSettings?.socialMedia || []
+  );
 
   // Helper function to get social media icon
   function getSocialIcon(title: string) {

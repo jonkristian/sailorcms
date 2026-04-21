@@ -4,13 +4,13 @@
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
-  import { Card, CardContent, CardFooter } from '$lib/components/ui/card';
+  import { Card, CardContent } from '$lib/components/ui/card';
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { AlertCircle } from '@lucide/svelte';
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
   import PasswordStrength from '$lib/components/sailor/PasswordStrength.svelte';
 
-  let { data } = $props<{ hasGitHubOAuth: boolean }>();
+  let { data }: { data: { hasGitHubOAuth: boolean } } = $props();
   let email = $state('');
   let name = $state('');
   let password = $state('');
@@ -181,11 +181,11 @@
               <p class="text-xs text-red-500">Passwords do not match</p>
             {/if}
           </div>
-          <CardFooter class="flex justify-between px-0 pt-4">
+          <div class="flex justify-between pt-4">
             <Button type="submit" class="w-full" disabled={loading}>
               {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
-          </CardFooter>
+          </div>
         </div>
       </form>
     </CardContent>

@@ -2,7 +2,7 @@
  * Composable for managing bulk selection state and handlers
  */
 export function useBulkSelection<T extends { id: string }>(itemsOrGetter: T[] | (() => T[])) {
-  let selectedItems = $state<string[]>([]);
+  let selectedItems: string[] = $state([]);
 
   const items = $derived(typeof itemsOrGetter === 'function' ? itemsOrGetter() : itemsOrGetter);
 

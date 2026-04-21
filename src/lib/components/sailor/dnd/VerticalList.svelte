@@ -1,15 +1,15 @@
 <script lang="ts">
   import { flip } from 'svelte/animate';
 
-  let { items, onItemsChange, children } = $props<{
+  let { items, onItemsChange, children }: {
     items: Array<{ id: string; [key: string]: any }>;
     onItemsChange?: (items: Array<{ id: string; [key: string]: any }>) => void;
     children: any;
-  }>();
+  } = $props();
 
   // Drag state
-  let draggedIndex = $state<number>(-1);
-  let dragOverIndex = $state<number>(-1);
+  let draggedIndex: number = $state(-1);
+  let dragOverIndex: number = $state(-1);
 
   // Drag handlers
   function handleDragStart(event: DragEvent, index: number) {

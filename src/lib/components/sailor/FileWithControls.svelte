@@ -20,7 +20,7 @@
     dragHandleAttributes = {},
     class: className = '',
     ...restProps
-  } = $props<{
+  }: {
     src: string;
     alt?: string;
     filename?: string;
@@ -38,7 +38,7 @@
     dragHandleAttributes?: Record<string, any>;
     class?: string;
     [key: string]: any;
-  }>();
+  } = $props();
 
   async function handleCopy() {
     if (onCopy) {

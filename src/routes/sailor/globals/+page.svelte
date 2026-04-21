@@ -12,7 +12,7 @@
   import { ArrowRight } from '@lucide/svelte';
   import Header from '$lib/components/sailor/Header.svelte';
 
-  const { data } = $props<{ data: PageData }>();
+  const { data }: { data: PageData } = $props();
 
   const getGlobalType = (global: any) => {
     if (global.options?.singleton) return 'Singleton';

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import * as Sheet from '$lib/components/ui/sheet';
   import { Button } from '$lib/components/ui/button';
   import {
@@ -13,6 +14,7 @@
   } from '@lucide/svelte';
   import { cn } from '$lib/sailor/utils';
   import * as Table from '$lib/components/ui/table';
+  import { Checkbox } from '$lib/components/ui/checkbox';
   import * as Pagination from '$lib/components/ui/pagination';
   import { formatDate } from '$sailor/core/utils/date';
   import { formatFileSize } from '$sailor/core/files/file';
@@ -31,27 +33,33 @@
     fileType = 'document',
     multiple = false,
     open = $bindable(false),
+    selectOnRowClick = false,
     onSelect,
     onOpenChange = (isOpen: boolean) => (open = isOpen)
-  } = $props<{
+  }: {
     value?: string | string[];
     onSelect?: (value: string | string[]) => void;
     fileType?: 'image' | 'document' | 'all';
     multiple?: boolean;
     open?: boolean;
+    selectOnRowClick?: boolean;
     onOpenChange?: (open: boolean) => void;
-  }>();
+  } = $props();
 
   let searchInput = $state('');
   let searchQuery = $state('');
   let currentPage = $state(1);
-  let previewFile = $state<FileType | null>(null);
+  let previewFile: FileType | null = $state(null);
+  let focusedIndex: number | null = $state(null);
   let uploadLoading = $state(false);
-  let refreshTrigger = $state(0); // Force refresh when incremented
 
-  // Upload progress state
+  let files: FileType[] = $state([]);
+  let loading = $state(false);
+  let totalCount = $state(0);
+  let totalPages = $state(1);
+
   let uploadProgressOpen = $state(false);
-  let uploadFilesList = $state<
+  let uploadFilesList:
     Array<{
       name: string;
       size: number;
@@ -59,47 +67,55 @@
       progress: number;
       error?: string;
     }>
-  >([]);
+   = $state([]);
 
   let itemsPerPage = $state(20);
 
-  // Reactive query - directly call the remote function as shown in SvelteKit docs
-  const filesQuery = $derived(
-    open && refreshTrigger >= 0 // Include refreshTrigger to force refresh when files are uploaded
-      ? getFiles({
-          limit: itemsPerPage,
-          offset: (currentPage - 1) * itemsPerPage,
-          type: fileType,
-          search: searchQuery || undefined
-        })
-      : Promise.resolve({ success: false, files: [], total: 0 })
-  );
-
-  // Selected files state management - like FileField does it
-  let selectedFiles = $state<any[]>([]);
-
-  // Load selected files when value changes
-  $effect(() => {
-    const currentValues = Array.isArray(value) ? value : value ? [value] : [];
-    if (currentValues.length === 0) {
-      selectedFiles = [];
-      return;
-    }
-
-    // Load files asynchronously
-    getFiles({ ids: currentValues })
-      .then((result) => {
-        if (result.success && result.files) {
-          // Order files according to the value array
-          selectedFiles = currentValues
-            .map((id) => result.files?.find((f) => f.id === id))
-            .filter(Boolean);
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to load selected files:', error);
-        selectedFiles = [];
+  async function loadFiles() {
+    loading = true;
+    focusedIndex = null;
+    previewFile = null;
+    try {
+      const result = await getFiles({
+        limit: itemsPerPage,
+        offset: (currentPage - 1) * itemsPerPage,
+        type: fileType,
+        search: searchQuery || undefined
       });
+      if (result.success) {
+        files = (result.files || []) as FileType[];
+        totalCount = result.total || 0;
+        totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
+      } else {
+        files = [];
+        totalCount = 0;
+        totalPages = 1;
+      }
+    } catch (error) {
+      console.error('Failed to load files:', error);
+      files = [];
+      totalCount = 0;
+      totalPages = 1;
+    } finally {
+      loading = false;
+    }
+  }
+
+  $effect(() => {
+    if (browser && open) {
+      loadFiles();
+    }
+  });
+
+  const selectedValues = $derived(Array.isArray(value) ? value : value ? [value] : []);
+
+  const selectedFiles: any[] = $derived.by(() => {
+    if (selectedValues.length === 0) return [];
+    const result = getFiles({ ids: selectedValues }).current;
+    if (!result?.success || !result.files) return [];
+    return selectedValues
+      .map((id) => result.files?.find((f: any) => f.id === id))
+      .filter(Boolean);
   });
 
   function handleSelect(selectedValue: string | string[]) {
@@ -136,15 +152,16 @@
     debouncedSearch(target.value);
   }
 
-  // Update the debounced search to trigger server-side search
   const debouncedSearch = debounce((value: string) => {
     searchQuery = value.trim();
-    currentPage = 1; // Reset to first page when searching
+    currentPage = 1;
+    loadFiles();
   }, 500);
 
   function handlePageChange(page: number) {
-    if (page >= 1) {
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
       currentPage = page;
+      loadFiles();
     }
   }
 
@@ -169,15 +186,6 @@
       console.error('Failed to copy filename:', err);
     }
   }
-
-  // Reset pagination when search query changes
-  let previousSearchQuery = $state('');
-  $effect(() => {
-    if (searchQuery !== previousSearchQuery) {
-      currentPage = 1;
-      previousSearchQuery = searchQuery;
-    }
-  });
 
   async function handleFileUpload(fileList: FileList) {
     if (uploadLoading) return;
@@ -219,21 +227,24 @@
           const allSuccessful = results.every((r: any) => r.result?.success);
 
           if (allSuccessful) {
-            // Auto-select if it's a single file upload in single mode
-            if (!multiple && results.length === 1) {
-              const file = results[0].result?.files?.[0];
-              if (file) {
-                handleSelect(file.id);
-              }
+            const uploaded = results
+              .flatMap((r: any) => r.result?.files ?? [])
+              .filter((f: any) => f && f.id) as FileType[];
+            if (uploaded.length > 0) {
+              const existingIds = new Set(files.map((f) => f.id));
+              const newOnly = uploaded.filter((f) => !existingIds.has(f.id));
+              files = [...newOnly, ...files];
+              totalCount += newOnly.length;
+              totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
             }
 
-            // Close upload progress dialog after a short delay, but keep file picker open
+            if (!multiple && uploaded.length === 1) {
+              handleSelect(uploaded[0].id);
+            }
+
             setTimeout(() => {
               uploadProgressOpen = false;
               uploadLoading = false;
-              // Trigger refresh of file list to show newly uploaded files
-              refreshTrigger++;
-              // Note: File picker stays open so user can see the uploaded files and select more if needed
             }, 1500);
           } else {
             // If some uploads failed, reset loading state immediately
@@ -269,6 +280,7 @@
   }
 </script>
 
+{#if browser}
 <Sheet.Root {open} onOpenChange={handleSheetOpenChange}>
   <Sheet.Content side="bottom" class="flex h-[55vh] flex-col gap-0 p-0">
     <Sheet.Header class="flex-shrink-0 border-b px-4 py-4">
@@ -312,7 +324,8 @@
               value={itemsPerPage.toString()}
               onValueChange={(value) => {
                 itemsPerPage = Number(value);
-                currentPage = 1; // Reset to first page when changing page size
+                currentPage = 1;
+                loadFiles();
               }}
             >
               <Select.Trigger size="sm" class="w-16" id="file-rows-per-page">
@@ -328,61 +341,57 @@
             </Select.Root>
           </div>
           <div class="flex items-center">
-            {#await filesQuery then result}
-              {@const totalCount = result.success ? result.total || 0 : 0}
-              {@const totalPages = Math.ceil(totalCount / itemsPerPage)}
-              <Pagination.Root
-                count={totalCount}
-                perPage={itemsPerPage}
-                page={currentPage}
-                onPageChange={handlePageChange}
-              >
-                <Pagination.Content class="!justify-start">
-                  <Pagination.Item>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      class="h-9 w-9"
-                      disabled={currentPage === 1 || totalPages <= 1}
-                      onclick={() => handlePageChange(currentPage - 1)}
-                    >
-                      <ChevronLeft class="h-4 w-4" />
-                    </Button>
-                  </Pagination.Item>
+            <Pagination.Root
+              count={totalCount}
+              perPage={itemsPerPage}
+              page={currentPage}
+              onPageChange={handlePageChange}
+            >
+              <Pagination.Content class="!justify-start">
+                <Pagination.Item>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    class="h-9 w-9"
+                    disabled={currentPage === 1 || totalPages <= 1}
+                    onclick={() => handlePageChange(currentPage - 1)}
+                  >
+                    <ChevronLeft class="h-4 w-4" />
+                  </Button>
+                </Pagination.Item>
 
-                  {#each getVisiblePages(currentPage, totalPages) as page, index (index)}
-                    {#if page === '...'}
-                      <Pagination.Item>
-                        <span class="px-2">...</span>
-                      </Pagination.Item>
-                    {:else}
-                      <Pagination.Item>
-                        <Button
-                          variant={currentPage === page ? 'default' : 'outline'}
-                          size="sm"
-                          class="h-9 w-9"
-                          onclick={() => typeof page === 'number' && handlePageChange(page)}
-                        >
-                          {page}
-                        </Button>
-                      </Pagination.Item>
-                    {/if}
-                  {/each}
+                {#each getVisiblePages(currentPage, totalPages) as page, index (index)}
+                  {#if page === '...'}
+                    <Pagination.Item>
+                      <span class="px-2">...</span>
+                    </Pagination.Item>
+                  {:else}
+                    <Pagination.Item>
+                      <Button
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        class="h-9 w-9"
+                        onclick={() => typeof page === 'number' && handlePageChange(page)}
+                      >
+                        {page}
+                      </Button>
+                    </Pagination.Item>
+                  {/if}
+                {/each}
 
-                  <Pagination.Item>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      class="h-9 w-9"
-                      disabled={currentPage === totalPages || totalPages <= 1}
-                      onclick={() => handlePageChange(currentPage + 1)}
-                    >
-                      <ChevronRight class="h-4 w-4" />
-                    </Button>
-                  </Pagination.Item>
-                </Pagination.Content>
-              </Pagination.Root>
-            {/await}
+                <Pagination.Item>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    class="h-9 w-9"
+                    disabled={currentPage === totalPages || totalPages <= 1}
+                    onclick={() => handlePageChange(currentPage + 1)}
+                  >
+                    <ChevronRight class="h-4 w-4" />
+                  </Button>
+                </Pagination.Item>
+              </Pagination.Content>
+            </Pagination.Root>
           </div>
         </div>
       </div>
@@ -536,17 +545,21 @@
 
       <!-- Main Table Area -->
       <div class="flex min-w-0 flex-1 flex-col">
-        {#if !open}
+        {#if loading}
+          <div class="flex flex-1 items-center justify-center">
+            <LoaderCircle class="text-muted-foreground h-6 w-6 animate-spin" />
+          </div>
+        {:else if files.length === 0}
           <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
             No files found.
           </div>
         {:else}
-          <!-- Table with proper scrolling -->
           <div class="flex-1 overflow-hidden border-r">
             <div class="h-full overflow-auto">
               <Table.Root>
                 <Table.Header class="bg-background sticky top-0 z-10 border-b">
                   <Table.Row class="h-[48px]">
+                    <Table.Head class="w-10 px-4"></Table.Head>
                     <Table.Head class="w-12 px-4"></Table.Head>
                     <Table.Head class="px-4">Filename</Table.Head>
                     <Table.Head class="px-4 text-right">Size</Table.Head>
@@ -555,79 +568,104 @@
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {#await filesQuery then result}
-                    {#each result.success ? result.files || [] : [] as file, fileIndex (file?.id || fileIndex)}
-                      {#if file && file.id}
-                        {@const selected = isSelected(file.id)}
-                        <Table.Row
-                          class={cn(
-                            'group h-[52px] border-b transition-colors',
-                            selected ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/50',
-                            'cursor-pointer'
-                          )}
-                          onclick={(e) => {
-                            // Only handle clicks that are not on the preview button
-                            if (!(e.target as HTMLElement).closest('button')) {
-                              handleSelect(file.id);
+                  {#each files as file, fileIndex (file?.id || fileIndex)}
+                    {#if file && file.id}
+                      {@const selected = isSelected(file.id)}
+                      {@const focused = focusedIndex === fileIndex}
+                      <Table.Row
+                        class={cn(
+                          'group h-[52px] cursor-pointer border-b transition-colors',
+                          selected
+                            ? 'bg-primary/10 hover:bg-primary/15'
+                            : focused
+                              ? 'bg-muted/70 hover:bg-muted/80'
+                              : 'hover:bg-muted/50'
+                        )}
+                        onclick={() => {
+                          focusedIndex = fileIndex;
+                          previewFile = file;
+                          if (selectOnRowClick) {
+                            handleSelect(file.id);
+                          }
+                        }}
+                        onkeydown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleSelect(file.id);
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (fileIndex < files.length - 1) {
+                              focusedIndex = fileIndex + 1;
+                              previewFile = files[fileIndex + 1];
+                              (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
                             }
-                          }}
-                          role="button"
-                          tabindex={0}
-                        >
-                          <Table.Cell class="w-12 px-4 py-1.5">
-                            <div class="group relative">
-                              <button
-                                type="button"
-                                class={cn(
-                                  'relative h-10 w-10 overflow-hidden rounded-md p-0',
-                                  'border transition-colors',
-                                  selected
-                                    ? 'border-primary shadow-sm'
-                                    : 'border-muted-foreground/20 hover:border-muted-foreground/40',
-                                  file.mime_type?.includes('image') && 'cursor-zoom-in'
-                                )}
-                                onclick={(e) => {
-                                  e.stopPropagation();
-                                  previewFile = previewFile === file ? null : file;
-                                }}
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            if (fileIndex > 0) {
+                              focusedIndex = fileIndex - 1;
+                              previewFile = files[fileIndex - 1];
+                              (e.currentTarget.previousElementSibling as HTMLElement)?.focus();
+                            }
+                          } else if (e.key === 'Escape') {
+                            previewFile = null;
+                            focusedIndex = null;
+                          }
+                        }}
+                        role="button"
+                        tabindex={0}
+                      >
+                        <Table.Cell class="w-10 px-4">
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => handleSelect(file.id)}
+                            onclick={(e) => e.stopPropagation()}
+                            aria-label={selected ? 'Deselect file' : 'Select file'}
+                          />
+                        </Table.Cell>
+                        <Table.Cell class="w-12 px-4 py-1.5">
+                          <div
+                            class={cn(
+                              'relative h-10 w-10 overflow-hidden rounded-md border transition-colors',
+                              selected
+                                ? 'border-primary shadow-sm'
+                                : 'border-muted-foreground/20'
+                            )}
+                          >
+                            {#if file.mime_type?.includes('image')}
+                              <img
+                                src={file.url}
+                                alt={file.name}
+                                class="h-full w-full object-cover"
+                              />
+                            {:else}
+                              <div
+                                class="bg-muted flex h-full w-full items-center justify-center"
                               >
-                                {#if file.mime_type?.includes('image')}
-                                  <img
-                                    src={file.url}
-                                    alt={file.name}
-                                    class="h-full w-full object-cover"
-                                  />
-                                {:else}
-                                  <div
-                                    class="bg-muted flex h-full w-full items-center justify-center"
-                                  >
-                                    <FileText class="text-muted-foreground h-6 w-6" />
-                                  </div>
-                                {/if}
-                              </button>
-                            </div>
-                          </Table.Cell>
-                          <Table.Cell class="px-4">
-                            <div class="flex flex-col">
-                              <span class="max-w-xs truncate font-medium" title={file.name}
-                                >{file.name}</span
-                              >
-                              <span class="text-muted-foreground text-sm">
-                                {formatFileSize(file.size ?? 0)}
-                              </span>
-                            </div>
-                          </Table.Cell>
-                          <Table.Cell class="text-muted-foreground px-4 text-right">
-                            {formatFileSize(file.size ?? 0)}
-                          </Table.Cell>
-                          <Table.Cell class="text-muted-foreground px-4 text-right">
-                            {file.created_at ? formatDate(file.created_at) : '—'}
-                          </Table.Cell>
-                          <Table.Cell class="w-12 px-4"></Table.Cell>
-                        </Table.Row>
-                      {/if}
-                    {/each}
-                  {/await}
+                                <FileText class="text-muted-foreground h-6 w-6" />
+                              </div>
+                            {/if}
+                          </div>
+                        </Table.Cell>
+                        <Table.Cell class="px-4">
+                          <div class="flex flex-col">
+                            <span class="max-w-xs truncate font-medium" title={file.name}
+                              >{file.name}</span
+                            >
+                            <span class="text-muted-foreground text-sm">
+                              {formatFileSize(file.size ?? 0)}
+                            </span>
+                          </div>
+                        </Table.Cell>
+                        <Table.Cell class="text-muted-foreground px-4 text-right">
+                          {formatFileSize(file.size ?? 0)}
+                        </Table.Cell>
+                        <Table.Cell class="text-muted-foreground px-4 text-right">
+                          {file.created_at ? formatDate(file.created_at) : '—'}
+                        </Table.Cell>
+                        <Table.Cell class="w-12 px-4"></Table.Cell>
+                      </Table.Row>
+                    {/if}
+                  {/each}
                 </Table.Body>
               </Table.Root>
             </div>
@@ -684,6 +722,8 @@
     </div>
   </Sheet.Content>
 </Sheet.Root>
+{/if}
 
-<!-- File Upload Progress Dialog -->
-<FileUploadProgress bind:open={uploadProgressOpen} files={uploadFilesList} />
+{#if browser}
+  <FileUploadProgress bind:open={uploadProgressOpen} files={uploadFilesList} />
+{/if}

@@ -41,10 +41,10 @@
     icon?: string;
   };
 
-  let { collections = [], loading = false } = $props<{
+  let { collections = [], loading = false }: {
     collections: Collection[];
     loading?: boolean;
-  }>();
+  } = $props();
 
   const items = $derived(() => {
     return collections.map((collection: Collection) => ({

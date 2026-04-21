@@ -155,6 +155,24 @@ export const saveCollectionItem = command(
           throw new Error(`Collection table for '${collectionSlug}' not found`);
         }
 
+        // Find a non-colliding slug by appending -2, -3, etc. if the base is taken
+        async function ensureUniqueSlug(slug: string, excludeId: string): Promise<string> {
+          if (!slug || !(collectionTable as any).slug) return slug;
+          let candidate = slug;
+          let counter = 2;
+          while (counter < 1000) {
+            const existing = await tx
+              .select({ id: (collectionTable as any).id })
+              .from(collectionTable)
+              .where(eq((collectionTable as any).slug, candidate))
+              .limit(1);
+            if (existing.length === 0 || existing[0].id === excludeId) return candidate;
+            candidate = `${slug}-${counter}`;
+            counter++;
+          }
+          return candidate;
+        }
+
         // Check if item exists and user has access to it
         const existing = await tx
           .select({
@@ -194,6 +212,10 @@ export const saveCollectionItem = command(
             } else {
               payloadMain[k] = v;
             }
+          }
+
+          if (payloadMain.slug) {
+            payloadMain.slug = await ensureUniqueSlug(String(payloadMain.slug), itemId);
           }
 
           const updateData: Record<string, any> = {
@@ -243,6 +265,10 @@ export const saveCollectionItem = command(
             } else {
               payloadMain[k] = v;
             }
+          }
+
+          if (payloadMain.slug) {
+            payloadMain.slug = await ensureUniqueSlug(String(payloadMain.slug), itemId);
           }
 
           const createData: Record<string, any> = {
@@ -455,26 +481,51 @@ export const saveCollectionItem = command(
             const blockType = availableBlocks[block.blockType];
             if (!blockType) continue;
 
+            // Fields auto-managed by the save code itself — never merge from content
+            const SYSTEM_COLUMNS = new Set([
+              'id',
+              'collection_id',
+              'sort',
+              'created_at',
+              'updated_at'
+            ]);
+
             // Only include fields that map to actual columns on the block table
-            // Exclude 'array', 'file', and 'many-to-many relation' fields (all stored in separate tables)
+            // Exclude 'array', 'file', and 'many-to-many relation' (stored in separate tables)
+            // Exclude system columns which are set explicitly below
             const allowedContentEntries = Object.entries(block.content || {}).filter(([key]) => {
+              if (SYSTEM_COLUMNS.has(key)) return false;
               const fieldDef = blockType.fields?.[key];
               if (!fieldDef) return false;
               if (fieldDef.type === 'array') return false;
-              if (fieldDef.type === 'file') return false; // All file fields use relation tables
+              if (fieldDef.type === 'file') return false;
               if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
                 return false;
               return true;
             });
-            const filteredContent = Object.fromEntries(allowedContentEntries);
+            const filteredContent: Record<string, any> = Object.fromEntries(allowedContentEntries);
 
-            // Validation is now done before transaction starts
+            // Fill in defaults for required columns the user hasn't touched yet,
+            // so SQLite NOT NULL constraints don't reject partially-filled blocks
+            for (const [fieldName, fieldDef] of Object.entries(blockType.fields || {})) {
+              const f = fieldDef as any;
+              if (SYSTEM_COLUMNS.has(fieldName)) continue;
+              if (filteredContent[fieldName] !== undefined) continue;
+              if (!f?.required) continue;
+              if (f?.type === 'array' || f?.type === 'file') continue;
+              if (f?.type === 'relation' && f?.relation?.type === 'many-to-many') continue;
+              if (f?.type === 'boolean') filteredContent[fieldName] = false;
+              else if (f?.type === 'number' || f?.type === 'integer')
+                filteredContent[fieldName] = 0;
+              else filteredContent[fieldName] = '';
+            }
 
+            // System columns must come after the content spread so they can't be shadowed
             const blockData = {
+              ...filteredContent,
               id: block.id || generateUUID(),
               collection_id: itemId,
-              sort: block.sort || 0,
-              ...filteredContent,
+              sort: block.sort ?? 0,
               created_at: new Date(),
               updated_at: new Date()
             };
@@ -629,10 +680,33 @@ export const saveCollectionItem = command(
       return { success: true, message: 'Item saved successfully', itemId: result.itemId };
     } catch (error) {
       log.error('Failed to save collection item', {}, error as Error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save item'
-      };
+
+      // Walk the error chain — libsql/drizzle put the human SQLite reason on `cause`
+      const parts: string[] = [];
+      const seen = new Set<any>();
+      let current: any = error;
+      while (current && !seen.has(current)) {
+        seen.add(current);
+        if (current.message) parts.push(String(current.message));
+        if (current.code) parts.push(String(current.code));
+        current = current.cause;
+      }
+      const blob = parts.join(' ');
+
+      let friendly: string;
+      const uniqueAny = blob.match(/UNIQUE constraint failed:\s*([^\s\n,]+)/i);
+      const notNull = blob.match(/NOT NULL constraint failed:\s*([^\s\n,]+)/i);
+      if (uniqueAny) {
+        friendly = `Duplicate value for ${uniqueAny[1]}.`;
+      } else if (notNull) {
+        friendly = `Required field missing: ${notNull[1]}.`;
+      } else if (/FOREIGN KEY constraint failed/i.test(blob)) {
+        friendly = 'Referenced item no longer exists.';
+      } else {
+        friendly = error instanceof Error ? error.message : 'Failed to save item';
+      }
+
+      return { success: false, error: friendly };
     }
   }
 );

@@ -18,7 +18,7 @@
     showTotalItems = true,
     showPageSizeSelector = true,
     useUrlNavigation = false
-  } = $props<{
+  }: {
     page: number;
     pageSize: number;
     totalItems: number;
@@ -31,7 +31,7 @@
     showTotalItems?: boolean;
     showPageSizeSelector?: boolean;
     useUrlNavigation?: boolean;
-  }>();
+  } = $props();
 
   async function goToPage(newPage: number) {
     if (useUrlNavigation) {

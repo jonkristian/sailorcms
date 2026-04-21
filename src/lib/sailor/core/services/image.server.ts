@@ -304,18 +304,33 @@ export class ImageProcessor {
     let sharpInstance: sharp.Sharp;
 
     if (originalPath.startsWith('http')) {
-      // For remote URLs, fetch the image first
       const response = await fetch(originalPath);
       if (!response.ok) {
-        throw new Error(`Failed to fetch remote image: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch remote image (${response.status} ${response.statusText}): ${originalPath}`
+        );
       }
+      const contentType = response.headers.get('content-type') || '';
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+
+      if (buffer.length === 0) {
+        throw new Error(`Remote URL returned empty body: ${originalPath}`);
+      }
+      if (contentType && !contentType.startsWith('image/')) {
+        throw new Error(
+          `Remote URL returned non-image content-type "${contentType}" (${buffer.length} bytes): ${originalPath}`
+        );
+      }
+
       sharpInstance = sharp(buffer);
     } else {
       // For local files
       sharpInstance = sharp(originalPath);
     }
+
+    // Honor EXIF orientation so processed output matches how browsers render the original
+    sharpInstance = sharpInstance.rotate();
 
     // Apply resize based on resize mode
     if (width || height) {

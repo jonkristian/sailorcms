@@ -24,7 +24,7 @@
     updateCollectionItemNesting
   } from '../data.remote.js';
 
-  const { data } = $props<{ data: PageData }>();
+  const { data }: { data: PageData } = $props();
 
   let items = $derived(data.items);
 
@@ -37,7 +37,7 @@
   // Custom delete handler for collections (using form actions)
   let deleteDialogOpen = $state(false);
   let deleteDialogLoading = $state(false);
-  let pendingDeleteItems = $state<{ ids: string[]; count: number }>({ ids: [], count: 0 });
+  let pendingDeleteItems: { ids: string[]; count: number } = $state({ ids: [], count: 0 });
 
   function initiateBulkDelete(selectedIds: string[]) {
     if (selectedIds.length === 0) return;
@@ -92,7 +92,9 @@
       search: true,
       sort: {
         options: () => sortOptions,
+        // svelte-ignore state_referenced_locally
         defaultSort: data.collectionType.options?.sortable ? 'sort' : 'updated_at',
+        // svelte-ignore state_referenced_locally
         defaultOrder: data.collectionType.options?.sortable ? 'asc' : 'desc'
       }
     },
@@ -102,7 +104,7 @@
   // Local bulk action state for Select
   let bulkAction = $state('');
   let authorDialogOpen = $state(false);
-  let authorOptions = $state<Array<{ label: string; value: string }>>([]);
+  let authorOptions: Array<{ label: string; value: string }> = $state([]);
   let selectedAuthorId = $state('');
 
   async function openAuthorDialog() {

@@ -12,7 +12,7 @@
 
   let deleteDialogOpen = $state(false);
   let deleteDialogLoading = $state(false);
-  let pendingDeleteTag = $state<{ id: string; name: string } | null>(null);
+  let pendingDeleteTag: { id: string; name: string } | null = $state(null);
 
   // Group tags by entity type
   let tagsByEntityType = $derived(() => {

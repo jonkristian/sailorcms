@@ -2,27 +2,28 @@
   import { ChevronRight, ChevronDown } from '@lucide/svelte';
   import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
 
-  let { data, expandedCategory } = $props<{
+  let { data, expandedCategory }: {
     data: Record<string, any>;
     expandedCategory?: string;
-  }>();
+  } = $props();
 
   // Simple state management - no effects, no async complexity
-  const categories = Object.keys(data || {});
-  const expandedCategories = categories.reduce(
-    (acc, cat, index) => {
-      if (expandedCategory && data[expandedCategory]) {
-        acc[cat] = cat === expandedCategory;
-      } else {
-        acc[cat] = index === 0;
-      }
-      return acc;
-    },
-    {} as Record<string, boolean>
+  let categories = $derived(Object.keys(data || {}));
+  let expandedState = $state(
+    // svelte-ignore state_referenced_locally
+    categories.reduce(
+      (acc, cat, index) => {
+        if (expandedCategory && data[expandedCategory]) {
+          acc[cat] = cat === expandedCategory;
+        } else {
+          acc[cat] = index === 0;
+        }
+        return acc;
+      },
+      {} as Record<string, boolean>
+    )
   );
-
-  let expandedState = $state(expandedCategories);
-  let highlightedSections = $state<Record<string, string>>({});
+  let highlightedSections: Record<string, string> = $state({});
 
   function toggleCategory(category: string) {
     expandedState[category] = !expandedState[category];
@@ -45,7 +46,7 @@
   }
 
   // Highlight initially expanded categories
-  for (const [category, isExpanded] of Object.entries(expandedCategories)) {
+  for (const [category, isExpanded] of Object.entries(expandedState)) {
     if (isExpanded) {
       highlightSection(category);
     }

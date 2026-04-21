@@ -31,6 +31,7 @@
   --border: oklch(0.88 0.02 240);
   --input: oklch(0.88 0.02 240);
   --ring: oklch(0.55 0.15 240);
+  --input-bg: oklch(0.94 0.02 240);
   --chart-1: oklch(0.55 0.15 240);
   --chart-2: oklch(0.65 0.12 200);
   --chart-3: oklch(0.45 0.08 220);
@@ -50,8 +51,8 @@
 /* Dark mode colors */
 .dark {
   --background: #11111b;
-  --card: #11111b;
-  --popover: #11111b;
+  --card: #181825;
+  --popover: #181825;
   --card-foreground: #cdd6f4;
   --popover-foreground: #cdd6f4;
   --foreground: #cdd6f4;
@@ -65,7 +66,8 @@
   --accent-foreground: #cdd6f4;
   --destructive: #f38ba8;
   --border: #313244;
-  --input: #6c7086;
+  --input: #3a3b4a;
+  --input-bg: #1e1e2e;
   --ring: #89b4fa;
   --chart-1: #89b4fa;
   --chart-2: #a6e3a1;
@@ -117,6 +119,7 @@
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-bg: var(--input-bg);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

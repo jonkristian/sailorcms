@@ -4,8 +4,7 @@ import { db } from '$sailor/core/db/index.server';
 import { files as filesTable, users as usersTable } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
 import { TagService } from '$sailor/core/services/tag.server';
-import { getFileTypeFromMime } from '$sailor/core/files/file';
-import { type FileListItem } from '$sailor/core/files/file.server';
+import { detectImageFormatFromBytes } from '$sailor/core/files/file.server';
 import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
 import { validateFile as validateFileUtil } from '$sailor/core/files/file';
 import { type FileType } from '$sailor/core/files/file.server';
@@ -157,7 +156,7 @@ export const uploadFiles = command(
     }
 
     try {
-      const uploadResults: FileListItem[] = [];
+      const uploadResults: FileType[] = [];
       const errors: Array<{ filename: string; error: string }> = [];
 
       for (const fileData of files) {
@@ -191,6 +190,21 @@ export const uploadFiles = command(
             throw new Error(validationError);
           }
 
+          if (file.type.startsWith('image/')) {
+            const head = new Uint8Array(await file.slice(0, 32).arrayBuffer());
+            const actualFormat = detectImageFormatFromBytes(head);
+            if (actualFormat === 'jxl') {
+              throw new Error(
+                `"${file.name}" is a JPEG XL file (despite its extension). Please convert to JPEG, PNG, or WebP before uploading.`
+              );
+            }
+            if (actualFormat === 'heic') {
+              throw new Error(
+                `"${file.name}" is a HEIC/HEIF file (despite its extension). Please convert to JPEG, PNG, or WebP before uploading.`
+              );
+            }
+          }
+
           // Compute file hash for deduplication
           const fileHash = await computeFileHash(file);
 
@@ -216,7 +230,6 @@ export const uploadFiles = command(
                 })
                 .where(eq(filesTable.id, existingFile.id));
 
-              // Return updated file
               const updatedFile = {
                 ...existingFile,
                 alt: options.alt || existingFile.alt,
@@ -225,31 +238,11 @@ export const uploadFiles = command(
                 updated_at: new Date()
               };
 
-              // Transform to FileListItem format
-              const fileListItem: FileListItem = {
-                value: updatedFile.id,
-                label: updatedFile.name,
-                url: updatedFile.url,
-                type: getFileTypeFromMime(updatedFile.mime_type),
-                size: updatedFile.size,
-                created_at: updatedFile.created_at
-              };
-
-              uploadResults.push(fileListItem);
+              uploadResults.push(updatedFile as FileType);
               continue;
             }
 
-            // Transform existing file to FileListItem format
-            const fileListItem: FileListItem = {
-              value: existingFile.id,
-              label: existingFile.name,
-              url: existingFile.url,
-              type: getFileTypeFromMime(existingFile.mime_type),
-              size: existingFile.size,
-              created_at: existingFile.created_at
-            };
-
-            uploadResults.push(fileListItem);
+            uploadResults.push(existingFile as FileType);
             continue;
           }
 
@@ -275,17 +268,7 @@ export const uploadFiles = command(
 
           await db.insert(filesTable).values(fileRecord);
 
-          // Transform to FileListItem format
-          const fileListItem: FileListItem = {
-            value: fileRecord.id,
-            label: fileRecord.name,
-            url: fileRecord.url,
-            type: getFileTypeFromMime(fileRecord.mime_type),
-            size: fileRecord.size,
-            created_at: fileRecord.created_at
-          };
-
-          uploadResults.push(fileListItem);
+          uploadResults.push(fileRecord as FileType);
         } catch (err) {
           errors.push({
             filename: fileData.name,

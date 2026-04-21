@@ -29,7 +29,7 @@
     nestable = false,
     showSelection = false,
     extraControls
-  } = $props<{
+  }: {
     data: FlatItem[];
     onDataChange?: (updatedData: FlatItem[]) => void;
     onRemove?: (nodeId: string) => void;
@@ -38,45 +38,29 @@
     nestable?: boolean;
     showSelection?: boolean;
     extraControls?: any;
-  }>();
+  } = $props();
 
   // Drag state
-  let draggedIndex = $state<number>(-1);
-  let dragOverIndex = $state<number>(-1);
-  let dropPosition = $state<'before' | 'after' | 'inside'>('after');
+  let draggedIndex: number = $state(-1);
+  let dragOverIndex: number = $state(-1);
+  let dropPosition: 'before' | 'after' | 'inside' = $state('after');
   let isDragging = $state(false);
 
   // Selection state
-  let selectedNodes = $state<Set<string>>(new Set());
+  let selectedNodes: Set<string> = $state(new Set());
 
   // Delete confirmation dialog state
   let deleteDialogOpen = $state(false);
   let deleteDialogLoading = $state(false);
-  let pendingDeleteItems = $state<{ ids: string[]; count: number; itemName?: string }>({
+  let pendingDeleteItems: { ids: string[]; count: number; itemName?: string } = $state({
     ids: [],
     count: 0
   });
 
-  // Internal state for flat data mode
-  let internalData = $state<FlatItem[]>([]);
-  let treeNodes = $state<{ node: TreeNode; depth: number }[]>([]);
-
-  // Initialize internal data when data prop changes
-  $effect(() => {
-    if (data) {
-      internalData = [...data];
-    }
-  });
-
-  // Update tree nodes when data changes
-  $effect(() => {
-    if (data || internalData.length > 0) {
-      const itemsToUse = data || internalData;
-      treeNodes = getTreeNodes(buildTree(itemsToUse));
-    } else {
-      treeNodes = [];
-    }
-  });
+  // Tree nodes derived directly from data — no internal duplicate state
+  const treeNodes: { node: TreeNode; depth: number }[] = $derived(
+    getTreeNodes(buildTree(data || []))
+  );
 
   // Build tree from flat data
   function buildTree(items: FlatItem[]): TreeNode[] {
@@ -195,15 +179,13 @@
       return;
     }
 
-    // Get the actual items from internalData (not treeNodes)
-    const items = internalData;
+    const items = data || [];
     const newItems = [...items];
 
-    // Convert treeNode indices to internalData indices
+    // Convert treeNode indices to data indices
     const draggedTreeNode = treeNodes[draggedIndex];
     const targetTreeNode = treeNodes[dropIndex];
 
-    // Find the actual indices in internalData
     const draggedDataIndex = items.findIndex((item) => item.id === draggedTreeNode.node.id);
     const targetDataIndex = items.findIndex((item) => item.id === targetTreeNode.node.id);
 
@@ -226,21 +208,17 @@
 
     // Handle different drop positions
     if (nestable && dropPosition === 'inside') {
-      // Set as child of target item
       removedItem.parent_id = targetItem.id;
 
-      // Find where to insert - insert after existing children of target
       let insertIndex = -1;
       const targetChildren = newItems.filter((item) => item.parent_id === targetItem.id);
 
       if (targetChildren.length > 0) {
-        // Find the last child of the target and insert after it
         const lastChildIndex = newItems.findIndex((item) => {
           return item.id === targetChildren[targetChildren.length - 1].id;
         });
         insertIndex = lastChildIndex + 1;
       } else {
-        // No existing children, insert right after the target item
         const targetIndex = newItems.findIndex((item) => item.id === targetItem.id);
         insertIndex = targetIndex + 1;
       }
@@ -248,41 +226,28 @@
       if (insertIndex !== -1) {
         newItems.splice(insertIndex, 0, removedItem);
       } else {
-        // Fallback: add at the end
         newItems.push(removedItem);
       }
     } else {
-      // Handle before/after positioning
       removedItem.parent_id = targetItem.parent_id;
 
-      // Calculate insertion index correctly
-      let insertIndex = newItems.findIndex((item) => item.id === targetItem.id);
+      const insertIndex = newItems.findIndex((item) => item.id === targetItem.id);
 
       if (insertIndex === -1) {
-        // Target not found, fallback to end
         newItems.push(removedItem);
+        dragOverIndex = -1;
         return;
       }
 
       if (dropPosition === 'before') {
-        // Insert before target
         newItems.splice(insertIndex, 0, removedItem);
       } else {
-        // Insert after target
         newItems.splice(insertIndex + 1, 0, removedItem);
       }
     }
 
-    // Update the data with a small delay to ensure animation triggers
-    requestAnimationFrame(() => {
-      internalData = newItems;
-      if (onDataChange) {
-        onDataChange(newItems);
-      }
-    });
-
-    // Reset drag state
     dragOverIndex = -1;
+    onDataChange?.(newItems);
   }
 
   // Helper function to check if item1 is a descendant of item2

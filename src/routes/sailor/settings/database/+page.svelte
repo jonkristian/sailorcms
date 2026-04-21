@@ -21,15 +21,14 @@
   import { Badge } from '$lib/components/ui/badge';
   import Header from '$lib/components/sailor/Header.svelte';
 
-  let { data } = $props<{
+  let { data }: {
     data: {
       tables: TableInfo[];
       collectionTypes: CollectionInfo[];
       blockTypes: BlockInfo[];
       globalTypes: GlobalTypeInfo[];
-      availableGlobals: GlobalInfo[];
     };
-  }>();
+  } = $props();
 
   interface CollectionInfo {
     id: string;
@@ -77,7 +76,7 @@
   }
 
   // Reactive formatted schemas
-  let formattedSchemas = $state<Record<string, string>>({});
+  let formattedSchemas: Record<string, string> = $state({});
 
   onMount(async () => {
     // Pre-format all schemas for better performance
@@ -252,7 +251,7 @@
       </Card>
     </div>
 
-    {#if data.collectionTypes.length > 0 || data.availableCollections.length > 0}
+    {#if data.collectionTypes.length > 0}
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
@@ -263,77 +262,42 @@
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
-            {#each data.availableCollections as collection (collection.slug)}
-              {@const implementedSchema = data.collectionTypes.find(
-                (c: any) => c.slug === collection.slug
-              )}
-              {@const isImplemented = !!implementedSchema}
-
-              {#if isImplemented}
-                <Collapsible.Root>
-                  <Collapsible.Trigger class="w-full">
-                    <div
-                      class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
-                    >
-                      <div class="flex items-center gap-3">
-                        <span class="font-medium">{collection.name.plural}</span>
-                        <Badge
-                          variant="secondary"
-                          class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                        >
-                          Collection
-                        </Badge>
-                        <Badge
-                          variant="default"
-                          class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        >
-                          Implemented
-                        </Badge>
-                        {#if collection.description}
-                          <span class="text-muted-foreground text-sm">{collection.description}</span
-                          >
-                        {/if}
-                      </div>
-                      <ChevronDown class="h-4 w-4" />
+            {#each data.collectionTypes as collection (collection.slug)}
+              <Collapsible.Root>
+                <Collapsible.Trigger class="w-full">
+                  <div
+                    class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="font-medium">{collection.name_plural}</span>
+                      <Badge
+                        variant="secondary"
+                        class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      >
+                        Collection
+                      </Badge>
+                      {#if collection.description}
+                        <span class="text-muted-foreground text-sm">{collection.description}</span>
+                      {/if}
                     </div>
-                  </Collapsible.Trigger>
-                  <Collapsible.Content>
-                    <div class="bg-surface/50 mt-2 rounded-lg">
-                      <div class="sugar-high-wrapper p-4">
-                        {@html formattedSchemas[implementedSchema.id]}
-                      </div>
-                    </div>
-                  </Collapsible.Content>
-                </Collapsible.Root>
-              {:else}
-                <div class="bg-surface flex items-center justify-between rounded-lg px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <span class="text-muted-foreground font-medium">{collection.name.plural}</span>
-                    <Badge
-                      variant="outline"
-                      class="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                    >
-                      Collection
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      class="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300"
-                    >
-                      Available
-                    </Badge>
-                    {#if collection.description}
-                      <span class="text-muted-foreground text-sm">{collection.description}</span>
-                    {/if}
+                    <ChevronDown class="h-4 w-4" />
                   </div>
-                </div>
-              {/if}
+                </Collapsible.Trigger>
+                <Collapsible.Content>
+                  <div class="bg-surface/50 mt-2 rounded-lg">
+                    <div class="sugar-high-wrapper p-4">
+                      {@html formattedSchemas[collection.id]}
+                    </div>
+                  </div>
+                </Collapsible.Content>
+              </Collapsible.Root>
             {/each}
           </div>
         </CardContent>
       </Card>
     {/if}
 
-    {#if data.globalTypes.length > 0 || data.availableGlobals.length > 0}
+    {#if data.globalTypes.length > 0}
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
@@ -344,74 +308,42 @@
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
-            {#each data.availableGlobals as global (global.slug)}
-              {@const implementedSchema = data.globalTypes.find((g: any) => g.slug === global.slug)}
-              {@const isImplemented = !!implementedSchema}
-
-              {#if isImplemented}
-                <Collapsible.Root>
-                  <Collapsible.Trigger class="w-full">
-                    <div
-                      class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
-                    >
-                      <div class="flex items-center gap-3">
-                        <span class="font-medium">{global.name.plural}</span>
-                        <Badge
-                          variant="secondary"
-                          class="bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200"
-                        >
-                          {getGlobalType(global)}
-                        </Badge>
-                        <Badge
-                          variant="default"
-                          class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        >
-                          Implemented
-                        </Badge>
-                        {#if global.description}
-                          <span class="text-muted-foreground text-sm">{global.description}</span>
-                        {/if}
-                      </div>
-                      <ChevronDown class="h-4 w-4" />
+            {#each data.globalTypes as global (global.slug)}
+              <Collapsible.Root>
+                <Collapsible.Trigger class="w-full">
+                  <div
+                    class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="font-medium">{global.name_plural}</span>
+                      <Badge
+                        variant="secondary"
+                        class="bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200"
+                      >
+                        {getGlobalType(global)}
+                      </Badge>
+                      {#if global.description}
+                        <span class="text-muted-foreground text-sm">{global.description}</span>
+                      {/if}
                     </div>
-                  </Collapsible.Trigger>
-                  <Collapsible.Content>
-                    <div class="bg-surface/50 mt-2 rounded-lg">
-                      <div class="sugar-high-wrapper p-4">
-                        {@html formattedSchemas[implementedSchema.id]}
-                      </div>
-                    </div>
-                  </Collapsible.Content>
-                </Collapsible.Root>
-              {:else}
-                <div class="bg-surface flex items-center justify-between rounded-lg px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <span class="text-muted-foreground font-medium">{global.name.plural}</span>
-                    <Badge
-                      variant="outline"
-                      class="bg-cyan-100 text-cyan-600 dark:bg-cyan-900 dark:text-cyan-400"
-                    >
-                      {getGlobalType(global)}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      class="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300"
-                    >
-                      Available
-                    </Badge>
-                    {#if global.description}
-                      <span class="text-muted-foreground text-sm">{global.description}</span>
-                    {/if}
+                    <ChevronDown class="h-4 w-4" />
                   </div>
-                </div>
-              {/if}
+                </Collapsible.Trigger>
+                <Collapsible.Content>
+                  <div class="bg-surface/50 mt-2 rounded-lg">
+                    <div class="sugar-high-wrapper p-4">
+                      {@html formattedSchemas[global.id]}
+                    </div>
+                  </div>
+                </Collapsible.Content>
+              </Collapsible.Root>
             {/each}
           </div>
         </CardContent>
       </Card>
     {/if}
 
-    {#if data.blockTypes.length > 0 || data.availableBlocks.length > 0}
+    {#if data.blockTypes.length > 0}
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
@@ -422,67 +354,32 @@
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
-            {#each data.availableBlocks as block (block.slug)}
-              {@const implementedSchema = data.blockTypes.find((b: any) => b.name === block.name)}
-              {@const isImplemented = !!implementedSchema}
-
-              {#if isImplemented}
-                <Collapsible.Root>
-                  <Collapsible.Trigger class="w-full">
-                    <div
-                      class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
-                    >
-                      <div class="flex items-center gap-3">
-                        <span class="font-medium">{block.name}</span>
-                        <Badge
-                          variant="secondary"
-                          class="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-                        >
-                          Block
-                        </Badge>
-                        <Badge
-                          variant="default"
-                          class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        >
-                          Implemented
-                        </Badge>
-                        {#if block.description}
-                          <span class="text-muted-foreground text-sm">{block.description}</span>
-                        {/if}
-                      </div>
-                      <ChevronDown class="h-4 w-4" />
+            {#each data.blockTypes as block (block.name)}
+              <Collapsible.Root>
+                <Collapsible.Trigger class="w-full">
+                  <div
+                    class="bg-surface hover:bg-surface/80 flex items-center justify-between rounded-lg px-4 py-3"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="font-medium">{block.name}</span>
+                      <Badge
+                        variant="secondary"
+                        class="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                      >
+                        Block
+                      </Badge>
                     </div>
-                  </Collapsible.Trigger>
-                  <Collapsible.Content>
-                    <div class="bg-surface/50 mt-2 rounded-lg">
-                      <div class="sugar-high-wrapper p-4">
-                        {@html formattedSchemas[implementedSchema.id]}
-                      </div>
-                    </div>
-                  </Collapsible.Content>
-                </Collapsible.Root>
-              {:else}
-                <div class="bg-surface flex items-center justify-between rounded-lg px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <span class="text-muted-foreground font-medium">{block.name}</span>
-                    <Badge
-                      variant="outline"
-                      class="bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400"
-                    >
-                      Block
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      class="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300"
-                    >
-                      Available
-                    </Badge>
-                    {#if block.description}
-                      <span class="text-muted-foreground text-sm">{block.description}</span>
-                    {/if}
+                    <ChevronDown class="h-4 w-4" />
                   </div>
-                </div>
-              {/if}
+                </Collapsible.Trigger>
+                <Collapsible.Content>
+                  <div class="bg-surface/50 mt-2 rounded-lg">
+                    <div class="sugar-high-wrapper p-4">
+                      {@html formattedSchemas[block.id]}
+                    </div>
+                  </div>
+                </Collapsible.Content>
+              </Collapsible.Root>
             {/each}
           </div>
         </CardContent>

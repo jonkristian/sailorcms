@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { password } = $props<{ password: string }>();
+  let { password }: { password: string } = $props();
 
   // Simple password strength calculation without external library
   const strength = $derived.by(() => {

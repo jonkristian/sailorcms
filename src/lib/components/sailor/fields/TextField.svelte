@@ -1,12 +1,12 @@
 <script lang="ts">
   import { Input } from '$lib/components/ui/input';
 
-  const { value, placeholder, required, onChange } = $props<{
+  const { value, placeholder, required, onChange }: {
     value: string;
     placeholder?: string;
     required?: boolean;
     onChange: (value: string) => void;
-  }>();
+  } = $props();
 </script>
 
 <Input

@@ -8,26 +8,34 @@
   import { generateUUID } from '$sailor/core/utils/common';
   import { deleteGlobalItem } from '../data.remote.js';
 
-  const { data } = $props<{ data: PageData }>();
+  const { data }: { data: PageData } = $props();
 
   let items = $derived(data.items);
 
   // Store the nestable add function when available
-  let nestableAddFunction = $state<(() => void) | null>(null);
-  let inlineAddFunction = $state<(() => void) | null>(null);
-  let inlineSaveFunction = $state<(() => Promise<void>) | null>(null);
-  let inlineExpandCollapseFunction = $state<((expand: boolean) => void) | null>(null);
+  let nestableAddFunction: (() => void) | null = $state(null);
+  let inlineAddFunction: (() => void) | null = $state(null);
+  let inlineSaveFunction: (() => Promise<void>) | null = $state(null);
+  let inlineExpandCollapseFunction: ((expand: boolean) => void) | null = $state(null);
 
   // Create form data for singleton globals
-  let formData = $state<Record<string, any>>({});
+  let formData: Record<string, any> = $state({});
   let submitting = $state(false);
 
   // Use permissions from layout
   let canCreate = $derived(data.permissions.globals.create);
 
   // Initialize form data for flat globals
-  if (data.global.dataType === 'flat' && data.existingData) {
-    formData = { ...data.existingData };
+  if (
+    // svelte-ignore state_referenced_locally
+    data.global.dataType === 'flat' &&
+    // svelte-ignore state_referenced_locally
+    data.existingData
+  ) {
+    formData = {
+      // svelte-ignore state_referenced_locally
+      ...data.existingData
+    };
   }
 
   // Handle delete item

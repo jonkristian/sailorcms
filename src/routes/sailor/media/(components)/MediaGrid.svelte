@@ -9,14 +9,14 @@
     tags?: Tag[];
   };
 
-  let { files, selectedItems, onSelect, onEdit, onRemove, onCopy } = $props<{
+  let { files, selectedItems, onSelect, onEdit, onRemove, onCopy }: {
     files: FileWithTags[];
     selectedItems: string[];
     onSelect: (id: string) => void;
     onEdit: (file: FileWithTags) => void;
     onRemove: (id: string) => void;
     onCopy: (filename: string) => void;
-  }>();
+  } = $props();
 </script>
 
 <!-- Grid View using FileWithControls -->

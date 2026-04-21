@@ -16,7 +16,7 @@
     fieldName,
     required = false,
     nestable = false
-  } = $props<{
+  }: {
     label?: string;
     items: any[];
     itemSchema: Record<string, any>;
@@ -26,10 +26,10 @@
     fieldName?: string;
     required?: boolean;
     nestable?: boolean;
-  }>();
+  } = $props();
 
   let modalOpen = $state(false);
-  let editingItem = $state<any>(null);
+  let editingItem: any = $state(null);
   let editingIndex = $state(-1);
 
   function generateId(): string {

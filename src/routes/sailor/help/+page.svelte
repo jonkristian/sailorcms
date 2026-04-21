@@ -8,7 +8,7 @@
   } from '$lib/components/ui/card/index.js';
   import ExternalLink from '@lucide/svelte/icons/external-link';
   import Book from '@lucide/svelte/icons/book';
-  import Github from '@lucide/svelte/icons/github';
+  import Github from '$lib/components/sailor/icons/GithubIcon.svelte';
   import Rocket from '@lucide/svelte/icons/rocket';
   import Header from '$lib/components/sailor/Header.svelte';
 

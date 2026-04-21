@@ -61,13 +61,13 @@
   }: Props = $props();
 
   // Drag and drop state
-  let draggedIndex = $state<number>(-1);
-  let dragOverIndex = $state<number>(-1);
+  let draggedIndex: number = $state(-1);
+  let dragOverIndex: number = $state(-1);
   let isDragging = $state(false);
-  let dropPosition = $state<'before' | 'after' | 'inside'>('after');
+  let dropPosition: 'before' | 'after' | 'inside' = $state('after');
 
   // Hierarchical state
-  let expandedItems = $state<Set<string>>(new Set());
+  let expandedItems: Set<string> = $state(new Set());
 
   // Interface for hierarchical items
   interface HierarchicalItem {

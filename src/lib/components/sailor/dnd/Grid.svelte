@@ -6,22 +6,22 @@
     showSelection = false,
     gridCols = 4,
     children
-  } = $props<{
+  }: {
     items: Array<{ id: string; [key: string]: any }>;
     onItemsChange?: (items: Array<{ id: string; [key: string]: any }>) => void;
     onItemRemove?: (itemId: string) => void;
     showSelection?: boolean;
     gridCols?: number;
     children: any;
-  }>();
+  } = $props();
 
   // Drag state
-  let draggedIndex = $state<number>(-1);
-  let dragOverIndex = $state<number>(-1);
+  let draggedIndex: number = $state(-1);
+  let dragOverIndex: number = $state(-1);
   let isDragging = $state(false);
 
   // Selection state
-  let selectedItems = $state<Set<string>>(new Set());
+  let selectedItems: Set<string> = $state(new Set());
 
   // Calculate grid position helpers
   function getRowCol(index: number, cols: number) {

@@ -11,7 +11,7 @@
     updateRelationalGlobal
   } from '../data.remote.js';
 
-  const { global, formData, isOpen, isNewItem, editingItem, onClose, onFormDataChange } = $props<{
+  const { global, formData, isOpen, isNewItem, editingItem, onClose, onFormDataChange }: {
     global: any;
     formData: Record<string, any>;
     isOpen: boolean;
@@ -19,7 +19,7 @@
     editingItem: any;
     onClose: () => void;
     onFormDataChange?: (key: string, value: any) => void;
-  }>();
+  } = $props();
 
   let saving = $state(false);
 
@@ -78,7 +78,7 @@
       .map(([key, field]: [string, any]) => ({ key, field }));
   };
 
-  const formFields = getFormFields(global);
+  let formFields = $derived(getFormFields(global));
 
   // Handle array field changes
   function handleArrayFieldChange(fieldKey: string, items: any[]) {

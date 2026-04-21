@@ -7,21 +7,89 @@ import { getSettings } from '$sailor/core/settings';
 // Re-export client-safe utilities
 export * from './file';
 
-export function generateFileName(originalName: string): string {
-  // Use the original filename, but clean it for filesystem safety
-  const extension = path.extname(originalName);
-  const baseName = path
-    .basename(originalName, extension)
-    .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace unsafe chars with underscore
-    .replace(/_{2,}/g, '_') // Replace multiple underscores with single
-    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+export function detectImageFormatFromBytes(bytes: Uint8Array): string | null {
+  if (bytes.length < 12) return null;
 
-  // If the filename is empty after cleaning, use a default
-  if (!baseName) {
-    return `file_${Date.now()}${extension}`;
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg';
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  )
+    return 'png';
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'gif';
+  if (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  )
+    return 'webp';
+  if (
+    (bytes[0] === 0x49 && bytes[1] === 0x49 && bytes[2] === 0x2a && bytes[3] === 0x00) ||
+    (bytes[0] === 0x4d && bytes[1] === 0x4d && bytes[2] === 0x00 && bytes[3] === 0x2a)
+  )
+    return 'tiff';
+  if (bytes[0] === 0x42 && bytes[1] === 0x4d) return 'bmp';
+
+  if (bytes[0] === 0xff && bytes[1] === 0x0a) return 'jxl';
+  if (
+    bytes[0] === 0x00 &&
+    bytes[1] === 0x00 &&
+    bytes[2] === 0x00 &&
+    bytes[3] === 0x0c &&
+    bytes[4] === 0x4a &&
+    bytes[5] === 0x58 &&
+    bytes[6] === 0x4c &&
+    bytes[7] === 0x20
+  )
+    return 'jxl';
+
+  if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+    const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+    if (['heic', 'heix', 'mif1', 'heim', 'heis', 'hevc', 'hevx'].includes(brand)) return 'heic';
+    if (brand === 'avif' || brand === 'avis') return 'avif';
   }
 
-  return `${baseName}${extension}`;
+  return null;
+}
+
+export function normalizeFilename(name: string): string {
+  return name
+    .replace(/æ/g, 'ae')
+    .replace(/Æ/g, 'AE')
+    .replace(/ø/g, 'o')
+    .replace(/Ø/g, 'O')
+    .replace(/å/g, 'a')
+    .replace(/Å/g, 'A')
+    .replace(/ß/g, 'ss')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+export function generateFileName(originalName: string): string {
+  const extension = path.extname(originalName);
+  const baseName = normalizeFilename(path.basename(originalName, extension))
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_|_$/g, '');
+
+  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+  if (!baseName) {
+    return `file-${suffix}${extension}`;
+  }
+
+  return `${baseName}-${suffix}${extension}`;
 }
 
 export async function ensureUploadDir(): Promise<void> {

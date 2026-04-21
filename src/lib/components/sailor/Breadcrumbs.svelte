@@ -2,11 +2,11 @@
   import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
   import { page } from '$app/state';
 
-  let { title } = $props<{ title?: string }>();
+  let { title }: { title?: string } = $props();
 
   type Breadcrumb = { label: string; href: string };
 
-  let breadcrumbs = $derived<Breadcrumb[]>(
+  let breadcrumbs: Breadcrumb[] = $derived(
     page.url.pathname
       .split('/')
       .filter(Boolean)
@@ -21,7 +21,7 @@
       })
   );
 
-  let displayBreadcrumbs = $derived<Breadcrumb[]>(
+  let displayBreadcrumbs: Breadcrumb[] = $derived(
     !title || breadcrumbs.length === 0
       ? breadcrumbs
       : [...breadcrumbs.slice(0, -1), { ...breadcrumbs[breadcrumbs.length - 1], label: title }]

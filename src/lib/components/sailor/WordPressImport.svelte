@@ -2,6 +2,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Checkbox } from '$lib/components/ui/checkbox';
+  import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
   import { Badge } from '$lib/components/ui/badge';
   import { FileText, CheckCircle, XCircle, Loader2, AlertCircle } from '@lucide/svelte';
@@ -15,11 +16,11 @@
     collectionSlug,
     open = $bindable(false),
     onImportComplete
-  } = $props<{
+  }: {
     collectionSlug: string;
     open?: boolean;
     onImportComplete?: () => void;
-  }>();
+  } = $props();
 
   // Check if we're importing to media library
   const isMediaLibraryImport = $derived(collectionSlug === 'media-library');
@@ -33,8 +34,8 @@
 
   // Import flow state
   let currentStep = $state(1); // 1: credentials, 2: preview, 3: selection, 4: mapping, 5: import
-  let previewData = $state<any>(null);
-  let selectedPostType = $state<string>('posts'); // Default to posts
+  let previewData: any = $state(null);
+  let selectedPostType: string = $state('posts'); // Default to posts
 
   // Derived values for better performance
   const selectedPostTypeData = $derived(
@@ -70,17 +71,17 @@
   let importing = $state(false);
   let importProgress = $state(0);
   let importStatus = $state('');
-  let importResult = $state<{
+  let importResult: {
     success: boolean;
     imported: number;
     skipped: number;
     errors: string[];
     files: { imported: number; failed: number };
     total: number;
-  } | null>(null);
+  } | null = $state(null);
 
   // Collection fields
-  let availableFields = $state<Array<{ key: string; label: string; type: string }>>([]);
+  let availableFields: Array<{ key: string; label: string; type: string }> = $state([]);
   let loadingFields = $state(false);
 
   // Field mapping state - user selects manually
@@ -307,12 +308,11 @@
       <div class="border-muted-foreground/20 space-y-4 rounded-lg border p-4">
         <div class="space-y-3">
           <Label for="base-url" class="text-sm font-medium">WordPress Site URL</Label>
-          <input
+          <Input
             id="base-url"
             type="url"
             placeholder="https://yoursite.com"
             bind:value={apiConfig.baseUrl}
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           />
           <p class="text-muted-foreground text-xs">
             Enter your WordPress site URL (without /wp-json/wp/v2)
@@ -322,22 +322,20 @@
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-2">
             <Label for="username" class="text-sm font-medium">Username</Label>
-            <input
+            <Input
               id="username"
               type="text"
               placeholder="WordPress username"
               bind:value={apiConfig.username}
-              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             />
           </div>
           <div class="space-y-2">
             <Label for="password" class="text-sm font-medium">Password</Label>
-            <input
+            <Input
               id="password"
               type="password"
               placeholder="WordPress password"
               bind:value={apiConfig.password}
-              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             />
           </div>
         </div>
