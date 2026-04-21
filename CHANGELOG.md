@@ -2,6 +2,14 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.3.1] — 21-04-2026
+
+### Fixed
+- **File picker height** — the Sheet was expanding with content because shadcn's default `data-[side=bottom]:h-auto` had higher CSS specificity than a plain `h-[...]` override. Now caps at `max-h-[65vh]` using matching `data-[side=bottom]:` prefix so it actually takes effect.
+
+### Changed
+- **Add Block dialog** — replaced the Card-per-item layout with a tighter button list that uses the same `bg-input-bg` / `border-input` / `rounded-lg` styling as the rest of the form controls, matching the site's unified look from 0.3.0.
+
 ## [0.3.0] — 21-04-2026
 
 ### Added

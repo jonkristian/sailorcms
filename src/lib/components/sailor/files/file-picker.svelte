@@ -282,7 +282,10 @@
 
 {#if browser}
 <Sheet.Root {open} onOpenChange={handleSheetOpenChange}>
-  <Sheet.Content side="bottom" class="flex h-[55vh] flex-col gap-0 p-0">
+  <Sheet.Content
+    side="bottom"
+    class="flex flex-col gap-0 p-0 data-[side=bottom]:h-auto data-[side=bottom]:max-h-[65vh]"
+  >
     <Sheet.Header class="flex-shrink-0 border-b px-4 py-4">
       <div class="flex items-center justify-between">
         <!-- Left side: Search and Upload -->

@@ -847,19 +847,20 @@
     <DialogHeader>
       <DialogTitle>Add Block</DialogTitle>
     </DialogHeader>
-    <div class="grid max-h-96 gap-4 overflow-y-auto py-4">
+    <div class="grid max-h-96 gap-2 overflow-y-auto py-2">
       {#each availableBlocks as blockType}
-        <Card
-          class="hover:bg-accent cursor-pointer transition-colors"
-          onclick={() => {
-            handleAddBlock(blockType.slug);
-          }}
+        <button
+          type="button"
+          class="bg-input-bg border-input hover:bg-accent flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors"
+          onclick={() => handleAddBlock(blockType.slug)}
         >
-          <CardHeader>
-            <CardTitle>{blockType.name}</CardTitle>
-            <CardDescription>{blockType.description}</CardDescription>
-          </CardHeader>
-        </Card>
+          <span class="text-sm font-medium">{blockType.name}</span>
+          {#if blockType.description}
+            <span class="text-muted-foreground text-xs leading-snug">
+              {blockType.description}
+            </span>
+          {/if}
+        </button>
       {/each}
     </div>
   </DialogContent>
