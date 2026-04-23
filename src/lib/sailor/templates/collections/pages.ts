@@ -13,7 +13,8 @@ export const pagesCollection: CollectionDefinition = {
     seo: true,
     blocks: true, // Enable blocks for flexible page layouts
     sortable: true, // Enable sortable up/down reordering for pages
-    nestable: true // Enable hierarchical parent-child relationships for pages
+    nestable: true, // Enable hierarchical parent-child relationships for pages
+    searchable: true
   },
   fields: {
     // Core fields auto-added by generator:

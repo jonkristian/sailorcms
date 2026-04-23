@@ -14,7 +14,7 @@ Simple helper functions for loading content in your SvelteKit app.
 The `getCollections()` function is your one-stop solution for all collection queries. It intelligently returns either a single item or multiple items based on the options you provide.
 
 ```typescript
-import { getCollections } from '$sailor/utils';
+import { getCollections } from '$sailor/utils/index';
 import type { Post, Page } from '$sailor/generated/types';
 
 // Multiple items - returns { items, total, hasMore, pagination?, grouped? }
@@ -154,7 +154,7 @@ type CollectionsMultipleResult<T> = {
 The `getGlobals()` function handles all global queries with the same intelligent single/multiple return pattern.
 
 ```typescript
-import { getGlobals } from '$sailor/utils';
+import { getGlobals } from '$sailor/utils/index';
 import type { Menu, Category } from '$sailor/generated/types';
 
 // Multiple items from repeatable globals
@@ -235,6 +235,118 @@ type GlobalsMultipleResult<T> = {
   grouped?: Record<string, T[]>;
 };
 ```
+
+## Search
+
+The `search()` function queries a denormalized `search_index` table that's populated automatically on content save (via `SearchIndexService` hooks). Matching items are re-fetched through `getCollections`/`getGlobals`, so results carry `.url`, blocks, and ACL just like the other utilities.
+
+On SQLite/Turso, search uses FTS5 with the trigram tokenizer (substring-friendly: "sail" finds "sailor", "mail" finds "email"). If FTS5 isn't available or returns zero matches, it falls back to a case-insensitive LIKE on title + indexed text.
+
+```typescript
+import { search } from '$sailor/utils/index';
+
+// Search everything marked searchable (no scope)
+const results = await search('sailing', { user: locals.user });
+
+// Narrow to specific entities
+const results = await search('sailing', {
+  scope: {
+    collections: ['posts', 'pages'],
+    globals: ['faq']
+  },
+  limit: 20,
+  user: locals.user
+});
+
+results.items.forEach((r) => {
+  console.log(r.entityType); // 'collection' | 'global'
+  console.log(r.entityName); // 'posts', 'faq', etc.
+  console.log(r.item.title); // the hydrated row
+  console.log(r.snippet); // excerpt built from the hydrated entity's content
+  console.log(r.matchedFields); // ['title', 'content']
+});
+```
+
+### Enabling search on a template
+
+```typescript
+// src/lib/sailor/templates/collections/posts.ts
+export const postsCollection: CollectionDefinition = {
+  // ...
+  options: {
+    searchable: true
+  }
+};
+```
+
+The indexer walks all top-level `string` / `text` / `textarea` / `wysiwyg` / `email` / `link` fields, plus block content for collections with `options.blocks: true`, plus any tags attached to the item. Arrays/objects/relations beyond blocks aren't walked in v1.
+
+### Search Options
+
+| Option        | Type                              | Description                                                           |
+| ------------- | --------------------------------- | --------------------------------------------------------------------- |
+| `scope`       | `{ collections?, globals? }`      | Narrow the set of entities to search (default: all marked searchable) |
+| `limit`       | `number`                          | Max results per page (default: `20`)                                  |
+| `offset`      | `number`                          | Offset for pagination (default: `0`)                                  |
+| `status`      | `'published' \| 'draft' \| 'all'` | Status filter for collections only (globals ignore status)            |
+| `user`        | `User \| null`                    | User context for ACL filtering                                        |
+| `baseUrl`     | `string`                          | Include a `pagination` object in the result (same as `getCollections`) |
+| `currentPage` | `number`                          | Current page for pagination metadata                                  |
+
+### Return Type
+
+```typescript
+type SearchResult = {
+  items: Array<{
+    entityType: 'collection' | 'global';
+    entityName: string;
+    item: any; // Hydrated via getCollections/getGlobals
+    matchedFields: string[];
+    snippet?: string;
+  }>;
+  total: number;
+  totalByEntity: Record<string, number>; // e.g. { posts: 5, pages: 2, faq: 1 }
+  hasMore: boolean;
+  pagination?: Pagination; // Populated when both `limit` and `baseUrl` are provided
+};
+```
+
+Results are sorted by `updated_at` descending across all entities. For an empty query, `search()` returns `{ items: [], total: 0, totalByEntity: {}, hasMore: false }`.
+
+### Pagination example
+
+```typescript
+// +page.server.ts
+import { search } from '$sailor/utils/index';
+
+export async function load({ url, locals }) {
+  const query = url.searchParams.get('q')?.trim() ?? '';
+  const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
+  const limit = 10;
+
+  const results = query
+    ? await search(query, {
+        limit,
+        offset: (page - 1) * limit,
+        currentPage: page,
+        baseUrl: '/search',
+        user: locals.user ?? null
+      })
+    : null;
+
+  return { query, results };
+}
+```
+
+### Full rebuild
+
+If the index drifts (e.g. after bulk imports, tag-key migrations, or dropping FTS manually), rebuild it:
+
+```bash
+npx sailor search:reindex
+```
+
+This clears `search_index` + `search_index_fts` and repopulates from every searchable entity's live rows.
 
 ## Files & Images
 
@@ -345,7 +457,7 @@ const excerpt = getExcerpt(post.content, 160, ' [read more]');
 ## Settings
 
 ```typescript
-import { getSiteSettings } from '$sailor/utils';
+import { getSiteSettings } from '$sailor/utils/index';
 
 // Site-specific settings (contact email, social media, etc.)
 const config = await getSiteSettings();
@@ -510,7 +622,7 @@ Use content utilities to handle TipTap JSON content and create excerpts:
 
 ```typescript
 // +page.server.ts
-import { getCollections } from '$sailor/utils';
+import { getCollections } from '$sailor/utils/index';
 import type { Post } from '$sailor/generated/types';
 
 export async function load() {
@@ -523,7 +635,7 @@ export async function load() {
 
 ```typescript
 // +page.server.ts
-import { getCollections } from '$sailor/utils';
+import { getCollections } from '$sailor/utils/index';
 import type { Post } from '$sailor/generated/types';
 
 export async function load({ url }) {
@@ -543,7 +655,7 @@ export async function load({ url }) {
 
 ```typescript
 // +layout.server.ts
-import { getGlobals, getSiteSettings } from '$sailor/utils';
+import { getGlobals, getSiteSettings } from '$sailor/utils/index';
 import type { Menu } from '$sailor/generated/types';
 
 export async function load() {
@@ -558,7 +670,7 @@ export async function load() {
 
 ```typescript
 // +page.server.ts
-import { getCollections, getSiteSettings } from '$sailor/utils';
+import { getCollections, getSiteSettings } from '$sailor/utils/index';
 import { extractSEO } from '$sailor/utils/content/seo';
 import type { Post } from '$sailor/generated/types';
 

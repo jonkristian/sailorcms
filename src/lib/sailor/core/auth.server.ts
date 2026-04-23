@@ -6,6 +6,7 @@ import { createAccessControl } from 'better-auth/plugins/access';
 import { defaultStatements } from 'better-auth/plugins/admin/access';
 import { getRequestEvent } from '$app/server';
 import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import { db } from './db/index.server';
 import { users, sessions, accounts, verifications } from './db/index.server';
 import { getSettings } from './settings';
@@ -52,9 +53,13 @@ function getAuthSettings() {
   };
 }
 
+const baseURL = publicEnv.PUBLIC_BASE_URL || 'http://localhost:5173';
+
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   basePath: '/sailor/api/auth',
+  baseURL,
+  trustedOrigins: [baseURL],
   database: drizzleAdapter(db, {
     provider: 'sqlite',
     schema: {

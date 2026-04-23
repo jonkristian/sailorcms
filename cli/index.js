@@ -12,6 +12,7 @@ import { registerUserCommands } from './tools/users-manage.js';
 import { registerDbBackup } from './tools/db-backup.js';
 import { registerDbRestore } from './tools/db-restore.js';
 import { registerDbSeed } from './tools/db-seed.js';
+import { registerSearchReindex } from './tools/search-reindex.js';
 
 // Load environment variables and start CLI
 (async () => {
@@ -44,6 +45,7 @@ import { registerDbSeed } from './tools/db-seed.js';
   registerDbBackup(program);
   registerDbRestore(program);
   registerDbSeed(program);
+  registerSearchReindex(program);
   registerUserCommands(program);
 
   program.parse();

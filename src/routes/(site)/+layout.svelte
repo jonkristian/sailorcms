@@ -12,6 +12,7 @@
   let isHomeActive = $derived(page.url.pathname === '/');
   let isPagesActive = $derived(page.url.pathname.includes('/pages'));
   let isBlogActive = $derived(page.url.pathname.includes('/blog'));
+  let isSearchActive = $derived(page.url.pathname.includes('/search'));
 
   onMount(() => {
     const handleScroll = () => {
@@ -37,6 +38,7 @@
           <a href={resolve('/')} class="nav-link" class:active={isHomeActive}>Home</a>
           <a href={resolve('/pages')} class="nav-link" class:active={isPagesActive}>Pages</a>
           <a href={resolve('/blog')} class="nav-link" class:active={isBlogActive}>Blog</a>
+          <a href={resolve('/search')} class="nav-link" class:active={isSearchActive}>Search</a>
         </nav>
       </div>
     </header>

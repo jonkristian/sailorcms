@@ -409,11 +409,13 @@ export async function generateSchema(targetDir) {
 }
 
 export async function detectPackageManager(targetDir) {
+  // Check bun first — bun.lock (text, Bun ≥1.2) or bun.lockb (legacy binary)
   const lockFiles = [
-    { file: 'package-lock.json', manager: 'npm' },
-    { file: 'yarn.lock', manager: 'yarn' },
+    { file: 'bun.lock', manager: 'bun' },
+    { file: 'bun.lockb', manager: 'bun' },
     { file: 'pnpm-lock.yaml', manager: 'pnpm' },
-    { file: 'bun.lockb', manager: 'bun' }
+    { file: 'yarn.lock', manager: 'yarn' },
+    { file: 'package-lock.json', manager: 'npm' }
   ];
   for (const { file, manager } of lockFiles) {
     if (await fs.pathExists(path.join(targetDir, file))) {

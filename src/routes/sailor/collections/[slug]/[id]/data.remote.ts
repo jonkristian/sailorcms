@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
+import { SearchIndexService } from '$sailor/core/services/search-index.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
 
 /**
@@ -676,6 +677,11 @@ export const saveCollectionItem = command(
           await TagService.tagEntity(taggableType, itemId, tagNames);
         }
       }
+
+      // Keep search_index current. Runs after the transaction + tags so the
+      // reindex reads fully-committed state. Non-throwing — index failures
+      // must not break saves.
+      await SearchIndexService.onSaveSafe('collection', collectionSlug, result.itemId);
 
       return { success: true, message: 'Item saved successfully', itemId: result.itemId };
     } catch (error) {

@@ -8,6 +8,7 @@ import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { generateUUID, normalizeRelationId } from '$sailor/core/utils/common';
 import { toSnakeCase } from '$sailor/core/utils/string';
 import { log } from '$sailor/core/utils/logger';
+import { SearchIndexService } from '$sailor/core/services/search-index.server';
 
 /**
  * Reorder array items with drag & drop support
@@ -84,6 +85,7 @@ export const updateGlobalItemTags = command(
     try {
       // Use specific global entity type for better organization
       await TagService.tagEntity(`global_${globalSlug}`, itemId, tags);
+      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
 
       return { success: true, message: 'Tags updated successfully' };
     } catch (error) {
@@ -108,12 +110,14 @@ export const addGlobalItemTags = command(
     }
 
     try {
-      // Get current tags and add new ones (without removing existing)
-      const currentTags = await TagService.getTagsForEntity('global', itemId);
+      // Use slug-qualified taggable type to match updateGlobalItemTags + repeatable global writes
+      const taggableType = `global_${globalSlug}`;
+      const currentTags = await TagService.getTagsForEntity(taggableType, itemId);
       const currentTagNames = currentTags.map((tag) => tag.name);
       const allTagNames = [...new Set([...currentTagNames, ...tags])]; // Deduplicate
 
-      await TagService.tagEntity('global', itemId, allTagNames);
+      await TagService.tagEntity(taggableType, itemId, allTagNames);
+      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
 
       return { success: true, message: `${tags.length} tag(s) added successfully` };
     } catch (error) {
@@ -138,12 +142,14 @@ export const removeGlobalItemTags = command(
     }
 
     try {
-      // Get current tags and remove specified ones
-      const currentTags = await TagService.getTagsForEntity('global', itemId);
+      // Use slug-qualified taggable type to match updateGlobalItemTags + repeatable global writes
+      const taggableType = `global_${globalSlug}`;
+      const currentTags = await TagService.getTagsForEntity(taggableType, itemId);
       const currentTagNames = currentTags.map((tag) => tag.name);
       const remainingTagNames = currentTagNames.filter((tagName) => !tags.includes(tagName));
 
-      await TagService.tagEntity('global', itemId, remainingTagNames);
+      await TagService.tagEntity(taggableType, itemId, remainingTagNames);
+      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
 
       return { success: true, message: `${tags.length} tag(s) removed successfully` };
     } catch (error) {
@@ -198,6 +204,7 @@ export const deleteGlobalItem = command(
 
       // Delete the item
       await db.delete(globalTable).where(eq((globalTable as any).id, itemId));
+      await SearchIndexService.onDeleteSafe('global', globalSlug, itemId);
 
       return { success: true };
     } catch (error) {
@@ -442,6 +449,8 @@ export const updateFlatGlobal = command(
           }
         }
       });
+
+      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
 
       return { success: true };
     } catch (error) {
@@ -830,6 +839,8 @@ export const updateRepeatableGlobal = command(
         }
       }
 
+      await SearchIndexService.onSaveSafe('global', globalSlug, finalItemId);
+
       return { success: true, itemId: finalItemId };
     } catch (error) {
       log.error('Error updating repeatable global', {}, error as Error);
@@ -1079,6 +1090,8 @@ export const updateRelationalGlobal = command(
           }
         }
       });
+
+      await SearchIndexService.onSaveSafe('global', globalSlug, finalItemId);
 
       return { success: true, itemId: finalItemId };
     } catch (error) {

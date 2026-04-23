@@ -92,10 +92,8 @@
       search: true,
       sort: {
         options: () => sortOptions,
-        // svelte-ignore state_referenced_locally
-        defaultSort: data.collectionType.options?.sortable ? 'sort' : 'updated_at',
-        // svelte-ignore state_referenced_locally
-        defaultOrder: data.collectionType.options?.sortable ? 'asc' : 'desc'
+        defaultSort: () => (data.collectionType.options?.sortable ? 'sort' : 'updated_at'),
+        defaultOrder: () => (data.collectionType.options?.sortable ? 'asc' : 'desc')
       }
     },
     debounceMs: 600

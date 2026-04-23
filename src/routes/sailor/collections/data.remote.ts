@@ -6,6 +6,7 @@ import { eq, and, or, sql, asc, ne } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { generateUUID } from '$lib/sailor/core/utils/common';
 import { TagService } from '$sailor/core/services/tag.server';
+import { SearchIndexService } from '$sailor/core/services/search-index.server';
 
 /**
  * Clone collection items
@@ -170,6 +171,7 @@ export const deleteCollectionItems = command(
 
           // Delete the item
           await db.delete(collectionTable).where(eq((collectionTable as any).id, itemId));
+          await SearchIndexService.onDeleteSafe('collection', collectionSlug, itemId);
           successCount++;
         } catch (err) {
           errorCount++;

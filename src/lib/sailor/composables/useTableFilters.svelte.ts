@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
+import { page } from '$app/state';
 import { debounce } from '$sailor/core/utils/debounce';
 
 interface SortOption {
@@ -35,8 +36,8 @@ interface FilterConfig {
   search?: boolean;
   sort?: {
     options: SortOption[] | (() => SortOption[]);
-    defaultSort: string;
-    defaultOrder: 'asc' | 'desc';
+    defaultSort: string | (() => string);
+    defaultOrder: 'asc' | 'desc' | (() => 'asc' | 'desc');
   };
   select?: SelectFilter[];
   multiSelect?: MultiSelectFilter[];
@@ -57,17 +58,41 @@ export function useTableFilters(options: FilterOptions) {
   // Get baseUrl - either static string or reactive getter
   const getBaseUrl = () => (typeof baseUrlOption === 'function' ? baseUrlOption() : baseUrlOption);
 
-  // Initialize filter state from URL or defaults
-  const urlParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  // Resolve sort defaults — allow either static values or reactive getters so
+  // callers can pass defaults that depend on route-scoped data (e.g. a
+  // collection's `sortable` flag) without the hook capturing a stale value.
+  const getDefaultSort = () =>
+    config.sort
+      ? typeof config.sort.defaultSort === 'function'
+        ? config.sort.defaultSort()
+        : config.sort.defaultSort
+      : '';
+  const getDefaultOrder = (): 'asc' | 'desc' =>
+    config.sort
+      ? typeof config.sort.defaultOrder === 'function'
+        ? config.sort.defaultOrder()
+        : config.sort.defaultOrder
+      : 'desc';
+
+  // Read params from the current URL. Prefers SvelteKit's reactive `page.url`
+  // once it's available so state re-syncs on client-side navigation.
+  function readParams(): URLSearchParams {
+    try {
+      if (page?.url) return new URLSearchParams(page.url.search);
+    } catch {}
+    return browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  }
+
+  const initialParams = readParams();
 
   // Search state
-  let searchQuery = $state(config.search ? urlParams.get('search') || '' : '');
+  let searchQuery = $state(config.search ? initialParams.get('search') || '' : '');
 
   // Sort state
-  let sortBy = $state(config.sort ? urlParams.get('sortBy') || config.sort.defaultSort : '');
+  let sortBy = $state(config.sort ? initialParams.get('sortBy') || getDefaultSort() : '');
   let sortOrder: 'asc' | 'desc' = $state(
     config.sort
-      ? (urlParams.get('sortOrder') as 'asc' | 'desc') || config.sort.defaultOrder
+      ? (initialParams.get('sortOrder') as 'asc' | 'desc') || getDefaultOrder()
       : 'desc'
   );
 
@@ -75,7 +100,7 @@ export function useTableFilters(options: FilterOptions) {
   const selectFilters: Record<string, string> = $state({});
   if (config.select) {
     for (const filter of config.select) {
-      selectFilters[filter.key] = urlParams.get(filter.key) || filter.default;
+      selectFilters[filter.key] = initialParams.get(filter.key) || filter.default;
     }
   }
 
@@ -83,10 +108,39 @@ export function useTableFilters(options: FilterOptions) {
   const multiSelectFilters: Record<string, string[]> = $state({});
   if (config.multiSelect) {
     for (const filter of config.multiSelect) {
-      const urlValue = urlParams.get(filter.key);
+      const urlValue = initialParams.get(filter.key);
       multiSelectFilters[filter.key] = urlValue ? urlValue.split(',') : [];
     }
   }
+
+  // Re-sync state from URL when the route changes (e.g. user navigates between
+  // collections of differing sortability). Without this, state leaks across
+  // pages because the caller's component instance is reused by SvelteKit.
+  let lastSyncedPathname = browser ? page?.url?.pathname ?? '' : '';
+  $effect(() => {
+    const pathname = page?.url?.pathname;
+    if (!pathname || pathname === lastSyncedPathname) return;
+    lastSyncedPathname = pathname;
+    const params = readParams();
+    if (config.search) {
+      searchQuery = params.get('search') || '';
+    }
+    if (config.sort) {
+      sortBy = params.get('sortBy') || getDefaultSort();
+      sortOrder = (params.get('sortOrder') as 'asc' | 'desc') || getDefaultOrder();
+    }
+    if (config.select) {
+      for (const filter of config.select) {
+        selectFilters[filter.key] = params.get(filter.key) || filter.default;
+      }
+    }
+    if (config.multiSelect) {
+      for (const filter of config.multiSelect) {
+        const urlValue = params.get(filter.key);
+        multiSelectFilters[filter.key] = urlValue ? urlValue.split(',') : [];
+      }
+    }
+  });
 
   function buildUrl(): string {
     const params = new URLSearchParams();
@@ -98,10 +152,10 @@ export function useTableFilters(options: FilterOptions) {
 
     // Add sort params
     if (config.sort) {
-      if (sortBy !== config.sort.defaultSort) {
+      if (sortBy !== getDefaultSort()) {
         params.set('sortBy', sortBy);
       }
-      if (sortOrder !== config.sort.defaultOrder) {
+      if (sortOrder !== getDefaultOrder()) {
         params.set('sortOrder', sortOrder);
       }
     }
@@ -186,8 +240,8 @@ export function useTableFilters(options: FilterOptions) {
     searchQuery = '';
 
     if (config.sort) {
-      sortBy = config.sort.defaultSort;
-      sortOrder = config.sort.defaultOrder;
+      sortBy = getDefaultSort();
+      sortOrder = getDefaultOrder();
     }
 
     if (config.select) {

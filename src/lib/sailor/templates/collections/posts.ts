@@ -12,7 +12,8 @@ export const postsCollection: CollectionDefinition = {
     titleField: 'title',
     seo: true,
     blocks: false, // Disable blocks for simple post structure
-    basePath: '/blog/' // Preview links will use /blog/slug instead of /posts/slug
+    basePath: '/blog/', // Preview links will use /blog/slug instead of /posts/slug
+    searchable: true
   },
   fields: {
     // Core fields auto-added by generator:

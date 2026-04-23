@@ -12,7 +12,8 @@ export const faqGlobal: GlobalDefinition = {
   options: {
     sortable: true,
     inline: true,
-    titleField: 'title'
+    titleField: 'title',
+    searchable: true
   },
   fields: {
     // Core fields auto-added by generator:

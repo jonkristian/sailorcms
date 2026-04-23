@@ -7,14 +7,21 @@ export {
   getGlobals,
   getAvailableGlobalTypes,
   globalTypeExists,
-  getSiteSettings,
-  type CollectionItem,
-  type CollectionsOptions,
-  type CollectionsMultipleResult,
-  type CollectionsSingleResult,
-  type GlobalsMultipleResult,
-  type GlobalsOptions,
-  type GlobalsSingleResult
+  getSiteSettings
+} from './data';
+export { search } from './data/search';
+export type {
+  CollectionItem,
+  CollectionsOptions,
+  CollectionsMultipleResult,
+  CollectionsSingleResult,
+  GlobalsMultipleResult,
+  GlobalsOptions,
+  GlobalsSingleResult,
+  SearchScope,
+  SearchOptions,
+  SearchResultItem,
+  SearchResult
 } from './data';
 
 // Content utilities (universal)

@@ -3,11 +3,14 @@
 
 import { createAuthClient } from 'better-auth/svelte';
 import { browser } from '$app/environment';
+import { env } from '$env/dynamic/public';
+
+const baseURL = browser
+  ? window.location.origin
+  : env.PUBLIC_BASE_URL || 'http://localhost:5173';
 
 export const authClient = createAuthClient({
-  baseURL: browser
-    ? `${window.location.origin}/sailor/api/auth`
-    : 'http://localhost:5173/sailor/api/auth'
+  baseURL: `${baseURL}/sailor/api/auth`
 });
 
 // Export auth types

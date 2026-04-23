@@ -160,6 +160,27 @@ export class CoreGenerator {
   ]
 );`,
 
+      // Search index table (populated by SearchIndexService on content save;
+      // queried by the search() utility)
+      `export const searchIndex = ${this.adapter.getTableFunction()}(
+  'search_index',
+  {
+    id: ${this.adapter.getPrimaryKeyDefinition()},
+    entity_type: ${this.adapter.getTextFieldDefinition('entity_type', { notNull: true })},
+    entity_name: ${this.adapter.getTextFieldDefinition('entity_name', { notNull: true })},
+    entity_id: ${this.adapter.getTextFieldDefinition('entity_id', { notNull: true })},
+    title: ${this.adapter.getTextFieldDefinition('title')},
+    searchable_text: ${this.adapter.getTextFieldDefinition('searchable_text', { notNull: true })},
+    status: ${this.adapter.getTextFieldDefinition('status')},
+    updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
+  },
+  (table) => [
+    uniqueIndex('search_index_entity_unique_idx').on(table.entity_type, table.entity_name, table.entity_id),
+    index('search_index_entity_idx').on(table.entity_type, table.entity_name),
+    index('search_index_status_updated_idx').on(table.status, table.updated_at)
+  ]
+);`,
+
       // Better Auth tables
       `export const accounts = ${this.adapter.getTableFunction()}('accounts', {
   id: ${this.adapter.getPrimaryKeyDefinition()},

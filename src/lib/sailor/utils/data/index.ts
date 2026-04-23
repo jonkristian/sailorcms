@@ -25,3 +25,7 @@ export { loadBlocksForCollection, type BlockWithRelations } from './blocks';
 
 // Site utilities
 export { getSiteSettings } from './site';
+
+// Search
+export { search } from './search';
+export type { SearchScope, SearchOptions, SearchResultItem, SearchResult } from './search';
