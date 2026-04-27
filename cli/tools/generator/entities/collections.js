@@ -294,6 +294,12 @@ export class CollectionGenerator {
         continue;
       }
 
+      if (fieldDef.type === 'tags') {
+        // Tags are stored via the polymorphic `taggables` join table, not as
+        // a column on the entity. Skip so we don't create a phantom column.
+        continue;
+      }
+
       fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef);
     }
 

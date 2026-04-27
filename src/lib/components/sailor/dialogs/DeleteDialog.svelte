@@ -32,7 +32,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={(newOpen) => !newOpen && handleCancel()}>
-  <Dialog.Content class="max-w-md">
+  <Dialog.Content>
     <Dialog.Header>
       <div class="flex items-center gap-3">
         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">

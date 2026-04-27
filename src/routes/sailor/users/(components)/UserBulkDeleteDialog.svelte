@@ -65,7 +65,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={(newOpen) => !newOpen && handleCancel()}>
-  <Dialog.Content class="sm:max-w-lg">
+  <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2">
         <Trash2 class="h-5 w-5" />

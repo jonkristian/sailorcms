@@ -94,104 +94,27 @@ export async function search(
   }
 
   const ftsAvailable = await ensureFtsReady();
-  const conditions: SQL[] = [buildSearchCondition(table, trimmed, ftsAvailable)];
+  const ftsQuery = ftsAvailable ? toFtsQuery(trimmed) : '';
 
-  if (status && status !== 'all') {
-    // Status only applies to collections. Globals have no user-exposed draft
-    // workflow in the admin UI, so their status (if any) is ignored here.
-    conditions.push(
-      or(
-        eq(table.entity_type, 'global'),
-        eq(table.status, status),
-        sql`${table.status} is null`
-      ) as SQL
-    );
-  }
+  let matches: MatchRow[] = [];
 
-  if (scope?.collections && scope.collections.length) {
-    conditions.push(
-      and(
-        eq(table.entity_type, 'collection'),
-        inArray(table.entity_name, scope.collections)
-      ) as SQL
-    );
-  } else if (scope?.globals && !scope?.collections) {
-    conditions.push(eq(table.entity_type, 'global') as SQL);
-  }
-
-  if (scope?.globals && scope.globals.length) {
-    // If both collections + globals are scoped, widen: match either branch.
-    // We already pushed a collection condition above; turn them into an OR.
-    if (scope?.collections && scope.collections.length) {
-      // pop the previous collection condition and replace with OR
-      const collectionCond = conditions.pop() as SQL;
-      const globalCond = and(
-        eq(table.entity_type, 'global'),
-        inArray(table.entity_name, scope.globals)
-      ) as SQL;
-      conditions.push(or(collectionCond, globalCond) as SQL);
-    } else {
-      conditions.push(
-        and(
-          eq(table.entity_type, 'global'),
-          inArray(table.entity_name, scope.globals)
-        ) as SQL
-      );
+  if (ftsQuery) {
+    try {
+      matches = await fetchFtsMatches(ftsQuery, status, scope);
+    } catch (err) {
+      console.error('search(): FTS query failed', err);
     }
   }
 
-  const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
-
-  let matches: Array<{
-    entity_type: 'collection' | 'global';
-    entity_name: string;
-    entity_id: string;
-    title: string | null;
-    searchable_text: string;
-    status: string | null;
-    updated_at: Date;
-  }> = [];
-  try {
-    matches = (await db
-      .select({
-        entity_type: table.entity_type,
-        entity_name: table.entity_name,
-        entity_id: table.entity_id,
-        title: table.title,
-        searchable_text: table.searchable_text,
-        status: table.status,
-        updated_at: table.updated_at
-      })
-      .from(table)
-      .where(whereClause)
-      .orderBy(desc(table.updated_at))) as any;
-  } catch (err) {
-    console.error('search(): query failed', err);
-    return { items: [], total: 0, totalByEntity: {}, hasMore: false };
-  }
-
-  // FTS5 can miss typos and substring intents ("tuling" vs "tulling",
-  // "mail" vs "email"). If the stemmed query returns nothing, retry with
-  // LIKE so users at least see plausible matches.
-  if (matches.length === 0 && ftsAvailable) {
-    conditions[0] = buildSearchCondition(table, trimmed, false);
-    const retryWhere = conditions.length > 1 ? and(...conditions) : conditions[0];
+  // FTS can miss typos and substring intents ("tuling" vs "tulling",
+  // "mail" vs "email"). If nothing came back, retry with LIKE so users
+  // at least see plausible matches.
+  if (matches.length === 0) {
     try {
-      matches = (await db
-        .select({
-          entity_type: table.entity_type,
-          entity_name: table.entity_name,
-          entity_id: table.entity_id,
-          title: table.title,
-          searchable_text: table.searchable_text,
-          status: table.status,
-          updated_at: table.updated_at
-        })
-        .from(table)
-        .where(retryWhere)
-        .orderBy(desc(table.updated_at))) as any;
+      matches = await fetchLikeMatches(table, trimmed, status, scope);
     } catch (err) {
-      console.error('search(): LIKE fallback failed', err);
+      console.error('search(): LIKE query failed', err);
+      return { items: [], total: 0, totalByEntity: {}, hasMore: false };
     }
   }
 
@@ -244,36 +167,170 @@ export async function search(
 
 // --- internals ---
 
+type MatchRow = {
+  entity_type: 'collection' | 'global';
+  entity_name: string;
+  entity_id: string;
+  title: string | null;
+  searchable_text: string;
+  status: string | null;
+  updated_at: Date;
+};
+
 /**
- * Build the WHERE clause fragment that matches `query` against a row in
- * `search_index`.
+ * FTS5 query path. Joins `search_index_fts` with `search_index`, ranks results
+ * via BM25 with the title column weighted ~5× higher than searchable_text,
+ * then falls back to `updated_at` as tiebreaker.
  *
- * - When FTS5 is available (SQLite / Turso), uses a correlated subquery
- *   against `search_index_fts` with the trigram tokenizer. Substring-friendly
- *   ("sail" finds "sailor", "mail" finds "email").
- * - Otherwise falls back to case-insensitive LIKE on title + searchable_text.
- *
- * Future backends (Postgres tsvector): add another branch here keyed on the
- * adapter type.
+ * BM25 returns negative numbers where more-negative = better match, so we
+ * ORDER BY rank ASC.
  */
-function buildSearchCondition(table: any, query: string, ftsAvailable: boolean): SQL {
-  if (ftsAvailable) {
-    const ftsQuery = toFtsQuery(query);
-    if (ftsQuery) {
-      return sql`EXISTS (
-        SELECT 1 FROM search_index_fts
-        WHERE search_index_fts MATCH ${ftsQuery}
-          AND search_index_fts.entity_type = ${table.entity_type}
-          AND search_index_fts.entity_name = ${table.entity_name}
-          AND search_index_fts.entity_id = ${table.entity_id}
-      )` as SQL;
-    }
-  }
+async function fetchFtsMatches(
+  ftsQuery: string,
+  status: string,
+  scope: SearchScope | undefined
+): Promise<MatchRow[]> {
+  const filters: SQL[] = [sql`search_index_fts MATCH ${ftsQuery}`];
+  const statusFilter = buildStatusFilterRaw(status);
+  if (statusFilter) filters.push(statusFilter);
+  const scopeFilter = buildScopeFilterRaw(scope);
+  if (scopeFilter) filters.push(scopeFilter);
+
+  const whereClause =
+    filters.length > 1 ? sql.join(filters, sql` AND `) : filters[0];
+
+  const rows: any = await db.all(sql`
+    SELECT
+      si.entity_type AS entity_type,
+      si.entity_name AS entity_name,
+      si.entity_id AS entity_id,
+      si.title AS title,
+      si.searchable_text AS searchable_text,
+      si.status AS status,
+      si.updated_at AS updated_at,
+      bm25(search_index_fts, 5.0, 1.0) AS rank
+    FROM search_index si
+    JOIN search_index_fts ON
+      search_index_fts.entity_type = si.entity_type
+      AND search_index_fts.entity_name = si.entity_name
+      AND search_index_fts.entity_id = si.entity_id
+    WHERE ${whereClause}
+    ORDER BY rank ASC, si.updated_at DESC
+  `);
+  return rows.map(normalizeMatchRow);
+}
+
+/**
+ * LIKE fallback path. No relevance score available, so we approximate:
+ * title matches rank above content-only matches, then `updated_at` tiebreaker.
+ */
+async function fetchLikeMatches(
+  table: any,
+  query: string,
+  status: string,
+  scope: SearchScope | undefined
+): Promise<MatchRow[]> {
   const pattern = `%${escapeLike(query.toLowerCase())}%`;
-  return or(
+  const matchCondition = or(
     sql`lower(${table.title}) like ${pattern}`,
     sql`lower(${table.searchable_text}) like ${pattern}`
   ) as SQL;
+
+  const conditions: SQL[] = [matchCondition];
+  if (status && status !== 'all') {
+    conditions.push(
+      or(
+        eq(table.entity_type, 'global'),
+        eq(table.status, status),
+        sql`${table.status} is null`
+      ) as SQL
+    );
+  }
+  const scopeClause = buildScopeFilterBuilder(table, scope);
+  if (scopeClause) conditions.push(scopeClause);
+
+  const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
+
+  const rows = await db
+    .select({
+      entity_type: table.entity_type,
+      entity_name: table.entity_name,
+      entity_id: table.entity_id,
+      title: table.title,
+      searchable_text: table.searchable_text,
+      status: table.status,
+      updated_at: table.updated_at
+    })
+    .from(table)
+    .where(whereClause)
+    .orderBy(
+      sql`CASE WHEN lower(${table.title}) like ${pattern} THEN 0 ELSE 1 END`,
+      desc(table.updated_at)
+    );
+  return rows.map(normalizeMatchRow);
+}
+
+function normalizeMatchRow(r: any): MatchRow {
+  return {
+    entity_type: r.entity_type,
+    entity_name: r.entity_name,
+    entity_id: r.entity_id,
+    title: r.title ?? null,
+    searchable_text: r.searchable_text ?? '',
+    status: r.status ?? null,
+    updated_at: r.updated_at instanceof Date ? r.updated_at : new Date(r.updated_at)
+  };
+}
+
+function buildStatusFilterRaw(status: string): SQL | null {
+  if (!status || status === 'all') return null;
+  // Globals bypass status; collections must match (or have NULL status).
+  return sql`(si.entity_type = 'global' OR si.status = ${status} OR si.status IS NULL)`;
+}
+
+function buildScopeFilterRaw(scope: SearchScope | undefined): SQL | null {
+  const cs = scope?.collections ?? [];
+  const gs = scope?.globals ?? [];
+  if (cs.length === 0 && gs.length === 0) return null;
+  const branches: SQL[] = [];
+  if (cs.length) {
+    branches.push(
+      sql`(si.entity_type = 'collection' AND si.entity_name IN (${sql.join(
+        cs.map((n) => sql`${n}`),
+        sql`, `
+      )}))`
+    );
+  }
+  if (gs.length) {
+    branches.push(
+      sql`(si.entity_type = 'global' AND si.entity_name IN (${sql.join(
+        gs.map((n) => sql`${n}`),
+        sql`, `
+      )}))`
+    );
+  }
+  return branches.length > 1 ? sql`(${sql.join(branches, sql` OR `)})` : branches[0];
+}
+
+function buildScopeFilterBuilder(
+  table: any,
+  scope: SearchScope | undefined
+): SQL | null {
+  const cs = scope?.collections ?? [];
+  const gs = scope?.globals ?? [];
+  if (cs.length === 0 && gs.length === 0) return null;
+  const branches: SQL[] = [];
+  if (cs.length) {
+    branches.push(
+      and(eq(table.entity_type, 'collection'), inArray(table.entity_name, cs)) as SQL
+    );
+  }
+  if (gs.length) {
+    branches.push(
+      and(eq(table.entity_type, 'global'), inArray(table.entity_name, gs)) as SQL
+    );
+  }
+  return branches.length > 1 ? (or(...branches) as SQL) : branches[0];
 }
 
 /**

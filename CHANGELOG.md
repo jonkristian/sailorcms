@@ -2,6 +2,31 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.3.3] - 27-04-2026
+
+### Changed
+- **Preview link honors `canonical_url`** — the per-item Preview button on collection edit now navigates to `canonical_url` when it's been set on the item, falling back to the existing `basePath + slug` derivation when empty. Solves the homepage case: a page whose slug is `front` but is canonically rendered at `/` can now point Preview at `/` (or `https://site.test/`) instead of `/front`. No template changes required — set `canonical_url` in the item's SEO panel.
+- **`canonical_url` is override-only now** — the SEO panel no longer auto-fills `canonical_url` from `siteUrl + slug`, and "Refresh from Content" no longer touches it. Default canonical resolution still happens at render time via `seo.ts` (which correctly composes `siteUrl + basePath + slug`), so empty means "use the default" — single source of truth, no drift between admin display and runtime output. Existing rows whose `canonical_url` was previously auto-filled keep their stored value as an explicit override; clear them by hand if you want to fall back to the default (especially worthwhile on collections with a `basePath`, where the old auto-fill omitted the basePath).
+- **`drizzle.config.ts` extracted into a `sailorDrizzleConfig()` helper** — the library now owns dialect selection, credentials, and `tablesFilter` defaults. User config files are a two-line import + `export default sailorDrizzleConfig()`. Future tablesFilter or backend additions flow through `core:update` without mutating the user's config file.
+- **Dialog widths consolidated** to three canonical sizes: default `sm:max-w-md` (448px) for confirmations/short forms, `sm:max-w-2xl` (672px) for edit forms, `sm:max-w-4xl` (896px) for wide content (media editor). Removed seven one-off widths across the admin.
+
+### Fixed
+- **`getGlobals` pagination broken** — `total` was set to the paginated page length (not the DB total) and `hasMore` compared `offset + items.length < items.length` (always false). Both now match `getCollections`: a parallel `count()` query populates `total`, and `hasMore` compares against that. New `baseUrl` / `currentPage` options emit a `pagination` object with the same shape `getCollections` uses.
+- **drizzle-kit rename prompts for FTS5 shadow tables** — every `db:update` asked about "renaming" sailor's runtime-created FTS virtual table + its internal shadow tables (`_data`, `_idx`, `_content`, `_docsize`, `_config`) to whatever new block/collection was being added. `drizzle-kit` now sees a `tablesFilter` excluding `search_index_fts*` and leaves them alone.
+- **Phantom `tags` column on generated tables** — the schema generator was emitting a `tags TEXT` column for any field typed `'tags'`, even though tag data lives in the polymorphic `taggables` join table. Silent on collections/globals (their save path separates tags before INSERT) but visibly broken the first time a **block** template declared `type: 'tags'`: the block save path didn't filter `tags` out, fired the tag array-of-objects at the phantom column, and SQLite rejected the bind with `[object Object]` params. Generator now skips `type === 'tags'` in `buildMainTableFields` for blocks, collections, and globals. Existing phantom columns on pre-0.3.3 tables are harmless — nullable and unused — no migration needed.
+- **Block save didn't persist tags** — even with the INSERT unblocked, nothing wrote block tags to `taggables`. `saveCollectionItem` now collects `type: 'tags'` fields into `pendingBlockTags` during the transaction and flushes them afterwards via `TagService.tagEntity('block_<slug>', blockId, tagNames)`, matching the existing collection/global tag-write pattern.
+- **Block read didn't load tags** — `loadBlockFields` handled files, arrays, and relations but never looked up tags, so `block.tags` came back undefined on the consumer side even when data existed in `taggables`. Mirrors `globals.ts` now: one `TagService.getTagsForEntity('block_<slug>', block.id)` call per block assigns the result to every `type: 'tags'` field on the block. Zero tag fields → zero extra queries.
+- **Collection read didn't load tags either** — same gap as blocks had. `loadCollectionFields` never enriched collection items with tags, so `post.tags` came back empty on the consumer side despite `taggables` rows existing under `collection_<slug>`. Same fix pattern: iterate the collection schema, find `type: 'tags'` fields, one `TagService` call per item, assign. Blocks, collections, and globals now all agree on the read path.
+
+### Upgrade notes
+- **Replace your `drizzle.config.ts`** with the new two-liner:
+  ```ts
+  import { sailorDrizzleConfig } from './src/lib/sailor/core/db/drizzle-config';
+  export default sailorDrizzleConfig();
+  ```
+  This picks up the FTS5 `tablesFilter` (no more drizzle-kit rename prompts) and the imperative dialect/credentials logic now lives inside sailor's library code — future fixes propagate automatically. If you had custom overrides, pass them as options: `sailorDrizzleConfig({ schema: '...', out: '...', tablesFilter: ['!my_table'] })`.
+- **(Optional) Clear stale auto-filled `canonical_url` values** — if you previously clicked "Refresh from Content" on a page in a collection with a `basePath` (e.g. `'/blog/'`), the stored canonical was generated without the basePath. Clearing the field falls back to the correct runtime default. Pages without a `basePath` are unaffected.
+
 ## [0.3.2] - 23-04-2026
 
 ### Added

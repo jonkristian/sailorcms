@@ -471,7 +471,7 @@
 
 <!-- Tags Input Dialog -->
 <Dialog.Root bind:open={tagsDialogOpen}>
-  <Dialog.Content class="sm:max-w-md">
+  <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title>
         {tagsDialogMode === 'add' ? 'Add' : tagsDialogMode === 'remove' ? 'Remove' : 'Replace'} Tags

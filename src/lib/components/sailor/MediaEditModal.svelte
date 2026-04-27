@@ -130,7 +130,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={(newOpen) => !newOpen && handleClose()}>
-  <Dialog.Content class="max-h-[90vh] max-w-4xl overflow-x-hidden overflow-y-auto">
+  <Dialog.Content class="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-4xl">
     <Dialog.Header class="overflow-hidden">
       <div class="min-w-0 space-y-2">
         <Dialog.Title

@@ -149,6 +149,11 @@ export const saveCollectionItem = command(
 
       // TODO: Add validation logic that doesn't prevent saving valid blocks
 
+      // Block-scoped tag writes — collected during the tx, flushed after commit
+      // so TagService doesn't run inside the write transaction.
+      const pendingBlockTags: Array<{ blockType: string; blockId: string; tagNames: string[] }> =
+        [];
+
       const result = await db.transaction(async (tx: any) => {
         // Get the collection table for the transaction
         const collectionTable = schema[`collection_${collectionSlug}` as keyof typeof schema];
@@ -491,19 +496,32 @@ export const saveCollectionItem = command(
               'updated_at'
             ]);
 
-            // Only include fields that map to actual columns on the block table
-            // Exclude 'array', 'file', and 'many-to-many relation' (stored in separate tables)
-            // Exclude system columns which are set explicitly below
-            const allowedContentEntries = Object.entries(block.content || {}).filter(([key]) => {
-              if (SYSTEM_COLUMNS.has(key)) return false;
-              const fieldDef = blockType.fields?.[key];
-              if (!fieldDef) return false;
-              if (fieldDef.type === 'array') return false;
-              if (fieldDef.type === 'file') return false;
-              if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
-                return false;
-              return true;
-            });
+            // Only include fields that map to actual columns on the block table.
+            // Exclude 'array', 'file', 'many-to-many relation' (stored in separate
+            // tables) and 'tags' (stored via the `taggables` join table — written
+            // separately below via TagService).
+            const blockTagFields: Record<string, any[]> = {};
+            const allowedContentEntries = Object.entries(block.content || {}).filter(
+              ([key, value]) => {
+                if (SYSTEM_COLUMNS.has(key)) return false;
+                const fieldDef = blockType.fields?.[key];
+                if (!fieldDef) return false;
+                if (fieldDef.type === 'array') return false;
+                if (fieldDef.type === 'file') return false;
+                if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
+                  return false;
+                if (fieldDef.type === 'tags') {
+                  try {
+                    const raw = typeof value === 'string' ? JSON.parse(value) : value;
+                    blockTagFields[key] = Array.isArray(raw) ? raw : [];
+                  } catch {
+                    blockTagFields[key] = Array.isArray(value) ? value : [];
+                  }
+                  return false;
+                }
+                return true;
+              }
+            );
             const filteredContent: Record<string, any> = Object.fromEntries(allowedContentEntries);
 
             // Fill in defaults for required columns the user hasn't touched yet,
@@ -530,6 +548,24 @@ export const saveCollectionItem = command(
               created_at: new Date(),
               updated_at: new Date()
             };
+
+            // Queue any tag fields for post-tx TagService writes.
+            for (const [, tags] of Object.entries(blockTagFields)) {
+              const tagNames = (Array.isArray(tags) ? tags : [])
+                .map((t: any) =>
+                  typeof t === 'object' && t !== null
+                    ? t.name || t.value || undefined
+                    : typeof t === 'string'
+                      ? t
+                      : undefined
+                )
+                .filter(Boolean) as string[];
+              pendingBlockTags.push({
+                blockType: block.blockType,
+                blockId: blockData.id,
+                tagNames
+              });
+            }
 
             const blockTable = schema[`block_${block.blockType}` as keyof typeof schema];
             if (blockTable) {
@@ -676,6 +712,11 @@ export const saveCollectionItem = command(
             : [];
           await TagService.tagEntity(taggableType, itemId, tagNames);
         }
+      }
+
+      // Same for block-level tag fields (e.g. `faq` block with a `tags` filter).
+      for (const { blockType, blockId, tagNames } of pendingBlockTags) {
+        await TagService.tagEntity(`block_${blockType}`, blockId, tagNames);
       }
 
       // Keep search_index current. Runs after the transaction + tags so the

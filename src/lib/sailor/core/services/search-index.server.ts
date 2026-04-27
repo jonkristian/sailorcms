@@ -188,7 +188,8 @@ export class SearchIndexService {
     }
 
     const tagNames = await loadTagNames(entityType, entityName, entityId);
-    const payload = buildEntry(entityType, entityName, def, item, tagNames);
+    const blockTagsByBlockId = await loadBlockTagsForItem(entityType, def, item);
+    const payload = buildEntry(entityType, entityName, def, item, tagNames, blockTagsByBlockId);
     await SearchIndexService.upsert(payload);
   }
 
@@ -214,7 +215,8 @@ export class SearchIndexService {
       for (const item of items) {
         try {
           const tagNames = await loadTagNames('collection', name, item.id);
-          const payload = buildEntry('collection', name, def, item, tagNames);
+          const blockTagsByBlockId = await loadBlockTagsForItem('collection', def, item);
+          const payload = buildEntry('collection', name, def, item, tagNames, blockTagsByBlockId);
           await SearchIndexService.upsert(payload);
           indexed++;
         } catch (err) {
@@ -233,7 +235,7 @@ export class SearchIndexService {
       for (const item of items) {
         try {
           const tagNames = await loadTagNames('global', name, item.id);
-          const payload = buildEntry('global', name, def, item, tagNames);
+          const payload = buildEntry('global', name, def, item, tagNames, {});
           await SearchIndexService.upsert(payload);
           indexed++;
         } catch (err) {
@@ -304,7 +306,8 @@ function buildEntry(
   entityName: string,
   def: any,
   item: any,
-  tagNames: string[] = []
+  tagNames: string[] = [],
+  blockTagsByBlockId: Record<string, string[]> = {}
 ): SearchIndexEntry {
   const parts: string[] = [];
 
@@ -332,6 +335,8 @@ function buildEntry(
         const v = block[f];
         if (typeof v === 'string') parts.push(stripToPlainText(v));
       }
+      const blockTags = blockTagsByBlockId[block.id];
+      if (blockTags?.length) parts.push(blockTags.join(' '));
     }
   }
 
@@ -411,6 +416,37 @@ async function loadTagNames(
     }
   }
   return Array.from(names);
+}
+
+/**
+ * Load tags per block on a hydrated collection item. Each block's tags live
+ * under `taggable_type = 'block_<blockType>'` and `taggable_id = <block.id>`.
+ * Returns a map from block id → tag names for use inside `buildEntry`.
+ */
+async function loadBlockTagsForItem(
+  entityType: EntityType,
+  def: any,
+  item: any
+): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  if (
+    entityType !== 'collection' ||
+    !def?.options?.blocks ||
+    !Array.isArray(item?.blocks)
+  ) {
+    return out;
+  }
+  for (const block of item.blocks) {
+    if (!block?.id || !block?.blockType) continue;
+    try {
+      const tags = await TagService.getTagsForEntity(`block_${block.blockType}`, block.id);
+      const names = tags.map((t) => t.name).filter(Boolean) as string[];
+      if (names.length) out[block.id] = names;
+    } catch {
+      // ignore — a bad taggable lookup shouldn't break the whole reindex
+    }
+  }
+  return out;
 }
 
 function collectTextFieldNames(fields: Record<string, FieldDefinition>): string[] {

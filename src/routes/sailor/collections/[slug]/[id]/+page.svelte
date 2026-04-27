@@ -614,7 +614,6 @@
               {formData}
               entityType="collection_{data.slug}"
               titleValue={formData.title}
-              siteUrl={data.siteUrl}
               onChange={(field, value) => {
                 formData[field] = value;
                 userChanges[field] = value;
@@ -660,7 +659,6 @@
                 {formData}
                 entityType="collection_{data.slug}"
                 titleValue={formData.title}
-                siteUrl={data.siteUrl}
                 onChange={(field, value) => {
                   formData[field] = value;
                   userChanges[field] = value;

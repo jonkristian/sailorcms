@@ -345,14 +345,18 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
 
   // Add preview link if not a new item and has slug (left side)
   if (!isNewItem && page.slug) {
-    // Use collection's basePath option, fallback to /${slug}/ if not defined
-    let basePath = collectionDefinition.options?.basePath || `/${slug}/`;
-    // Normalize basePath: ensure it starts and ends with /
-    if (!basePath.startsWith('/')) basePath = `/${basePath}`;
-    if (!basePath.endsWith('/')) basePath = `${basePath}/`;
-    // Normalize slug: ensure it doesn't start with /
-    const normalizedSlug = page.slug.startsWith('/') ? page.slug.slice(1) : page.slug;
-    const previewUrl = `${basePath}${normalizedSlug}`;
+    // Prefer canonical_url override when set; otherwise fall back to basePath + slug
+    let previewUrl: string;
+    const canonical = typeof page.canonical_url === 'string' ? page.canonical_url.trim() : '';
+    if (canonical) {
+      previewUrl = canonical;
+    } else {
+      let basePath = collectionDefinition.options?.basePath || `/${slug}/`;
+      if (!basePath.startsWith('/')) basePath = `/${basePath}`;
+      if (!basePath.endsWith('/')) basePath = `${basePath}/`;
+      const normalizedSlug = page.slug.startsWith('/') ? page.slug.slice(1) : page.slug;
+      previewUrl = `${basePath}${normalizedSlug}`;
+    }
     headerActions.push({
       type: 'preview-link',
       props: {

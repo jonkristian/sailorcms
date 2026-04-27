@@ -1,5 +1,5 @@
 // Database update tool
-import { generateSchema } from '../utils.js';
+import { generateSchema, ensureDbDir } from '../utils.js';
 import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
@@ -28,6 +28,10 @@ export function registerDbUpdate(program) {
         }
 
         console.log('🗄️ Updating database schema from templates...');
+
+        // Ensure the local SQLite parent directory exists before handing off
+        // to drizzle-kit. No-op for remote Turso / Postgres.
+        await ensureDbDir(targetDir);
 
         // Use package.json script if available, fallback to direct execution
         const packageJson = await fs.readJson(packageJsonPath);

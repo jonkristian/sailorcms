@@ -254,6 +254,12 @@ export class GlobalGenerator {
         continue;
       }
 
+      if (fieldDef.type === 'tags') {
+        // Tags are stored via the polymorphic `taggables` join table, not as
+        // a column on the entity. Skip so we don't create a phantom column.
+        continue;
+      }
+
       // Handle relation fields that need foreign keys in main table
       if (fieldDef.type === 'relation') {
         const relation = fieldDef.relation;

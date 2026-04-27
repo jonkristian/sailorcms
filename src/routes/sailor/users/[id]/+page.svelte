@@ -360,7 +360,7 @@
 
 <!-- User Delete Dialog with Content Adoption -->
 <Dialog.Root bind:open={deleteDialogOpen}>
-  <Dialog.Content class="sm:max-w-md">
+  <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-red-600">
         <Trash2 class="h-5 w-5" />
@@ -455,7 +455,7 @@
 
 <!-- Role Change Warning Dialog -->
 <Dialog.Root bind:open={roleChangeWarningOpen}>
-  <Dialog.Content class="sm:max-w-md">
+  <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-amber-600">
         <AlertTriangle class="h-5 w-5" />

@@ -1,8 +1,9 @@
 import { db } from '../../core/db/index.server';
-import { sql, ne, eq, asc, desc, and } from 'drizzle-orm';
+import { sql, ne, eq, asc, desc, and, count } from 'drizzle-orm';
 import { globalTypes, files } from '../../generated/schema';
 import * as schema from '../../generated/schema';
 import type { GlobalTypes } from '../../generated/types';
+import type { Pagination } from '../../core/types';
 import { TagService } from '../../core/services/tag.server';
 import { toSnakeCase } from '../../core/utils/string';
 import { log } from '../../core/utils/logger';
@@ -76,6 +77,11 @@ export interface GlobalsOptions {
   limit?: number;
   offset?: number;
 
+  // Pagination URL generation (same shape as getCollections).
+  // Populate `pagination` on the result when both `limit` and `baseUrl` are provided.
+  baseUrl?: string;
+  currentPage?: number;
+
   // Relationship filtering
   whereRelated?: {
     field: string; // The relation field name (e.g., 'categories')
@@ -91,8 +97,9 @@ export type GlobalsSingleResult<T extends GlobalTypes = GlobalTypes> = T | null;
 export type GlobalsMultipleResult<T extends GlobalTypes = GlobalTypes> = {
   items: T[];
   total: number;
-  hasMore?: boolean;
+  hasMore: boolean;
   grouped?: Record<string, T[]>;
+  pagination?: Pagination;
 };
 
 /**
@@ -152,6 +159,8 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
     order = 'asc',
     limit,
     offset = 0,
+    baseUrl,
+    currentPage,
     user: _user // Reserved for future ACL implementation
   } = options || {};
 
@@ -166,7 +175,7 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
 
     if (!globalType) {
       console.warn(`Global type '${globalSlug}' not found`);
-      return isSingleQuery ? null : { items: [], total: 0 };
+      return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
     }
 
     const isFlat = globalType.data_type === 'flat';
@@ -196,12 +205,14 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
       order,
       limit,
       offset,
+      baseUrl,
+      currentPage,
       user: _user
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error(`Failed to load globals '${globalSlug}':`, errorMessage);
-    return isSingleQuery ? null : { items: [], total: 0 };
+    return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
   }
 }
 
@@ -267,6 +278,8 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     order: 'asc' | 'desc';
     limit?: number;
     offset: number;
+    baseUrl?: string;
+    currentPage?: number;
     user?: User | null;
   }
 ): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
@@ -285,13 +298,15 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     order,
     limit,
     offset,
+    baseUrl,
+    currentPage,
     user: _user // Reserved for future ACL implementation
   } = options;
 
   const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
   if (!globalTable) {
     console.warn(`Global table for '${globalSlug}' not found in schema`);
-    return isSingleQuery ? null : { items: [], total: 0 };
+    return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
   }
 
   let queryBuilder = db.select().from(globalTable);
@@ -323,12 +338,14 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     }
   }
 
-  // Apply where conditions
-  if (whereConditions.length > 0) {
-    queryBuilder = queryBuilder.where(
-      whereConditions.length > 1 ? and(...whereConditions) : whereConditions[0]
-    );
-  }
+  const whereClause =
+    whereConditions.length > 0
+      ? whereConditions.length > 1
+        ? and(...whereConditions)
+        : whereConditions[0]
+      : undefined;
+
+  if (whereClause) queryBuilder = queryBuilder.where(whereClause);
 
   // Apply ordering for multiple items or when no specific filters
   if (!isSingleQuery || (!itemSlug && !itemId)) {
@@ -346,9 +363,8 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     queryBuilder = queryBuilder.limit(1);
   }
 
-  const results = await queryBuilder;
-
   if (isSingleQuery) {
+    const results = await queryBuilder;
     if (results.length === 0) return null;
 
     const item = await enrichGlobalItem<T>(results[0], globalSlug, globalType, {
@@ -359,7 +375,15 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     return item;
   }
 
-  // Multiple items
+  // Parallel count + items query (mirrors getCollections). The count covers
+  // the full where clause, independent of pagination — so `total` and
+  // `hasMore` reflect the DB, not just the slice we fetched.
+  const countQuery = whereClause
+    ? db.select({ count: count() }).from(globalTable).where(whereClause)
+    : db.select({ count: count() }).from(globalTable);
+  const [countResult, results] = await Promise.all([countQuery, queryBuilder]);
+  const total = Number(countResult[0]?.count ?? 0);
+
   const enrichedItems = await Promise.all(
     results.map((item: Record<string, any>) =>
       enrichGlobalItem<T>(item, globalSlug, globalType, {
@@ -372,9 +396,22 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
 
   const result: GlobalsMultipleResult<T> = {
     items: enrichedItems,
-    total: enrichedItems.length,
-    hasMore: limit ? offset + enrichedItems.length < enrichedItems.length : false
+    total,
+    hasMore: limit ? offset + enrichedItems.length < total : false
   };
+
+  if (limit && baseUrl) {
+    const pageNum = currentPage || Math.floor(offset / limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    result.pagination = {
+      page: pageNum,
+      pageSize: limit,
+      totalItems: total,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPreviousPage: pageNum > 1
+    };
+  }
 
   // Group items if requested
   if (groupBy) {

@@ -112,7 +112,7 @@
 </script>
 
 <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-  <DialogContent class="max-h-[90vh] max-w-2xl overflow-y-auto">
+  <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
     <DialogHeader>
       <DialogTitle>
         {isNewItem ? `Add ${global.name.singular}` : `Edit ${global.name.singular}`}

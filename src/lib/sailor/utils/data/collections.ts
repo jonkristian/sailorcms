@@ -11,6 +11,7 @@ import { getGlobals } from './globals';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
 import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
+import { TagService } from '../../core/services/tag.server';
 
 /**
  * Load all fields (files, arrays, relations) for a collection
@@ -47,6 +48,21 @@ async function loadCollectionFields(
     'collection_id',
     loadFullFileObjects
   );
+
+  // Load tags for every `type: 'tags'` field on the collection item. Tags
+  // live in `taggables` under `taggable_type = 'collection_<slug>'`, so a
+  // single query covers all tag fields on the item.
+  const tagFieldNames = Object.entries(collectionSchema)
+    .filter(([, fieldDef]) => (fieldDef as any)?.type === 'tags')
+    .map(([name]) => name);
+  if (tagFieldNames.length > 0) {
+    try {
+      const tags = await TagService.getTagsForEntity(`collection_${collectionSlug}`, collection.id);
+      for (const fieldName of tagFieldNames) collection[fieldName] = tags;
+    } catch {
+      for (const fieldName of tagFieldNames) collection[fieldName] = [];
+    }
+  }
 }
 
 type User = {

@@ -4,6 +4,7 @@ import { blockTypes as blockTypesTable, files, globalTypes } from '../../generat
 import * as schema from '../../generated/schema';
 import { toSnakeCase } from '../../core/utils/string';
 import { log } from '../../core/utils/logger';
+import { TagService } from '../../core/services/tag.server';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
 import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
@@ -81,6 +82,21 @@ export async function loadBlockFields(
 
   // Load many-to-many relations
   await loadManyToManyRelations(block, blockSchema, blockSlug, 'block_id', loadFullFileObjects);
+
+  // Load tags for every `type: 'tags'` field on the block. Tags live in
+  // `taggables` under `taggable_type = 'block_<slug>'`, so a single query
+  // covers all tag fields on the block.
+  const tagFieldNames = Object.entries(blockSchema)
+    .filter(([, fieldDef]) => (fieldDef as any)?.type === 'tags')
+    .map(([name]) => name);
+  if (tagFieldNames.length > 0) {
+    try {
+      const tags = await TagService.getTagsForEntity(`block_${blockSlug}`, block.id);
+      for (const fieldName of tagFieldNames) block[fieldName] = tags;
+    } catch {
+      for (const fieldName of tagFieldNames) block[fieldName] = [];
+    }
+  }
 }
 
 /**

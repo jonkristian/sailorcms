@@ -13,53 +13,45 @@
     entityType: string;
     onChange: (field: string, value: any) => void;
     titleValue?: string;
-    siteUrl?: string;
   }
 
-  let { formData, entityType, onChange, titleValue, siteUrl }: Props = $props();
+  let { formData, entityType, onChange, titleValue }: Props = $props();
 
   let isOpen = $state(false);
 
-  // Get effective value (user input or auto-populated fallback)
+  // Fields that mirror page content when left empty. canonical_url is intentionally
+  // excluded — it's an override-only field; the runtime resolves the default from
+  // slug + basePath in `seo.ts`, keeping a single source of truth.
   function getEffectiveValue(fieldKey: string) {
     const pageTitle = formData.title || titleValue || '';
-    const pageSlug = formData.slug || '';
-    const canonicalUrl = siteUrl && pageSlug ? `${siteUrl}/${pageSlug}` : '';
 
     const autoValues = {
       meta_title: pageTitle,
       meta_description: formData.excerpt || '',
       og_title: pageTitle,
-      og_description: formData.excerpt || '',
-      canonical_url: canonicalUrl
+      og_description: formData.excerpt || ''
     };
 
     const userValue = formData[fieldKey];
     const autoValue = autoValues[fieldKey as keyof typeof autoValues];
 
-    // Return user value if it exists and is not empty/null, otherwise return auto value
     return userValue !== null && userValue !== undefined && userValue !== ''
       ? userValue
       : autoValue;
   }
 
-  // Refresh SEO fields from content
   function refreshFromContent() {
     const pageTitle = formData.title || titleValue || '';
-    const pageSlug = formData.slug || '';
-    const canonicalUrl = siteUrl && pageSlug ? `${siteUrl}/${pageSlug}` : '';
 
     const autoValues = {
       meta_title: pageTitle,
       meta_description: formData.excerpt || '',
       og_title: pageTitle,
       og_description: formData.excerpt || '',
-      canonical_url: canonicalUrl,
       og_image: '',
       noindex: false
     };
 
-    // Update all SEO fields with auto-generated values
     Object.entries(autoValues).forEach(([key, value]) => {
       onChange(key, value);
     });
@@ -120,7 +112,8 @@
       field: {
         type: 'string',
         label: 'Canonical URL',
-        description: 'Preferred URL for this content (helps prevent duplicate content issues)',
+        description:
+          'Override the canonical URL. Leave empty to use the default (site URL + collection basePath + slug).',
         placeholder: 'https://yoursite.com/page-slug'
       }
     },

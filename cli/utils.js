@@ -330,6 +330,29 @@ export async function updateSvelteConfig(targetDir) {
   console.log('✅ Updated svelte.config.js with $sailor alias');
 }
 
+/**
+ * If DATABASE_URL points to a local SQLite file, make sure its parent directory
+ * exists. Called before any CLI step that hands off to drizzle-kit / libsql.
+ */
+export async function ensureDbDir(targetDir) {
+  // Load .env so DATABASE_URL is available.
+  try {
+    const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
+    const { config } = await import(dotenvPath);
+    config({ path: path.join(targetDir, '.env') });
+  } catch {
+    // dotenv not installed or .env missing — nothing to do.
+    return;
+  }
+
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl || !dbUrl.startsWith('file:')) return;
+  const filePath = dbUrl.replace(/^file:/, '');
+  const absolute = path.isAbsolute(filePath) ? filePath : path.join(targetDir, filePath);
+  const dir = path.dirname(absolute);
+  await fs.ensureDir(dir);
+}
+
 export async function updateViteConfig(targetDir) {
   const configPath = path.join(targetDir, 'vite.config.ts');
   if (!(await fs.pathExists(configPath))) {

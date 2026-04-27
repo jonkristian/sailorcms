@@ -51,7 +51,7 @@
 </script>
 
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
-  <Dialog.Content class="max-h-[90vh] max-w-2xl overflow-y-auto">
+  <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
     <Dialog.Header>
       <Dialog.Title>
         Edit Item {itemIndex + 1}
