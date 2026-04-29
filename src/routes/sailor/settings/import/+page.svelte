@@ -22,9 +22,11 @@
    = $state(null);
   let loadingImportComponent = $state(false);
 
-  // Handle collection selection
   function handleCollectionChange(value: string) {
     selectedCollection = value;
+    if (value && !WordPressImportComponent) {
+      loadWordPressImport();
+    }
   }
 
   // Handle import completion
@@ -48,13 +50,6 @@
       loadingImportComponent = false;
     }
   }
-
-  // Load component when collection is selected
-  $effect(() => {
-    if (selectedCollection && !WordPressImportComponent) {
-      loadWordPressImport();
-    }
-  });
 
   // Load component when tab is selected
   function handleTabChange(value: string) {

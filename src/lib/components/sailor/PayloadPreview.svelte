@@ -161,14 +161,13 @@
     toast.success('Payload copied to clipboard');
   }
 
-  $effect(() => {
-    if (open) {
-      fetchPayload();
-    }
-  });
+  function handleOpenChange(next: boolean) {
+    open = next;
+    if (next) fetchPayload();
+  }
 </script>
 
-<Sheet bind:open>
+<Sheet {open} onOpenChange={handleOpenChange}>
   <SheetTrigger type="button" class="h-8 w-8">
     <Button variant="ghost" size="icon" title="Show Payload" class="hover:bg-muted h-8 w-8">
       <Code class="h-4 w-4" />

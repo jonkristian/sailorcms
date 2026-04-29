@@ -3,6 +3,7 @@ import { db } from '$sailor/core/db/index.server';
 import { eq, desc, asc, count, and, or, sql, inArray } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import type { Pagination } from '$sailor/core/types';
+import { liveOnly } from '$sailor/core/db/soft-delete';
 
 export const load = async ({ params, locals, url }) => {
   // Check permission to view content
@@ -54,7 +55,7 @@ export const load = async ({ params, locals, url }) => {
     }
 
     // Build where conditions for search and access control
-    const whereConditions = [];
+    const whereConditions: any[] = [liveOnly(collectionTable)];
 
     // Access control is handled by better-auth at the API level
     // No database-level filtering needed
@@ -132,7 +133,7 @@ export const load = async ({ params, locals, url }) => {
         let currentLevelIds = [...topLevelIds];
 
         while (currentLevelIds.length > 0) {
-          const childrenWhereConditions = [];
+          const childrenWhereConditions = [liveOnly(collectionTable)];
 
           childrenWhereConditions.push(
             inArray((collectionTable as any).parent_id, currentLevelIds)

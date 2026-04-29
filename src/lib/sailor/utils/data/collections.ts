@@ -1,5 +1,6 @@
 import { db } from '../../core/db/index.server';
 import { sql, ne, eq, and, asc, desc, count, inArray } from 'drizzle-orm';
+import { liveOnly } from '../../core/db/soft-delete';
 import { loadBlocksForCollection, type BlockWithRelations } from './blocks';
 import { toSnakeCase } from '../../core/utils/string';
 import type { CollectionTypes } from '../../generated/types';
@@ -288,7 +289,7 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
   const { itemSlug, itemId, status, includeBlocks, includeBreadcrumbs, includeAuthors, user } =
     options;
 
-  const whereConditions = [];
+  const whereConditions = [liveOnly(table)];
 
   if (itemSlug) {
     whereConditions.push(eq((table as any).slug, itemSlug));
@@ -364,7 +365,7 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
     user
   } = options;
 
-  const whereConditions = [];
+  const whereConditions = [liveOnly(table)];
 
   if (status !== 'all') {
     whereConditions.push(eq((table as any).status, status));

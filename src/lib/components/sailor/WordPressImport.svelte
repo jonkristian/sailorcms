@@ -153,6 +153,9 @@
 
   function goToStep(step: number) {
     currentStep = step;
+    if (step === 3 && browser && collectionSlug && availableFields.length === 0) {
+      fetchCollectionFields();
+    }
   }
 
   // Import function
@@ -270,12 +273,6 @@
     }
   }
 
-  // Fetch fields when we reach step 3 (field mapping) - client-side only
-  $effect(() => {
-    if (browser && currentStep === 3 && collectionSlug && availableFields.length === 0) {
-      fetchCollectionFields();
-    }
-  });
 </script>
 
 <div class="space-y-4">

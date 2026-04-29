@@ -10,7 +10,8 @@ export const load: LayoutServerLoad = async (event) => {
     globals: [] as any[],
     canViewSettings: false,
     canViewUsers: false,
-    canViewFiles: false
+    canViewFiles: false,
+    canViewRecovery: false
   };
 
   try {
@@ -33,7 +34,9 @@ export const load: LayoutServerLoad = async (event) => {
       globals: canReadContent ? allGlobals : [],
       canViewSettings,
       canViewUsers,
-      canViewFiles
+      canViewFiles,
+      // Recovery is gated by content read — same baseline as the lists.
+      canViewRecovery: canReadContent
     };
   } catch (error) {
     console.error('Error fetching navigation data:', error);

@@ -74,7 +74,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="sm:max-w-2xl">
+  <Dialog.Content class="sm:max-w-xl">
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2">
         <Upload class="h-5 w-5" />

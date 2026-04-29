@@ -150,10 +150,10 @@
       if (result.success) {
         await invalidateAll();
       } else {
-        toast.error(result.error || 'Failed to update sort order');
+        toast.error(result.error || 'Failed to update sort order', { id: 'collection-reorder' });
       }
     } catch (error) {
-      toast.error('Failed to update sort order');
+      toast.error('Failed to update sort order', { id: 'collection-reorder' });
     }
   }
 
@@ -168,12 +168,12 @@
 
       if (result.success) {
         await invalidateAll();
-        toast.success('Item moved successfully');
+        toast.success('Item moved successfully', { id: 'collection-nest' });
       } else {
-        toast.error(result.error || 'Failed to update nesting');
+        toast.error(result.error || 'Failed to update nesting', { id: 'collection-nest' });
       }
     } catch (error) {
-      toast.error('Failed to update nesting');
+      toast.error('Failed to update nesting', { id: 'collection-nest' });
     }
   }
 

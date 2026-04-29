@@ -102,6 +102,10 @@ export class SQLiteAdapter extends DatabaseAdapter {
     return `integer('${name}', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())`;
   }
 
+  getNullableTimestampDefinition(name: string): string {
+    return `integer('${name}', { mode: 'timestamp' })`;
+  }
+
   getTextFieldDefinition(
     name: string,
     options: {

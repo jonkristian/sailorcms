@@ -40,15 +40,7 @@
   let searchQuery = $state('');
   let searchResults: Tag[] = $state([]);
   let loading = $state(false);
-  let selectedTagsState: Tag[] = $state([
-    // svelte-ignore state_referenced_locally
-    ...selectedTags
-  ]);
-
-  // Reactive updates
-  $effect(() => {
-    selectedTagsState = [...selectedTags];
-  });
+  let selectedTagsState: Tag[] = $derived([...selectedTags]);
 
   // Debounced search
   const debouncedSearch = debounce(async (query: string) => {

@@ -59,16 +59,16 @@ export const deleteFiles = command('unchecked', async ({ ids }: { ids: string[] 
           continue;
         }
 
-        // Delete file from storage
-        const storageProvider = await StorageProviderFactory.getProvider();
-        const deleted = await storageProvider.deleteFile(file.path);
-
-        if (!deleted) {
-          console.warn('Could not delete file from storage:', file.path);
-        }
-
-        // Delete from database
-        await db.delete(filesTable).where(eq(filesTable.id, fileId));
+        // Soft-delete: keep the physical file on disk so restore can re-link
+        // it without a re-upload. The blob is reaped only on hard-purge.
+        await db
+          .update(filesTable)
+          .set({
+            deleted_at: new Date(),
+            deleted_by: locals.user?.id ?? null,
+            updated_at: new Date()
+          })
+          .where(eq(filesTable.id, fileId));
         successCount++;
       } catch (err) {
         errorCount++;
@@ -94,6 +94,33 @@ export const deleteFiles = command('unchecked', async ({ ids }: { ids: string[] 
     }
   } catch (err) {
     return { success: false, error: 'Failed to delete file(s)' };
+  }
+});
+
+/**
+ * Restore a soft-deleted file. The physical blob was preserved on soft-delete,
+ * so this just clears the deleted_at flag — no re-upload needed.
+ */
+export const restoreFile = command('unchecked', async ({ fileId }: { fileId: string }) => {
+  const { locals } = getRequestEvent();
+
+  if (!fileId) {
+    return { success: false, error: 'File ID is required' };
+  }
+
+  const canUpdate = await locals.security.hasPermission('update', 'files');
+  if (!canUpdate) {
+    return { success: false, error: 'You do not have permission to restore files' };
+  }
+
+  try {
+    await db
+      .update(filesTable)
+      .set({ deleted_at: null, deleted_by: null, updated_at: new Date() })
+      .where(eq(filesTable.id, fileId));
+    return { success: true, message: 'File restored' };
+  } catch (err) {
+    return { success: false, error: 'Failed to restore file' };
   }
 });
 

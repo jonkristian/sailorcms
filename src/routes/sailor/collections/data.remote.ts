@@ -169,8 +169,17 @@ export const deleteCollectionItems = command(
             continue;
           }
 
-          // Delete the item
-          await db.delete(collectionTable).where(eq((collectionTable as any).id, itemId));
+          // Soft-delete: mark deleted_at + deleted_by; row stays in the DB so
+          // it can be restored from the recovery view. Search index is removed
+          // immediately so deleted items don't surface in search results.
+          await db
+            .update(collectionTable)
+            .set({
+              deleted_at: new Date(),
+              deleted_by: locals.user?.id ?? null,
+              updated_at: new Date()
+            } as any)
+            .where(eq((collectionTable as any).id, itemId));
           await SearchIndexService.onDeleteSafe('collection', collectionSlug, itemId);
           successCount++;
         } catch (err) {
@@ -481,6 +490,57 @@ export const updateCollectionItemTags = command(
     } catch (error) {
       log.error('Failed to update item tags', {}, error as Error);
       return { success: false, error: 'Failed to update item tags' };
+    }
+  }
+);
+
+/**
+ * Restore a soft-deleted collection item. Re-instates the row at root with
+ * neutral position (clears parent_id, appends to end) — leaves it to the user
+ * to re-organize within the tree.
+ */
+export const restoreCollectionItem = command(
+  'unchecked',
+  async ({ collectionSlug, itemId }: { collectionSlug: string; itemId: string }) => {
+    const { locals } = getRequestEvent();
+
+    if (!collectionSlug || !itemId) {
+      return { success: false, error: 'Collection slug and item ID are required' };
+    }
+
+    const canUpdate = await locals.security.hasPermission('update', 'content');
+    if (!canUpdate) {
+      return { success: false, error: 'You do not have permission to restore content' };
+    }
+
+    try {
+      const collectionTable = schema[`collection_${collectionSlug}` as keyof typeof schema];
+      if (!collectionTable) {
+        return { success: false, error: `Collection '${collectionSlug}' not found` };
+      }
+
+      const [maxRow] = await db
+        .select({ max: sql<number>`coalesce(max(${(collectionTable as any).sort}), 0)` })
+        .from(collectionTable);
+      const nextSort = (maxRow?.max ?? 0) + 1;
+
+      await db
+        .update(collectionTable)
+        .set({
+          deleted_at: null,
+          deleted_by: null,
+          parent_id: null,
+          sort: nextSort,
+          updated_at: new Date()
+        } as any)
+        .where(eq((collectionTable as any).id, itemId));
+
+      await SearchIndexService.onSaveSafe('collection', collectionSlug, itemId);
+
+      return { success: true, message: 'Item restored' };
+    } catch (error) {
+      log.error('Failed to restore item', {}, error as Error);
+      return { success: false, error: 'Failed to restore item' };
     }
   }
 );

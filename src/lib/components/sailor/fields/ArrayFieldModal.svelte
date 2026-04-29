@@ -13,17 +13,7 @@
     itemIndex: number;
   } = $props();
 
-  let formData = $state({
-    // svelte-ignore state_referenced_locally
-    ...item
-  });
-
-  // Update formData when item changes
-  $effect(() => {
-    if (item) {
-      formData = { ...item };
-    }
-  });
+  let formData = $derived({ ...(item || {}) });
 
   // Handle dialog close events
   function handleOpenChange(open: boolean) {
@@ -51,7 +41,7 @@
 </script>
 
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
-  <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+  <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
     <Dialog.Header>
       <Dialog.Title>
         Edit Item {itemIndex + 1}

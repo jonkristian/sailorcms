@@ -306,14 +306,15 @@ export class TagService {
   }
 
   /**
-   * Delete a tag and all its relationships
+   * Soft-delete a tag. Pivot rows in `taggables` are intentionally left intact
+   * so that a restore returns the tag to its previously-tagged entities. Hard
+   * removal happens via the recovery purge flow.
    */
-  static async deleteTag(id: string): Promise<void> {
-    // Delete all taggable relationships first
-    await db.delete(taggables).where(eq(taggables.tag_id, id));
-
-    // Delete the tag
-    await db.delete(tags).where(eq(tags.id, id));
+  static async deleteTag(id: string, deletedBy?: string | null): Promise<void> {
+    await db
+      .update(tags)
+      .set({ deleted_at: new Date(), deleted_by: deletedBy ?? null, updated_at: new Date() })
+      .where(eq(tags.id, id));
   }
 
   /**

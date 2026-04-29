@@ -16,7 +16,7 @@
 
   const { data }: { data: any } = $props();
 
-  const unsavedChanges = useUnsavedChanges();
+  const unsavedChanges = useUnsavedChanges(() => Object.keys(userChanges).length > 0);
 
   // User changes to form data
   let userChanges: Record<string, any> = $state({});
@@ -99,17 +99,14 @@
       }
 
       if (result.success) {
-        toast.success('Global saved successfully');
-        // Clear unsaved changes flag on successful save
-        unsavedChanges.setHasChanges(false);
-        // Clear user changes to reset the tracking
+        toast.success('Global saved successfully', { id: 'global-save' });
         userChanges = {};
         await invalidateAll();
       } else {
-        toast.error(result.error || 'Failed to save global');
+        toast.error(result.error || 'Failed to save global', { id: 'global-save' });
       }
     } catch (error) {
-      toast.error('Failed to save global');
+      toast.error('Failed to save global', { id: 'global-save' });
     } finally {
       submitting = false;
     }
@@ -167,11 +164,6 @@
     allFields.filter(([_, field]) => (field as any).position === 'footer')
   );
 
-  // Track form changes for unsaved changes warning
-  $effect(() => {
-    const hasChanges = Object.keys(userChanges).length > 0;
-    unsavedChanges.setHasChanges(hasChanges);
-  });
 </script>
 
 <svelte:head>

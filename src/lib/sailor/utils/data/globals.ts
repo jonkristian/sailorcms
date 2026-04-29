@@ -1,5 +1,6 @@
 import { db } from '../../core/db/index.server';
 import { sql, ne, eq, asc, desc, and, count } from 'drizzle-orm';
+import { liveOnly } from '../../core/db/soft-delete';
 import { globalTypes, files } from '../../generated/schema';
 import * as schema from '../../generated/schema';
 import type { GlobalTypes } from '../../generated/types';
@@ -239,7 +240,7 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
   const globalResult = await db
     .select()
     .from(globalTable)
-    .where(eq((globalTable as any).id, globalSlug))
+    .where(and(eq((globalTable as any).id, globalSlug), liveOnly(globalTable)))
     .limit(1);
 
   if (globalResult.length === 0) {
@@ -310,7 +311,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
   }
 
   let queryBuilder = db.select().from(globalTable);
-  const whereConditions = [];
+  const whereConditions = [liveOnly(globalTable)];
 
   // Handle different query types
   if (itemSlug) {

@@ -39,15 +39,7 @@
     onSelectNode?: (checked: boolean) => void;
   } = $props();
 
-  let isOpen = $state(
-    // svelte-ignore state_referenced_locally
-    open
-  );
-
-  // Update internal state when prop changes
-  $effect(() => {
-    isOpen = open;
-  });
+  let isOpen = $derived(open);
 
   function handleToggle() {
     isOpen = !isOpen;

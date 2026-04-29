@@ -10,6 +10,7 @@
   import Sailboat from '@lucide/svelte/icons/sailboat';
   import Folder from '@lucide/svelte/icons/folder';
   import Users from '@lucide/svelte/icons/users';
+  import Trash2 from '@lucide/svelte/icons/trash-2';
   import { page } from '$app/state';
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
 
@@ -20,6 +21,7 @@
       canViewSettings: false,
       canViewUsers: false,
       canViewFiles: false,
+      canViewRecovery: false,
       loading: true
     },
     user: sessionUser,
@@ -31,6 +33,7 @@
       canViewSettings: boolean;
       canViewUsers: boolean;
       canViewFiles: boolean;
+      canViewRecovery: boolean;
       loading: boolean;
     };
     user?: any;
@@ -77,6 +80,15 @@
         title: 'Users',
         url: '/sailor/users',
         icon: Users
+      });
+    }
+
+    // Recovery: list of soft-deleted content + restore/purge actions
+    if (navData.canViewRecovery) {
+      items.push({
+        title: 'Recovery',
+        url: '/sailor/recovery',
+        icon: Trash2
       });
     }
 

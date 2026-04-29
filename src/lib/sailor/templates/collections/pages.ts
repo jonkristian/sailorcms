@@ -62,14 +62,6 @@ export const pagesCollection: CollectionDefinition = {
       type: 'tags',
       label: 'Tags',
       description: 'Add tags to help organize and categorize this page'
-    },
-    category: {
-      type: 'relation',
-      label: 'Category',
-      relation: {
-        type: 'one-to-many',
-        targetGlobal: 'categories'
-      }
     }
   }
 };

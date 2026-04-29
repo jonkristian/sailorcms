@@ -187,6 +187,10 @@ export class TableGenerator {
     return { type: 'timestamp' };
   }
 
+  getNullableTimestampField() {
+    return { type: 'timestamp', nullable: true };
+  }
+
   /**
    * Build fields for array items based on field definition
    */

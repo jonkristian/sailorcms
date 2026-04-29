@@ -40,46 +40,7 @@
     tableFilters?: FilterState;
   } = $props();
 
-  // Multi-select state for comboboxes
   let openComboboxes: Record<string, boolean> = $state({});
-
-  // Ensure combobox open state is initialized to a boolean for all multiSelect keys
-  $effect(() => {
-    if (config?.multiSelect) {
-      for (const ms of config.multiSelect) {
-        if (openComboboxes[ms.key] === undefined) {
-          openComboboxes[ms.key] = false;
-        }
-      }
-    }
-  });
-
-  // Local state for single-select values to work seamlessly with Select's bind:value
-  let selectValues: Record<string, string> = $state({});
-
-  // Initialize local select values from filters on mount/changes
-  $effect(() => {
-    if (config?.select) {
-      for (const s of config.select) {
-        const current = tableFilters?.selectFilters?.[s.key] ?? s.default;
-        if (selectValues[s.key] !== current) {
-          selectValues[s.key] = current;
-        }
-      }
-    }
-  });
-
-  // Watch for changes in selectValues and sync with filters
-  $effect(() => {
-    if (config?.select && tableFilters) {
-      for (const s of config.select) {
-        const currentValue = selectValues[s.key];
-        if (currentValue && currentValue !== (tableFilters?.selectFilters?.[s.key] ?? s.default)) {
-          tableFilters.handleSelectFilter(s.key, currentValue);
-        }
-      }
-    }
-  });
 
   function toggleCombobox(key: string) {
     openComboboxes[key] = !openComboboxes[key];
@@ -138,19 +99,18 @@
   <!-- Select Filters -->
   {#if config.select}
     {#each config.select as selectConfig}
+      {@const currentValue =
+        tableFilters?.selectFilters?.[selectConfig.key] ?? selectConfig.default}
       <Select.Root
         type="single"
-        value={selectValues[selectConfig.key] ?? selectConfig.default}
+        value={currentValue}
         onValueChange={(value) => {
-          selectValues[selectConfig.key] = value || selectConfig.default;
-          if (tableFilters)
-            tableFilters.handleSelectFilter(selectConfig.key, selectValues[selectConfig.key]);
+          if (tableFilters) tableFilters.handleSelectFilter(selectConfig.key, value || selectConfig.default);
         }}
       >
         <Select.Trigger class="h-9 w-32">
           {selectConfig.options.find(
-            (o: { label: string; value: string }) =>
-              o.value === (selectValues[selectConfig.key] ?? selectConfig.default)
+            (o: { label: string; value: string }) => o.value === currentValue
           )?.label || selectConfig.label}
         </Select.Trigger>
         <Select.Content>

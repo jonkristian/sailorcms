@@ -18,7 +18,9 @@
     submitting = false
   } = $props();
 
-  let allExpanded = $state(true);
+  // Items render collapsed by default in the inline/nested views, so the
+  // toggle should offer "Expand All" first, not "Collapse All".
+  let allExpanded = $state(false);
 
   function handleExpandCollapse() {
     allExpanded = !allExpanded;

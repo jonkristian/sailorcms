@@ -266,7 +266,9 @@ export class CollectionGenerator {
     const fields = {
       id: this.tableGen.getPrimaryKeyField(),
       created_at: this.tableGen.getTimestampField(),
-      updated_at: this.tableGen.getTimestampField()
+      updated_at: this.tableGen.getTimestampField(),
+      deleted_at: this.tableGen.getNullableTimestampField(),
+      deleted_by: this.tableGen.getTextField()
     };
 
     // Add all merged core+template fields (skip arrays and many-to-many relations - they get separate handling)

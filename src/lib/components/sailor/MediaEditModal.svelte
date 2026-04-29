@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
@@ -23,41 +24,17 @@
     onSave?: () => Promise<void>;
   } = $props();
 
-  // State
-  let altText = $state('');
-  let title = $state('');
-  let description = $state('');
+  let altText = $derived(file?.alt || '');
+  let title = $derived(file?.title || '');
+  let description = $derived(file?.description || '');
+
   let fileTags: { id: string; name: string }[] = $state([]);
   let saving = $state(false);
   let loadingTags = $state(false);
 
-  // Track file ID to prevent unnecessary tag loading
-  let currentFileId: string | null = $state(null);
-
-  // Update form when file changes
-  $effect(() => {
-    if (file) {
-      altText = file.alt || '';
-      title = file.title || '';
-      description = file.description || '';
-
-      // Only load tags if file ID has changed
-      if (file.id !== currentFileId) {
-        currentFileId = file.id;
-        loadFileTags();
-      }
-    } else {
-      resetForm();
-      currentFileId = null;
-    }
+  onMount(() => {
+    if (file) loadFileTags();
   });
-
-  function resetForm() {
-    altText = '';
-    title = '';
-    description = '';
-    fileTags = [];
-  }
 
   async function loadFileTags() {
     if (!file) return;
@@ -130,7 +107,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChange={(newOpen) => !newOpen && handleClose()}>
-  <Dialog.Content class="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-4xl">
+  <Dialog.Content class="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-3xl">
     <Dialog.Header class="overflow-hidden">
       <div class="min-w-0 space-y-2">
         <Dialog.Title
@@ -196,7 +173,7 @@
         <!-- Large Preview for Images -->
         {#if file.mime_type?.startsWith('image/')}
           <div class="overflow-hidden rounded-lg border">
-            <img src={file.url} alt={file.alt || file.name} class="h-64 w-full object-cover" />
+            <img src={file.url} alt={file.alt || file.name} class="h-96 w-full object-cover" />
           </div>
         {/if}
 

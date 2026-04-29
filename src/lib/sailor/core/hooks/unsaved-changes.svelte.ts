@@ -1,60 +1,45 @@
 /**
- * Hook for managing unsaved changes detection and exit warnings
+ * Hook for managing unsaved changes detection and exit warnings.
  *
- * Usage:
- * ```typescript
- * import { useUnsavedChanges } from '$lib/hooks/unsaved-changes.svelte';
+ * Pass a getter that reflects the dirty state — the hook reads it reactively,
+ * so callers don't need their own `$effect` to mirror state into a setter.
  *
- * const unsavedChanges = useUnsavedChanges();
- *
- * // Mark form as dirty when user makes changes
- * unsavedChanges.setHasChanges(true);
- *
- * // Clear dirty state when form is saved
- * unsavedChanges.setHasChanges(false);
+ * ```ts
+ * const unsaved = useUnsavedChanges(
+ *   () => Object.keys(userChanges).length > 0 || blocksChanged
+ * );
+ * // After a successful save, just clear your own state — `userChanges = {}`
+ * // — and `hasChanges` will go back to false on next read.
  * ```
  */
 
 import { browser } from '$app/environment';
 import { beforeNavigate } from '$app/navigation';
 
-export function useUnsavedChanges() {
-  let hasChanges = $state(false);
+export function useUnsavedChanges(isDirty: () => boolean = () => false) {
+  const hasChanges = $derived(isDirty());
 
-  // Native browser prompt for reload / close / external nav
   $effect(() => {
     if (!browser) return;
-
     const handler = (e: BeforeUnloadEvent) => {
       if (hasChanges) {
         e.preventDefault();
-        e.returnValue = '';
       }
     };
-
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   });
 
-  // Native confirm() for SvelteKit client-side navigation
   beforeNavigate(({ cancel }) => {
     if (!hasChanges || !browser) return;
-    const leave = window.confirm('You have unsaved changes. Leave this page?');
-    if (leave) {
-      hasChanges = false;
-    } else {
+    if (!window.confirm('You have unsaved changes. Leave this page?')) {
       cancel();
     }
   });
 
-  function setHasChanges(value: boolean) {
-    hasChanges = value;
-  }
-
   return {
     get hasChanges() {
       return hasChanges;
-    },
-    setHasChanges
+    }
   };
 }

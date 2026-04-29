@@ -32,7 +32,13 @@
   let selectedSuggestionIndex = $state(-1);
 
   // Simplified state management - always use the value prop as source of truth
-  let displayTags: Tag[] = $state([]);
+  const displayTags: Tag[] = $derived(
+    (Array.isArray(value) ? value : []).map((tag: any) =>
+      typeof tag === 'object'
+        ? ({ id: tag.id, name: tag.name } as Tag)
+        : { id: `tag-${tag}`, name: tag }
+    )
+  );
 
   function areTagsEqual(a: Tag[], b: Tag[]) {
     if (a.length !== b.length) return false;
@@ -41,17 +47,6 @@
     }
     return true;
   }
-
-  // Update displayTags when value prop changes (guarded)
-  $effect(() => {
-    const currentValue = Array.isArray(value) ? value : [];
-    const next = currentValue.map((tag: any) =>
-      typeof tag === 'object'
-        ? ({ id: tag.id, name: tag.name } as Tag)
-        : { id: `tag-${tag}`, name: tag }
-    );
-    if (!areTagsEqual(displayTags, next)) displayTags = next;
-  });
 
   // Debounced search function
   const debouncedSearch = debounce(async (query: string) => {

@@ -148,7 +148,7 @@ export const deleteTag = command('unchecked', async ({ tagId }: { tagId: string 
   }
 
   try {
-    await TagService.deleteTag(tagId);
+    await TagService.deleteTag(tagId, locals.user?.id);
     return {
       success: true,
       message: 'Tag deleted successfully'

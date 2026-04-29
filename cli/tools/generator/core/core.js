@@ -112,7 +112,9 @@ export class CoreGenerator {
     description: ${this.adapter.getTextFieldDefinition('description')},
     author: ${this.adapter.getTextFieldDefinition('author')},
     created_at: ${this.adapter.getTimestampDefinition('created_at')},
-    updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
+    updated_at: ${this.adapter.getTimestampDefinition('updated_at')},
+    deleted_at: ${this.adapter.getNullableTimestampDefinition('deleted_at')},
+    deleted_by: ${this.adapter.getTextFieldDefinition('deleted_by')}
   },
   (table) => [
     index('files_name_idx').on(table.name),
@@ -131,7 +133,9 @@ export class CoreGenerator {
     slug: ${this.adapter.getTextFieldDefinition('slug', { notNull: true })},
     scope: ${this.adapter.getTextFieldDefinition('scope')},
     created_at: ${this.adapter.getTimestampDefinition('created_at')},
-    updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
+    updated_at: ${this.adapter.getTimestampDefinition('updated_at')},
+    deleted_at: ${this.adapter.getNullableTimestampDefinition('deleted_at')},
+    deleted_by: ${this.adapter.getTextFieldDefinition('deleted_by')}
   },
   (table) => [
     index('tags_name_idx').on(table.name),

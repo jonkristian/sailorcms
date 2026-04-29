@@ -2,6 +2,42 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.3.5] - 29-04-2026
+
+### Added
+- **Soft-delete + Recovery view** — `deleted_at` / `deleted_by` auto-injected on every collection, global, block, file, and tag table. Admin deletes flip from `db.delete` to soft-delete; new `/sailor/recovery` route lists trashed items with one-click Restore (re-instates at root with neutral position) and a separate hard-purge action. Read paths gain a shared `liveOnly()` filter.
+- **"In recovery" banner on the edit page** — navigating directly to a soft-deleted item shows an amber banner with one-click Restore.
+- **`DeleteDialog` `permanent` flag** — soft-delete copy by default ("You can restore from Recovery"); recovery view's purge passes `permanent={true}` for the original "cannot be undone" wording.
+
+### Changed
+- **Collection editor save no longer route-reloads on every save** — `saveCollectionItem` returns the persisted row + tags; client merges into `formData` instead of `invalidateAll()`. First save of a new item still invalidates once so the header flips Create→Save.
+- **Save toasts use stable ids** (`collection-save`, `global-save`) — rapid saves coalesce instead of stacking. Same for the layout redirect-error toast and DnD reorder/nest toasts.
+- **Default expand/collapse button label** matches actual initial state (everything starts collapsed → button starts as "Expand All").
+- **File picker height stable** — Sheet locks at `65vh` instead of growing/shrinking with filtered content count.
+- **`useUnsavedChanges()` API** — now takes a `() => boolean` getter; eliminates the `$effect → setHasChanges` pattern at call sites.
+
+### Fixed
+- **DnD nest-trap in nestable collections** — the "inside" drop band covered the middle 50% of each row, so drops near the gap between rows nested under the wrong parent; combined with collapsed parents hiding their children, dragged items appeared to vanish. Fixed by shrinking the inside band to the middle 20% and auto-expanding the drop target on `inside` drops.
+- **Inline-view global delete didn't actually delete** — guard `if (item.id && item.created_at && ...)` could false-skip the server call when `created_at` was lost through round-trips. Simplified to only check `!id.startsWith('temp-')`; `localItems` is now `$derived` from the prop so post-save state stays in sync.
+- **Phantom `tags` columns** dropped from `collection_pages`, `collection_posts`, `global_faq` — leftovers from the 0.3.3 generator bug.
+
+### Internal
+- **`$effect` audit: 20 → 3 sites.** Conversions:
+  - Prop-mirrors → `$derived` with override (Svelte 5.25+): `DraggableCard.isOpen`, `TagSelector.selectedTagsState`, `LinkDialog.linkUrl/Text/Target`, `ArrayFieldModal.formData`, `MediaEditModal.altText/title/description`, `RepeatableInlineView.localItems`, `RepeatableNestedView.flatItems`, `TagsInput.displayTags`.
+  - URL-change effects → `afterNavigate` callback: `+layout.svelte` redirect-error, `useTableFilters` URL-sync.
+  - Dialog/step-open effects → trigger at the source event: `PayloadPreview`, `WordPressImport`, `settings/import/+page.svelte`.
+  - Lazy-load effect → `$derived` + `{#await}`: `FieldRenderer` WysiwygField.
+  - Bidirectional sync effects → one-way data flow: `FilterBar` reads `tableFilters.selectFilters` directly.
+  - Callback-prop registration → `$bindable` slot props: `RepeatableNestedView`/`RepeatableInlineView` use `bind:addFn={…}` instead of `exposeAddFunction={...}`.
+  - `useTableFilters.hasActive` → `$derived.by`.
+- **Remaining `$effect` blocks** (legitimate): `unsaved-changes` (beforeunload listener with teardown), `MediaEditModal` (async tag fetch on file change), `RelationField` (state machine), `file-picker` (`open` prop watcher — Sheet's `onOpenChange` doesn't fire on prop-driven toggles).
+- **`liveOnly()` helper** at `core/db/soft-delete.ts` — single source of truth for `deleted_at IS NULL`. No-op fallback for tables without the column.
+- **Restore + purge endpoints** split per entity type (`restoreCollectionItem`/`restoreGlobalItem`/`restoreFile`, `purgeCollectionItem`/`purgeGlobalItem`/`purgeFile`). Purge only deletes rows where `deleted_at IS NOT NULL`; `purgeFile` also drops the physical blob.
+
+### Upgrade notes
+- **Run `npx sailor db:update`.** Migration adds `deleted_at`/`deleted_by` and drops legacy phantom `tags` columns. Choose "add column" for every drizzle-kit prompt.
+- **`useUnsavedChanges()` callers**: replace `unsavedChanges.setHasChanges(...)` with the getter form: `useUnsavedChanges(() => Object.keys(userChanges).length > 0)`.
+
 ## [0.3.4] - 29-04-2026
 
 ### Added

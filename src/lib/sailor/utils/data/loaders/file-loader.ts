@@ -1,6 +1,7 @@
 import { db } from '../../../core/db/index.server';
 import { eq, asc, and, sql } from 'drizzle-orm';
 import { files } from '../../../generated/schema';
+import { liveOnly } from '../../../core/db/soft-delete';
 import * as schema from '../../../generated/schema';
 import { log } from '../../../core/utils/logger';
 import { toSnakeCase } from '../../../core/utils/string';
@@ -93,7 +94,7 @@ export async function loadFileFields(
             const fileResult = await db
               .select()
               .from(files)
-              .where(eq(files.id, currentValue))
+              .where(and(eq(files.id, currentValue), liveOnly(files)))
               .limit(1);
             const fileObject = fileResult[0] || null;
             item[fieldName] = fileObject;
@@ -112,7 +113,7 @@ export async function loadFileFields(
                 const fileResult = await db
                   .select()
                   .from(files)
-                  .where(eq(files.id, fileId))
+                  .where(and(eq(files.id, fileId), liveOnly(files)))
                   .limit(1);
                 return fileResult[0] || null;
               })

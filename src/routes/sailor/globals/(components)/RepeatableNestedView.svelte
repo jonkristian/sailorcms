@@ -9,16 +9,16 @@
   import { generateUUID } from '$sailor/core/utils/common';
   import { reorderGlobalItems, deleteGlobalItem } from '../data.remote.js';
 
-  const {
+  let {
     global,
     items,
-    exposeAddFunction,
+    addFn = $bindable<(() => void) | null>(null),
     formData = $bindable(),
     permissions
   }: {
     global: any;
     items: any[];
-    exposeAddFunction?: (fn: () => void) => void;
+    addFn?: (() => void) | null;
     formData: Record<string, any>;
     permissions: {
       globals: {
@@ -30,48 +30,27 @@
     };
   } = $props();
 
-  // Expose the handleAddNew function to parent if requested
-  $effect(() => {
-    if (exposeAddFunction) {
-      exposeAddFunction(handleAddNew);
-    }
-  });
+  addFn = handleAddNew;
 
   // Modal state
   let isModalOpen = $state(false);
   let editingItem: any = $state(null);
   let isNewItem = $state(false);
 
-  // Use local state for flatItems to manage updates properly
-  let flatItems: FlatItem[] = $state([]);
-  let lastDragSaveTime = $state(0);
-  let previousItemsLength = $state(0);
-
   // Reactive permission checks
   let canDelete = $derived(permissions.globals.delete);
   let canCreate = $derived(permissions.globals.create);
 
-  // Initialize and sync flatItems from items prop
-  $effect(() => {
-    const currentItemsLength = items.length;
-    const timeSinceLastDragSave = Date.now() - lastDragSaveTime;
-
-    // Always sync if items count changed (new item added/deleted) or enough time has passed since drag save
-    const shouldSync = currentItemsLength !== previousItemsLength || timeSinceLastDragSave > 500;
-
-    if (shouldSync) {
-      flatItems = items.map((item: any) => ({
-        id: item.id,
-        name: item.name || item.title || 'Untitled',
-        description: item.description || '',
-        status: item.status || 'active',
-        parent_id: item.parent_id || null,
-        // Preserve all other properties
-        ...item
-      }));
-      previousItemsLength = currentItemsLength;
-    }
-  });
+  let flatItems: FlatItem[] = $derived(
+    items.map((item: any) => ({
+      id: item.id,
+      name: item.name || item.title || 'Untitled',
+      description: item.description || '',
+      status: item.status || 'active',
+      parent_id: item.parent_id || null,
+      ...item
+    }))
+  );
 
   // Handle data changes from DragDrop component
   async function handleDataChange(updatedData: FlatItem[]) {
@@ -105,8 +84,6 @@
         });
 
         if (result.success) {
-          lastDragSaveTime = Date.now();
-          // Manual invalidation needed because we use "unchecked" command mode
           setTimeout(async () => {
             await invalidateAll();
           }, 1000);

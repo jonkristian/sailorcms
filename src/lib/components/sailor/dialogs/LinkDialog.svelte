@@ -28,25 +28,9 @@
     onCancel: () => void;
   } = $props();
 
-  let linkUrl = $state(
-    // svelte-ignore state_referenced_locally
-    url
-  );
-  let linkText = $state(
-    // svelte-ignore state_referenced_locally
-    text
-  );
-  let linkTarget = $state(
-    // svelte-ignore state_referenced_locally
-    target
-  );
-
-  // Update local state when props change
-  $effect(() => {
-    linkUrl = url;
-    linkText = text;
-    linkTarget = target;
-  });
+  let linkUrl = $derived(url);
+  let linkText = $derived(text);
+  let linkTarget = $derived(target);
 
   function handleSubmit() {
     if (linkUrl.trim()) {

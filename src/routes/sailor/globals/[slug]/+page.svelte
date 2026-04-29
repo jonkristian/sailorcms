@@ -161,7 +161,7 @@
         global={data.global}
         {items}
         bind:formData
-        exposeAddFunction={(fn) => (nestableAddFunction = fn)}
+        bind:addFn={nestableAddFunction}
         permissions={data.permissions}
       />
     {:else if data.global.dataType === 'repeatable' && data.global.options?.inline}
@@ -170,9 +170,9 @@
         global={data.global}
         {items}
         {submitting}
-        exposeAddFunction={(fn) => (inlineAddFunction = fn)}
-        exposeSaveFunction={(fn) => (inlineSaveFunction = fn)}
-        exposeExpandCollapseFunction={(fn) => (inlineExpandCollapseFunction = fn)}
+        bind:addFn={inlineAddFunction}
+        bind:saveFn={inlineSaveFunction}
+        bind:expandCollapseFn={inlineExpandCollapseFunction}
         permissions={data.permissions}
       />
     {:else if data.global.dataType === 'repeatable'}

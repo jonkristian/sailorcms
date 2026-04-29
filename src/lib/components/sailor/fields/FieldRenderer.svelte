@@ -26,7 +26,6 @@
   import { Input } from '$lib/components/ui/input';
   import * as InputGroup from '$lib/components/ui/input-group';
   import { Label } from '$lib/components/ui/label';
-  import { Button } from '$lib/components/ui/button';
   import { RefreshCw } from '@lucide/svelte';
   import { slugify } from '$sailor/core/utils/common';
   import { toast } from '$sailor/core/ui/toast';
@@ -41,24 +40,9 @@
   import FileField from './FileField.svelte';
   import TagsInput from './TagsInput.svelte';
 
-  // Dynamic import for WysiwygField to prevent bundling when not needed
-  let WysiwygFieldComponent: any = $state(null);
-  let loadingWysiwyg = $state(false);
-
-  async function loadWysiwygField() {
-    if (WysiwygFieldComponent || loadingWysiwyg) return;
-
-    loadingWysiwyg = true;
-    try {
-      const module = await import('./WysiwygField.svelte');
-      WysiwygFieldComponent = module.default;
-    } catch (error) {
-      console.error('Failed to load WysiwygField:', error);
-      toast.error('Failed to load rich text editor');
-    } finally {
-      loadingWysiwyg = false;
-    }
-  }
+  const wysiwygModule = $derived(
+    field.type === 'wysiwyg' ? import('./WysiwygField.svelte') : null
+  );
 
   function updateValue(newValue: any) {
     if (!readonly) {
@@ -131,12 +115,6 @@
     if (finalSlug !== raw) updateValue(finalSlug);
   }
 
-  // Load WysiwygField when needed
-  $effect(() => {
-    if (field.type === 'wysiwyg' && !WysiwygFieldComponent) {
-      loadWysiwygField();
-    }
-  });
 </script>
 
 <div class="space-y-2">
@@ -299,8 +277,8 @@
           </InputGroup.Button>
         </InputGroup.Addon>
       </InputGroup.Root>
-    {:else if field.type === 'wysiwyg'}
-      {#if loadingWysiwyg}
+    {:else if field.type === 'wysiwyg' && wysiwygModule}
+      {#await wysiwygModule}
         <div class="flex items-center justify-center rounded-lg border p-8">
           <div class="flex items-center gap-2">
             <div
@@ -309,22 +287,19 @@
             Loading rich text editor...
           </div>
         </div>
-      {:else if WysiwygFieldComponent}
-        <WysiwygFieldComponent
+      {:then m}
+        <m.default
           value={value || ''}
           mode={field.mode}
           placeholder={field.placeholder}
           required={field.required}
           onChange={updateValue}
         />
-      {:else}
+      {:catch}
         <div class="bg-input-bg rounded-lg border p-4 text-center">
-          <p class="text-muted-foreground">Click to load rich text editor</p>
-          <Button variant="outline" size="sm" onclick={loadWysiwygField} class="mt-2">
-            Load Editor
-          </Button>
+          <p class="text-muted-foreground">Failed to load rich text editor</p>
         </div>
-      {/if}
+      {/await}
     {:else if field.type === 'textarea'}
       <TextareaField
         value={value || ''}

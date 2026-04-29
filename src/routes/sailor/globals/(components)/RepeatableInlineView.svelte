@@ -12,20 +12,20 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { bulkUpdateGlobalItems, deleteGlobalItem } from '../data.remote.js';
 
-  const {
+  let {
     global,
     items = [],
-    exposeAddFunction,
-    exposeSaveFunction,
-    exposeExpandCollapseFunction,
+    addFn = $bindable<(() => void) | null>(null),
+    saveFn = $bindable<(() => Promise<void>) | null>(null),
+    expandCollapseFn = $bindable<((expand: boolean) => void) | null>(null),
     permissions
   }: {
     global: any;
     items: any[];
     submitting: boolean;
-    exposeAddFunction?: (fn: () => void) => void;
-    exposeSaveFunction?: (fn: () => Promise<void>) => void;
-    exposeExpandCollapseFunction?: (fn: (expand: boolean) => void) => void;
+    addFn?: (() => void) | null;
+    saveFn?: (() => Promise<void>) | null;
+    expandCollapseFn?: ((expand: boolean) => void) | null;
     permissions: {
       globals: {
         create: boolean;
@@ -41,9 +41,7 @@
   let canUpdate = $derived(permissions.globals.update);
   let canCreate = $derived(permissions.globals.create);
 
-  // Convert items to FlatItem format for the DnD system
-  let localItems: FlatItem[] = $state(
-    // svelte-ignore state_referenced_locally
+  let localItems: FlatItem[] = $derived(
     items.map((item: Record<string, any>) => ({
       ...item,
       name: getDisplayTitle(item, global)
@@ -69,18 +67,9 @@
     }
   }
 
-  // Expose functions to parent
-  $effect(() => {
-    if (exposeAddFunction) {
-      exposeAddFunction(addItem);
-    }
-    if (exposeSaveFunction) {
-      exposeSaveFunction(saveAllItems);
-    }
-    if (exposeExpandCollapseFunction) {
-      exposeExpandCollapseFunction(expandCollapseAll);
-    }
-  });
+  addFn = addItem;
+  saveFn = saveAllItems;
+  expandCollapseFn = expandCollapseAll;
 
   // Handle data changes from the Blocks component
   function handleDataChange(updatedData: FlatItem[]) {
@@ -100,13 +89,12 @@
     }
 
     try {
-      // Delete each item without showing individual toasts
       for (const nodeId of nodeIds) {
         const item = localItems.find((item) => item.id === nodeId);
         if (!item) continue;
 
-        // Only delete from server if item has been saved (has a real ID, not just local)
-        if (item.id && item.created_at && !item.id.startsWith('temp-')) {
+        const isOnServer = items.some((i: any) => i.id === item.id);
+        if (isOnServer) {
           const result = await deleteGlobalItem({
             globalSlug: global.slug,
             itemId: item.id
@@ -117,13 +105,12 @@
           }
         }
 
-        // Remove from local state
         localItems = localItems.filter((item) => item.id !== nodeId);
         expandedItems.delete(nodeId);
       }
 
-      // expandedItems already updated with .delete() above - no need for reassignment
       toast.success(`${nodeIds.length} item(s) deleted successfully`);
+      await invalidateAll();
     } catch (error) {
       console.error('Error deleting items:', error);
       toast.error('Failed to delete some items');
@@ -167,10 +154,7 @@
     // Set the display name using the utility function
     newItem.name = getDisplayTitle(newItem, global);
 
-    // Add the new item to the list first
-    localItems.push(newItem);
-
-    // Ensure the new item is expanded by default
+    localItems = [...localItems, newItem];
     expandedItems.add(newItem.id);
   }
 
@@ -184,9 +168,12 @@
     const item = localItems.find((item) => item.id === nodeId);
     if (!item) return;
 
+    // The item is "saved" if it exists on the server-loaded items prop —
+    // ignore the id shape (legacy rows persisted with temp- prefixes).
+    const isOnServer = items.some((i: any) => i.id === item.id);
+
     try {
-      // Only delete from server if item has been saved (has a real ID, not just local)
-      if (item.id && item.created_at && !item.id.startsWith('temp-')) {
+      if (isOnServer) {
         const result = await deleteGlobalItem({
           globalSlug: global.slug,
           itemId: item.id
@@ -197,28 +184,32 @@
         }
       }
 
-      // Remove from local state
       localItems = localItems.filter((item) => item.id !== nodeId);
       expandedItems.delete(nodeId);
       expandedItems = new SvelteSet(expandedItems);
 
       toast.success('Item deleted successfully');
+      await invalidateAll();
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error('Failed to delete item');
     }
   }
 
-  // Handle field changes
   function handleFieldChange(itemIndex: number, fieldKey: string, value: any) {
-    localItems[itemIndex][fieldKey] = value;
-    localItems[itemIndex].updated_at = getCurrentTimestamp();
-
-    // Update the name field if the titleField changes (for DnD component display)
     const titleField = global?.options?.titleField;
-    if (fieldKey === titleField) {
-      localItems[itemIndex].name = getDisplayTitle(localItems[itemIndex], global);
-    }
+    localItems = localItems.map((item, i) => {
+      if (i !== itemIndex) return item;
+      const updated: FlatItem = {
+        ...item,
+        [fieldKey]: value,
+        updated_at: getCurrentTimestamp()
+      };
+      if (fieldKey === titleField) {
+        updated.name = getDisplayTitle(updated, global);
+      }
+      return updated;
+    });
   }
 
   // Toggle item expansion

@@ -13,7 +13,9 @@
   import SEOFields from '$lib/components/sailor/SEOFields.svelte';
   import type { FlatItem } from '$lib/components/sailor/dnd/types';
   import { saveCollectionItem } from './data.remote';
+  import { restoreCollectionItem } from '../../data.remote.js';
   import { invalidateAll } from '$app/navigation';
+  import { AlertTriangle, RotateCcw } from '@lucide/svelte';
   import { formatRelativeTime } from '$sailor/core/utils/date';
   import { getDisplayTitle } from '$lib/sailor/core/content/display';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -22,7 +24,9 @@
 
   const { data } = $props();
 
-  const unsavedChanges = useUnsavedChanges();
+  const unsavedChanges = useUnsavedChanges(
+    () => Object.keys(userChanges).length > 0 || blocksChanged
+  );
 
   function buildFormData(page: any): Record<string, any> {
     return {
@@ -38,6 +42,27 @@
   let formData: Record<string, any> = $state(untrack(() => buildFormData(data.page)));
 
   let submitting = $state(false);
+
+  // Soft-deleted item opened directly via its URL: surface a banner so editors
+  // realise it's in recovery and can restore in one click.
+  const isInRecovery = $derived(!data.isNewItem && !!data.page?.deleted_at);
+
+  async function handleRestoreFromBanner() {
+    try {
+      const result = await restoreCollectionItem({
+        collectionSlug: data.slug,
+        itemId: data.page.id
+      });
+      if (result.success) {
+        toast.success(result.message || 'Item restored');
+        await invalidateAll();
+      } else {
+        toast.error(result.error || 'Failed to restore item');
+      }
+    } catch {
+      toast.error('Failed to restore item');
+    }
+  }
 
   // Form submission handler using remote function
   async function handleSave() {
@@ -91,26 +116,38 @@
       });
 
       if (result.success) {
-        if (data.isNewItem) {
-          toast.success('Collection created successfully');
+        const wasNew = data.isNewItem;
+        if (wasNew) {
+          toast.success('Collection created successfully', { id: 'collection-save' });
         } else {
-          toast.success('Collection saved successfully');
+          toast.success('Collection saved successfully', { id: 'collection-save' });
         }
-        // Clear unsaved changes flag on successful save
-        unsavedChanges.setHasChanges(false);
-        // Clear user changes to reset the tracking
         userChanges = {};
         blocksChanged = false;
-        await invalidateAll();
-        // Re-hydrate form state from refreshed server data so server-side mutations
-        // (auto-suffixed slug, generated fields, etc.) aren't overwritten by stale local state
-        formData = buildFormData(data.page);
+
+        if (wasNew) {
+          // First save of a new item — re-run the load once so headerActions
+          // ("Create" → "Save") and isNewItem flip correctly.
+          await invalidateAll();
+        } else if (result.item) {
+          // Subsequent edits: merge server-side mutations onto formData.
+          // result.item is the flat row only — file/array/block fields live
+          // in their own tables and stay as-is.
+          formData = { ...formData, ...result.item };
+          if (result.tags) {
+            for (const [key, fieldDef] of Object.entries(data.collectionType?.fields || {})) {
+              if ((fieldDef as any).type === 'tags') {
+                formData[key] = result.tags;
+              }
+            }
+          }
+        }
       } else {
-        toast.error(result.error || 'Failed to save collection');
+        toast.error(result.error || 'Failed to save collection', { id: 'collection-save' });
       }
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save collection');
+      toast.error('Failed to save collection', { id: 'collection-save' });
     } finally {
       submitting = false;
     }
@@ -213,11 +250,6 @@
   // Track form changes for unsaved changes warning
   let userChanges: Record<string, any> = $state({});
   let blocksChanged = $state(false);
-
-  $effect(() => {
-    const hasChanges = Object.keys(userChanges).length > 0 || blocksChanged;
-    unsavedChanges.setHasChanges(hasChanges);
-  });
 
   // Handle title changes (no longer auto-generates slug)
   function handleTitleChange(newTitle: string) {
@@ -406,6 +438,20 @@
 <div class="flex gap-6 px-6">
   <!-- Main Content Area -->
   <div class="flex flex-1 flex-col">
+    {#if isInRecovery}
+      <div
+        class="mt-4 mb-2 flex items-center justify-between gap-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+      >
+        <div class="flex items-center gap-2">
+          <AlertTriangle class="size-4 shrink-0" />
+          <span>This item is in recovery. Restore it to bring it back to the collection.</span>
+        </div>
+        <Button variant="outline" size="sm" onclick={handleRestoreFromBanner}>
+          <RotateCcw class="mr-1 size-3.5" />
+          Restore
+        </Button>
+      </div>
+    {/if}
     {#if data.hasBlocks}
       <!-- Main Fields Section (for blocks-enabled collections) -->
       {#if mainFields.length > 0}

@@ -89,7 +89,9 @@ export class SchemaGenerator {
         'description',
         'author',
         'created_at',
-        'updated_at'
+        'updated_at',
+        'deleted_at',
+        'deleted_by'
       ]
     });
 
@@ -113,7 +115,16 @@ export class SchemaGenerator {
 
     this.metadata.registerTable('tags', {
       type: 'core',
-      fields: ['id', 'name', 'slug', 'color', 'created_at', 'updated_at']
+      fields: [
+        'id',
+        'name',
+        'slug',
+        'color',
+        'created_at',
+        'updated_at',
+        'deleted_at',
+        'deleted_by'
+      ]
     });
 
     this.metadata.registerTable('roles', {
@@ -276,6 +287,10 @@ export class SchemaGenerator {
         fields.push(`  created_at: ${this.adapter.getTimestampDefinition('created_at')}`);
       } else if (fieldName === 'updated_at') {
         fields.push(`  updated_at: ${this.adapter.getTimestampDefinition('updated_at')}`);
+      } else if (fieldName === 'deleted_at') {
+        fields.push(`  deleted_at: ${this.adapter.getNullableTimestampDefinition('deleted_at')}`);
+      } else if (fieldName === 'deleted_by') {
+        fields.push(`  deleted_by: ${this.adapter.getTextFieldDefinition('deleted_by')}`);
       } else if (fieldName === 'parent_id') {
         // Check if parent_id has foreign key reference (for self-referential relations)
         const options = {};

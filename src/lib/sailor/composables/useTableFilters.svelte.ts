@@ -1,4 +1,4 @@
-import { goto } from '$app/navigation';
+import { afterNavigate, goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { page } from '$app/state';
 import { debounce } from '$sailor/core/utils/debounce';
@@ -113,12 +113,9 @@ export function useTableFilters(options: FilterOptions) {
     }
   }
 
-  // Re-sync state from URL when the route changes (e.g. user navigates between
-  // collections of differing sortability). Without this, state leaks across
-  // pages because the caller's component instance is reused by SvelteKit.
   let lastSyncedPathname = browser ? page?.url?.pathname ?? '' : '';
-  $effect(() => {
-    const pathname = page?.url?.pathname;
+  afterNavigate(({ to }) => {
+    const pathname = to?.url?.pathname;
     if (!pathname || pathname === lastSyncedPathname) return;
     lastSyncedPathname = pathname;
     const params = readParams();
@@ -259,25 +256,19 @@ export function useTableFilters(options: FilterOptions) {
     goto(getBaseUrl(), { replaceState: true, keepFocus: true, noScroll: true });
   }
 
-  // Derived state for UI
-  let hasActive = $state(false);
-  $effect(() => {
-    let active = false;
-
+  const hasActive = $derived.by(() => {
     if (config.select) {
       for (const filter of config.select) {
-        if (selectFilters[filter.key] !== filter.default) active = true;
+        if (selectFilters[filter.key] !== filter.default) return true;
       }
     }
-
     if (config.multiSelect) {
       for (const filter of config.multiSelect) {
-        if (multiSelectFilters[filter.key].length > 0) active = true;
+        if (multiSelectFilters[filter.key].length > 0) return true;
       }
     }
-
-    if (!active && config.search && searchQuery.trim()) active = true;
-    hasActive = active;
+    if (config.search && searchQuery.trim()) return true;
+    return false;
   });
 
   return {

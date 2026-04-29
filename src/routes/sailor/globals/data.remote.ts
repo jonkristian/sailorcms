@@ -203,8 +203,15 @@ export const deleteGlobalItem = command(
         };
       }
 
-      // Delete the item
-      await db.delete(globalTable).where(eq((globalTable as any).id, itemId));
+      // Soft-delete: keep the row, mark it. Restore via the recovery view.
+      await db
+        .update(globalTable)
+        .set({
+          deleted_at: new Date(),
+          deleted_by: locals.user?.id ?? null,
+          updated_at: new Date()
+        } as any)
+        .where(eq((globalTable as any).id, itemId));
       await SearchIndexService.onDeleteSafe('global', globalSlug, itemId);
 
       return { success: true };
@@ -1172,7 +1179,11 @@ export const bulkUpdateGlobalItems = command(
 
       await db.transaction(async (tx: any) => {
         for (const item of items) {
-          const { id, tags, ...regularData } = item;
+          const { id: rawId, tags, ...regularData } = item;
+          // `temp-…` ids are client-side placeholders for unsaved items —
+          // promote to a real UUID before inserting.
+          const id =
+            !rawId || String(rawId).startsWith('temp-') ? generateUUID() : rawId;
 
           if (regularData.slug) {
             regularData.slug = slugify(String(regularData.slug));
@@ -1291,6 +1302,56 @@ export const bulkUpdateGlobalItems = command(
     } catch (error) {
       log.error('Error bulk updating global items', {}, error as Error);
       return { success: false, error: 'Failed to update items' };
+    }
+  }
+);
+
+/**
+ * Restore a soft-deleted global item. Re-instates at the end of the list with
+ * neutral position; user re-organizes if needed.
+ */
+export const restoreGlobalItem = command(
+  'unchecked',
+  async ({ globalSlug, itemId }: { globalSlug: string; itemId: string }) => {
+    const { locals } = getRequestEvent();
+
+    if (!globalSlug || !itemId) {
+      return { success: false, error: 'Global slug and item ID are required' };
+    }
+
+    const canUpdate = await locals.security.hasPermission('update', 'content');
+    if (!canUpdate) {
+      return { success: false, error: 'You do not have permission to restore content' };
+    }
+
+    try {
+      const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
+      if (!globalTable) {
+        return { success: false, error: `Global '${globalSlug}' not found` };
+      }
+
+      const [maxRow] = await db
+        .select({ max: sql<number>`coalesce(max(${(globalTable as any).sort}), 0)` })
+        .from(globalTable);
+      const nextSort = (maxRow?.max ?? 0) + 1;
+
+      await db
+        .update(globalTable)
+        .set({
+          deleted_at: null,
+          deleted_by: null,
+          parent_id: null,
+          sort: nextSort,
+          updated_at: new Date()
+        } as any)
+        .where(eq((globalTable as any).id, itemId));
+
+      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+
+      return { success: true, message: 'Item restored' };
+    } catch (error) {
+      log.error('Failed to restore global item', {}, error as Error);
+      return { success: false, error: 'Failed to restore item' };
     }
   }
 );

@@ -11,7 +11,7 @@
   import { page } from '$app/state';
   import { getPageTitle } from '$sailor/core/ui/page-title';
   import { toast } from '$sailor/core/ui/toast';
-  import { goto } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import '$sailor/styles/sailor.css';
 
   let { children, data } = $props();
@@ -33,20 +33,19 @@
     canViewSettings: data.navData?.canViewSettings ?? false,
     canViewUsers: data.navData?.canViewUsers ?? false,
     canViewFiles: data.navData?.canViewFiles ?? false,
+    canViewRecovery: data.navData?.canViewRecovery ?? false,
     loading: false
   });
   let headerActionsState = $derived((page.data.headerActions || []) as HeaderAction[]);
 
-  // Handle error messages from redirects (reactive to URL changes)
-  $effect(() => {
-    const error = page.url.searchParams.get('error');
-    if (error) {
-      toast.error(error);
-      // Clean URL by removing the error parameter
-      const url = new URL(page.url);
-      url.searchParams.delete('error');
-      goto(url.toString(), { replaceState: true });
-    }
+  afterNavigate(({ to }) => {
+    if (!to) return;
+    const error = to.url.searchParams.get('error');
+    if (!error) return;
+    toast.error(error, { id: `redirect-error:${error}` });
+    const url = new URL(to.url);
+    url.searchParams.delete('error');
+    goto(url.toString(), { replaceState: true });
   });
 
 </script>

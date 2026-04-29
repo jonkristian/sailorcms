@@ -155,12 +155,12 @@ export const saveCollectionItem = command(
       const pendingBlockTags: Array<{ blockType: string; blockId: string; tagNames: string[] }> =
         [];
 
+      const collectionTable = schema[`collection_${collectionSlug}` as keyof typeof schema];
+      if (!collectionTable) {
+        return { success: false, error: `Collection table for '${collectionSlug}' not found` };
+      }
+
       const result = await db.transaction(async (tx: any) => {
-        // Get the collection table for the transaction
-        const collectionTable = schema[`collection_${collectionSlug}` as keyof typeof schema];
-        if (!collectionTable) {
-          throw new Error(`Collection table for '${collectionSlug}' not found`);
-        }
 
         // Check if item exists and user has access to it
         const existing = await tx
@@ -717,7 +717,25 @@ export const saveCollectionItem = command(
       // must not break saves.
       await SearchIndexService.onSaveSafe('collection', collectionSlug, result.itemId);
 
-      return { success: true, message: 'Item saved successfully', itemId: result.itemId };
+      // Return the persisted row so the client can re-hydrate without a full
+      // route reload. Tags are loaded separately on the client.
+      const [savedRow] = await db
+        .select()
+        .from(collectionTable)
+        .where(eq((collectionTable as any).id, result.itemId))
+        .limit(1);
+      const savedTags = await TagService.getTagsForEntity(
+        `collection_${collectionSlug}`,
+        result.itemId
+      );
+
+      return {
+        success: true,
+        message: 'Item saved successfully',
+        itemId: result.itemId,
+        item: savedRow,
+        tags: savedTags
+      };
     } catch (error) {
       log.error('Failed to save collection item', {}, error as Error);
 

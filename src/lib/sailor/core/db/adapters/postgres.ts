@@ -55,6 +55,10 @@ export class PostgreSQLAdapter extends DatabaseAdapter {
     return `timestamp('${name}').defaultNow().notNull()`;
   }
 
+  getNullableTimestampDefinition(name: string): string {
+    return `timestamp('${name}')`;
+  }
+
   getTextFieldDefinition(
     name: string,
     options: { notNull?: boolean; unique?: boolean } = {}

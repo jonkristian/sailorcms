@@ -5,6 +5,7 @@ import { eq, asc, desc, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { TagService } from '$sailor/core/services/tag.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
+import { liveOnly } from '$sailor/core/db/soft-delete';
 
 export const load = async ({ params, locals }) => {
   // Check permission to view content
@@ -50,7 +51,7 @@ export const load = async ({ params, locals }) => {
       const result = await db
         .select()
         .from(globalTable)
-        .where(eq((globalTable as any).id, slug))
+        .where(and(eq((globalTable as any).id, slug), liveOnly(globalTable)))
         .limit(1);
 
       if (result.length > 0) {
@@ -112,6 +113,7 @@ export const load = async ({ params, locals }) => {
         const result = await db
           .select()
           .from(globalTable)
+          .where(liveOnly(globalTable))
           .orderBy(asc((globalTable as any).sort), desc((globalTable as any).created_at));
         items = result || [];
       } catch (err) {

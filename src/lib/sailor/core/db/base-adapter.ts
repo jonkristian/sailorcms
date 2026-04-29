@@ -74,6 +74,7 @@ export abstract class DatabaseAdapter {
   abstract getTableFunction(): string;
   abstract getPrimaryKeyDefinition(): string;
   abstract getTimestampDefinition(name: string): string;
+  abstract getNullableTimestampDefinition(name: string): string;
   abstract getTextFieldDefinition(
     name: string,
     options?: { notNull?: boolean; unique?: boolean }

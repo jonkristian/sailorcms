@@ -242,7 +242,9 @@ export class GlobalGenerator {
     const fields = {
       id: this.tableGen.getPrimaryKeyField(),
       created_at: this.tableGen.getTimestampField(),
-      updated_at: this.tableGen.getTimestampField()
+      updated_at: this.tableGen.getTimestampField(),
+      deleted_at: this.tableGen.getNullableTimestampField(),
+      deleted_by: this.tableGen.getTextField()
     };
 
     // Add all merged core+template fields (skip arrays and files - they get separate tables)

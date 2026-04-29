@@ -5,6 +5,7 @@ import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
 import { log } from '$sailor/core/utils/logger';
 import { TagService } from '$sailor/core/services/tag.server';
 import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
+import { liveOnly } from '$sailor/core/db/soft-delete';
 import type { Pagination } from '$sailor/core/types';
 
 export const load = async ({
@@ -51,7 +52,7 @@ export const load = async ({
         result = { files: [], total: 0 };
       } else {
         // Build WHERE conditions
-        const whereConditions = [inArray(filesTable.id, fileIds)];
+        const whereConditions = [inArray(filesTable.id, fileIds), liveOnly(filesTable)];
 
         // Add type filtering
         if (type !== 'all') {
@@ -121,7 +122,7 @@ export const load = async ({
       }
     } else {
       // Regular file loading with direct DB query
-      const whereConditions = [];
+      const whereConditions = [liveOnly(filesTable)];
 
       // Add type filtering
       if (type !== 'all') {

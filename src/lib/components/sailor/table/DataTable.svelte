@@ -217,10 +217,12 @@
           draggedHierarchicalItem &&
           targetHierarchicalItem.item.id === draggedHierarchicalItem.item.id;
 
-        // Determine drop position based on mouse position and nesting capability
-        if (mouseY < height * 0.3) {
+        // Determine drop position based on mouse position and nesting capability.
+        // Keep the "inside" band narrow (middle 20%) so casual drops between rows
+        // don't accidentally nest the dragged item under an adjacent row.
+        if (mouseY < height * 0.4) {
           dropPosition = 'before';
-        } else if (mouseY > height * 0.4 && mouseY < height * 0.9 && !wouldCreateCycle) {
+        } else if (mouseY < height * 0.6 && !wouldCreateCycle) {
           dropPosition = 'inside';
         } else {
           dropPosition = 'after';
@@ -287,6 +289,12 @@
       if (dropPosition === 'inside') {
         newParentId = targetHierarchicalItem.item.id;
         newIndex = 0; // First child
+        // Auto-expand the target so the moved child stays visible after re-render —
+        // otherwise it appears to vanish even though it's correctly nested.
+        if (!expandedItems.has(targetHierarchicalItem.item.id)) {
+          expandedItems.add(targetHierarchicalItem.item.id);
+          expandedItems = new Set(expandedItems);
+        }
       } else {
         // For 'before' and 'after', use target's parent
         newParentId = targetHierarchicalItem.item.parent_id;
