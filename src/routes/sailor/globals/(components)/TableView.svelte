@@ -9,12 +9,14 @@
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
 
-  const { global, items, onAddNew, onDelete, onBulkDelete }: {
+  const { global, items, onAddNew, onDelete, onBulkDelete, sortable = false, onReorder }: {
     global: any;
     items: any[];
     onAddNew?: () => void;
     onDelete: (itemId: string) => void;
     onBulkDelete?: (itemIds: string[]) => void;
+    sortable?: boolean;
+    onReorder?: (items: any[]) => void;
   } = $props();
 
   // Use composables for selection and delete functionality
@@ -108,6 +110,8 @@
     <DataTable
       {items}
       {columns}
+      {sortable}
+      {onReorder}
       selectable={true}
       selectedItems={selection.selectedItems}
       onSelect={selection.handleSelect}

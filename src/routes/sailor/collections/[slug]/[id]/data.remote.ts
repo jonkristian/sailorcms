@@ -4,7 +4,8 @@ import { db } from '$sailor/core/db/index.server';
 import { log } from '$sailor/core/utils/logger';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { generateUUID } from '$lib/sailor/core/utils/common';
+import { generateUUID, slugify } from '$lib/sailor/core/utils/common';
+import { ensureUniqueSlug } from '$sailor/core/utils/slug';
 import { TagService } from '$sailor/core/services/tag.server';
 import { SearchIndexService } from '$sailor/core/services/search-index.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
@@ -161,24 +162,6 @@ export const saveCollectionItem = command(
           throw new Error(`Collection table for '${collectionSlug}' not found`);
         }
 
-        // Find a non-colliding slug by appending -2, -3, etc. if the base is taken
-        async function ensureUniqueSlug(slug: string, excludeId: string): Promise<string> {
-          if (!slug || !(collectionTable as any).slug) return slug;
-          let candidate = slug;
-          let counter = 2;
-          while (counter < 1000) {
-            const existing = await tx
-              .select({ id: (collectionTable as any).id })
-              .from(collectionTable)
-              .where(eq((collectionTable as any).slug, candidate))
-              .limit(1);
-            if (existing.length === 0 || existing[0].id === excludeId) return candidate;
-            candidate = `${slug}-${counter}`;
-            counter++;
-          }
-          return candidate;
-        }
-
         // Check if item exists and user has access to it
         const existing = await tx
           .select({
@@ -221,7 +204,12 @@ export const saveCollectionItem = command(
           }
 
           if (payloadMain.slug) {
-            payloadMain.slug = await ensureUniqueSlug(String(payloadMain.slug), itemId);
+            payloadMain.slug = await ensureUniqueSlug({
+              table: collectionTable as any,
+              slug: slugify(String(payloadMain.slug)),
+              excludeId: itemId,
+              tx
+            });
           }
 
           const updateData: Record<string, any> = {
@@ -274,7 +262,12 @@ export const saveCollectionItem = command(
           }
 
           if (payloadMain.slug) {
-            payloadMain.slug = await ensureUniqueSlug(String(payloadMain.slug), itemId);
+            payloadMain.slug = await ensureUniqueSlug({
+              table: collectionTable as any,
+              slug: slugify(String(payloadMain.slug)),
+              excludeId: itemId,
+              tx
+            });
           }
 
           const createData: Record<string, any> = {

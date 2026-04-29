@@ -6,7 +6,7 @@
   import { FlatView, TableView, RepeatableNestedView, RepeatableInlineView } from '../(components)';
   import Header from '$lib/components/sailor/Header.svelte';
   import { generateUUID } from '$sailor/core/utils/common';
-  import { deleteGlobalItem } from '../data.remote.js';
+  import { deleteGlobalItem, reorderGlobalItems } from '../data.remote.js';
 
   const { data }: { data: PageData } = $props();
 
@@ -94,6 +94,23 @@
     }
   }
 
+  async function handleReorder(newItems: any[]) {
+    try {
+      const result = await reorderGlobalItems({
+        globalSlug: data.global.slug,
+        items: newItems.map((item) => ({ id: item.id, parent_id: item.parent_id ?? null }))
+      });
+
+      if (result.success) {
+        await invalidateAll();
+      } else {
+        toast.error(result.error || 'Failed to update sort order');
+      }
+    } catch {
+      toast.error('Failed to update sort order');
+    }
+  }
+
   // Handle add new item
   function handleAddNew() {
     if (data.global.dataType === 'repeatable' && data.global.options?.nestable) {
@@ -166,6 +183,8 @@
         onAddNew={handleAddNew}
         onDelete={handleDelete}
         onBulkDelete={handleBulkDelete}
+        sortable={!!data.global.options?.sortable}
+        onReorder={handleReorder}
       />
     {:else if data.global.dataType === 'relational'}
       <!-- TableView: Relational Global with separate edit pages (like Menus) -->
@@ -175,6 +194,8 @@
         onAddNew={handleAddNew}
         onDelete={handleDelete}
         onBulkDelete={handleBulkDelete}
+        sortable={!!data.global.options?.sortable}
+        onReorder={handleReorder}
       />
     {:else}
       <!-- Fallback for unknown dataType -->

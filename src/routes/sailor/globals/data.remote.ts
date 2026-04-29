@@ -5,7 +5,8 @@ import { db } from '$sailor/core/db/index.server';
 import { eq, sql, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
-import { generateUUID, normalizeRelationId } from '$sailor/core/utils/common';
+import { generateUUID, normalizeRelationId, slugify } from '$sailor/core/utils/common';
+import { ensureUniqueSlug } from '$sailor/core/utils/slug';
 import { toSnakeCase } from '$sailor/core/utils/string';
 import { log } from '$sailor/core/utils/logger';
 import { SearchIndexService } from '$sailor/core/services/search-index.server';
@@ -546,6 +547,8 @@ export const updateRepeatableGlobal = command(
         }
       });
 
+      if (regularFields.slug) regularFields.slug = slugify(String(regularFields.slug));
+
       // For repeatable globals, we need an item ID (from parameter or create new)
       const finalItemId = itemId || generateUUID();
 
@@ -559,6 +562,15 @@ export const updateRepeatableGlobal = command(
         const existing = await tx.run(
           sql`SELECT * FROM ${sql.identifier(`global_${globalSlug}`)} WHERE id = ${finalItemId} LIMIT 1`
         );
+
+        if (regularFields.slug) {
+          regularFields.slug = await ensureUniqueSlug({
+            table: globalTable as any,
+            slug: regularFields.slug,
+            excludeId: finalItemId,
+            tx
+          });
+        }
 
         if (existing.rows.length > 0) {
           // Update existing item
@@ -920,14 +932,27 @@ export const updateRelationalGlobal = command(
         }
       });
 
+      if (regularFields.slug) regularFields.slug = slugify(String(regularFields.slug));
+
       // For relational globals, we need an item ID (from parameter or create new)
       const finalItemId = itemId || generateUUID();
+
+      const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
 
       await db.transaction(async (tx: any) => {
         // Check if item exists
         const existing = await tx.run(
           sql`SELECT * FROM ${sql.identifier(`global_${globalSlug}`)} WHERE id = ${finalItemId} LIMIT 1`
         );
+
+        if (regularFields.slug && globalTable) {
+          regularFields.slug = await ensureUniqueSlug({
+            table: globalTable as any,
+            slug: regularFields.slug,
+            excludeId: finalItemId,
+            tx
+          });
+        }
 
         if (existing.rows.length > 0) {
           // Update existing item
@@ -1143,9 +1168,23 @@ export const bulkUpdateGlobalItems = command(
         return { success: false, error: 'Invalid global type' };
       }
 
+      const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
+
       await db.transaction(async (tx: any) => {
         for (const item of items) {
           const { id, tags, ...regularData } = item;
+
+          if (regularData.slug) {
+            regularData.slug = slugify(String(regularData.slug));
+            if (globalTable) {
+              regularData.slug = await ensureUniqueSlug({
+                table: globalTable as any,
+                slug: regularData.slug,
+                excludeId: id,
+                tx
+              });
+            }
+          }
 
           // Check if item exists
           const existing = await tx.run(

@@ -114,8 +114,32 @@ export function slugify(
     'with'
   ]);
 
+  // Transliterate letters that don't decompose under NFD (separate Unicode
+  // letters, not letter+diacritic). Without this, \u00e6/\u00f8/\u0153/\u00df/etc. would be
+  // stripped by the [^\w\s] pass below.
+  const transliterations: Record<string, string> = {
+    \u00e6: 'ae',
+    \u00c6: 'ae',
+    \u00f8: 'o',
+    \u00d8: 'o',
+    \u00e5: 'a',
+    \u00c5: 'a',
+    \u0153: 'oe',
+    \u0152: 'oe',
+    \u00df: 'ss',
+    \u00f0: 'd',
+    \u00d0: 'd',
+    \u00fe: 'th',
+    \u00de: 'th',
+    \u0142: 'l',
+    \u0141: 'l',
+    \u0111: 'd',
+    \u0110: 'd'
+  };
+
   // Convert to string and normalize
   let slug = String(text)
+    .replace(/[\u00e6\u00c6\u00f8\u00d8\u00e5\u00c5\u0153\u0152\u00df\u00f0\u00d0\u00fe\u00de\u0142\u0141\u0111\u0110]/g, (ch) => transliterations[ch] ?? ch)
     // Normalize unicode characters (convert accented characters to ASCII)
     .normalize('NFD')
     // Remove diacritics (accents)

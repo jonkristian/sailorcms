@@ -105,7 +105,6 @@
         });
 
         if (result.success) {
-          toast.success('Items updated successfully');
           lastDragSaveTime = Date.now();
           // Manual invalidation needed because we use "unchecked" command mode
           setTimeout(async () => {

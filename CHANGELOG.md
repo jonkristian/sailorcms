@@ -2,6 +2,27 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.3.4] - 29-04-2026
+
+### Added
+- **Live slug normalization on blur** — typing into a slug field and tabbing away now slugifies the value and runs the uniqueness check, mirroring the explicit "Generate slug from title" button. Type "Arne Bjarne", tab out, field becomes `arne-bjarne` (or `arne-bjarne-2` if taken). Same backend call as the button (`getUniqueSlug`), no toast — silent and immediate. The button keeps its toast since it's a deliberate action.
+
+### Changed
+- **Server-side slug sanitization on save** — the save path now runs `slugify()` on incoming slug values in `saveCollectionItem`, `updateRepeatableGlobal`, `updateRelationalGlobal`, and `bulkUpdateGlobalItems` before persisting. Any path that bypasses the admin UI (API writes, scripts, imports) gets the same canonicalization the field gives you. `Anders And` → `anders-and`, regardless of how it arrived.
+- **Globals get the same `-2`/`-3` dedupe collections already had** — repeatable, relational, and bulk-update global save paths previously relied only on the DB UNIQUE constraint, so a colliding slug surfaced as an error instead of being auto-suffixed. They now go through the shared `ensureUniqueSlug` helper inside the transaction, matching the collection write path.
+- **Tag slug generation uses `slugify()`** — `TagService.createTag` was rolling its own regex (no diacritics handling, no length cap), so a tag named "Café" produced `caf` — the é was silently dropped. Now uses the shared `slugify`, which decomposes accents and applies the standard length cap.
+- **DnD reorders are silent on success across the board** — `RepeatableNestedView` was emitting a "Items updated successfully" toast on every drop while the collections list stayed silent. Standardized on silent: visual confirmation is the row staying put after invalidation, and toasts on each drop got noisy when reordering several items. Errors still toast in all three reorder paths.
+
+### Fixed
+- **`æ`, `ø`, and other non-decomposing Latin letters were stripped from slugs** — `slugify` relied on `String.prototype.normalize('NFD')` to flatten accented characters, but æ/ø/œ/ß/þ/ł/đ aren't accented forms — they're separate Unicode letters with no decomposition. They fell through the `[^\w\s]` strip and disappeared, so "Bjørn" became `bjrn` and "Tær" became `tr`. `slugify` now transliterates these explicitly: æ→ae, ø→o, œ→oe, ß→ss, ð→d, þ→th, ł→l, đ→d (plus their uppercase forms). å was already passing because it does decompose via NFD.
+- **`options.sortable` had no effect on simple repeatable / relational globals** — `routes/sailor/globals/(components)/TableView.svelte` (the non-inline, non-nestable view) was rendering `<DataTable>` without `sortable` or `onReorder` props, so even with `options.sortable: true` no drag handle appeared and the row order was unsavable. The backend mutation (`reorderGlobalItems`) and the inline/nested DnD wiring already existed; only the simple table view was missing the wire-up. Now matches the collections list pattern: `+page.svelte` owns a `handleReorder` that calls `reorderGlobalItems`, TableView passes `sortable` + `onReorder` straight through.
+
+### Internal
+- **DB-aware slug uniqueness consolidated into `core/utils/slug.ts`** — three near-identical `ensureUniqueSlug` loops (in `remote/collections.remote.ts`'s `getUniqueSlug` query, the `saveCollectionItem` transaction, and the WordPress importer) collapsed into one helper that accepts an optional Drizzle transaction. WordPress importer's collision counter shifts from `-1` to `-2` for consistency with the other two paths; functionally equivalent.
+
+### Upgrade notes
+- **Existing slugs are not retroactively normalized.** If you have rows with non-canonical slugs from before 0.3.4 (e.g. `"Bjørn"`, `"Anders And"`), they stay untouched until someone re-saves the row. Their public URLs (`/blog/Bjørn`) won't resolve through the admin's lookup. Either re-save each item or run a one-shot `UPDATE` per affected table.
+
 ## [0.3.3] - 27-04-2026
 
 ### Changed

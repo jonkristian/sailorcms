@@ -7,6 +7,7 @@ import { taggables } from '../../generated/schema';
 import crypto from 'crypto';
 import { getCurrentTimestamp } from '../utils/date';
 import { generateSlug } from '../utils/common';
+import { ensureUniqueSlug } from '../utils/slug';
 
 // WordPress REST API Response Interfaces
 export interface WordPressAPIPost {
@@ -751,31 +752,10 @@ export class WordPressImportService {
                 continue; // Skip to next post
               }
             } else {
-              // Check if slug already exists and bump it if needed
-              let finalSlug = postData.slug;
-              let counter = 1;
-
-              while (true) {
-                const existingPost = await db
-                  .select({ id: (collectionTable as any).id })
-                  .from(collectionTable)
-                  .where(eq((collectionTable as any).slug, finalSlug))
-                  .limit(1);
-
-                if (existingPost.length === 0) {
-                  // Slug is available, use it
-                  break;
-                }
-
-                // Slug exists, bump it
-                finalSlug = `${postData.slug}-${counter}`;
-                counter++;
-              }
-
-              // Update the slug if it was bumped
-              if (finalSlug !== postData.slug) {
-                postData.slug = finalSlug;
-              }
+              postData.slug = await ensureUniqueSlug({
+                table: collectionTable as any,
+                slug: postData.slug
+              });
             }
 
             // Insert with the final slug

@@ -1,6 +1,7 @@
 import { db } from '../db/index.server';
 import { tags, taggables } from '../../generated/schema';
 import { eq, and, like, desc, sql, inArray } from 'drizzle-orm';
+import { slugify } from '../utils/common';
 
 export interface Tag {
   id: string;
@@ -32,11 +33,7 @@ export class TagService {
    * Create a new tag
    */
   static async createTag(data: CreateTagData): Promise<Tag> {
-    const slug = data.name
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .trim();
+    const slug = slugify(data.name);
 
     const [tag] = await db
       .insert(tags)

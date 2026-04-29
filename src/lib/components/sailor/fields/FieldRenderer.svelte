@@ -108,6 +108,29 @@
     );
   }
 
+  async function normalizeSlugOnBlur(e: FocusEvent) {
+    const raw = (e.target as HTMLInputElement).value;
+    if (!raw) return;
+    const base = slugify(raw);
+    if (!base) return;
+
+    let finalSlug = base;
+    if (entityType) {
+      try {
+        const result = await getUniqueSlug({
+          entityType,
+          slug: base,
+          excludeId: currentItemId
+        }).run();
+        if (result.success && result.slug) finalSlug = result.slug;
+      } catch (err) {
+        console.warn('Slug uniqueness check failed, using base slug', err);
+      }
+    }
+
+    if (finalSlug !== raw) updateValue(finalSlug);
+  }
+
   // Load WysiwygField when needed
   $effect(() => {
     if (field.type === 'wysiwyg' && !WysiwygFieldComponent) {
@@ -263,6 +286,7 @@
           placeholder={field.placeholder}
           required={field.required}
           oninput={(e) => updateValue((e.target as HTMLInputElement).value)}
+          onblur={normalizeSlugOnBlur}
         />
         <InputGroup.Addon align="inline-end">
           <InputGroup.Button
