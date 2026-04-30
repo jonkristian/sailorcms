@@ -319,14 +319,19 @@ export const saveCollectionItem = command(
                   values.push((item as any)[propKey] ?? null);
                 });
 
-                // Optionally include parent_id when array is nestable and defined in schema
+                // Optionally include parent_id when array is nestable and defined in schema.
+                // Coerce self-references to null — a row pointing at itself becomes
+                // unreachable from the tree builder.
                 if (
                   fieldDef.nestable &&
                   fieldDef.items?.properties?.parent_id !== undefined &&
                   (item as any).parent_id !== undefined
                 ) {
+                  const rawParentId = (item as any).parent_id;
+                  const safeParentId =
+                    rawParentId && rawParentId === (values[0] as any) ? null : rawParentId;
                   columns.push('parent_id');
-                  values.push((item as any).parent_id);
+                  values.push(safeParentId);
                 }
 
                 const relationTable = schema[relationTableName as keyof typeof schema];

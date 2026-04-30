@@ -383,6 +383,10 @@ export const updateCollectionItemNesting = command(
       return { success: false, error: 'Item ID is required' };
     }
 
+    if (parentId === itemId) {
+      return { success: false, error: 'Cannot nest an item under itself' };
+    }
+
     try {
       const collectionTable = schema[`collection_${collectionSlug}` as keyof typeof schema];
       if (!collectionTable) {

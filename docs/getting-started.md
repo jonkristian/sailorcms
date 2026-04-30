@@ -93,8 +93,12 @@ npx sailor db:backup # Backup to S3/R2
 npx sailor db:backup --output ./backups/ # Local backup
 npx sailor db:restore backup-file.sqlite.gz --force # Restore from file
 
-# Fix file URLs for cloud storage
-npx sailor files:repair
+# Repair drifted DB (missing columns from generated/schema.ts)
+npx sailor db:repair --dry-run # Preview ALTERs without applying
+npx sailor db:repair # Apply missing columns
+
+# Repair timestamp columns containing millisecond values (0.4.0 ms-leak)
+npx sailor db:repair-timestamps --dry-run
 
 # Manage users and roles
 npx sailor users:list # List users
@@ -132,6 +136,16 @@ Ready to deploy your Sailor CMS to production? See the complete **[Deployment Gu
 - Verify `DATABASE_URL` format is correct
 - For Turso, ensure `DATABASE_AUTH_TOKEN` is set
 - Check network connectivity to database
+
+**`db:update` reports "Schema drift detected"?**
+
+This happens when migration tracking thinks migrations are applied but the DB schema doesn't match. Most commonly seen after upgrading from pre-0.4.0 push-mode syncing. Run `npx sailor db:repair --dry-run` to see which columns are missing, then `npx sailor db:repair` to apply them. Future `db:update` runs will then succeed normally.
+
+**Fields you defined in templates aren't showing in the database?**
+
+- First check: `npx sailor db:repair --dry-run` will list any missing columns
+- If drift is detected, run `npx sailor db:repair` to apply the missing columns to the live DB
+- Verify the field key in your template doesn't conflict with a core field (e.g. `id`, `slug`, `created_at`)
 
 **Authentication issues?**
 

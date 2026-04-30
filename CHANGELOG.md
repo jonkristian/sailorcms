@@ -4,6 +4,20 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.4.1] - 30-04-2026
+
+### Added
+
+- **`npx sailor db:repair`** — applies missing columns to a drifted DB via `ALTER TABLE ADD COLUMN` and reconciles `__drizzle_migrations` so future `db:update` runs apply incrementally. Supports `--dry-run`. SQLite/Turso only; Postgres uses `drizzle-kit push` and isn't affected by the bug below.
+
+### Fixed
+
+- **`runMigrations` silently masked schema drift** — when upgrading from push-mode to migrate-mode (0.4.0+), the bootstrap recorded the journal head as "applied" without verifying the DB actually matched. If the DB was behind (e.g., new template fields added but never pushed), `drizzle.migrate()` then thought everything was up to date and skipped the migrations that would have added the missing columns — leaving permanent silent drift on stage/prod boxes that hadn't kept pace. The bug was double-bad: any DB that was already incorrectly bootstrapped before this fix shipped would never self-heal, because subsequent runs trusted `__drizzle_migrations` and skipped the bootstrap path entirely. Now: drift detection runs on **every** `db:update`, regardless of bootstrap state. If any column or table from `generated/schema.ts` is missing in the DB, `db:update` refuses with a clear error pointing at `db:repair` rather than silently no-op'ing.
+
+### DnD safety
+
+- **DnD drop-on-self orphaned items in nestable collections.** Dropping a row on the dragged row itself with stale `dropPosition='inside'` (carried over from an earlier hover on a different row, since `handleDragOver` early-bails when target equals dragged) caused `handleDrop` to emit `parent_id = item.id`. The hierarchy builder then attached the row as its own child — invisible in the tree, never entering Recovery (it wasn't deleted, just orphaned). Reproduced on Windows/Chrome but not Linux due to how each OS routes `drop` events when the cursor releases over the source row. Patched `DataTable.svelte` and `dnd/Blocks.svelte` `handleDrop` to bail on `draggedIndex === dropIndex` and on stale `dragOverIndex` mismatches; added defense at the API boundary in `updateCollectionItemNesting` (rejects `parentId === itemId`) and in the collection/global array-field upserts (coerces self-references to `null` on write); and made the tree builders surface orphans as roots so any rows that got hit before this fix reappear at the top of the list, available for re-parenting or deletion through the normal UI.
+
 ## [0.4.0] - 30-04-2026
 
 ### Added

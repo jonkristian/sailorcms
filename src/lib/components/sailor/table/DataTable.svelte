@@ -96,13 +96,16 @@
       }));
     }
 
-    // Build parent-child map
+    // Build parent-child map. Treat self-cycles and dangling parent_ids as
+    // roots so corrupted rows remain visible (otherwise they'd vanish entirely).
+    const itemIds = new Set(items.map((i) => i.id));
     const childrenMap = new Map<string, any[]>();
     const rootItems: any[] = [];
 
     items.forEach((item) => {
       const parentId = item.parent_id;
-      if (parentId) {
+      const hasValidParent = parentId && parentId !== item.id && itemIds.has(parentId);
+      if (hasValidParent) {
         if (!childrenMap.has(parentId)) {
           childrenMap.set(parentId, []);
         }
@@ -250,6 +253,14 @@
     event.preventDefault();
 
     if (draggedIndex === -1) return;
+
+    // Bail when dropping on self, or when the drop fires without a visible
+    // indicator (stale dropPosition from a prior hover). Without this, an
+    // 'inside' drop on the dragged row sets parent_id = id, orphaning it.
+    if (draggedIndex === dropIndex || dragOverIndex !== dropIndex) {
+      dragOverIndex = -1;
+      return;
+    }
 
     const hierarchicalArray = hierarchicalItems();
 

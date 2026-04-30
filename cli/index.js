@@ -14,6 +14,7 @@ import { registerDbRestore } from './tools/db-restore.js';
 import { registerDbSeed } from './tools/db-seed.js';
 import { registerSearchReindex } from './tools/search-reindex.js';
 import { registerDbRepairTimestamps } from './tools/db-repair-timestamps.js';
+import { registerDbRepair } from './tools/db-repair.js';
 
 // Load environment variables and start CLI
 (async () => {
@@ -48,6 +49,7 @@ import { registerDbRepairTimestamps } from './tools/db-repair-timestamps.js';
   registerDbSeed(program);
   registerSearchReindex(program);
   registerDbRepairTimestamps(program);
+  registerDbRepair(program);
   registerUserCommands(program);
 
   program.parse();

@@ -77,7 +77,11 @@
 
     items.forEach((item) => {
       const node = itemMap.get(item.id);
-      if (item.parent_id && itemMap.has(item.parent_id)) {
+      // Treat self-cycles and dangling parent_ids as roots so corrupted rows
+      // remain visible (otherwise they'd vanish from the tree entirely).
+      const hasValidParent =
+        item.parent_id && item.parent_id !== item.id && itemMap.has(item.parent_id);
+      if (hasValidParent) {
         const parent = itemMap.get(item.parent_id);
         parent.children.push(node);
       } else {
@@ -176,6 +180,21 @@
     event.preventDefault();
 
     if (draggedIndex === -1) {
+      return;
+    }
+
+    // Bail when dropping on self, or when the drop fires without a visible
+    // indicator (stale dropPosition from a prior hover). Without this, an
+    // 'inside' drop on the dragged row sets parent_id = id, orphaning it.
+    // Also bail on out-of-range dropIndex (the bottom drop zone passes
+    // treeNodes.length, which has no corresponding tree node).
+    if (
+      draggedIndex === dropIndex ||
+      dragOverIndex !== dropIndex ||
+      dropIndex < 0 ||
+      dropIndex >= treeNodes.length
+    ) {
+      dragOverIndex = -1;
       return;
     }
 

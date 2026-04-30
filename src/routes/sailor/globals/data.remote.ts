@@ -1088,9 +1088,12 @@ export const updateRelationalGlobal = command(
                 updateData[propKey] = item[propKey] || null;
               });
 
-              // Add parent_id for nestable arrays only if defined in schema
+              // Add parent_id for nestable arrays only if defined in schema.
+              // Coerce self-references to null — a row pointing at itself becomes
+              // unreachable from the tree builder.
               if (fieldDef.nestable && fieldDef.items?.properties?.parent_id !== undefined) {
-                updateData.parent_id = item.parent_id || null;
+                updateData.parent_id =
+                  item.parent_id && item.parent_id !== item.id ? item.parent_id : null;
               }
 
               await tx
@@ -1112,9 +1115,12 @@ export const updateRelationalGlobal = command(
                 insertData[propKey] = item[propKey] || null;
               });
 
-              // Add parent_id for nestable arrays only if defined in schema
+              // Add parent_id for nestable arrays only if defined in schema.
+              // Coerce self-references to null — a row pointing at itself becomes
+              // unreachable from the tree builder.
               if (fieldDef.nestable && fieldDef.items?.properties?.parent_id !== undefined) {
-                insertData.parent_id = item.parent_id || null;
+                insertData.parent_id =
+                  item.parent_id && item.parent_id !== insertData.id ? item.parent_id : null;
               }
 
               await tx.insert(relationTable).values(insertData);

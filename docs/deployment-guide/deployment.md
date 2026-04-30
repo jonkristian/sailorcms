@@ -125,6 +125,13 @@ After successful deployment:
 - Check persistent storage is mounted to `/app/data`
 - Ensure database initialization completed successfully
 
+**Schema drift after deployment / `db:update` refuses with "Schema drift detected":**
+
+- This means migration tracking thinks migrations are applied but the DB doesn't match (most often seen after upgrading pre-0.4.0 push-mode DBs)
+- Run `bun sailor db:repair --dry-run` in terminal to preview missing columns
+- Run `bun sailor db:repair` to apply them — purely additive (`ALTER TABLE ADD COLUMN` only)
+- Take a backup first if production-adjacent: `bun sailor db:backup`
+
 **File Upload Issues:**
 
 - Verify S3/R2 credentials if using cloud storage

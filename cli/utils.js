@@ -596,6 +596,44 @@ export async function runMigrations(targetDir) {
       const { rows: countRow } = await client.execute(
         'SELECT COUNT(*) as count FROM __drizzle_migrations'
       );
+
+      // Always check for drift — both at bootstrap (count===0) and on
+      // subsequent runs (count>0). The bootstrap case prevents adopting a
+      // drifted DB as fully-applied. The non-bootstrap case catches DBs that
+      // were *already* incorrectly bootstrapped by an earlier run before this
+      // patch shipped — drizzle.migrate() trusts __drizzle_migrations and
+      // would otherwise stay silent forever.
+      const { detectSchemaDrift } = await import('./tools/db-repair.js');
+      const schemaPath = path.join(targetDir, 'src/lib/sailor/generated/schema.ts');
+      const drift = await detectSchemaDrift(client, schemaPath);
+      if (drift.missingTables.length > 0 || drift.missingColumns.length > 0) {
+        console.error('\n❌ Schema drift detected — DB does not match generated/schema.ts.');
+        if (drift.missingColumns.length > 0) {
+          console.error(`   Missing columns (${drift.missingColumns.length}):`);
+          for (const c of drift.missingColumns.slice(0, 10)) {
+            console.error(`     ${c.table}.${c.column}`);
+          }
+          if (drift.missingColumns.length > 10) {
+            console.error(`     …and ${drift.missingColumns.length - 10} more`);
+          }
+        }
+        if (drift.missingTables.length > 0) {
+          console.error(`   Missing tables (${drift.missingTables.length}):`);
+          for (const t of drift.missingTables.slice(0, 10)) console.error(`     ${t}`);
+        }
+        const explanation =
+          Number(countRow[0].count) === 0
+            ? '\n   Cannot bootstrap migration tracking against a drifted schema — doing so' +
+              '\n   would mark unapplied migrations as applied and leave the columns missing forever.'
+            : '\n   __drizzle_migrations claims migrations are applied that did not actually land.' +
+              "\n   Likely caused by a previous run's bootstrap on a DB that was behind the journal head.";
+        console.error(
+          explanation +
+            '\n\n   Run `npx sailor db:repair` to apply missing columns and reconcile tracking.'
+        );
+        throw new Error('Schema drift detected; refusing to migrate.');
+      }
+
       if (Number(countRow[0].count) === 0) {
         const latest = journal.entries[journal.entries.length - 1];
         const sqlPath = path.join(targetDir, 'drizzle', `${latest.tag}.sql`);
