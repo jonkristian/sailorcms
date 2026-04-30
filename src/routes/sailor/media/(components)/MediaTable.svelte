@@ -14,7 +14,14 @@
     authorName?: string | null;
   };
 
-  let { files, selectedItems, onSelect, onSelectAll, onEdit, onDelete }: {
+  let {
+    files,
+    selectedItems,
+    onSelect,
+    onSelectAll,
+    onEdit,
+    onDelete
+  }: {
     files: FileWithTags[];
     selectedItems: string[];
     onSelect: (id: string) => void;

@@ -71,7 +71,10 @@ function stripToPlainText(source) {
       // fall through
     }
   }
-  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function extractTipTapText(node) {
@@ -234,7 +237,9 @@ async function reindexAll() {
 export function registerSearchReindex(program) {
   program
     .command('search:reindex')
-    .description('Rebuild the search_index table from all searchable entities (top-level fields only)')
+    .description(
+      'Rebuild the search_index table from all searchable entities (top-level fields only)'
+    )
     .action(async () => {
       try {
         console.log('🔎 Rebuilding search index...');

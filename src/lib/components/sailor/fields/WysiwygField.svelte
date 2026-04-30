@@ -46,7 +46,15 @@
 
   type EditorMode = 'minimal' | 'compact' | 'full';
 
-  const { value, mode = 'full', placeholder, required, height, maxHeight, onChange }: {
+  const {
+    value,
+    mode = 'full',
+    placeholder,
+    required,
+    height,
+    maxHeight,
+    onChange
+  }: {
     value: string | object;
     mode?: EditorMode;
     placeholder?: string;
@@ -377,120 +385,216 @@
 </script>
 
 <Tooltip.Provider delayDuration={200}>
-<div class="space-y-2">
-  <!-- Unified editor container with border around both toolbar and content -->
-  <div class="bg-input-bg border-input rounded-lg border">
-    <!-- Static toolbar for basic formatting -->
-    <div
-      class="border-input flex flex-wrap items-center justify-between gap-0.5 border-b p-1.5"
-    >
-      <div class="flex items-center gap-0.5">
-        <TooltipButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('bold') && 'bg-accent')}
-          onclick={toggleBold}
-          tooltip="Bold"
-        >
-          <Bold class="h-3.5 w-3.5" />
-        </TooltipButton>
-        <TooltipButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('italic') && 'bg-accent')}
-          onclick={toggleItalic}
-          tooltip="Italic"
-        >
-          <Italic class="h-3.5 w-3.5" />
-        </TooltipButton>
-        <TooltipButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('underline') && 'bg-accent')}
-          onclick={toggleUnderline}
-          tooltip="Underline"
-        >
-          <UnderlineIcon class="h-3.5 w-3.5" />
-        </TooltipButton>
-        <TooltipButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('strike') && 'bg-accent')}
-          onclick={toggleStrike}
-          tooltip="Strikethrough"
-        >
-          <Strikethrough class="h-3.5 w-3.5" />
-        </TooltipButton>
+  <div class="space-y-2">
+    <!-- Unified editor container with border around both toolbar and content -->
+    <div class="bg-input-bg border-input rounded-lg border">
+      <!-- Static toolbar for basic formatting -->
+      <div class="border-input flex flex-wrap items-center justify-between gap-0.5 border-b p-1.5">
+        <div class="flex items-center gap-0.5">
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('bold') && 'bg-accent')}
+            onclick={toggleBold}
+            tooltip="Bold"
+          >
+            <Bold class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('italic') && 'bg-accent')}
+            onclick={toggleItalic}
+            tooltip="Italic"
+          >
+            <Italic class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('underline') && 'bg-accent')}
+            onclick={toggleUnderline}
+            tooltip="Underline"
+          >
+            <UnderlineIcon class="h-3.5 w-3.5" />
+          </TooltipButton>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            class={cn('h-7 w-7 p-0', editor?.isActive('strike') && 'bg-accent')}
+            onclick={toggleStrike}
+            tooltip="Strikethrough"
+          >
+            <Strikethrough class="h-3.5 w-3.5" />
+          </TooltipButton>
 
-        {#if mode !== 'minimal'}
-          <Separator orientation="vertical" class="h-5" />
+          {#if mode !== 'minimal'}
+            <Separator orientation="vertical" class="h-5" />
 
-          {#if mode === 'full'}
+            {#if mode === 'full'}
+              <TooltipButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 1 }) && 'bg-accent')}
+                onclick={() => setHeading(1)}
+                tooltip="Heading 1"
+              >
+                <Heading1 class="h-3.5 w-3.5" />
+              </TooltipButton>
+            {/if}
             <TooltipButton
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 1 }) && 'bg-accent')}
-              onclick={() => setHeading(1)}
-              tooltip="Heading 1"
+              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 2 }) && 'bg-accent')}
+              onclick={() => setHeading(2)}
+              tooltip="Heading 2"
             >
-              <Heading1 class="h-3.5 w-3.5" />
+              <Heading2 class="h-3.5 w-3.5" />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 3 }) && 'bg-accent')}
+              onclick={() => setHeading(3)}
+              tooltip="Heading 3"
+            >
+              <Heading3 class="h-3.5 w-3.5" />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 4 }) && 'bg-accent')}
+              onclick={() => setHeading(4)}
+              tooltip="Heading 4"
+            >
+              <Heading4 class="h-3.5 w-3.5" />
+            </TooltipButton>
+            {#if mode === 'full'}
+              <TooltipButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 5 }) && 'bg-accent')}
+                onclick={() => setHeading(5)}
+                tooltip="Heading 5"
+              >
+                <Heading5 class="h-3.5 w-3.5" />
+              </TooltipButton>
+              <TooltipButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 6 }) && 'bg-accent')}
+                onclick={() => setHeading(6)}
+                tooltip="Heading 6"
+              >
+                <Heading6 class="h-3.5 w-3.5" />
+              </TooltipButton>
+            {/if}
+
+            <Separator orientation="vertical" class="h-5" />
+
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('bulletList') && 'bg-accent')}
+              onclick={toggleBulletList}
+              tooltip="Bullet List"
+            >
+              <List class="h-3.5 w-3.5" />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('orderedList') && 'bg-accent')}
+              onclick={toggleOrderedList}
+              tooltip="Numbered List"
+            >
+              <ListOrdered class="h-3.5 w-3.5" />
+            </TooltipButton>
+
+            <Separator orientation="vertical" class="h-5" />
+
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('blockquote') && 'bg-accent')}
+              onclick={toggleBlockquote}
+              tooltip="Blockquote"
+            >
+              <Quote class="h-3.5 w-3.5" />
+            </TooltipButton>
+
+            <Separator orientation="vertical" class="h-5" />
+
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive('code') && 'bg-accent')}
+              onclick={toggleCode}
+              tooltip="Inline Code"
+            >
+              <Code class="h-3.5 w-3.5" />
             </TooltipButton>
           {/if}
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 2 }) && 'bg-accent')}
-            onclick={() => setHeading(2)}
-            tooltip="Heading 2"
-          >
-            <Heading2 class="h-3.5 w-3.5" />
-          </TooltipButton>
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 3 }) && 'bg-accent')}
-            onclick={() => setHeading(3)}
-            tooltip="Heading 3"
-          >
-            <Heading3 class="h-3.5 w-3.5" />
-          </TooltipButton>
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 4 }) && 'bg-accent')}
-            onclick={() => setHeading(4)}
-            tooltip="Heading 4"
-          >
-            <Heading4 class="h-3.5 w-3.5" />
-          </TooltipButton>
+
           {#if mode === 'full'}
+            <Separator orientation="vertical" class="h-5" />
+
             <TooltipButton
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 5 }) && 'bg-accent')}
-              onclick={() => setHeading(5)}
-              tooltip="Heading 5"
+              class="h-7 w-7 p-0"
+              onclick={openImagePicker}
+              tooltip="Insert Image"
             >
-              <Heading5 class="h-3.5 w-3.5" />
+              <ImageIcon class="h-3.5 w-3.5" />
+            </TooltipButton>
+
+            <Separator orientation="vertical" class="h-5" />
+
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'left' }) && 'bg-accent')}
+              onclick={() => setTextAlign('left')}
+              tooltip="Align Left"
+            >
+              <AlignLeft class="h-3.5 w-3.5" />
             </TooltipButton>
             <TooltipButton
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 6 }) && 'bg-accent')}
-              onclick={() => setHeading(6)}
-              tooltip="Heading 6"
+              class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'center' }) && 'bg-accent')}
+              onclick={() => setTextAlign('center')}
+              tooltip="Align Center"
             >
-              <Heading6 class="h-3.5 w-3.5" />
+              <AlignCenter class="h-3.5 w-3.5" />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'right' }) && 'bg-accent')}
+              onclick={() => setTextAlign('right')}
+              tooltip="Align Right"
+            >
+              <AlignRight class="h-3.5 w-3.5" />
             </TooltipButton>
           {/if}
 
@@ -500,161 +604,63 @@
             type="button"
             variant="ghost"
             size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('bulletList') && 'bg-accent')}
-            onclick={toggleBulletList}
-            tooltip="Bullet List"
+            class={cn('h-7 w-7 p-0', editor?.isActive('link') && 'bg-accent')}
+            onclick={addLink}
+            tooltip="Add Link"
           >
-            <List class="h-3.5 w-3.5" />
+            <LinkIcon class="h-3.5 w-3.5" />
           </TooltipButton>
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('orderedList') && 'bg-accent')}
-            onclick={toggleOrderedList}
-            tooltip="Numbered List"
-          >
-            <ListOrdered class="h-3.5 w-3.5" />
-          </TooltipButton>
-
-          <Separator orientation="vertical" class="h-5" />
-
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('blockquote') && 'bg-accent')}
-            onclick={toggleBlockquote}
-            tooltip="Blockquote"
-          >
-            <Quote class="h-3.5 w-3.5" />
-          </TooltipButton>
-
-          <Separator orientation="vertical" class="h-5" />
-
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('code') && 'bg-accent')}
-            onclick={toggleCode}
-            tooltip="Inline Code"
-          >
-            <Code class="h-3.5 w-3.5" />
-          </TooltipButton>
-        {/if}
-
-        {#if mode === 'full'}
-          <Separator orientation="vertical" class="h-5" />
-
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="h-7 w-7 p-0"
-            onclick={openImagePicker}
-            tooltip="Insert Image"
-          >
-            <ImageIcon class="h-3.5 w-3.5" />
-          </TooltipButton>
-
-          <Separator orientation="vertical" class="h-5" />
-
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'left' }) && 'bg-accent')}
-            onclick={() => setTextAlign('left')}
-            tooltip="Align Left"
-          >
-            <AlignLeft class="h-3.5 w-3.5" />
-          </TooltipButton>
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'center' }) && 'bg-accent')}
-            onclick={() => setTextAlign('center')}
-            tooltip="Align Center"
-          >
-            <AlignCenter class="h-3.5 w-3.5" />
-          </TooltipButton>
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'right' }) && 'bg-accent')}
-            onclick={() => setTextAlign('right')}
-            tooltip="Align Right"
-          >
-            <AlignRight class="h-3.5 w-3.5" />
-          </TooltipButton>
-        {/if}
-
-        <Separator orientation="vertical" class="h-5" />
+          {#if editor?.isActive('link')}
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-7 w-7 p-0"
+              onclick={removeLink}
+              tooltip="Remove Link"
+            >
+              <Link2 class="h-3.5 w-3.5" />
+            </TooltipButton>
+          {/if}
+        </div>
 
         <TooltipButton
           type="button"
           variant="ghost"
           size="sm"
-          class={cn('h-7 w-7 p-0', editor?.isActive('link') && 'bg-accent')}
-          onclick={addLink}
-          tooltip="Add Link"
+          class={cn('h-7 w-7 p-0', showSource && 'bg-accent')}
+          onclick={toggleSourceView}
+          tooltip="Toggle Source View"
         >
-          <LinkIcon class="h-3.5 w-3.5" />
+          <Eye class="h-3.5 w-3.5" />
         </TooltipButton>
-        {#if editor?.isActive('link')}
-          <TooltipButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="h-7 w-7 p-0"
-            onclick={removeLink}
-            tooltip="Remove Link"
-          >
-            <Link2 class="h-3.5 w-3.5" />
-          </TooltipButton>
-        {/if}
       </div>
 
-      <TooltipButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        class={cn('h-7 w-7 p-0', showSource && 'bg-accent')}
-        onclick={toggleSourceView}
-        tooltip="Toggle Source View"
+      <!-- Editor content area -->
+      <div
+        class="resize-y overflow-auto"
+        style="min-height: {computedMinHeight}; max-height: {computedMaxHeight}; height: {computedMinHeight};"
       >
-        <Eye class="h-3.5 w-3.5" />
-      </TooltipButton>
+        {#if showSource}
+          <textarea
+            bind:value={sourceContent}
+            oninput={updateSourceContent}
+            class="w-full resize-none border-0 bg-transparent p-4 font-mono text-sm outline-none"
+            style="min-height: {computedMinHeight};"
+            placeholder="Enter HTML content..."
+          ></textarea>
+        {:else if browser}
+          <div bind:this={element}></div>
+        {/if}
+      </div>
     </div>
 
-    <!-- Editor content area -->
-    <div
-      class="resize-y overflow-auto"
-      style="min-height: {computedMinHeight}; max-height: {computedMaxHeight}; height: {computedMinHeight};"
-    >
-      {#if showSource}
-        <textarea
-          bind:value={sourceContent}
-          oninput={updateSourceContent}
-          class="w-full resize-none border-0 bg-transparent p-4 font-mono text-sm outline-none"
-          style="min-height: {computedMinHeight};"
-          placeholder="Enter HTML content..."
-        ></textarea>
-      {:else if browser}
-        <div bind:this={element}></div>
-      {/if}
-    </div>
+    {#if placeholder && !value}
+      <div class="text-muted-foreground px-4 py-2 text-sm">
+        {placeholder}
+      </div>
+    {/if}
   </div>
-
-  {#if placeholder && !value}
-    <div class="text-muted-foreground px-4 py-2 text-sm">
-      {placeholder}
-    </div>
-  {/if}
-</div>
 </Tooltip.Provider>
 
 <!-- Link Dialog -->

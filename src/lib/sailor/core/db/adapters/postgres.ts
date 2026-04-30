@@ -61,20 +61,27 @@ export class PostgreSQLAdapter extends DatabaseAdapter {
 
   getTextFieldDefinition(
     name: string,
-    options: { notNull?: boolean; unique?: boolean } = {}
+    options: {
+      notNull?: boolean;
+      unique?: boolean;
+      default?: string | number | boolean;
+    } = {}
   ): string {
     let definition = `text('${name}')`;
 
     if (options.notNull) definition += '.notNull()';
     if (options.unique) definition += '.unique()';
+    if (options.default !== undefined) definition += `.default(${JSON.stringify(options.default)})`;
 
     return definition;
   }
 
   getIntegerFieldDefinition(
     name: string,
-    options: { notNull?: boolean; default?: number } = {}
+    options: { notNull?: boolean; default?: number | boolean; mode?: 'boolean' | 'timestamp' } = {}
   ): string {
+    // mode is sqlite-only; postgres has native boolean/timestamp types. Ignored here
+    // until codegen learns to dispatch to boolean() / timestamp() for postgres.
     let definition = `integer('${name}')`;
 
     if (options.notNull) definition += '.notNull()';
@@ -92,9 +99,8 @@ export class PostgreSQLAdapter extends DatabaseAdapter {
   }
 
   async getTableFunctions() {
-    const { pgTable, text, integer, index, uniqueIndex, timestamp, uuid } = await import(
-      'drizzle-orm/pg-core'
-    );
+    const { pgTable, text, integer, index, uniqueIndex, timestamp, uuid } =
+      await import('drizzle-orm/pg-core');
     return {
       createTable: pgTable,
       text,

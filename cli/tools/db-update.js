@@ -1,5 +1,5 @@
 // Database update tool
-import { generateSchema, ensureDbDir } from '../utils.js';
+import { generateSchema, ensureDbDir, runMigrations } from '../utils.js';
 import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
@@ -47,10 +47,7 @@ export function registerDbUpdate(program) {
               cwd: targetDir,
               stdio: 'inherit'
             });
-            execSync('npx drizzle-kit push --config=drizzle.config.ts', {
-              cwd: targetDir,
-              stdio: 'inherit'
-            });
+            await runMigrations(targetDir);
 
             const path = (await import('path')).default;
             const { existsSync } = await import('fs');
@@ -82,10 +79,7 @@ export function registerDbUpdate(program) {
             cwd: targetDir,
             stdio: 'inherit'
           });
-          execSync('npx drizzle-kit push --config=drizzle.config.ts', {
-            cwd: targetDir,
-            stdio: 'inherit'
-          });
+          await runMigrations(targetDir);
 
           // Update registry with new blocks/collections/globals
           const path2 = (await import('path')).default;

@@ -524,6 +524,103 @@ export async function createCliDbOrFail(targetDir) {
   return drizzle(client, { schema });
 }
 
+/**
+ * Apply pending drizzle migrations.
+ *
+ * Why not just `drizzle-kit push`? Push has a SQLite-rebuild bug — it issues
+ * `CREATE UNIQUE INDEX <final_name> ON __new_<table>` *before* dropping the
+ * original, and the index name collides in SQLite's global namespace. Migration
+ * files don't have this issue (DROP-then-CREATE-INDEX in the right order), so
+ * we apply them via drizzle-orm's `migrate()` directly.
+ *
+ * For dev DBs that previously used push, `__drizzle_migrations` doesn't exist.
+ * Migrate would then try to apply 0000 from scratch against tables that already
+ * exist. To avoid that, we bootstrap: detect a known sailor table (`users`),
+ * and if found with an empty `__drizzle_migrations`, seed one row marking the
+ * latest journal entry as applied. Future migrations apply normally on top.
+ *
+ * Postgres doesn't have the SQLite rebuild trap, so we keep `drizzle-kit push`
+ * for it until/unless we add a Postgres bootstrap path.
+ */
+export async function runMigrations(targetDir) {
+  // Load env (DATABASE_URL etc.)
+  try {
+    const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
+    const { config } = await import(dotenvPath);
+    config({ path: path.join(targetDir, '.env') });
+  } catch {}
+
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is not set.');
+  }
+
+  if (dbUrl.startsWith('postgres')) {
+    execSync('npx drizzle-kit push --config=drizzle.config.ts', {
+      cwd: targetDir,
+      stdio: 'inherit'
+    });
+    return;
+  }
+
+  const journalPath = path.join(targetDir, 'drizzle', 'meta', '_journal.json');
+  if (!(await fs.pathExists(journalPath))) {
+    console.log('⚠️  No drizzle journal found at drizzle/meta/_journal.json; skipping migrate.');
+    return;
+  }
+  const journal = await fs.readJson(journalPath);
+  if (!journal.entries?.length) {
+    return;
+  }
+
+  const { createClient } = await import('@libsql/client');
+  const { drizzle } = await import('drizzle-orm/libsql');
+  const { migrate } = await import('drizzle-orm/libsql/migrator');
+
+  const client = createClient({
+    url: dbUrl,
+    authToken: process.env.DATABASE_AUTH_TOKEN
+  });
+
+  try {
+    // Bootstrap for dev DBs previously kept in sync via push
+    const { rows: usersExists } = await client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1"
+    );
+    if (usersExists.length > 0) {
+      await client.execute(`CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+        id INTEGER PRIMARY KEY,
+        hash text NOT NULL,
+        created_at numeric
+      )`);
+      const { rows: countRow } = await client.execute(
+        'SELECT COUNT(*) as count FROM __drizzle_migrations'
+      );
+      if (Number(countRow[0].count) === 0) {
+        const latest = journal.entries[journal.entries.length - 1];
+        const sqlPath = path.join(targetDir, 'drizzle', `${latest.tag}.sql`);
+        const cryptoModule = await import('node:crypto');
+        const hash = cryptoModule
+          .createHash('sha256')
+          .update(await fs.readFile(sqlPath, 'utf-8'))
+          .digest('hex');
+        await client.execute({
+          sql: 'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
+          args: [hash, latest.when]
+        });
+        console.log(
+          `📋 Adopted ${journal.entries.length} pre-existing migration(s) into __drizzle_migrations (last: ${latest.tag}).`
+        );
+      }
+    }
+
+    const db = drizzle(client);
+    await migrate(db, { migrationsFolder: path.join(targetDir, 'drizzle') });
+  } finally {
+    client.close?.();
+  }
+}
+
 export async function cleanupUnusedDependencies(targetDir) {
   const trackingFile = path.join(targetDir, '.sailor-deps.json');
   const packageJsonPath = path.join(targetDir, 'package.json');

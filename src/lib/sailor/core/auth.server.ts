@@ -12,6 +12,7 @@ import { users, sessions, accounts, verifications } from './db/index.server';
 import { getSettings } from './settings';
 import { building } from '$app/environment';
 import { SystemSettingsService } from './services/settings.server';
+import { sendMail } from '$sailor/utils/mail/server';
 import { eq } from 'drizzle-orm';
 
 // Create access control configuration based on settings
@@ -112,7 +113,28 @@ export const auth = betterAuth({
     }
   },
   emailAndPassword: {
-    enabled: true
+    enabled: true,
+    requireEmailVerification: env.EMAIL_VERIFICATION === 'true',
+    sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
+      await sendMail({
+        to: user.email,
+        subject: 'Reset your password',
+        text: `Reset your password: ${url}`,
+        html: `<p>Reset your password: <a href="${url}">${url}</a></p>`
+      });
+    }
+  },
+  emailVerification: {
+    sendOnSignUp: env.EMAIL_VERIFICATION === 'true',
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+      await sendMail({
+        to: user.email,
+        subject: 'Verify your email',
+        text: `Verify your email: ${url}`,
+        html: `<p>Verify your email: <a href="${url}">${url}</a></p>`
+      });
+    }
   },
   socialProviders: {
     ...(env.GITHUB_CLIENT_ID &&

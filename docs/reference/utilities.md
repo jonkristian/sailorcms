@@ -283,15 +283,15 @@ The indexer walks all top-level `string` / `text` / `textarea` / `wysiwyg` / `em
 
 ### Search Options
 
-| Option        | Type                              | Description                                                           |
-| ------------- | --------------------------------- | --------------------------------------------------------------------- |
-| `scope`       | `{ collections?, globals? }`      | Narrow the set of entities to search (default: all marked searchable) |
-| `limit`       | `number`                          | Max results per page (default: `20`)                                  |
-| `offset`      | `number`                          | Offset for pagination (default: `0`)                                  |
-| `status`      | `'published' \| 'draft' \| 'all'` | Status filter for collections only (globals ignore status)            |
-| `user`        | `User \| null`                    | User context for ACL filtering                                        |
+| Option        | Type                              | Description                                                            |
+| ------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| `scope`       | `{ collections?, globals? }`      | Narrow the set of entities to search (default: all marked searchable)  |
+| `limit`       | `number`                          | Max results per page (default: `20`)                                   |
+| `offset`      | `number`                          | Offset for pagination (default: `0`)                                   |
+| `status`      | `'published' \| 'draft' \| 'all'` | Status filter for collections only (globals ignore status)             |
+| `user`        | `User \| null`                    | User context for ACL filtering                                         |
 | `baseUrl`     | `string`                          | Include a `pagination` object in the result (same as `getCollections`) |
-| `currentPage` | `number`                          | Current page for pagination metadata                                  |
+| `currentPage` | `number`                          | Current page for pagination metadata                                   |
 
 ### Return Type
 
@@ -462,6 +462,30 @@ import { getSiteSettings } from '$sailor/utils/index';
 // Site-specific settings (contact email, social media, etc.)
 const config = await getSiteSettings();
 ```
+
+## Email
+
+```typescript
+import { sendMail, isMailConfigured } from '$sailor/utils/mail/server';
+
+// Send an email — server-only (e.g. from a +server.ts handler)
+const sent = await sendMail({
+  to: 'someone@example.com',
+  subject: 'New contact form submission',
+  text: 'Plain-text body',
+  html: '<p>HTML body</p>',
+  replyTo: 'visitor@example.com' // optional
+});
+
+// Check whether SMTP is configured before relying on it
+if (!isMailConfigured()) {
+  // Fall back, queue for later, etc.
+}
+```
+
+`sendMail()` returns `Promise<boolean>` — `false` (with a warn) when SMTP env vars are missing, `false` (with an error log) on transport failure, `true` on a successful send. Configure via `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` env vars (see [Environment Variables](../environment-variables.md)). When unset, the helper is a graceful no-op so dev keeps working without an SMTP server.
+
+Sailor's own password-reset and email-verification flows use this helper internally. Setting `EMAIL_VERIFICATION=true` gates new signups behind a verification email.
 
 ## SEO
 

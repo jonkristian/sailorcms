@@ -1,7 +1,12 @@
 <script lang="ts">
   import { Textarea } from '$lib/components/ui/textarea';
 
-  const { value, placeholder, required, onChange }: {
+  const {
+    value,
+    placeholder,
+    required,
+    onChange
+  }: {
     value: string;
     placeholder?: string;
     required?: boolean;

@@ -298,6 +298,19 @@ export const menusGlobal: GlobalDefinition = {
 };
 ```
 
+### Global Options
+
+| Option        | Type                  | Description                                                                                                                                                                                                 |
+| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `titleField`  | `string`              | Field to display in admin lists and overviews                                                                                                                                                               |
+| `sortable`    | `boolean`             | Enable manual drag-and-drop sorting in the admin UI                                                                                                                                                         |
+| `nestable`    | `boolean`             | Enable parent-child hierarchical relationships (repeatable only)                                                                                                                                            |
+| `inline`      | `boolean`             | Edit items inline in the list view rather than navigating to a per-item page (repeatable only)                                                                                                              |
+| `readonly`    | `boolean`             | Hide create/edit UI; items are display-only                                                                                                                                                                 |
+| `defaultView` | `'edit' \| 'read'`    | `'read'` opens existing items in a compact static view with an Edit toggle (good for write-once-then-read content like form submissions). New items always start in edit mode regardless. Default: `'edit'` |
+| `defaultSort` | `{ field, direction}` | Default sort order for list views                                                                                                                                                                           |
+| `searchable`  | `boolean`             | Include this global in the frontend `search()` utility                                                                                                                                                      |
+
 ### Registration
 
 Register in `src/lib/sailor/templates/globals/index.ts`:

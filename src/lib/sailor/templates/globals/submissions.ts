@@ -9,6 +9,9 @@ export const submissionsGlobal: GlobalDefinition = {
   description: 'Form submissions from the contact page',
   icon: 'Mail',
   dataType: 'repeatable',
+  options: {
+    defaultView: 'read'
+  },
   fields: {
     // Core fields auto-added by generator:
     // - id: string (required, unique)

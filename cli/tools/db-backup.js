@@ -403,9 +403,8 @@ async function uploadToS3(backupPath, options, siteName, timestamp, bucket) {
 
 async function cleanupOldBackups(options, siteName, bucket) {
   try {
-    const { S3Client, ListObjectsV2Command, DeleteObjectCommand } = await import(
-      '@aws-sdk/client-s3'
-    );
+    const { S3Client, ListObjectsV2Command, DeleteObjectCommand } =
+      await import('@aws-sdk/client-s3');
 
     const endpoint = options.endpoint || process.env.S3_ENDPOINT;
     const region = process.env.S3_REGION || 'auto';

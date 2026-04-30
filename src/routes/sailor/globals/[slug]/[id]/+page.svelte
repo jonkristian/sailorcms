@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import ArrayField from '$lib/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
   import { toast } from '$sailor/core/ui/toast';
   import { invalidateAll } from '$app/navigation';
-  import { Save } from '@lucide/svelte';
+  import { Save, Pencil } from '@lucide/svelte';
   import { Separator } from '$lib/components/ui/separator';
   import { formatDetailedDate } from '$sailor/core/utils/date';
   import { useUnsavedChanges } from '$sailor/core/hooks/unsaved-changes.svelte';
@@ -20,6 +21,12 @@
 
   // User changes to form data
   let userChanges: Record<string, any> = $state({});
+
+  let mode = $state<'edit' | 'read'>(
+    untrack(() =>
+      data.global.options?.defaultView === 'read' && !data.isNewItem ? 'read' : 'edit'
+    )
+  );
 
   // Get current value for a field (user changes or server data)
   function getFieldValue(fieldKey: string) {
@@ -50,8 +57,8 @@
   async function handleSubmit(event: Event) {
     event.preventDefault();
 
-    // Prevent submission for readonly globals
-    if (data.global.options?.readonly) {
+    // Prevent submission for readonly globals or while in read view
+    if (data.global.options?.readonly || mode === 'read') {
       return;
     }
 
@@ -163,7 +170,6 @@
   let footerFields = $derived(
     allFields.filter(([_, field]) => (field as any).position === 'footer')
   );
-
 </script>
 
 <svelte:head>
@@ -180,7 +186,7 @@
           {#each headerFields as [fieldKey, field]}
             {@const typedField = field as any}
             <div class="space-y-2">
-              {#if typedField.type === 'array'}
+              {#if mode === 'edit' && typedField.type === 'array'}
                 <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
                 <ArrayField
                   items={getFieldValue(fieldKey) || []}
@@ -201,6 +207,7 @@
                   entityType="global_{data.global.slug}"
                   onChange={(value) => updateField(fieldKey, value)}
                   readonly={data.global.options?.readonly}
+                  {mode}
                 />
               {/if}
             </div>
@@ -212,11 +219,15 @@
       <div class="flex-1 overflow-y-auto">
         <div class="space-y-6">
           {#if mainFields.length > 0}
-            <div class="space-y-6">
+            <div
+              class={mode === 'read'
+                ? 'border-input divide-border/40 divide-y rounded-lg border px-6'
+                : 'space-y-6'}
+            >
               {#each mainFields as [fieldKey, field]}
                 {@const typedField = field as any}
-                <div class="space-y-2">
-                  {#if typedField.type === 'array'}
+                <div class={mode === 'read' ? '' : 'space-y-2'}>
+                  {#if mode === 'edit' && typedField.type === 'array'}
                     <div class="border-input rounded-lg border p-6">
                       <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
                       <ArrayField
@@ -239,6 +250,7 @@
                       entityType="global_{data.global.slug}"
                       onChange={(value) => updateField(fieldKey, value)}
                       readonly={data.global.options?.readonly}
+                      {mode}
                     />
                   {/if}
                 </div>
@@ -259,7 +271,7 @@
           {#each footerFields as [fieldKey, field]}
             {@const typedField = field as any}
             <div class="space-y-2">
-              {#if typedField.type === 'array'}
+              {#if mode === 'edit' && typedField.type === 'array'}
                 <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
                 <ArrayField
                   items={getFieldValue(fieldKey) || []}
@@ -280,6 +292,7 @@
                   entityType="global_{data.global.slug}"
                   onChange={(value) => updateField(fieldKey, value)}
                   readonly={data.global.options?.readonly}
+                  {mode}
                 />
               {/if}
             </div>
@@ -298,7 +311,7 @@
               {#each sidebarFields as [fieldKey, field]}
                 {@const typedField = field as any}
                 <div class="space-y-2">
-                  {#if typedField.type === 'array'}
+                  {#if mode === 'edit' && typedField.type === 'array'}
                     <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
                     <ArrayField
                       items={getFieldValue(fieldKey) || []}
@@ -316,6 +329,7 @@
                       entityType="global_{data.global.slug}"
                       onChange={(value) => updateField(fieldKey, value)}
                       readonly={data.global.options?.readonly}
+                      {mode}
                     />
                   {/if}
                 </div>
@@ -345,21 +359,39 @@
             {/if}
           </div>
 
-          <!-- Save Button -->
+          <!-- Save / Edit Button -->
           {#if !data.global.options?.readonly}
-            <Button type="submit" disabled={submitting} class="w-full">
-              {#if submitting}
-                <Save class="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              {:else}
-                <Save class="mr-2 h-4 w-4" />
-                Save {data.global.name.singular}
+            {#if mode === 'read'}
+              <Button type="button" onclick={() => (mode = 'edit')} class="w-full">
+                <Pencil class="mr-2 h-4 w-4" />
+                Edit {data.global.name.singular}
+              </Button>
+            {:else}
+              <Button type="submit" disabled={submitting} class="w-full">
+                {#if submitting}
+                  <Save class="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                {:else}
+                  <Save class="mr-2 h-4 w-4" />
+                  Save {data.global.name.singular}
+                {/if}
+              </Button>
+              {#if data.global.options?.defaultView === 'read' && !data.isNewItem}
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground w-full text-sm underline-offset-4 hover:underline"
+                  onclick={() => {
+                    userChanges = {};
+                    mode = 'read';
+                  }}
+                >
+                  Cancel
+                </button>
               {/if}
-            </Button>
+            {/if}
           {/if}
         </div>
       </div>
     </div>
   </form>
 </div>
-

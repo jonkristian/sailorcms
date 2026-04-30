@@ -1,6 +1,7 @@
 import * as schema from '../../generated/schema';
 import { sql, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { getCurrentTimestampSeconds } from '../utils/date';
 
 // Re-export block field loading for admin UI - uses core loaders, not utils
 export { loadBlockFields } from '../data/loaders/blocks';
@@ -77,14 +78,14 @@ export async function saveNestedArrayFields(
         }
       }
 
-      // Upsert the main item
+      const nowSec = getCurrentTimestampSeconds();
       const itemData = {
         id: itemId,
         [parentIdField]: currentParentId,
         sort: index,
         ...regularFields,
-        created_at: Date.now(),
-        updated_at: Date.now()
+        created_at: nowSec,
+        updated_at: nowSec
       };
 
       const relationTable = schema[relationTableName as keyof typeof schema];
@@ -129,7 +130,9 @@ export async function saveNestedArrayFields(
               sql`, `
             )})
             VALUES (${sql.join(
-              [randomUUID(), itemId, 'block', fileId, i, Date.now()].map((val) => sql`${val}`),
+              [randomUUID(), itemId, 'block', fileId, i, getCurrentTimestampSeconds()].map(
+                (val) => sql`${val}`
+              ),
               sql`, `
             )})`);
         }

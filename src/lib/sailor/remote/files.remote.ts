@@ -4,6 +4,7 @@ import { db } from '$sailor/core/db/index.server';
 import { files as filesTable, users as usersTable } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
 import { TagService } from '$sailor/core/services/tag.server';
+import { liveOnly } from '$sailor/core/db/soft-delete';
 import { detectImageFormatFromBytes } from '$sailor/core/files/file.server';
 import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
 import { validateFile as validateFileUtil } from '$sailor/core/files/file';
@@ -607,8 +608,10 @@ export const getFiles = query(
         };
       }
 
-      // Regular query with filtering
-      const whereConditions = [];
+      // Regular query with filtering. Picker / browse paths must hide
+      // soft-deleted files; the `ids` branch above stays unfiltered so
+      // FileField can still resolve referenced-but-deleted files for badging.
+      const whereConditions = [liveOnly(filesTable)];
 
       // Add type filtering
       if (type !== 'all') {

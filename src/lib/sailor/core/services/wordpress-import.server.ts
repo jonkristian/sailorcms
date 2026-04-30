@@ -5,7 +5,7 @@ import { TagService } from './tag.server';
 import * as schema from '../../generated/schema';
 import { taggables } from '../../generated/schema';
 import crypto from 'crypto';
-import { getCurrentTimestamp } from '../utils/date';
+import { getCurrentTimestamp, getCurrentTimestampSeconds } from '../utils/date';
 import { generateSlug } from '../utils/common';
 import { ensureUniqueSlug } from '../utils/slug';
 
@@ -565,9 +565,9 @@ export class WordPressImportService {
             } else {
               // Fallback to raw SQL
               await db.run(
-                sql`INSERT INTO ${sql.identifier(categoryTableName)} 
+                sql`INSERT INTO ${sql.identifier(categoryTableName)}
                     (id, title, slug, status, sort, created_at, updated_at)
-                    VALUES (${categoryId}, ${categoryName}, ${generateSlug(categoryName)}, 'active', 0, ${getCurrentTimestamp()}, ${getCurrentTimestamp()})`
+                    VALUES (${categoryId}, ${categoryName}, ${generateSlug(categoryName)}, 'active', 0, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})`
               );
             }
             categoryMap.set(categoryName, categoryId);
@@ -761,14 +761,23 @@ export class WordPressImportService {
             // Insert with the final slug
             await db.insert(collectionTable).values(postData);
           } else {
-            // Fallback to raw SQL if table not found in schema
+            // Fallback to raw SQL if table not found in schema. Convert any
+            // Date values to seconds — raw-SQL binding has no column awareness,
+            // so Dates would otherwise serialize as ms and read back as far-
+            // future timestamps.
+            const rawValues = Object.values(postData).map((v) =>
+              v instanceof Date ? Math.floor(v.getTime() / 1000) : v
+            );
             await db.run(
-              sql`INSERT INTO ${sql.identifier(`collection_${options.collectionSlug}`)} 
+              sql`INSERT INTO ${sql.identifier(`collection_${options.collectionSlug}`)}
                   (${sql.join(
                     Object.keys(postData).map((key) => sql.identifier(key)),
                     sql`, `
                   )})
-                  VALUES (${sql.join(Object.values(postData), sql`, `)})`
+                  VALUES (${sql.join(
+                    rawValues.map((v) => sql`${v}`),
+                    sql`, `
+                  )})`
             );
           }
         } catch (error) {
@@ -812,9 +821,9 @@ export class WordPressImportService {
                 } else {
                   // Fallback to raw SQL if table not found in schema
                   await db.run(
-                    sql`INSERT INTO ${sql.identifier(categoryConfig.junctionTable)} 
+                    sql`INSERT INTO ${sql.identifier(categoryConfig.junctionTable)}
                         (id, collection_id, target_id, created_at, updated_at)
-                        VALUES (${crypto.randomUUID()}, ${post.id}, ${categoryId}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()})`
+                        VALUES (${crypto.randomUUID()}, ${post.id}, ${categoryId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})`
                   );
                 }
               } else {
@@ -859,11 +868,12 @@ export class WordPressImportService {
             if (relationTable) {
               await db.insert(relationTable).values(fileRelationData);
             } else {
-              // Fallback to raw SQL for dynamic relation tables
+              // Fallback to raw SQL for dynamic relation tables. Use seconds
+              // for created_at since raw-SQL binding can't infer the column mode.
               await db.run(
                 sql`INSERT INTO ${sql.identifier(relationTableName)}
                     (id, parent_id, parent_type, file_id, sort, created_at)
-                    VALUES (${fileRelationData.id}, ${fileRelationData.parent_id}, ${fileRelationData.parent_type}, ${fileRelationData.file_id}, ${fileRelationData.sort}, ${fileRelationData.created_at})`
+                    VALUES (${fileRelationData.id}, ${fileRelationData.parent_id}, ${fileRelationData.parent_type}, ${fileRelationData.file_id}, ${fileRelationData.sort}, ${getCurrentTimestampSeconds()})`
               );
             }
           } catch (error) {

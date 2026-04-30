@@ -9,7 +9,15 @@
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
 
-  const { global, items, onAddNew, onDelete, onBulkDelete, sortable = false, onReorder }: {
+  const {
+    global,
+    items,
+    onAddNew,
+    onDelete,
+    onBulkDelete,
+    sortable = false,
+    onReorder
+  }: {
     global: any;
     items: any[];
     onAddNew?: () => void;

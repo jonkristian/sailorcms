@@ -59,15 +59,13 @@
   let totalPages = $state(1);
 
   let uploadProgressOpen = $state(false);
-  let uploadFilesList:
-    Array<{
-      name: string;
-      size: number;
-      status: 'pending' | 'uploading' | 'success' | 'error';
-      progress: number;
-      error?: string;
-    }>
-   = $state([]);
+  let uploadFilesList: Array<{
+    name: string;
+    size: number;
+    status: 'pending' | 'uploading' | 'success' | 'error';
+    progress: number;
+    error?: string;
+  }> = $state([]);
 
   let itemsPerPage = $state(20);
 
@@ -107,9 +105,7 @@
     if (selectedValues.length === 0) return [];
     const result = getFiles({ ids: selectedValues }).current;
     if (!result?.success || !result.files) return [];
-    return selectedValues
-      .map((id) => result.files?.find((f: any) => f.id === id))
-      .filter(Boolean);
+    return selectedValues.map((id) => result.files?.find((f: any) => f.id === id)).filter(Boolean);
   });
 
   function handleSelect(selectedValue: string | string[]) {
@@ -279,450 +275,448 @@
 </script>
 
 {#if browser}
-<Sheet.Root {open} onOpenChange={handleSheetOpenChange}>
-  <Sheet.Content
-    side="bottom"
-    class="flex flex-col gap-0 p-0 data-[side=bottom]:h-[65vh] data-[side=bottom]:max-h-[65vh] data-[side=bottom]:min-h-[65vh]"
-  >
-    <Sheet.Header class="flex-shrink-0 border-b px-4 py-4">
-      <div class="flex items-center justify-between">
-        <!-- Left side: Search and Upload -->
-        <div class="flex items-center gap-4">
-          <div class="relative w-[300px]">
-            <Search
-              class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
-            />
-            <input
-              type="text"
-              placeholder="Search for files..."
-              value={searchInput}
-              oninput={handleSearch}
-              class="bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring border-input h-9 w-full rounded-md border pr-4 pl-9 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
+  <Sheet.Root {open} onOpenChange={handleSheetOpenChange}>
+    <Sheet.Content
+      side="bottom"
+      class="flex flex-col gap-0 p-0 data-[side=bottom]:h-[65vh] data-[side=bottom]:max-h-[65vh] data-[side=bottom]:min-h-[65vh]"
+    >
+      <Sheet.Header class="flex-shrink-0 border-b px-4 py-4">
+        <div class="flex items-center justify-between">
+          <!-- Left side: Search and Upload -->
+          <div class="flex items-center gap-4">
+            <div class="relative w-[300px]">
+              <Search
+                class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+              />
+              <input
+                type="text"
+                placeholder="Search for files..."
+                value={searchInput}
+                oninput={handleSearch}
+                class="bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring border-input h-9 w-full rounded-md border pr-4 pl-9 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
 
-          <Button
-            variant="outline"
-            class="flex h-9 items-center gap-2"
-            disabled={uploadLoading}
-            onclick={handleFileInput}
-          >
-            {#if uploadLoading}
-              <LoaderCircle class="h-4 w-4 animate-spin" />
-            {:else}
-              <Upload class="h-4 w-4" />
-            {/if}
-            <span>Upload {multiple ? 'files' : 'file'}</span>
-          </Button>
-        </div>
-
-        <!-- Right side: Pagination -->
-        <div class="flex items-center gap-4">
-          <div class="flex items-center gap-2">
-            <Label for="file-rows-per-page" class="text-sm font-medium">Rows per page</Label>
-            <Select.Root
-              type="single"
-              value={itemsPerPage.toString()}
-              onValueChange={(value) => {
-                itemsPerPage = Number(value);
-                currentPage = 1;
-                loadFiles();
-              }}
+            <Button
+              variant="outline"
+              class="flex h-9 items-center gap-2"
+              disabled={uploadLoading}
+              onclick={handleFileInput}
             >
-              <Select.Trigger size="sm" class="w-16" id="file-rows-per-page">
-                {itemsPerPage}
-              </Select.Trigger>
-              <Select.Content side="top">
-                {#each [20, 50, 100] as size (size)}
-                  <Select.Item value={size.toString()}>
-                    {size}
-                  </Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
+              {#if uploadLoading}
+                <LoaderCircle class="h-4 w-4 animate-spin" />
+              {:else}
+                <Upload class="h-4 w-4" />
+              {/if}
+              <span>Upload {multiple ? 'files' : 'file'}</span>
+            </Button>
           </div>
-          <div class="flex items-center">
-            <Pagination.Root
-              count={totalCount}
-              perPage={itemsPerPage}
-              page={currentPage}
-              onPageChange={handlePageChange}
-            >
-              <Pagination.Content class="!justify-start">
-                <Pagination.Item>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    class="h-9 w-9"
-                    disabled={currentPage === 1 || totalPages <= 1}
-                    onclick={() => handlePageChange(currentPage - 1)}
-                  >
-                    <ChevronLeft class="h-4 w-4" />
-                  </Button>
-                </Pagination.Item>
 
-                {#each getVisiblePages(currentPage, totalPages) as page, index (index)}
-                  {#if page === '...'}
-                    <Pagination.Item>
-                      <span class="px-2">...</span>
-                    </Pagination.Item>
-                  {:else}
-                    <Pagination.Item>
-                      <Button
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        size="sm"
-                        class="h-9 w-9"
-                        onclick={() => typeof page === 'number' && handlePageChange(page)}
-                      >
-                        {page}
-                      </Button>
-                    </Pagination.Item>
-                  {/if}
-                {/each}
-
-                <Pagination.Item>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    class="h-9 w-9"
-                    disabled={currentPage === totalPages || totalPages <= 1}
-                    onclick={() => handlePageChange(currentPage + 1)}
-                  >
-                    <ChevronRight class="h-4 w-4" />
-                  </Button>
-                </Pagination.Item>
-              </Pagination.Content>
-            </Pagination.Root>
-          </div>
-        </div>
-      </div>
-    </Sheet.Header>
-
-    <div class="flex flex-1 overflow-hidden">
-      <!-- Selected Files Sidebar -->
-      <div class="bg-muted/30 flex w-[180px] flex-col border-r">
-        <div class="flex h-[49px] items-center border-b px-4 py-3">
-          <h4 class="text-sm font-medium">Selected files</h4>
-        </div>
-        <div class="flex-1 overflow-auto">
-          <div class="p-4">
-            {#if selectedFiles.length > 0}
-              <VerticalList
-                items={selectedFiles}
-                onItemsChange={(newItems) => {
-                  const newValues = newItems.map((item) => item.id);
-                  onSelect?.(newValues);
+          <!-- Right side: Pagination -->
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+              <Label for="file-rows-per-page" class="text-sm font-medium">Rows per page</Label>
+              <Select.Root
+                type="single"
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => {
+                  itemsPerPage = Number(value);
+                  currentPage = 1;
+                  loadFiles();
                 }}
               >
-                {#snippet children({
-                  item: selectedFile,
-                  dragHandleAttributes,
-                  isDragging
-                }: {
-                  item: any;
-                  dragHandleAttributes: any;
-                  isDragging: boolean;
-                })}
-                  <div
-                    class="group relative flex items-center gap-2 transition-all duration-200"
-                    class:opacity-70={isDragging}
-                  >
-                    <div class="relative min-w-0 flex-1">
-                      <div
-                        class="border-input bg-background w-full overflow-hidden rounded-md border shadow-sm"
-                      >
-                        {#if selectedFile.mime_type?.includes('image')}
-                          <div class="relative aspect-square">
-                            <img
-                              src={selectedFile.url}
-                              alt={selectedFile.name}
-                              class="h-full w-full object-cover"
-                            />
-                            <!-- Control buttons overlay -->
-                            <div
-                              class="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100"
-                            >
-                              <div
-                                class="flex cursor-grab items-center justify-center rounded p-1 hover:bg-white/20"
-                                {...dragHandleAttributes}
-                                role="button"
-                                tabindex={0}
-                                aria-label="Drag handle"
-                              >
-                                <GripVertical class="h-3 w-3 text-white" />
-                              </div>
-                              <button
-                                type="button"
-                                class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
-                                title="Copy filename"
-                                onclick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  copyFilename(selectedFile.name);
-                                }}
-                              >
-                                <Copy class="h-3 w-3" />
-                              </button>
-                              <button
-                                type="button"
-                                class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
-                                onclick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleSelect(selectedFile.id);
-                                }}
-                              >
-                                <X class="h-3 w-3" />
-                              </button>
-                            </div>
-                          </div>
-                        {:else}
-                          <div
-                            class="relative flex aspect-square flex-col items-center justify-center p-2"
-                          >
-                            <FileText class="mb-2 h-6 w-6 shrink-0" />
-                            <div class="w-full min-w-0">
-                              <p
-                                class="text-muted-foreground truncate px-0.5 text-center text-xs"
-                                title={selectedFile.name}
-                              >
-                                {selectedFile.name}
-                              </p>
-                            </div>
-                            <!-- Control buttons overlay for non-images -->
-                            <div
-                              class="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100"
-                            >
-                              <div
-                                class="flex cursor-grab items-center justify-center rounded p-1 hover:bg-white/20"
-                                {...dragHandleAttributes}
-                                role="button"
-                                tabindex={0}
-                                aria-label="Drag handle"
-                              >
-                                <GripVertical class="h-3 w-3 text-white" />
-                              </div>
-                              <button
-                                type="button"
-                                class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
-                                title="Copy filename"
-                                onclick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  copyFilename(selectedFile.name);
-                                }}
-                              >
-                                <Copy class="h-3 w-3" />
-                              </button>
-                              <button
-                                type="button"
-                                class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
-                                onclick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleSelect(selectedFile.id);
-                                }}
-                              >
-                                <X class="h-3 w-3" />
-                              </button>
-                            </div>
-                          </div>
-                        {/if}
-                      </div>
-                    </div>
-                  </div>
-                {/snippet}
-              </VerticalList>
-            {:else}
-              <div
-                class="text-muted-foreground flex h-full items-center justify-center p-4 pl-0 text-center text-sm"
+                <Select.Trigger size="sm" class="w-16" id="file-rows-per-page">
+                  {itemsPerPage}
+                </Select.Trigger>
+                <Select.Content side="top">
+                  {#each [20, 50, 100] as size (size)}
+                    <Select.Item value={size.toString()}>
+                      {size}
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+            <div class="flex items-center">
+              <Pagination.Root
+                count={totalCount}
+                perPage={itemsPerPage}
+                page={currentPage}
+                onPageChange={handlePageChange}
               >
-                Click on a row to select images.
-              </div>
-            {/if}
-          </div>
-        </div>
-      </div>
+                <Pagination.Content class="!justify-start">
+                  <Pagination.Item>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      class="h-9 w-9"
+                      disabled={currentPage === 1 || totalPages <= 1}
+                      onclick={() => handlePageChange(currentPage - 1)}
+                    >
+                      <ChevronLeft class="h-4 w-4" />
+                    </Button>
+                  </Pagination.Item>
 
-      <!-- Main Table Area -->
-      <div class="flex min-w-0 flex-1 flex-col">
-        {#if loading}
-          <div class="flex flex-1 items-center justify-center">
-            <LoaderCircle class="text-muted-foreground h-6 w-6 animate-spin" />
-          </div>
-        {:else if files.length === 0}
-          <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-            No files found.
-          </div>
-        {:else}
-          <div class="flex-1 overflow-hidden border-r">
-            <div class="h-full overflow-auto">
-              <Table.Root>
-                <Table.Header class="bg-background sticky top-0 z-10 border-b">
-                  <Table.Row class="h-[48px]">
-                    <Table.Head class="w-10 px-4"></Table.Head>
-                    <Table.Head class="w-12 px-4"></Table.Head>
-                    <Table.Head class="px-4">Filename</Table.Head>
-                    <Table.Head class="px-4 text-right">Size</Table.Head>
-                    <Table.Head class="px-4 text-right">Date</Table.Head>
-                    <Table.Head class="w-12 px-4"></Table.Head>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {#each files as file, fileIndex (file?.id || fileIndex)}
-                    {#if file && file.id}
-                      {@const selected = isSelected(file.id)}
-                      {@const focused = focusedIndex === fileIndex}
-                      <Table.Row
-                        class={cn(
-                          'group h-[52px] cursor-pointer border-b transition-colors',
-                          selected
-                            ? 'bg-primary/10 hover:bg-primary/15'
-                            : focused
-                              ? 'bg-muted/70 hover:bg-muted/80'
-                              : 'hover:bg-muted/50'
-                        )}
-                        onclick={() => {
-                          focusedIndex = fileIndex;
-                          previewFile = file;
-                          if (selectOnRowClick) {
-                            handleSelect(file.id);
-                          }
-                        }}
-                        onkeydown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleSelect(file.id);
-                          } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            if (fileIndex < files.length - 1) {
-                              focusedIndex = fileIndex + 1;
-                              previewFile = files[fileIndex + 1];
-                              (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
-                            }
-                          } else if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            if (fileIndex > 0) {
-                              focusedIndex = fileIndex - 1;
-                              previewFile = files[fileIndex - 1];
-                              (e.currentTarget.previousElementSibling as HTMLElement)?.focus();
-                            }
-                          } else if (e.key === 'Escape') {
-                            previewFile = null;
-                            focusedIndex = null;
-                          }
-                        }}
-                        role="button"
-                        tabindex={0}
-                      >
-                        <Table.Cell class="w-10 px-4">
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => handleSelect(file.id)}
-                            onclick={(e) => e.stopPropagation()}
-                            aria-label={selected ? 'Deselect file' : 'Select file'}
-                          />
-                        </Table.Cell>
-                        <Table.Cell class="w-12 px-4 py-1.5">
-                          <div
-                            class={cn(
-                              'relative h-10 w-10 overflow-hidden rounded-md border transition-colors',
-                              selected
-                                ? 'border-primary shadow-sm'
-                                : 'border-muted-foreground/20'
-                            )}
-                          >
-                            {#if file.mime_type?.includes('image')}
-                              <img
-                                src={file.url}
-                                alt={file.name}
-                                class="h-full w-full object-cover"
-                              />
-                            {:else}
-                              <div
-                                class="bg-muted flex h-full w-full items-center justify-center"
-                              >
-                                <FileText class="text-muted-foreground h-6 w-6" />
-                              </div>
-                            {/if}
-                          </div>
-                        </Table.Cell>
-                        <Table.Cell class="px-4">
-                          <div class="flex flex-col">
-                            <span class="max-w-xs truncate font-medium" title={file.name}
-                              >{file.name}</span
-                            >
-                            <span class="text-muted-foreground text-sm">
-                              {formatFileSize(file.size ?? 0)}
-                            </span>
-                          </div>
-                        </Table.Cell>
-                        <Table.Cell class="text-muted-foreground px-4 text-right">
-                          {formatFileSize(file.size ?? 0)}
-                        </Table.Cell>
-                        <Table.Cell class="text-muted-foreground px-4 text-right">
-                          {file.created_at ? formatDate(file.created_at) : '—'}
-                        </Table.Cell>
-                        <Table.Cell class="w-12 px-4"></Table.Cell>
-                      </Table.Row>
+                  {#each getVisiblePages(currentPage, totalPages) as page, index (index)}
+                    {#if page === '...'}
+                      <Pagination.Item>
+                        <span class="px-2">...</span>
+                      </Pagination.Item>
+                    {:else}
+                      <Pagination.Item>
+                        <Button
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          size="sm"
+                          class="h-9 w-9"
+                          onclick={() => typeof page === 'number' && handlePageChange(page)}
+                        >
+                          {page}
+                        </Button>
+                      </Pagination.Item>
                     {/if}
                   {/each}
-                </Table.Body>
-              </Table.Root>
+
+                  <Pagination.Item>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      class="h-9 w-9"
+                      disabled={currentPage === totalPages || totalPages <= 1}
+                      onclick={() => handlePageChange(currentPage + 1)}
+                    >
+                      <ChevronRight class="h-4 w-4" />
+                    </Button>
+                  </Pagination.Item>
+                </Pagination.Content>
+              </Pagination.Root>
+            </div>
+          </div>
+        </div>
+      </Sheet.Header>
+
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Selected Files Sidebar -->
+        <div class="bg-muted/30 flex w-[180px] flex-col border-r">
+          <div class="flex h-[49px] items-center border-b px-4 py-3">
+            <h4 class="text-sm font-medium">Selected files</h4>
+          </div>
+          <div class="flex-1 overflow-auto">
+            <div class="p-4">
+              {#if selectedFiles.length > 0}
+                <VerticalList
+                  items={selectedFiles}
+                  onItemsChange={(newItems) => {
+                    const newValues = newItems.map((item) => item.id);
+                    onSelect?.(newValues);
+                  }}
+                >
+                  {#snippet children({
+                    item: selectedFile,
+                    dragHandleAttributes,
+                    isDragging
+                  }: {
+                    item: any;
+                    dragHandleAttributes: any;
+                    isDragging: boolean;
+                  })}
+                    <div
+                      class="group relative flex items-center gap-2 transition-all duration-200"
+                      class:opacity-70={isDragging}
+                    >
+                      <div class="relative min-w-0 flex-1">
+                        <div
+                          class="border-input bg-background w-full overflow-hidden rounded-md border shadow-sm"
+                        >
+                          {#if selectedFile.mime_type?.includes('image')}
+                            <div class="relative aspect-square">
+                              <img
+                                src={selectedFile.url}
+                                alt={selectedFile.name}
+                                class="h-full w-full object-cover"
+                              />
+                              <!-- Control buttons overlay -->
+                              <div
+                                class="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                              >
+                                <div
+                                  class="flex cursor-grab items-center justify-center rounded p-1 hover:bg-white/20"
+                                  {...dragHandleAttributes}
+                                  role="button"
+                                  tabindex={0}
+                                  aria-label="Drag handle"
+                                >
+                                  <GripVertical class="h-3 w-3 text-white" />
+                                </div>
+                                <button
+                                  type="button"
+                                  class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
+                                  title="Copy filename"
+                                  onclick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    copyFilename(selectedFile.name);
+                                  }}
+                                >
+                                  <Copy class="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
+                                  onclick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSelect(selectedFile.id);
+                                  }}
+                                >
+                                  <X class="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          {:else}
+                            <div
+                              class="relative flex aspect-square flex-col items-center justify-center p-2"
+                            >
+                              <FileText class="mb-2 h-6 w-6 shrink-0" />
+                              <div class="w-full min-w-0">
+                                <p
+                                  class="text-muted-foreground truncate px-0.5 text-center text-xs"
+                                  title={selectedFile.name}
+                                >
+                                  {selectedFile.name}
+                                </p>
+                              </div>
+                              <!-- Control buttons overlay for non-images -->
+                              <div
+                                class="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                              >
+                                <div
+                                  class="flex cursor-grab items-center justify-center rounded p-1 hover:bg-white/20"
+                                  {...dragHandleAttributes}
+                                  role="button"
+                                  tabindex={0}
+                                  aria-label="Drag handle"
+                                >
+                                  <GripVertical class="h-3 w-3 text-white" />
+                                </div>
+                                <button
+                                  type="button"
+                                  class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
+                                  title="Copy filename"
+                                  onclick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    copyFilename(selectedFile.name);
+                                  }}
+                                >
+                                  <Copy class="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
+                                  onclick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSelect(selectedFile.id);
+                                  }}
+                                >
+                                  <X class="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          {/if}
+                        </div>
+                      </div>
+                    </div>
+                  {/snippet}
+                </VerticalList>
+              {:else}
+                <div
+                  class="text-muted-foreground flex h-full items-center justify-center p-4 pl-0 text-center text-sm"
+                >
+                  Click on a row to select images.
+                </div>
+              {/if}
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Table Area -->
+        <div class="flex min-w-0 flex-1 flex-col">
+          {#if loading}
+            <div class="flex flex-1 items-center justify-center">
+              <LoaderCircle class="text-muted-foreground h-6 w-6 animate-spin" />
+            </div>
+          {:else if files.length === 0}
+            <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+              No files found.
+            </div>
+          {:else}
+            <div class="flex-1 overflow-hidden border-r">
+              <div class="h-full overflow-auto">
+                <Table.Root>
+                  <Table.Header class="bg-background sticky top-0 z-10 border-b">
+                    <Table.Row class="h-[48px]">
+                      <Table.Head class="w-10 px-4"></Table.Head>
+                      <Table.Head class="w-12 px-4"></Table.Head>
+                      <Table.Head class="px-4">Filename</Table.Head>
+                      <Table.Head class="px-4 text-right">Size</Table.Head>
+                      <Table.Head class="px-4 text-right">Date</Table.Head>
+                      <Table.Head class="w-12 px-4"></Table.Head>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {#each files as file, fileIndex (file?.id || fileIndex)}
+                      {#if file && file.id}
+                        {@const selected = isSelected(file.id)}
+                        {@const focused = focusedIndex === fileIndex}
+                        <Table.Row
+                          class={cn(
+                            'group h-[52px] cursor-pointer border-b transition-colors',
+                            selected
+                              ? 'bg-primary/10 hover:bg-primary/15'
+                              : focused
+                                ? 'bg-muted/70 hover:bg-muted/80'
+                                : 'hover:bg-muted/50'
+                          )}
+                          onclick={() => {
+                            focusedIndex = fileIndex;
+                            previewFile = file;
+                            if (selectOnRowClick) {
+                              handleSelect(file.id);
+                            }
+                          }}
+                          onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleSelect(file.id);
+                            } else if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              if (fileIndex < files.length - 1) {
+                                focusedIndex = fileIndex + 1;
+                                previewFile = files[fileIndex + 1];
+                                (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
+                              }
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              if (fileIndex > 0) {
+                                focusedIndex = fileIndex - 1;
+                                previewFile = files[fileIndex - 1];
+                                (e.currentTarget.previousElementSibling as HTMLElement)?.focus();
+                              }
+                            } else if (e.key === 'Escape') {
+                              previewFile = null;
+                              focusedIndex = null;
+                            }
+                          }}
+                          role="button"
+                          tabindex={0}
+                        >
+                          <Table.Cell class="w-10 px-4">
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={() => handleSelect(file.id)}
+                              onclick={(e) => e.stopPropagation()}
+                              aria-label={selected ? 'Deselect file' : 'Select file'}
+                            />
+                          </Table.Cell>
+                          <Table.Cell class="w-12 px-4 py-1.5">
+                            <div
+                              class={cn(
+                                'relative h-10 w-10 overflow-hidden rounded-md border transition-colors',
+                                selected ? 'border-primary shadow-sm' : 'border-muted-foreground/20'
+                              )}
+                            >
+                              {#if file.mime_type?.includes('image')}
+                                <img
+                                  src={file.url}
+                                  alt={file.name}
+                                  class="h-full w-full object-cover"
+                                />
+                              {:else}
+                                <div
+                                  class="bg-muted flex h-full w-full items-center justify-center"
+                                >
+                                  <FileText class="text-muted-foreground h-6 w-6" />
+                                </div>
+                              {/if}
+                            </div>
+                          </Table.Cell>
+                          <Table.Cell class="px-4">
+                            <div class="flex flex-col">
+                              <span class="max-w-xs truncate font-medium" title={file.name}
+                                >{file.name}</span
+                              >
+                              <span class="text-muted-foreground text-sm">
+                                {formatFileSize(file.size ?? 0)}
+                              </span>
+                            </div>
+                          </Table.Cell>
+                          <Table.Cell class="text-muted-foreground px-4 text-right">
+                            {formatFileSize(file.size ?? 0)}
+                          </Table.Cell>
+                          <Table.Cell class="text-muted-foreground px-4 text-right">
+                            {file.created_at ? formatDate(file.created_at) : '—'}
+                          </Table.Cell>
+                          <Table.Cell class="w-12 px-4"></Table.Cell>
+                        </Table.Row>
+                      {/if}
+                    {/each}
+                  </Table.Body>
+                </Table.Root>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Preview Sidebar -->
+        {#if previewFile}
+          <div class="bg-muted/30 flex w-[280px] flex-col">
+            <div class="flex h-[49px] items-center border-b px-4 py-3">
+              <div class="flex w-full items-center justify-between">
+                <h4 class="text-sm font-medium">Preview</h4>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-8 w-8"
+                  onclick={() => (previewFile = null)}
+                >
+                  <X class="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div class="flex-1 p-4">
+              <div class="space-y-4">
+                {#if previewFile.mime_type?.includes('image')}
+                  <div class="relative overflow-hidden rounded-md border bg-white">
+                    <div class="relative w-full pt-[100%]">
+                      <img
+                        src={previewFile.url}
+                        alt={previewFile.name}
+                        class="absolute inset-0 h-full w-full object-contain"
+                      />
+                    </div>
+                  </div>
+                {:else}
+                  <div
+                    class="flex aspect-square items-center justify-center rounded-md border bg-white"
+                  >
+                    <FileText class="text-muted-foreground h-12 w-12" />
+                  </div>
+                {/if}
+                <div class="space-y-2 text-sm">
+                  <p class="font-medium break-words">{previewFile.name}</p>
+                  <p class="text-muted-foreground">Size: {formatFileSize(previewFile.size ?? 0)}</p>
+                  <p class="text-muted-foreground">
+                    Date: {previewFile.created_at ? formatDate(previewFile.created_at) : '—'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         {/if}
       </div>
-
-      <!-- Preview Sidebar -->
-      {#if previewFile}
-        <div class="bg-muted/30 flex w-[280px] flex-col">
-          <div class="flex h-[49px] items-center border-b px-4 py-3">
-            <div class="flex w-full items-center justify-between">
-              <h4 class="text-sm font-medium">Preview</h4>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-8 w-8"
-                onclick={() => (previewFile = null)}
-              >
-                <X class="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <div class="flex-1 p-4">
-            <div class="space-y-4">
-              {#if previewFile.mime_type?.includes('image')}
-                <div class="relative overflow-hidden rounded-md border bg-white">
-                  <div class="relative w-full pt-[100%]">
-                    <img
-                      src={previewFile.url}
-                      alt={previewFile.name}
-                      class="absolute inset-0 h-full w-full object-contain"
-                    />
-                  </div>
-                </div>
-              {:else}
-                <div
-                  class="flex aspect-square items-center justify-center rounded-md border bg-white"
-                >
-                  <FileText class="text-muted-foreground h-12 w-12" />
-                </div>
-              {/if}
-              <div class="space-y-2 text-sm">
-                <p class="font-medium break-words">{previewFile.name}</p>
-                <p class="text-muted-foreground">Size: {formatFileSize(previewFile.size ?? 0)}</p>
-                <p class="text-muted-foreground">
-                  Date: {previewFile.created_at ? formatDate(previewFile.created_at) : '—'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </Sheet.Content>
-</Sheet.Root>
+    </Sheet.Content>
+  </Sheet.Root>
 {/if}
 
 {#if browser}

@@ -9,6 +9,7 @@ import { ensureUniqueSlug } from '$sailor/core/utils/slug';
 import { TagService } from '$sailor/core/services/tag.server';
 import { SearchIndexService } from '$sailor/core/services/search-index.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
+import { getCurrentTimestampSeconds } from '$sailor/core/utils/date';
 
 /**
  * Save collection item (create or update)
@@ -161,7 +162,6 @@ export const saveCollectionItem = command(
       }
 
       const result = await db.transaction(async (tx: any) => {
-
         // Check if item exists and user has access to it
         const existing = await tx
           .select({
@@ -310,7 +310,8 @@ export const saveCollectionItem = command(
 
                 // Build columns/values explicitly to avoid inserting unknown keys
                 const columns = ['id', 'collection_id', 'sort', 'created_at', 'updated_at'];
-                const values = [item.id || generateUUID(), itemId, index, new Date(), new Date()];
+                const nowSec = getCurrentTimestampSeconds();
+                const values = [item.id || generateUUID(), itemId, index, nowSec, nowSec];
 
                 // Add schema-defined properties from array item
                 Object.keys(fieldDef.items.properties).forEach((propKey) => {
@@ -387,7 +388,7 @@ export const saveCollectionItem = command(
                   ],
                   sql`, `
                 )})
-                VALUES (${generateUUID()}, ${itemId}, 'collection', ${fileId}, ${i}, ${new Date()})
+                VALUES (${generateUUID()}, ${itemId}, 'collection', ${fileId}, ${i}, ${getCurrentTimestampSeconds()})
               `);
             }
           }
@@ -437,7 +438,7 @@ export const saveCollectionItem = command(
                   ],
                   sql`, `
                 )})
-                VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${new Date()}, ${new Date()})
+                VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
               `);
             }
           }
@@ -532,14 +533,18 @@ export const saveCollectionItem = command(
               else filteredContent[fieldName] = '';
             }
 
-            // System columns must come after the content spread so they can't be shadowed
+            // System columns must come after the content spread so they can't be shadowed.
+            // Timestamps as seconds because the INSERT below uses raw `sql` template
+            // with `Object.values(blockData)`, which has no column awareness — Date
+            // values would bind as ms and read back as far-future timestamps.
+            const blockNowSec = getCurrentTimestampSeconds();
             const blockData = {
               ...filteredContent,
               id: block.id || generateUUID(),
               collection_id: itemId,
               sort: block.sort ?? 0,
-              created_at: new Date(),
-              updated_at: new Date()
+              created_at: blockNowSec,
+              updated_at: blockNowSec
             };
 
             // Queue any tag fields for post-tx TagService writes.
@@ -628,7 +633,7 @@ export const saveCollectionItem = command(
                   await tx.run(sql`
                     INSERT INTO ${sql.identifier(junctionTableName)}
                     (id, block_id, target_id, created_at, updated_at)
-                    VALUES (${generateUUID()}, ${blockData.id}, ${targetId}, ${new Date()}, ${new Date()})
+                    VALUES (${generateUUID()}, ${blockData.id}, ${targetId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
                   `);
                 }
               }
@@ -677,7 +682,7 @@ export const saveCollectionItem = command(
                       ],
                       sql`, `
                     )})
-                    VALUES (${generateUUID()}, ${blockData.id}, 'block', ${fileId}, ${i}, ${new Date()})
+                    VALUES (${generateUUID()}, ${blockData.id}, 'block', ${fileId}, ${i}, ${getCurrentTimestampSeconds()})
                   `);
                 }
               }

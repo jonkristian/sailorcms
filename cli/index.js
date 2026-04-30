@@ -13,6 +13,7 @@ import { registerDbBackup } from './tools/db-backup.js';
 import { registerDbRestore } from './tools/db-restore.js';
 import { registerDbSeed } from './tools/db-seed.js';
 import { registerSearchReindex } from './tools/search-reindex.js';
+import { registerDbRepairTimestamps } from './tools/db-repair-timestamps.js';
 
 // Load environment variables and start CLI
 (async () => {
@@ -46,6 +47,7 @@ import { registerSearchReindex } from './tools/search-reindex.js';
   registerDbRestore(program);
   registerDbSeed(program);
   registerSearchReindex(program);
+  registerDbRepairTimestamps(program);
   registerUserCommands(program);
 
   program.parse();

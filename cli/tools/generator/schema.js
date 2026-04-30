@@ -312,6 +312,8 @@ export class SchemaGenerator {
         if (fieldDef.notNull) options.notNull = fieldDef.notNull;
         if (fieldDef.unique) options.unique = fieldDef.unique;
         if (fieldDef.references) options.references = fieldDef.references;
+        if (fieldDef.default !== undefined) options.default = fieldDef.default;
+        if (fieldDef.mode) options.mode = fieldDef.mode;
 
         if (fieldDef.type === 'integer') {
           fields.push(

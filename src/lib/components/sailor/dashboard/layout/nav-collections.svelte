@@ -41,7 +41,10 @@
     icon?: string;
   };
 
-  let { collections = [], loading = false }: {
+  let {
+    collections = [],
+    loading = false
+  }: {
     collections: Collection[];
     loading?: boolean;
   } = $props();

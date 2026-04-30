@@ -111,6 +111,7 @@ export class SQLiteAdapter extends DatabaseAdapter {
     options: {
       notNull?: boolean;
       unique?: boolean;
+      default?: string | number | boolean;
       references?: { table: string; field: string };
     } = {}
   ): string {
@@ -118,6 +119,7 @@ export class SQLiteAdapter extends DatabaseAdapter {
 
     if (options.notNull) definition += '.notNull()';
     if (options.unique) definition += '.unique()';
+    if (options.default !== undefined) definition += `.default(${JSON.stringify(options.default)})`;
     if (options.references) {
       // For self-referential tables, we need special handling to avoid circular dependencies
       // We'll defer the reference using a string-based approach
@@ -129,9 +131,10 @@ export class SQLiteAdapter extends DatabaseAdapter {
 
   getIntegerFieldDefinition(
     name: string,
-    options: { notNull?: boolean; default?: number } = {}
+    options: { notNull?: boolean; default?: number | boolean; mode?: 'boolean' | 'timestamp' } = {}
   ): string {
-    let definition = `integer('${name}')`;
+    const modeArg = options.mode ? `, { mode: '${options.mode}' }` : '';
+    let definition = `integer('${name}'${modeArg})`;
 
     if (options.notNull) definition += '.notNull()';
     if (options.default !== undefined) definition += `.default(${options.default})`;
@@ -148,9 +151,8 @@ export class SQLiteAdapter extends DatabaseAdapter {
   }
 
   async getTableFunctions() {
-    const { sqliteTable, text, integer, index, uniqueIndex } = await import(
-      'drizzle-orm/sqlite-core'
-    );
+    const { sqliteTable, text, integer, index, uniqueIndex } =
+      await import('drizzle-orm/sqlite-core');
     return {
       createTable: sqliteTable,
       text,

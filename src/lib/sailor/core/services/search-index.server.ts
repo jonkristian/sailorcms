@@ -66,10 +66,7 @@ export async function ensureFtsReady(): Promise<boolean> {
         }
         return true;
       } catch (err) {
-        console.warn(
-          'search_index: FTS5 init failed; falling back to LIKE queries.',
-          err
-        );
+        console.warn('search_index: FTS5 init failed; falling back to LIKE queries.', err);
         return false;
       }
     })();
@@ -77,14 +74,7 @@ export async function ensureFtsReady(): Promise<boolean> {
   return ftsBootstrap;
 }
 
-const TEXT_FIELD_TYPES = new Set([
-  'string',
-  'text',
-  'textarea',
-  'wysiwyg',
-  'email',
-  'link'
-]);
+const TEXT_FIELD_TYPES = new Set(['string', 'text', 'textarea', 'wysiwyg', 'email', 'link']);
 
 type EntityType = 'collection' | 'global';
 
@@ -202,9 +192,7 @@ export class SearchIndexService {
     let indexed = 0;
     let skipped = 0;
 
-    for (const [name, def] of Object.entries(collectionDefinitions) as Array<
-      [string, any]
-    >) {
+    for (const [name, def] of Object.entries(collectionDefinitions) as Array<[string, any]>) {
       if (def?.options?.searchable !== true) continue;
       const result = await getCollections(name, {
         status: 'all',
@@ -226,9 +214,7 @@ export class SearchIndexService {
       }
     }
 
-    for (const [name, def] of Object.entries(globalDefinitions) as Array<
-      [string, any]
-    >) {
+    for (const [name, def] of Object.entries(globalDefinitions) as Array<[string, any]>) {
       if (def?.options?.searchable !== true) continue;
       const result = await getGlobals(name);
       const items = (result as any).items ?? [];
@@ -269,10 +255,7 @@ export class SearchIndexService {
     try {
       await SearchIndexService.reindexEntity(entityType, entityName, entityId);
     } catch (err) {
-      console.warn(
-        `search_index: reindex failed for ${entityType}:${entityName} ${entityId}`,
-        err
-      );
+      console.warn(`search_index: reindex failed for ${entityType}:${entityName} ${entityId}`, err);
     }
   }
 
@@ -284,10 +267,7 @@ export class SearchIndexService {
     try {
       await SearchIndexService.delete({ entityType, entityName, entityId });
     } catch (err) {
-      console.warn(
-        `search_index: delete failed for ${entityType}:${entityName} ${entityId}`,
-        err
-      );
+      console.warn(`search_index: delete failed for ${entityType}:${entityName} ${entityId}`, err);
     }
   }
 }
@@ -295,9 +275,10 @@ export class SearchIndexService {
 // --- internals ---
 
 function getDefinition(type: EntityType, name: string): any | undefined {
-  const registry = (type === 'collection'
-    ? collectionDefinitions
-    : globalDefinitions) as Record<string, any>;
+  const registry = (type === 'collection' ? collectionDefinitions : globalDefinitions) as Record<
+    string,
+    any
+  >;
   return registry[name];
 }
 
@@ -346,9 +327,8 @@ function buildEntry(
   const searchableText = parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
   const title = typeof item.title === 'string' ? item.title : null;
   const status = typeof item.status === 'string' ? item.status : null;
-  const updatedAt = item.updated_at instanceof Date
-    ? item.updated_at
-    : new Date(item.updated_at ?? Date.now());
+  const updatedAt =
+    item.updated_at instanceof Date ? item.updated_at : new Date(item.updated_at ?? Date.now());
 
   return {
     entityType,
@@ -429,11 +409,7 @@ async function loadBlockTagsForItem(
   item: any
 ): Promise<Record<string, string[]>> {
   const out: Record<string, string[]> = {};
-  if (
-    entityType !== 'collection' ||
-    !def?.options?.blocks ||
-    !Array.isArray(item?.blocks)
-  ) {
+  if (entityType !== 'collection' || !def?.options?.blocks || !Array.isArray(item?.blocks)) {
     return out;
   }
   for (const block of item.blocks) {

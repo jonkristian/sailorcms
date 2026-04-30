@@ -5,7 +5,9 @@
   import { getImage } from '$sailor/core/files/file';
   import Grid from '$lib/components/sailor/dnd/Grid.svelte';
   import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
-  import { getFiles } from '$sailor/remote/files.remote.js';
+  import { getFiles, restoreFile } from '$sailor/remote/files.remote.js';
+  import { toast } from '$sailor/core/ui/toast';
+  import { invalidateAll } from '$app/navigation';
 
   let {
     value = $bindable(''),
@@ -128,6 +130,20 @@
     }
   }
 
+  async function handleRestore(fileId: string) {
+    try {
+      const result = await restoreFile({ fileId });
+      if (result.success) {
+        toast.success(result.message || 'File restored');
+        await invalidateAll();
+      } else {
+        toast.error(result.error || 'Failed to restore file');
+      }
+    } catch {
+      toast.error('Failed to restore file');
+    }
+  }
+
   const fileValues = $derived(Array.isArray(value) ? value : value ? [value] : []);
 
   const fileItems: Array<{
@@ -136,6 +152,7 @@
     url: string;
     label: string;
     type: string;
+    deletedAt: string | Date | null;
   }> = $derived.by(() => {
     if (fileValues.length === 0) return [];
     const result = getFiles({ ids: fileValues, limit: 50, type: fileType }).current;
@@ -143,14 +160,22 @@
     return fileValues.map((fv: string) => {
       const f = files.find((file: any) => file.id === fv);
       if (!f) {
-        return { id: fv, value: fv, url: '', label: 'Missing file', type: fileType };
+        return {
+          id: fv,
+          value: fv,
+          url: '',
+          label: 'Missing file',
+          type: fileType,
+          deletedAt: null
+        };
       }
       return {
         id: fv,
         value: fv,
         url: f.url,
         label: f.name || 'Unknown file',
-        type: f.mime_type?.includes('image') ? 'image' : 'document'
+        type: f.mime_type?.includes('image') ? 'image' : 'document',
+        deletedAt: f.deleted_at ?? null
       };
     });
   });
@@ -258,7 +283,14 @@
               onSelectItem,
               isDragging
             }: {
-              item: { id: string; value: string; url: string; label: string; type: string };
+              item: {
+                id: string;
+                value: string;
+                url: string;
+                label: string;
+                type: string;
+                deletedAt: string | Date | null;
+              };
               dragHandleAttributes: {
                 draggable: boolean;
                 ondragstart: (e: DragEvent) => void;
@@ -276,6 +308,7 @@
                 alt={item.label}
                 filename={item.label}
                 fileType={item.type}
+                deletedAt={item.deletedAt}
                 aspectRatio="aspect-square"
                 controls={['select', 'drag', 'copy', 'remove']}
                 showSelection={true}
@@ -283,6 +316,7 @@
                 class="shadow-sm {isDragging ? 'opacity-50' : ''}"
                 onSelect={() => toggleFileSelection(item.value)}
                 onRemove={() => handleRemoveItem(item.id)}
+                onRestore={() => handleRestore(item.value)}
                 onCopy={copyFilename}
                 {dragHandleAttributes}
               />
@@ -296,10 +330,12 @@
               alt={item.label}
               filename={item.label}
               fileType={item.type}
+              deletedAt={item.deletedAt}
               aspectRatio="aspect-[4/3]"
               controls={['copy', 'remove']}
               class="w-full shadow-sm"
               onRemove={() => handleFileRemove(item.value)}
+              onRestore={() => handleRestore(item.value)}
               onCopy={copyFilename}
             />
           {/each}
@@ -327,6 +363,7 @@
                   alt={selectedFile?.label || 'Missing file'}
                   filename={selectedFile?.label || 'unknown'}
                   fileType={selectedFile?.type || fileType}
+                  deletedAt={selectedFile?.deletedAt ?? null}
                   aspectRatio="aspect-square"
                   controls={['select', 'copy', 'remove']}
                   showSelection={true}
@@ -334,6 +371,7 @@
                   class="transition-shadow hover:shadow-md"
                   onSelect={() => toggleFileSelection(selectedValue)}
                   onRemove={() => handleFileRemove(selectedValue)}
+                  onRestore={() => handleRestore(selectedValue)}
                   onCopy={copyFilename}
                 />
               {/each}
@@ -349,6 +387,7 @@
               alt={item.label}
               filename={item.label}
               fileType={item.type}
+              deletedAt={item.deletedAt}
               aspectRatio="aspect-[8/3]"
               controls={['select', 'copy', 'remove']}
               showSelection={true}
@@ -356,6 +395,7 @@
               class="transition-shadow hover:shadow-sm"
               onSelect={() => toggleFileSelection(item.value)}
               onRemove={() => handleFileRemove(item.value)}
+              onRestore={() => handleRestore(item.value)}
               onCopy={copyFilename}
             />
           {/each}

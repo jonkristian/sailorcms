@@ -68,10 +68,7 @@
     {#if data.results.pagination && data.results.pagination.totalPages > 1}
       <nav class="pagination" aria-label="Search results pages">
         {#if data.results.pagination.hasPreviousPage}
-          <a
-            href={pageHref(data.results.pagination.page - 1, data.query)}
-            class="pagination-link"
-          >
+          <a href={pageHref(data.results.pagination.page - 1, data.query)} class="pagination-link">
             Previous
           </a>
         {/if}
@@ -81,10 +78,7 @@
         </span>
 
         {#if data.results.pagination.hasNextPage}
-          <a
-            href={pageHref(data.results.pagination.page + 1, data.query)}
-            class="pagination-link"
-          >
+          <a href={pageHref(data.results.pagination.page + 1, data.query)} class="pagination-link">
             Next
           </a>
         {/if}

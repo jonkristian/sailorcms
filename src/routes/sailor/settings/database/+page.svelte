@@ -21,7 +21,9 @@
   import { Badge } from '$lib/components/ui/badge';
   import Header from '$lib/components/sailor/Header.svelte';
 
-  let { data }: {
+  let {
+    data
+  }: {
     data: {
       tables: TableInfo[];
       collectionTypes: CollectionInfo[];

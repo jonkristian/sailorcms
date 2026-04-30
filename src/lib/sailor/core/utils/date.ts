@@ -131,9 +131,30 @@ export function getCurrentDateISO(): string {
 }
 
 /**
- * Get current timestamp as Date object for database operations
- * @returns Current date as Date object (Drizzle handles database-specific formatting)
+ * Get current timestamp as Date object.
+ *
+ * Use this for **typed Drizzle** inserts/updates: `db.insert(t).values({ updated_at: getCurrentTimestamp() })`.
+ * Drizzle knows the column's `mode` and converts to seconds (`mode: 'timestamp'`)
+ * or milliseconds (`mode: 'timestamp_ms'`) automatically.
+ *
+ * Do NOT use inside raw `sql` template parameters — drizzle has no column
+ * knowledge there, so the driver binds the Date as milliseconds. If the
+ * column is `mode: 'timestamp'` (seconds, the default in this codebase),
+ * the read path multiplies by 1000 and the date jumps far into the future.
+ * Use {@link getCurrentTimestampSeconds} for raw SQL.
  */
 export function getCurrentTimestamp(): Date {
   return new Date();
+}
+
+/**
+ * Get current timestamp as Unix seconds (integer).
+ *
+ * Use this for **raw `sql` template parameters** writing to columns declared
+ * as `integer({ mode: 'timestamp' })`. Drizzle binds plain numbers verbatim,
+ * so this matches what the read path expects (it multiplies by 1000 to
+ * reconstruct a Date).
+ */
+export function getCurrentTimestampSeconds(): number {
+  return Math.floor(Date.now() / 1000);
 }

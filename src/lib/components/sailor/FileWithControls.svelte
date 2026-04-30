@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GripVertical, Copy, X, ImageOff, FileText, Video } from '@lucide/svelte';
+  import { GripVertical, Copy, X, ImageOff, FileText, Video, RotateCcw } from '@lucide/svelte';
   import { Checkbox as CheckboxComponent } from '$lib/components/ui/checkbox';
 
   let {
@@ -12,7 +12,9 @@
     selected = false,
     showFilename = true, // Control whether to show filename overlay
     mimeType = '', // Accept mimeType to determine file type
+    deletedAt = null,
     onRemove,
+    onRestore,
     onCopy,
     onSelect,
     onDragStart,
@@ -30,7 +32,9 @@
     selected?: boolean;
     showFilename?: boolean; // Control whether to show filename overlay
     mimeType?: string; // MIME type from database
+    deletedAt?: string | Date | null;
     onRemove?: () => void;
+    onRestore?: () => void;
     onCopy?: (filename: string) => void;
     onSelect?: (checked: boolean) => void;
     onDragStart?: (e: DragEvent) => void;
@@ -88,6 +92,8 @@
     (!src || src === '') &&
       (mimeType?.startsWith('image/') || filename === 'Missing file' || filename === 'unknown')
   );
+
+  let isDeleted = $derived(deletedAt !== null && deletedAt !== undefined);
 </script>
 
 <div class="group relative {aspectRatio} overflow-hidden rounded border {className}" {...restProps}>
@@ -140,6 +146,31 @@
       onload={handleImageLoad}
       onerror={handleImageError}
     />
+  {/if}
+
+  {#if isDeleted}
+    {#if onRestore}
+      <button
+        type="button"
+        class="absolute right-2 bottom-2 flex items-center gap-1 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm hover:bg-red-600"
+        title="Restore this file from Recovery"
+        onclick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onRestore?.();
+        }}
+      >
+        <RotateCcw class="h-3 w-3" />
+        Restore
+      </button>
+    {:else}
+      <div
+        class="absolute right-2 bottom-2 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm"
+        title="This file is in Recovery. Restore it or pick a replacement."
+      >
+        In Recovery
+      </div>
+    {/if}
   {/if}
 
   <!-- Control buttons overlay - top right like file-picker -->

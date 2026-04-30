@@ -77,15 +77,13 @@
 
   // Upload progress state
   let uploadProgressOpen = $state(false);
-  let uploadFilesList: 
-    Array<{
-      name: string;
-      size: number;
-      status: 'pending' | 'uploading' | 'success' | 'error';
-      progress: number;
-      error?: string;
-    }>
-   = $state([]);
+  let uploadFilesList: Array<{
+    name: string;
+    size: number;
+    status: 'pending' | 'uploading' | 'success' | 'error';
+    progress: number;
+    error?: string;
+  }> = $state([]);
 
   // Edit modal state
   let editModalOpen = $state(false);

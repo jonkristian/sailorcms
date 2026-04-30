@@ -3,6 +3,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { isHttpError, isRedirect } from '@sveltejs/kit';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface LogContext {
@@ -303,7 +304,10 @@ export async function handleSailorLogging(
 
     return response;
   } catch (error) {
-    // Log errors with request context
+    // SvelteKit redirects and explicit HTTP errors are flow control, not failures
+    if (isRedirect(error) || isHttpError(error)) {
+      throw error;
+    }
     const context = createRequestContext(event);
     log.error('Request failed', context, error as Error);
     throw error;

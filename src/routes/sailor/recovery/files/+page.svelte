@@ -1,0 +1,139 @@
+<script lang="ts">
+  import { invalidateAll } from '$app/navigation';
+  import Header from '$lib/components/sailor/Header.svelte';
+  import Pagination from '$lib/components/sailor/Pagination.svelte';
+  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { toast } from '$sailor/core/ui/toast';
+  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+  import { restoreFile } from '$sailor/remote/files.remote.js';
+  import { purgeFile } from '../data.remote.js';
+  import RecoverySection from '../(components)/RecoverySection.svelte';
+  import type { PageData } from './$types';
+
+  const { data }: { data: PageData } = $props();
+
+  let purgeDialogOpen = $state(false);
+  let purgeDialogLoading = $state(false);
+  let pendingPurge = $state<{ items: Array<{ id: string; title: string }>; label: string } | null>(
+    null
+  );
+
+  async function bulkRestore(ids: string[]) {
+    if (ids.length === 0) return;
+    const results = await Promise.all(
+      ids.map((id) =>
+        restoreFile({ fileId: id }).catch(() => ({
+          success: false,
+          error: 'Failed to restore'
+        }))
+      )
+    );
+    const ok = results.filter((r) => r.success).length;
+    const failed = results.length - ok;
+
+    if (ok > 0 && failed === 0) {
+      toast.success(`Restored ${ok} file${ok === 1 ? '' : 's'}`);
+    } else if (ok > 0 && failed > 0) {
+      toast.error(`Restored ${ok}, ${failed} failed`);
+    } else {
+      toast.error('Failed to restore');
+    }
+
+    await invalidateAll();
+  }
+
+  function initiatePurge(items: Array<{ id: string; title: string }>) {
+    if (items.length === 0) return;
+    pendingPurge = {
+      items,
+      label: items.length === 1 ? items[0].title : `${items.length} files`
+    };
+    purgeDialogOpen = true;
+  }
+
+  async function executePurge() {
+    if (!pendingPurge) return;
+    purgeDialogLoading = true;
+    try {
+      const results = await Promise.all(
+        pendingPurge.items.map(async (it) => {
+          try {
+            return await purgeFile({ fileId: it.id });
+          } catch {
+            return { success: false, error: 'Failed to delete' };
+          }
+        })
+      );
+      const ok = results.filter((r) => r.success).length;
+      const failed = results.length - ok;
+
+      if (ok > 0 && failed === 0) {
+        toast.success(`Permanently deleted ${ok} file${ok === 1 ? '' : 's'}`);
+      } else if (ok > 0 && failed > 0) {
+        toast.error(`Deleted ${ok}, ${failed} failed`);
+      } else {
+        toast.error('Failed to permanently delete');
+      }
+
+      await invalidateAll();
+      purgeDialogOpen = false;
+      pendingPurge = null;
+    } finally {
+      purgeDialogLoading = false;
+    }
+  }
+</script>
+
+<svelte:head>
+  <title>Files - Recovery - Sailor CMS</title>
+</svelte:head>
+
+<div class="container mx-auto px-6">
+  <div class="mb-2">
+    <Button variant="ghost" size="sm" href="/sailor/recovery" class="px-2">
+      <ChevronLeft class="mr-1 size-4" />
+      Recovery
+    </Button>
+  </div>
+
+  <Header
+    title="Files"
+    description="Soft-deleted files. Restore to bring them back, or permanently delete to remove the underlying blob."
+    itemCount={data.pagination.totalItems}
+    showCountBadge={true}
+  />
+
+  <RecoverySection
+    titleColumnLabel="Name"
+    itemType="file"
+    showPreview={true}
+    items={data.files}
+    canRestore={data.permissions.restoreFiles}
+    canPurge={data.permissions.purgeFiles}
+    onRestore={bulkRestore}
+    onPurge={initiatePurge}
+  />
+
+  {#if data.pagination.totalPages > 1}
+    <Pagination
+      page={data.pagination.page}
+      pageSize={data.pagination.pageSize}
+      totalItems={data.pagination.totalItems}
+      totalPages={data.pagination.totalPages}
+      hasNextPage={data.pagination.hasNextPage}
+      hasPreviousPage={data.pagination.hasPreviousPage}
+      useUrlNavigation={true}
+    />
+  {/if}
+
+  <DeleteDialog
+    bind:open={purgeDialogOpen}
+    itemCount={pendingPurge?.items.length ?? 1}
+    itemType="file"
+    itemName={pendingPurge?.label || ''}
+    onConfirm={executePurge}
+    isLoading={purgeDialogLoading}
+    permanent={true}
+  />
+</div>

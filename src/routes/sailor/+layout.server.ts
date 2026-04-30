@@ -15,19 +15,25 @@ export const load: LayoutServerLoad = async (event) => {
   };
 
   try {
-    const [allCollections, allGlobals, canReadContent, canViewSettings, canViewUsers, canViewFiles] =
-      await Promise.all([
-        db.query.collectionTypes.findMany({
-          orderBy: (collectionTypes: any, { desc }: any) => [desc(collectionTypes.updated_at)]
-        }),
-        db.query.globalTypes.findMany({
-          orderBy: (globalTypes: any, { desc }: any) => [desc(globalTypes.updated_at)]
-        }),
-        locals.security.hasPermission('read', 'content'),
-        locals.security.hasPermission('read', 'settings'),
-        locals.security.hasPermission('read', 'users'),
-        locals.security.hasPermission('read', 'files')
-      ]);
+    const [
+      allCollections,
+      allGlobals,
+      canReadContent,
+      canViewSettings,
+      canViewUsers,
+      canViewFiles
+    ] = await Promise.all([
+      db.query.collectionTypes.findMany({
+        orderBy: (collectionTypes: any, { desc }: any) => [desc(collectionTypes.updated_at)]
+      }),
+      db.query.globalTypes.findMany({
+        orderBy: (globalTypes: any, { desc }: any) => [desc(globalTypes.updated_at)]
+      }),
+      locals.security.hasPermission('read', 'content'),
+      locals.security.hasPermission('read', 'settings'),
+      locals.security.hasPermission('read', 'users'),
+      locals.security.hasPermission('read', 'files')
+    ]);
 
     navData = {
       collections: canReadContent ? allCollections : [],

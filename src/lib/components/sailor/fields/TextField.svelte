@@ -1,7 +1,12 @@
 <script lang="ts">
   import { Input } from '$lib/components/ui/input';
 
-  const { value, placeholder, required, onChange }: {
+  const {
+    value,
+    placeholder,
+    required,
+    onChange
+  }: {
     value: string;
     placeholder?: string;
     required?: boolean;

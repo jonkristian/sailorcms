@@ -77,11 +77,20 @@ export abstract class DatabaseAdapter {
   abstract getNullableTimestampDefinition(name: string): string;
   abstract getTextFieldDefinition(
     name: string,
-    options?: { notNull?: boolean; unique?: boolean }
+    options?: {
+      notNull?: boolean;
+      unique?: boolean;
+      default?: string | number | boolean;
+      references?: { table: string; field: string };
+    }
   ): string;
   abstract getIntegerFieldDefinition(
     name: string,
-    options?: { notNull?: boolean; default?: number }
+    options?: {
+      notNull?: boolean;
+      default?: number | boolean;
+      mode?: 'boolean' | 'timestamp';
+    }
   ): string;
 
   // SQL function helpers for seeding

@@ -4,7 +4,7 @@ import { TagService } from '$sailor/core/services/tag.server';
 import { db } from '$sailor/core/db/index.server';
 import { eq, sql, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { getCurrentTimestamp } from '$sailor/core/utils/date';
+import { getCurrentTimestamp, getCurrentTimestampSeconds } from '$sailor/core/utils/date';
 import { generateUUID, normalizeRelationId, slugify } from '$sailor/core/utils/common';
 import { ensureUniqueSlug } from '$sailor/core/utils/slug';
 import { toSnakeCase } from '$sailor/core/utils/string';
@@ -55,7 +55,7 @@ export const reorderArrayItems = command(
           const item = items[i];
           await tx.run(
             sql`UPDATE ${sql.identifier(tableName)}
-                SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestamp()}
+                SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestampSeconds()}
                 WHERE id = ${item.id}`
           );
         }
@@ -260,7 +260,7 @@ export const reorderGlobalItems = command(
           const item = items[i];
           await tx.run(
             sql`UPDATE ${sql.identifier(`global_${globalSlug}`)}
-                SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestamp()}
+                SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestampSeconds()}
                 WHERE id = ${item.id}`
           );
         }
@@ -980,7 +980,7 @@ export const updateRelationalGlobal = command(
 
               return sql`${sql.identifier(key)} = ${value}`;
             });
-            updateSetters.push(sql`updated_at = ${getCurrentTimestamp()}`);
+            updateSetters.push(sql`updated_at = ${getCurrentTimestampSeconds()}`);
             updateSetters.push(sql`last_modified_by = ${locals.user!.id}`);
 
             await tx.run(
@@ -1030,7 +1030,7 @@ export const updateRelationalGlobal = command(
                       )}`
                     : sql``
                 })
-                VALUES (${finalItemId}, 0, ${authorValue}, ${locals.user!.id}, ${getCurrentTimestamp()}, ${getCurrentTimestamp()}${
+                VALUES (${finalItemId}, 0, ${authorValue}, ${locals.user!.id}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()}${
                   insertValues.length > 0
                     ? sql`, ${sql.join(
                         insertValues.map((v) => sql`${v}`),
@@ -1182,8 +1182,7 @@ export const bulkUpdateGlobalItems = command(
           const { id: rawId, tags, ...regularData } = item;
           // `temp-…` ids are client-side placeholders for unsaved items —
           // promote to a real UUID before inserting.
-          const id =
-            !rawId || String(rawId).startsWith('temp-') ? generateUUID() : rawId;
+          const id = !rawId || String(rawId).startsWith('temp-') ? generateUUID() : rawId;
 
           if (regularData.slug) {
             regularData.slug = slugify(String(regularData.slug));
@@ -1226,7 +1225,7 @@ export const bulkUpdateGlobalItems = command(
               const updateSetters = updateFields.map((key) => {
                 return sql`${sql.identifier(key)} = ${filteredData[key]}`;
               });
-              updateSetters.push(sql`updated_at = ${getCurrentTimestamp()}`);
+              updateSetters.push(sql`updated_at = ${getCurrentTimestampSeconds()}`);
               updateSetters.push(sql`last_modified_by = ${locals.user!.id}`);
 
               await tx.run(
@@ -1263,8 +1262,8 @@ export const bulkUpdateGlobalItems = command(
               id,
               locals.user!.id,
               locals.user!.id,
-              getCurrentTimestamp(),
-              getCurrentTimestamp(),
+              getCurrentTimestampSeconds(),
+              getCurrentTimestampSeconds(),
               ...Object.values(filteredData)
             ];
 

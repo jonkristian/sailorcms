@@ -257,8 +257,8 @@
           <div class="bg-muted/50 rounded-lg p-3">
             <h5 class="mb-2 text-sm font-medium">Files that will be repaired:</h5>
             <div class="text-muted-foreground text-sm">
-              {repairScanResult.repaired} file{repairScanResult.repaired !== 1 ? 's' : ''} will have
-              their URLs updated for proper storage compatibility.
+              {repairScanResult.repaired} file{repairScanResult.repaired !== 1 ? 's' : ''} will have their
+              URLs updated for proper storage compatibility.
             </div>
           </div>
         {/if}

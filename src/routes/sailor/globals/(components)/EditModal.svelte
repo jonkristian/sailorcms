@@ -11,7 +11,15 @@
     updateRelationalGlobal
   } from '../data.remote.js';
 
-  const { global, formData, isOpen, isNewItem, editingItem, onClose, onFormDataChange }: {
+  const {
+    global,
+    formData,
+    isOpen,
+    isNewItem,
+    editingItem,
+    onClose,
+    onFormDataChange
+  }: {
     global: any;
     formData: Record<string, any>;
     isOpen: boolean;

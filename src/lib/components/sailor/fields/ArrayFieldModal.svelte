@@ -4,7 +4,14 @@
 
   import FieldRenderer from './FieldRenderer.svelte';
 
-  const { isOpen, item, itemSchema, onSave, onClose, itemIndex }: {
+  const {
+    isOpen,
+    item,
+    itemSchema,
+    onSave,
+    onClose,
+    itemIndex
+  }: {
     isOpen: boolean;
     item: any;
     itemSchema: any;

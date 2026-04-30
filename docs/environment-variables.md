@@ -37,6 +37,22 @@ DATABASE_AUTH_TOKEN=your-auth-token
 DATABASE_URL=postgresql://user:password@localhost:5432/sailor
 ```
 
+## Email (SMTP)
+
+Outbound email is disabled until `SMTP_HOST` and `SMTP_FROM` are both set. With SMTP configured, password reset emails are sent automatically; set `EMAIL_VERIFICATION=true` to also require new accounts to verify their address.
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587                       # 465 = implicit TLS, 587 = STARTTLS
+SMTP_SECURE=                        # 'true' to force TLS; defaults true on port 465
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM="Sailor CMS <noreply@example.com>"
+
+# Require new users to verify their email before signing in
+EMAIL_VERIFICATION=false
+```
+
 ## File Storage
 
 ### Local Storage (Default)

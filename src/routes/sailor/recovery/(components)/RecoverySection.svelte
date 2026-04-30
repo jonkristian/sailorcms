@@ -1,0 +1,139 @@
+<script lang="ts">
+  import { Button } from '$lib/components/ui/button';
+  import { DataTable, BulkActionsBar } from '$lib/components/sailor/table';
+  import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
+  import { formatTableDate } from '$sailor/core/utils/date';
+  import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
+  import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+
+  type Item = {
+    id: string;
+    title: string;
+    deleted_at: any;
+    deleted_by_name: string | null;
+    mime_type?: string | null;
+    url?: string;
+  };
+
+  let {
+    label,
+    titleColumnLabel = 'Title',
+    itemType = 'item',
+    items,
+    canRestore,
+    canPurge,
+    showPreview = false,
+    onRestore,
+    onPurge
+  }: {
+    label?: string;
+    titleColumnLabel?: string;
+    itemType?: string;
+    items: Item[];
+    canRestore: boolean;
+    canPurge: boolean;
+    showPreview?: boolean;
+    onRestore: (ids: string[]) => Promise<void> | void;
+    onPurge: (items: Array<{ id: string; title: string }>) => void;
+  } = $props();
+
+  const selection = useBulkSelection(() => items);
+
+  const columns = $derived(
+    [
+      showPreview ? { key: 'preview', label: '', width: 80 } : null,
+      { key: 'title', label: titleColumnLabel },
+      { key: 'deleted_at', label: 'Deleted', width: 192 },
+      { key: 'deleted_by_name', label: 'Deleted by', width: 160 },
+      { key: 'actions', label: '', width: 192 }
+    ].filter((c): c is { key: string; label: string; width?: number } => c !== null)
+  );
+
+  async function handleBulkRestore() {
+    const ids = [...selection.selectedItems];
+    await onRestore(ids);
+    selection.clearSelection();
+  }
+
+  function handleBulkPurge() {
+    const ids = new Set(selection.selectedItems);
+    const picked = items.filter((i) => ids.has(i.id)).map((i) => ({ id: i.id, title: i.title }));
+    onPurge(picked);
+  }
+
+  const actions = $derived.by(() => {
+    const list: Array<{
+      label: string;
+      variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+      onClick: () => void;
+    }> = [];
+    if (canRestore) {
+      list.push({
+        label: `Restore (${selection.selectedCount})`,
+        variant: 'outline',
+        onClick: handleBulkRestore
+      });
+    }
+    if (canPurge) {
+      list.push({
+        label: `Delete (${selection.selectedCount})`,
+        variant: 'destructive',
+        onClick: handleBulkPurge
+      });
+    }
+    return list;
+  });
+</script>
+
+<section class="space-y-3">
+  <BulkActionsBar
+    selectedCount={selection.selectedCount}
+    totalCount={selection.totalCount}
+    {itemType}
+    {actions}
+  >
+    {#if label}
+      <h2 class="text-lg font-semibold">{label}</h2>
+    {/if}
+  </BulkActionsBar>
+
+  <DataTable
+    {items}
+    {columns}
+    selectable={true}
+    selectedItems={selection.selectedItems}
+    onSelect={selection.handleSelect}
+    onSelectAll={selection.handleSelectAll}
+  >
+    {#snippet cellRenderer(item: Item, column: { key: string })}
+      {#if column.key === 'preview'}
+        <div class="h-16 w-16 shrink-0 overflow-hidden">
+          <FileWithControls
+            src={item.mime_type?.startsWith('image/') ? (item.url ?? '') : ''}
+            alt={item.title}
+            filename={item.title}
+            mimeType={item.mime_type ?? ''}
+            aspectRatio="aspect-square"
+            controls={[]}
+            showFilename={false}
+          />
+        </div>
+      {:else if column.key === 'title'}
+        <span class="font-medium">{item.title || item.id}</span>
+      {:else if column.key === 'deleted_at'}
+        {formatTableDate(item.deleted_at)}
+      {:else if column.key === 'deleted_by_name'}
+        {item.deleted_by_name || '—'}
+      {:else if column.key === 'actions'}
+        <div class="flex justify-end gap-2">
+          {#if canRestore}
+            <Button variant="outline" size="sm" onclick={() => onRestore([item.id])}>
+              <RotateCcw class="mr-1 size-3.5" />
+              Restore
+            </Button>
+          {/if}
+        </div>
+      {/if}
+    {/snippet}
+  </DataTable>
+</section>

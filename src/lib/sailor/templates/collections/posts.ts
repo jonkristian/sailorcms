@@ -50,6 +50,7 @@ export const postsCollection: CollectionDefinition = {
     categories: {
       type: 'relation',
       label: 'Categories',
+      showInTable: true,
       relation: {
         type: 'many-to-many',
         targetGlobal: 'categories'

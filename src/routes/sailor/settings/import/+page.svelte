@@ -17,9 +17,9 @@
   let availableCollections = $derived(data.collections);
 
   // Dynamic import state
-  let WordPressImportComponent: 
-    typeof import('$lib/components/sailor/WordPressImport.svelte').default | null
-   = $state(null);
+  let WordPressImportComponent:
+    | typeof import('$lib/components/sailor/WordPressImport.svelte').default
+    | null = $state(null);
   let loadingImportComponent = $state(false);
 
   function handleCollectionChange(value: string) {

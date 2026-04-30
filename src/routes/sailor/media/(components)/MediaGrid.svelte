@@ -9,7 +9,14 @@
     tags?: Tag[];
   };
 
-  let { files, selectedItems, onSelect, onEdit, onRemove, onCopy }: {
+  let {
+    files,
+    selectedItems,
+    onSelect,
+    onEdit,
+    onRemove,
+    onCopy
+  }: {
     files: FileWithTags[];
     selectedItems: string[];
     onSelect: (id: string) => void;

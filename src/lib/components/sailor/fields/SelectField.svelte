@@ -1,7 +1,13 @@
 <script lang="ts">
   import * as Select from '$lib/components/ui/select';
 
-  const { value, options, placeholder, required, onChange }: {
+  const {
+    value,
+    options,
+    placeholder,
+    required,
+    onChange
+  }: {
     value: string;
     options: (string | { label: string; value: string })[];
     placeholder?: string;

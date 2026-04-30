@@ -35,7 +35,10 @@
     hasActiveFilters: boolean;
   }
 
-  const { config, tableFilters }: {
+  const {
+    config,
+    tableFilters
+  }: {
     config: FilterConfig;
     tableFilters?: FilterState;
   } = $props();
@@ -105,7 +108,8 @@
         type="single"
         value={currentValue}
         onValueChange={(value) => {
-          if (tableFilters) tableFilters.handleSelectFilter(selectConfig.key, value || selectConfig.default);
+          if (tableFilters)
+            tableFilters.handleSelectFilter(selectConfig.key, value || selectConfig.default);
         }}
       >
         <Select.Trigger class="h-9 w-32">

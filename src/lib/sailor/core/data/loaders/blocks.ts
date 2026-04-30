@@ -1,6 +1,9 @@
 import { loadFileFields } from './file-loader';
 import { loadArrayFields } from '$sailor/utils/data/loaders/array-loader';
-import { loadOneToXRelations, loadManyToManyRelations } from '$sailor/utils/data/loaders/relation-loader';
+import {
+  loadOneToXRelations,
+  loadManyToManyRelations
+} from '$sailor/utils/data/loaders/relation-loader';
 
 /**
  * Core block field loader for admin UI

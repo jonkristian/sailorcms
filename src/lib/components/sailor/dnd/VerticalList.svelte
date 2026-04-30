@@ -1,7 +1,11 @@
 <script lang="ts">
   import { flip } from 'svelte/animate';
 
-  let { items, onItemsChange, children }: {
+  let {
+    items,
+    onItemsChange,
+    children
+  }: {
     items: Array<{ id: string; [key: string]: any }>;
     onItemsChange?: (items: Array<{ id: string; [key: string]: any }>) => void;
     children: any;

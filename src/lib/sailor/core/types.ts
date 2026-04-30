@@ -346,6 +346,7 @@ export type GlobalDefinition = {
     inline?: boolean; // edit inline vs navigate to separate pages (repeatable only)
     titleField?: string; // Field to use as title for display
     readonly?: boolean; // make items read-only (hide create/edit UI)
+    defaultView?: 'edit' | 'read'; // 'read' opens existing items in a read-only view with an Edit toggle (good for submissions); new items always start in edit mode
     defaultSort?: { field: string; direction: 'asc' | 'desc' }; // default sort order
     searchable?: boolean; // Include in frontend search() utility
   };

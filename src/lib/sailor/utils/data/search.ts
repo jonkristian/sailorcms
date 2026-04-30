@@ -67,10 +67,7 @@ export interface SearchResult {
  * });
  * ```
  */
-export async function search(
-  query: string,
-  options: SearchOptions = {}
-): Promise<SearchResult> {
+export async function search(query: string, options: SearchOptions = {}): Promise<SearchResult> {
   const trimmed = query?.trim();
   if (!trimmed) {
     return { items: [], total: 0, totalByEntity: {}, hasMore: false };
@@ -87,9 +84,7 @@ export async function search(
   } = options;
   const table = (schema as any).searchIndex;
   if (!table) {
-    console.error(
-      'search(): search_index table missing from schema. Run `npx sailor db:update`.'
-    );
+    console.error('search(): search_index table missing from schema. Run `npx sailor db:update`.');
     return { items: [], total: 0, totalByEntity: {}, hasMore: false };
   }
 
@@ -196,8 +191,7 @@ async function fetchFtsMatches(
   const scopeFilter = buildScopeFilterRaw(scope);
   if (scopeFilter) filters.push(scopeFilter);
 
-  const whereClause =
-    filters.length > 1 ? sql.join(filters, sql` AND `) : filters[0];
+  const whereClause = filters.length > 1 ? sql.join(filters, sql` AND `) : filters[0];
 
   const rows: any = await db.all(sql`
     SELECT
@@ -312,23 +306,16 @@ function buildScopeFilterRaw(scope: SearchScope | undefined): SQL | null {
   return branches.length > 1 ? sql`(${sql.join(branches, sql` OR `)})` : branches[0];
 }
 
-function buildScopeFilterBuilder(
-  table: any,
-  scope: SearchScope | undefined
-): SQL | null {
+function buildScopeFilterBuilder(table: any, scope: SearchScope | undefined): SQL | null {
   const cs = scope?.collections ?? [];
   const gs = scope?.globals ?? [];
   if (cs.length === 0 && gs.length === 0) return null;
   const branches: SQL[] = [];
   if (cs.length) {
-    branches.push(
-      and(eq(table.entity_type, 'collection'), inArray(table.entity_name, cs)) as SQL
-    );
+    branches.push(and(eq(table.entity_type, 'collection'), inArray(table.entity_name, cs)) as SQL);
   }
   if (gs.length) {
-    branches.push(
-      and(eq(table.entity_type, 'global'), inArray(table.entity_name, gs)) as SQL
-    );
+    branches.push(and(eq(table.entity_type, 'global'), inArray(table.entity_name, gs)) as SQL);
   }
   return branches.length > 1 ? (or(...branches) as SQL) : branches[0];
 }
@@ -363,9 +350,9 @@ function buildSnippetFromItem(
   query: string,
   windowSize = 160
 ): string {
-  const registry = (entityType === 'collection'
-    ? collectionDefinitions
-    : globalDefinitions) as Record<string, any>;
+  const registry = (
+    entityType === 'collection' ? collectionDefinitions : globalDefinitions
+  ) as Record<string, any>;
   const def = registry[entityName];
   const fieldNames: string[] = [];
   if (def?.fields) {
@@ -405,7 +392,10 @@ function stripToPlainText(source: any): string {
       // fall through to HTML strip
     }
   }
-  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function extractTipTapText(node: any): string {

@@ -47,7 +47,6 @@
     url.searchParams.delete('error');
     goto(url.toString(), { replaceState: true });
   });
-
 </script>
 
 <svelte:head>

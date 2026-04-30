@@ -2,7 +2,10 @@
   import { ChevronRight, ChevronDown } from '@lucide/svelte';
   import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
 
-  let { data, expandedCategory }: {
+  let {
+    data,
+    expandedCategory
+  }: {
     data: Record<string, any>;
     expandedCategory?: string;
   } = $props();

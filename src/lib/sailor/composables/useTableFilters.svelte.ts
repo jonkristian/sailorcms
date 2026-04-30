@@ -91,9 +91,7 @@ export function useTableFilters(options: FilterOptions) {
   // Sort state
   let sortBy = $state(config.sort ? initialParams.get('sortBy') || getDefaultSort() : '');
   let sortOrder: 'asc' | 'desc' = $state(
-    config.sort
-      ? (initialParams.get('sortOrder') as 'asc' | 'desc') || getDefaultOrder()
-      : 'desc'
+    config.sort ? (initialParams.get('sortOrder') as 'asc' | 'desc') || getDefaultOrder() : 'desc'
   );
 
   // Select filters state
@@ -113,7 +111,7 @@ export function useTableFilters(options: FilterOptions) {
     }
   }
 
-  let lastSyncedPathname = browser ? page?.url?.pathname ?? '' : '';
+  let lastSyncedPathname = browser ? (page?.url?.pathname ?? '') : '';
   afterNavigate(({ to }) => {
     const pathname = to?.url?.pathname;
     if (!pathname || pathname === lastSyncedPathname) return;

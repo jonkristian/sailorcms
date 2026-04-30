@@ -22,7 +22,8 @@ export function detectImageFormatFromBytes(bytes: Uint8Array): string | null {
     bytes[7] === 0x0a
   )
     return 'png';
-  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'gif';
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38)
+    return 'gif';
   if (
     bytes[0] === 0x52 &&
     bytes[1] === 0x49 &&
