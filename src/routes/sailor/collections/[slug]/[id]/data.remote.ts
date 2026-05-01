@@ -8,6 +8,7 @@ import { generateUUID, slugify } from '$lib/sailor/core/utils/common';
 import { ensureUniqueSlug } from '$sailor/core/utils/slug';
 import { TagService } from '$sailor/core/services/tag.server';
 import { SearchIndexService } from '$sailor/core/services/search-index.server';
+import { RevisionsService, resolveRevisionsKeep } from '$sailor/core/services/revisions.server';
 import { toSnakeCase } from '$sailor/core/utils/string';
 import { getCurrentTimestampSeconds } from '$sailor/core/utils/date';
 
@@ -726,6 +727,27 @@ export const saveCollectionItem = command(
       // reindex reads fully-committed state. Non-throwing — index failures
       // must not break saves.
       await SearchIndexService.onSaveSafe('collection', collectionSlug, result.itemId);
+
+      // Snapshot a revision when the template opts in. Failures here must never
+      // break the save — log and continue.
+      const revisionKeep = resolveRevisionsKeep(collectionOptions.revisions);
+      if (revisionKeep !== null) {
+        try {
+          await RevisionsService.create({
+            entityType: `collection:${collectionSlug}`,
+            entityId: result.itemId,
+            data: formData,
+            userId: locals.user?.id ?? null,
+            keep: revisionKeep
+          });
+        } catch (err) {
+          log.error(
+            'Failed to create revision',
+            { collectionSlug, itemId: result.itemId },
+            err as Error
+          );
+        }
+      }
 
       // Return the persisted row so the client can re-hydrate without a full
       // route reload. Tags are loaded separately on the client.

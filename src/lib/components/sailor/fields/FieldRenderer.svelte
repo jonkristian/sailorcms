@@ -42,6 +42,8 @@
   import RelationField from './RelationField.svelte';
   import FileField from './FileField.svelte';
   import TagsInput from './TagsInput.svelte';
+  import { formatDetailedDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
 
   const wysiwygModule = $derived(field.type === 'wysiwyg' ? import('./WysiwygField.svelte') : null);
 
@@ -250,15 +252,7 @@
           </div>
         {:else if field.type === 'date'}
           <div class="bg-input-bg rounded-lg px-3 py-2 font-medium">
-            {value
-              ? new Date(value).toLocaleString(undefined, {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
-              : '-'}
+            {value ? formatDetailedDate(value, getUserLocale()) : '-'}
           </div>
         {:else}
           <div class="bg-input-bg rounded-lg px-3 py-2 font-medium">{value || '-'}</div>

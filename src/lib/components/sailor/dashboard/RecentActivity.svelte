@@ -15,6 +15,7 @@
   } from '@lucide/svelte';
   import { goto } from '$app/navigation';
   import { formatRelativeTime } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
 
   interface ActivityItem {
     id: string;
@@ -191,7 +192,7 @@
             <!-- Time Column -->
             <div class="w-28 flex-shrink-0 text-right">
               <span class="text-muted-foreground text-xs">
-                {formatRelativeTime(activity.timestamp)}
+                {formatRelativeTime(activity.timestamp, getUserLocale())}
               </span>
             </div>
           </div>

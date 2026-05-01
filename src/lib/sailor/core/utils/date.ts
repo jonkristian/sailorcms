@@ -1,15 +1,25 @@
 /**
- * Date utility functions for consistent date handling across the CMS
+ * Date utility functions for consistent date handling across the CMS.
+ *
+ * Locale resolution: every formatter accepts an optional `locale` (BCP-47 string).
+ * Callers in the admin UI should pass `page.data.user?.preferences?.date_format`
+ * via {@link getUserLocale} so per-user date format preferences are honoured.
+ * When omitted, helpers fall back to {@link DEFAULT_LOCALE}.
  */
 
+import { DEFAULT_PREFERENCES } from './user-preferences';
+
+export const DEFAULT_LOCALE = DEFAULT_PREFERENCES.date_format ?? 'en-US';
+
 /**
- * Format a date string or Date object to a readable format
+ * Format a date string or Date object to a readable format.
  * @param date - ISO string, Date object, or null/undefined
+ * @param locale - BCP-47 locale (e.g. 'en-US', 'nb-NO'). Defaults to {@link DEFAULT_LOCALE}.
  * @param options - Intl.DateTimeFormatOptions for customization
- * @returns Formatted date string or fallback text
  */
 export function formatDate(
   date: string | Date | null | undefined,
+  locale: string = DEFAULT_LOCALE,
   options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
@@ -26,33 +36,31 @@ export function formatDate(
       return '-';
     }
 
-    return dateObj.toLocaleDateString('en-US', options);
+    return dateObj.toLocaleDateString(locale, options);
   } catch (error) {
     console.warn('Error formatting date:', error);
     return '-';
   }
 }
 
-/**
- * Format a date for display in tables (short format)
- * @param date - ISO string, Date object, or null/undefined
- * @returns Short formatted date string
- */
-export function formatTableDate(date: string | Date | null | undefined): string {
-  return formatDate(date, {
+/** Short date format (used in tables / list rows). */
+export function formatTableDate(
+  date: string | Date | null | undefined,
+  locale: string = DEFAULT_LOCALE
+): string {
+  return formatDate(date, locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
 }
 
-/**
- * Format a date for display in forms or detailed views
- * @param date - ISO string, Date object, or null/undefined
- * @returns Detailed formatted date string
- */
-export function formatDetailedDate(date: string | Date | null | undefined): string {
-  return formatDate(date, {
+/** Long date + time (forms, detail views, audit lines). */
+export function formatDetailedDate(
+  date: string | Date | null | undefined,
+  locale: string = DEFAULT_LOCALE
+): string {
+  return formatDate(date, locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -61,45 +69,47 @@ export function formatDetailedDate(date: string | Date | null | undefined): stri
   });
 }
 
+/** Locale-aware "5/1/2026, 12:11:14 PM"-style timestamp. */
+export function formatTimestamp(
+  date: string | Date | null | undefined,
+  locale: string = DEFAULT_LOCALE
+): string {
+  if (!date) return '-';
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return '-';
+    return dateObj.toLocaleString(locale);
+  } catch (error) {
+    console.warn('Error formatting timestamp:', error);
+    return '-';
+  }
+}
+
 /**
- * Format a date for relative time display (e.g., "2 hours ago")
- * @param date - ISO string, Date object, or null/undefined
- * @returns Relative time string
+ * Format a date for relative time display (e.g., "2 hours ago").
+ * Uses `Intl.RelativeTimeFormat` so the short/long forms localise correctly.
+ * Falls back to {@link formatDate} once the gap exceeds a week.
  */
-export function formatRelativeTime(date: string | Date | null | undefined): string {
+export function formatRelativeTime(
+  date: string | Date | null | undefined,
+  locale: string = DEFAULT_LOCALE
+): string {
   if (!date) return '-';
 
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return '-';
 
-    if (isNaN(dateObj.getTime())) {
-      return '-';
-    }
+    const diffInSeconds = Math.floor((Date.now() - dateObj.getTime()) / 1000);
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
 
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
+    if (diffInSeconds < 60) return rtf.format(0, 'second');
+    if (diffInSeconds < 3600) return rtf.format(-Math.floor(diffInSeconds / 60), 'minute');
+    if (diffInSeconds < 86400) return rtf.format(-Math.floor(diffInSeconds / 3600), 'hour');
+    if (diffInSeconds < 604800) return rtf.format(-Math.floor(diffInSeconds / 86400), 'day');
 
-    if (diffInSeconds < 60) {
-      return 'Just now';
-    }
-
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
-    }
-
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) {
-      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
-    }
-
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) {
-      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
-    }
-
-    // For older dates, use the standard format
-    return formatDate(date);
+    // For older dates, defer to the absolute-date formatter.
+    return formatDate(date, locale);
   } catch (error) {
     console.warn('Error formatting relative time:', error);
     return '-';

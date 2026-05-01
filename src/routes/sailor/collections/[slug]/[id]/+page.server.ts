@@ -1,13 +1,14 @@
 import { error } from '@sveltejs/kit';
 import { db } from '$sailor/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
-import { sql, eq, and } from 'drizzle-orm';
+import { sql, eq, and, desc } from 'drizzle-orm';
 import { getCurrentTimestamp } from '$sailor/core/utils/date';
 import { collectionTypes } from '$sailor/core/db/index.server';
 import { TagService } from '$sailor/core/services/tag.server';
 import { loadBlockFields } from '$sailor/core/content/blocks.server';
 import { loadFileFields } from '$sailor/core/data/loaders/file-loader';
 import { SystemSettingsService } from '$sailor/core/services/settings.server';
+import { resolveRevisionsKeep } from '$sailor/core/services/revisions.server';
 import type { PageServerLoad } from './$types';
 import { log } from '$sailor/core/utils/logger';
 import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';
@@ -377,6 +378,60 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     }
   });
 
+  // Preload all revisions (including the snapshot payload) so the dialog can
+  // open straight to the most recent and arrow-navigate through them with no
+  // per-step fetch. Capped at the same default the writer prunes to.
+  let revisions: Array<{
+    id: string;
+    created_at: Date;
+    created_by_id: string | null;
+    created_by_name: string | null;
+    created_by_email: string | null;
+    data: Record<string, unknown>;
+  }> = [];
+  if (!isNewItem && resolveRevisionsKeep(collectionDefinition.options?.revisions) !== null) {
+    try {
+      const rows = await db
+        .select({
+          id: schema.revisions.id,
+          data: schema.revisions.data,
+          created_at: schema.revisions.created_at,
+          created_by_id: schema.revisions.created_by,
+          created_by_name: schema.users.name,
+          created_by_email: schema.users.email
+        })
+        .from(schema.revisions)
+        .leftJoin(schema.users, eq(schema.users.id, schema.revisions.created_by))
+        .where(
+          and(
+            eq(schema.revisions.entity_type, `collection:${slug}`),
+            eq(schema.revisions.entity_id, String(page.id))
+          )
+        )
+        .orderBy(desc(schema.revisions.created_at))
+        .limit(50);
+      revisions = rows.map((r: (typeof rows)[number]) => {
+        let parsed: Record<string, unknown> = {};
+        try {
+          const v = JSON.parse(r.data);
+          if (v && typeof v === 'object') parsed = v as Record<string, unknown>;
+        } catch {
+          // leave as empty object
+        }
+        return {
+          id: r.id,
+          created_at: r.created_at as Date,
+          created_by_id: r.created_by_id,
+          created_by_name: r.created_by_name,
+          created_by_email: r.created_by_email,
+          data: parsed
+        };
+      });
+    } catch (err) {
+      log.error('Failed to load revisions for page', { slug, id: page.id }, err as Error);
+    }
+  }
+
   return {
     page: { ...page, blocks } as CollectionTypes[keyof CollectionTypes] & {
       blocks: BlockTypes[keyof BlockTypes][];
@@ -387,6 +442,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     slug: slug,
     hasBlocks: collectionDefinition.options?.blocks !== false, // Default to true if not specified
     siteUrl: siteUrl || '',
-    headerActions
+    headerActions,
+    revisions
   };
 };

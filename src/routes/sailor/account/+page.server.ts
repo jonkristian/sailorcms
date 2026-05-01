@@ -2,6 +2,12 @@ import { fail, error, redirect } from '@sveltejs/kit';
 import { db, users, accounts } from '$sailor/core/db/index.server';
 import { eq, and } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import {
+  parsePreferences,
+  mergePreferences,
+  resolvePreferences,
+  type UserPreferences
+} from '$sailor/core/utils/user-preferences';
 
 export const load = async ({ locals }: { locals: App.Locals }) => {
   // Authentication handled by hooks
@@ -31,6 +37,7 @@ export const load = async ({ locals }: { locals: App.Locals }) => {
       role: user.role || 'user',
       image: user.image,
       email_verified: user.email_verified,
+      preferences: resolvePreferences((user as any).preferences),
       created_at: user.created_at,
       updated_at: user.updated_at
     },
@@ -49,6 +56,7 @@ export const actions = {
     const currentPassword = formData.get('currentPassword') as string;
     const newPassword = formData.get('newPassword') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
+    const dateFormat = formData.get('date_format') as string | null;
 
     // Basic validation
     if (!name || name.trim().length === 0) {
@@ -68,9 +76,24 @@ export const actions = {
     }
 
     try {
-      const updateData: { name: string } = {
+      const updateData: { name: string; preferences?: string } = {
         name: name.trim()
       };
+
+      // Merge preference patch into the existing JSON blob — additive so future
+      // preferences (theme, density, etc.) survive partial saves.
+      const existing = await db.query.users.findFirst({
+        where: eq(users.id, locals.user.id),
+        columns: { preferences: true } as any
+      });
+      const currentPrefs = parsePreferences((existing as any)?.preferences);
+      const patch: Partial<UserPreferences> = {};
+      if (typeof dateFormat === 'string' && dateFormat.length > 0) {
+        patch.date_format = dateFormat;
+      }
+      if (Object.keys(patch).length > 0) {
+        updateData.preferences = JSON.stringify(mergePreferences(currentPrefs, patch));
+      }
 
       // Handle password change if provided
       if (currentPassword && newPassword) {

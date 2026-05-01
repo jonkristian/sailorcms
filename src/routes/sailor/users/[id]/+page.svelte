@@ -12,6 +12,7 @@
   import * as Dialog from '$lib/components/ui/dialog';
   import { toast } from '$sailor/core/ui/toast';
   import { formatDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { getRoleColor, copyUserId, shortenUserId } from '$lib/sailor/core/utils/user';
   import type { PageData, ActionData } from './$types';
   import Header from '$lib/components/sailor/Header.svelte';
@@ -322,14 +323,18 @@
                   <div class="flex items-center justify-between">
                     <span class="text-sm font-medium">Member Since:</span>
                     <span class="text-muted-foreground text-sm">
-                      {data.targetUser?.created_at ? formatDate(data.targetUser.created_at) : 'N/A'}
+                      {data.targetUser?.created_at
+                        ? formatDate(data.targetUser.created_at, getUserLocale())
+                        : 'N/A'}
                     </span>
                   </div>
 
                   <div class="flex items-center justify-between">
                     <span class="text-sm font-medium">Last Updated:</span>
                     <span class="text-muted-foreground text-sm">
-                      {data.targetUser?.updated_at ? formatDate(data.targetUser.updated_at) : 'N/A'}
+                      {data.targetUser?.updated_at
+                        ? formatDate(data.targetUser.updated_at, getUserLocale())
+                        : 'N/A'}
                     </span>
                   </div>
                 </div>

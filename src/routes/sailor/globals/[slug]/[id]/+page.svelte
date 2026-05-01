@@ -8,12 +8,14 @@
   import { Save, Pencil } from '@lucide/svelte';
   import { Separator } from '$lib/components/ui/separator';
   import { formatDetailedDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { useUnsavedChanges } from '$sailor/core/hooks/unsaved-changes.svelte';
   import {
     updateFlatGlobal,
     updateRepeatableGlobal,
     updateRelationalGlobal
   } from '../../data.remote.js';
+  import OverlayLoader from '$lib/components/sailor/OverlayLoader.svelte';
 
   const { data }: { data: any } = $props();
 
@@ -176,222 +178,226 @@
   <title>{data.global.name.singular} - Sailor CMS</title>
 </svelte:head>
 
-<div class="container mx-auto px-6 py-6">
-  <form onsubmit={handleSubmit} class="flex h-[calc(100vh-12rem)] gap-6">
-    <!-- Main Content Area -->
-    <div class="flex flex-1 flex-col">
-      <!-- Header Fields -->
-      {#if headerFields.length > 0}
-        <div class="mb-6 space-y-4 border-b pb-4">
-          {#each headerFields as [fieldKey, field]}
-            {@const typedField = field as any}
-            <div class="space-y-2">
-              {#if mode === 'edit' && typedField.type === 'array'}
-                <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
-                <ArrayField
-                  items={getFieldValue(fieldKey) || []}
-                  itemSchema={typedField.items?.properties || {}}
-                  onChange={(items) => handleArrayFieldChange(fieldKey, items)}
-                  onReorder={(items) => handleArrayReorder(fieldKey, items)}
-                  globalSlug={data.global.slug}
-                  fieldName={fieldKey}
-                  nestable={typedField.nestable || false}
-                />
-              {:else}
-                <FieldRenderer
-                  field={typedField}
-                  value={getFieldValue(fieldKey)}
-                  {fieldKey}
-                  titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
-                  currentItemId={data.item?.id}
-                  entityType="global_{data.global.slug}"
-                  onChange={(value) => updateField(fieldKey, value)}
-                  readonly={data.global.options?.readonly}
-                  {mode}
-                />
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/if}
+<OverlayLoader>
+  <div class="container mx-auto px-6 py-6">
+    <form onsubmit={handleSubmit} class="flex h-[calc(100vh-12rem)] gap-6">
+      <!-- Main Content Area -->
+      <div class="flex flex-1 flex-col">
+        <!-- Header Fields -->
+        {#if headerFields.length > 0}
+          <div class="mb-6 space-y-4 border-b pb-4">
+            {#each headerFields as [fieldKey, field]}
+              {@const typedField = field as any}
+              <div class="space-y-2">
+                {#if mode === 'edit' && typedField.type === 'array'}
+                  <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
+                  <ArrayField
+                    items={getFieldValue(fieldKey) || []}
+                    itemSchema={typedField.items?.properties || {}}
+                    onChange={(items) => handleArrayFieldChange(fieldKey, items)}
+                    onReorder={(items) => handleArrayReorder(fieldKey, items)}
+                    globalSlug={data.global.slug}
+                    fieldName={fieldKey}
+                    nestable={typedField.nestable || false}
+                  />
+                {:else}
+                  <FieldRenderer
+                    field={typedField}
+                    value={getFieldValue(fieldKey)}
+                    {fieldKey}
+                    titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
+                    currentItemId={data.item?.id}
+                    entityType="global_{data.global.slug}"
+                    onChange={(value) => updateField(fieldKey, value)}
+                    readonly={data.global.options?.readonly}
+                    {mode}
+                  />
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
 
-      <!-- Main Fields -->
-      <div class="flex-1 overflow-y-auto">
-        <div class="space-y-6">
-          {#if mainFields.length > 0}
-            <div
-              class={mode === 'read'
-                ? 'border-input divide-border/40 divide-y rounded-lg border px-6'
-                : 'space-y-6'}
-            >
-              {#each mainFields as [fieldKey, field]}
-                {@const typedField = field as any}
-                <div class={mode === 'read' ? '' : 'space-y-2'}>
-                  {#if mode === 'edit' && typedField.type === 'array'}
-                    <div class="border-input rounded-lg border p-6">
+        <!-- Main Fields -->
+        <div class="flex-1 overflow-y-auto">
+          <div class="space-y-6">
+            {#if mainFields.length > 0}
+              <div
+                class={mode === 'read'
+                  ? 'border-input divide-border/40 divide-y rounded-lg border px-6'
+                  : 'space-y-6'}
+              >
+                {#each mainFields as [fieldKey, field]}
+                  {@const typedField = field as any}
+                  <div class={mode === 'read' ? '' : 'space-y-2'}>
+                    {#if mode === 'edit' && typedField.type === 'array'}
+                      <div class="border-input rounded-lg border p-6">
+                        <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
+                        <ArrayField
+                          items={getFieldValue(fieldKey) || []}
+                          itemSchema={typedField.items?.properties || {}}
+                          onChange={(items) => handleArrayFieldChange(fieldKey, items)}
+                          onReorder={(items) => handleArrayReorder(fieldKey, items)}
+                          globalSlug={data.global.slug}
+                          fieldName={fieldKey}
+                          nestable={typedField.nestable || false}
+                        />
+                      </div>
+                    {:else}
+                      <FieldRenderer
+                        field={typedField}
+                        value={getFieldValue(fieldKey)}
+                        {fieldKey}
+                        titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
+                        currentItemId={data.item?.id}
+                        entityType="global_{data.global.slug}"
+                        onChange={(value) => updateField(fieldKey, value)}
+                        readonly={data.global.options?.readonly}
+                        {mode}
+                      />
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              <div class="flex flex-col items-center justify-center py-12 text-center">
+                <h3 class="mb-2 text-lg font-medium">No main fields</h3>
+                <p class="text-muted-foreground">
+                  This global doesn't have any main content fields.
+                </p>
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <!-- Footer Fields -->
+        {#if footerFields.length > 0}
+          <div class="mt-6 space-y-4 border-t pt-4">
+            {#each footerFields as [fieldKey, field]}
+              {@const typedField = field as any}
+              <div class="space-y-2">
+                {#if mode === 'edit' && typedField.type === 'array'}
+                  <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
+                  <ArrayField
+                    items={getFieldValue(fieldKey) || []}
+                    itemSchema={typedField.items?.properties || {}}
+                    onChange={(items) => handleArrayFieldChange(fieldKey, items)}
+                    onReorder={(items) => handleArrayReorder(fieldKey, items)}
+                    globalSlug={data.global.slug}
+                    fieldName={fieldKey}
+                    nestable={typedField.nestable || false}
+                  />
+                {:else}
+                  <FieldRenderer
+                    field={typedField}
+                    value={getFieldValue(fieldKey)}
+                    {fieldKey}
+                    titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
+                    currentItemId={data.item?.id}
+                    entityType="global_{data.global.slug}"
+                    onChange={(value) => updateField(fieldKey, value)}
+                    readonly={data.global.options?.readonly}
+                    {mode}
+                  />
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      <!-- Right Sidebar -->
+      <div class="bg-background w-80 border-l">
+        <div class="h-full overflow-y-auto p-4 pt-4">
+          <div class="space-y-6">
+            <!-- Sidebar Fields -->
+            {#if sidebarFields.length > 0}
+              <div class="space-y-4">
+                {#each sidebarFields as [fieldKey, field]}
+                  {@const typedField = field as any}
+                  <div class="space-y-2">
+                    {#if mode === 'edit' && typedField.type === 'array'}
                       <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
                       <ArrayField
                         items={getFieldValue(fieldKey) || []}
                         itemSchema={typedField.items?.properties || {}}
                         onChange={(items) => handleArrayFieldChange(fieldKey, items)}
-                        onReorder={(items) => handleArrayReorder(fieldKey, items)}
-                        globalSlug={data.global.slug}
-                        fieldName={fieldKey}
                         nestable={typedField.nestable || false}
                       />
-                    </div>
-                  {:else}
-                    <FieldRenderer
-                      field={typedField}
-                      value={getFieldValue(fieldKey)}
-                      {fieldKey}
-                      titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
-                      currentItemId={data.item?.id}
-                      entityType="global_{data.global.slug}"
-                      onChange={(value) => updateField(fieldKey, value)}
-                      readonly={data.global.options?.readonly}
-                      {mode}
-                    />
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="flex flex-col items-center justify-center py-12 text-center">
-              <h3 class="mb-2 text-lg font-medium">No main fields</h3>
-              <p class="text-muted-foreground">This global doesn't have any main content fields.</p>
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      <!-- Footer Fields -->
-      {#if footerFields.length > 0}
-        <div class="mt-6 space-y-4 border-t pt-4">
-          {#each footerFields as [fieldKey, field]}
-            {@const typedField = field as any}
-            <div class="space-y-2">
-              {#if mode === 'edit' && typedField.type === 'array'}
-                <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
-                <ArrayField
-                  items={getFieldValue(fieldKey) || []}
-                  itemSchema={typedField.items?.properties || {}}
-                  onChange={(items) => handleArrayFieldChange(fieldKey, items)}
-                  onReorder={(items) => handleArrayReorder(fieldKey, items)}
-                  globalSlug={data.global.slug}
-                  fieldName={fieldKey}
-                  nestable={typedField.nestable || false}
-                />
-              {:else}
-                <FieldRenderer
-                  field={typedField}
-                  value={getFieldValue(fieldKey)}
-                  {fieldKey}
-                  titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
-                  currentItemId={data.item?.id}
-                  entityType="global_{data.global.slug}"
-                  onChange={(value) => updateField(fieldKey, value)}
-                  readonly={data.global.options?.readonly}
-                  {mode}
-                />
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-
-    <!-- Right Sidebar -->
-    <div class="bg-background w-80 border-l">
-      <div class="h-full overflow-y-auto p-4 pt-4">
-        <div class="space-y-6">
-          <!-- Sidebar Fields -->
-          {#if sidebarFields.length > 0}
-            <div class="space-y-4">
-              {#each sidebarFields as [fieldKey, field]}
-                {@const typedField = field as any}
-                <div class="space-y-2">
-                  {#if mode === 'edit' && typedField.type === 'array'}
-                    <label class="text-sm font-medium" for={fieldKey}>{typedField.label}</label>
-                    <ArrayField
-                      items={getFieldValue(fieldKey) || []}
-                      itemSchema={typedField.items?.properties || {}}
-                      onChange={(items) => handleArrayFieldChange(fieldKey, items)}
-                      nestable={typedField.nestable || false}
-                    />
-                  {:else}
-                    <FieldRenderer
-                      field={typedField}
-                      value={getFieldValue(fieldKey)}
-                      {fieldKey}
-                      titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
-                      currentItemId={data.item?.id}
-                      entityType="global_{data.global.slug}"
-                      onChange={(value) => updateField(fieldKey, value)}
-                      readonly={data.global.options?.readonly}
-                      {mode}
-                    />
-                  {/if}
-                </div>
-              {/each}
-            </div>
-            <Separator />
-          {/if}
-
-          <!-- Metadata -->
-          <div class="space-y-4">
-            {#if data.item?.created_at}
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium">Created</span>
-                <span class="text-muted-foreground text-sm">
-                  {formatDetailedDate(data.item.created_at)}
-                </span>
+                    {:else}
+                      <FieldRenderer
+                        field={typedField}
+                        value={getFieldValue(fieldKey)}
+                        {fieldKey}
+                        titleValue={fieldKey === 'slug' ? getFieldValue('title') : null}
+                        currentItemId={data.item?.id}
+                        entityType="global_{data.global.slug}"
+                        onChange={(value) => updateField(fieldKey, value)}
+                        readonly={data.global.options?.readonly}
+                        {mode}
+                      />
+                    {/if}
+                  </div>
+                {/each}
               </div>
+              <Separator />
             {/if}
 
-            {#if data.item?.updated_at}
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium">Updated</span>
-                <span class="text-muted-foreground text-sm">
-                  {formatDetailedDate(data.item.updated_at)}
-                </span>
-              </div>
+            <!-- Metadata -->
+            <div class="space-y-4">
+              {#if data.item?.created_at}
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium">Created</span>
+                  <span class="text-muted-foreground text-sm">
+                    {formatDetailedDate(data.item.created_at, getUserLocale())}
+                  </span>
+                </div>
+              {/if}
+
+              {#if data.item?.updated_at}
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium">Updated</span>
+                  <span class="text-muted-foreground text-sm">
+                    {formatDetailedDate(data.item.updated_at, getUserLocale())}
+                  </span>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Save / Edit Button -->
+            {#if !data.global.options?.readonly}
+              {#if mode === 'read'}
+                <Button type="button" onclick={() => (mode = 'edit')} class="w-full">
+                  <Pencil class="mr-2 h-4 w-4" />
+                  Edit {data.global.name.singular}
+                </Button>
+              {:else}
+                <Button type="submit" disabled={submitting} class="w-full">
+                  {#if submitting}
+                    <Save class="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  {:else}
+                    <Save class="mr-2 h-4 w-4" />
+                    Save {data.global.name.singular}
+                  {/if}
+                </Button>
+                {#if data.global.options?.defaultView === 'read' && !data.isNewItem}
+                  <button
+                    type="button"
+                    class="text-muted-foreground hover:text-foreground w-full text-sm underline-offset-4 hover:underline"
+                    onclick={() => {
+                      userChanges = {};
+                      mode = 'read';
+                    }}
+                  >
+                    Cancel
+                  </button>
+                {/if}
+              {/if}
             {/if}
           </div>
-
-          <!-- Save / Edit Button -->
-          {#if !data.global.options?.readonly}
-            {#if mode === 'read'}
-              <Button type="button" onclick={() => (mode = 'edit')} class="w-full">
-                <Pencil class="mr-2 h-4 w-4" />
-                Edit {data.global.name.singular}
-              </Button>
-            {:else}
-              <Button type="submit" disabled={submitting} class="w-full">
-                {#if submitting}
-                  <Save class="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                {:else}
-                  <Save class="mr-2 h-4 w-4" />
-                  Save {data.global.name.singular}
-                {/if}
-              </Button>
-              {#if data.global.options?.defaultView === 'read' && !data.isNewItem}
-                <button
-                  type="button"
-                  class="text-muted-foreground hover:text-foreground w-full text-sm underline-offset-4 hover:underline"
-                  onclick={() => {
-                    userChanges = {};
-                    mode = 'read';
-                  }}
-                >
-                  Cancel
-                </button>
-              {/if}
-            {/if}
-          {/if}
         </div>
       </div>
-    </div>
-  </form>
-</div>
+    </form>
+  </div>
+</OverlayLoader>

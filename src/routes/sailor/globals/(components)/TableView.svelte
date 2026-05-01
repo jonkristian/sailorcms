@@ -8,6 +8,7 @@
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
 
   const {
     global,
@@ -184,7 +185,7 @@
             {item[column.key] || '-'}
           {/if}
         {:else if column.key === 'updated_at' || column.key === 'created_at'}
-          {formatTableDate(item[column.key])}
+          {formatTableDate(item[column.key], getUserLocale())}
         {:else}
           {item[column.key] || '-'}
         {/if}

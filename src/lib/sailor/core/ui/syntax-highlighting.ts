@@ -13,6 +13,30 @@ hljs.configure({
 });
 
 /**
+ * Synchronous JSON highlighter — returns the inner highlighted HTML (no <pre><code>
+ * wrapper). Useful when caller needs to splice highlighted output line-by-line
+ * (e.g. unified diff rendering) and can't await per call.
+ */
+export function highlightJsonSync(input: string | object): string {
+  const text = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+  try {
+    return hljs.highlight(text, { language: 'json' }).value;
+  } catch {
+    try {
+      return hljs.highlight(text, { language: 'plaintext' }).value;
+    } catch {
+      // hljs always escapes its input; only the unhighlighted fallback needs us to
+      // escape manually so we don't inject raw HTML from the source data.
+      return text.replace(
+        /[&<>"']/g,
+        (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+      );
+    }
+  }
+}
+
+/**
  * Format JSON with syntax highlighting using highlight.js
  * This leverages highlight.js's built-in capabilities for JSON formatting and error handling
  */

@@ -13,6 +13,7 @@
   import { MoreVertical, GripVertical } from '@lucide/svelte';
   import { goto } from '$app/navigation';
   import { formatTableDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import FileText from '@lucide/svelte/icons/file-text';
 
   const {
@@ -105,7 +106,7 @@
                       {value}
                     </Badge>
                   {:else if column.key === 'updated_at' || column.key === 'created_at'}
-                    {formatTableDate(value)}
+                    {formatTableDate(value, getUserLocale())}
                   {:else if column.key === 'title' && editUrl}
                     <button
                       class="cursor-pointer text-left hover:underline"

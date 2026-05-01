@@ -1,0 +1,238 @@
+<script lang="ts">
+  import * as Dialog from '$lib/components/ui/dialog';
+  import { Button } from '$lib/components/ui/button';
+  import { History, RotateCcw, ChevronLeft, ChevronRight } from '@lucide/svelte';
+  import { diffLines } from 'diff';
+  import { formatRelativeTime, formatTimestamp } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { highlightJsonSync } from '$sailor/core/ui/syntax-highlighting';
+  import { toast } from '$sailor/core/ui/toast';
+
+  type Revision = {
+    id: string;
+    created_at: Date | string;
+    created_by_id: string | null;
+    created_by_name: string | null;
+    created_by_email: string | null;
+    data: Record<string, unknown>;
+  };
+
+  // Conditionally mounted by the parent ({#if revisionsDialogOpen}) so each
+  // open is a fresh component — index resets to "most recent" automatically
+  // and there's no $effect / onOpenChange dance. All payloads are preloaded
+  // by the parent's server load, so navigation and diff are zero-fetch.
+  let {
+    revisions,
+    onClose,
+    onRestore
+  }: {
+    revisions: Revision[];
+    onClose: () => void;
+    onRestore: (data: Record<string, unknown>) => Promise<boolean | void>;
+  } = $props();
+
+  let currentIndex = $state(0);
+  let restoring = $state(false);
+
+  const current = $derived<Revision | null>(revisions[currentIndex] ?? null);
+  const total = $derived(revisions.length);
+  const canGoNewer = $derived(currentIndex > 0);
+  const canGoOlder = $derived(currentIndex < total - 1);
+  const isLatest = $derived(currentIndex === 0);
+  const latest = $derived<Revision | null>(revisions[0] ?? null);
+
+  // Unified diff lines: when viewing the latest there are no changes so this
+  // collapses to a single "unchanged" chunk == plain highlighted source. Any
+  // older index produces real add/remove chunks against revisions[0].
+  const diffLinesHtml = $derived.by(() => buildDiff(current, latest));
+
+  function goNewer() {
+    if (canGoNewer) currentIndex -= 1;
+  }
+  function goOlder() {
+    if (canGoOlder) currentIndex += 1;
+  }
+
+  async function handleRestore() {
+    if (!current || restoring) return;
+    restoring = true;
+    try {
+      const result = await onRestore(current.data);
+      if (result !== false) {
+        onClose();
+      }
+    } catch (err) {
+      console.error('Restore failed', err);
+      toast.error('Restore failed');
+    } finally {
+      restoring = false;
+    }
+  }
+
+  function authorLabel(rev: Revision) {
+    return rev.created_by_name || rev.created_by_email || 'Unknown';
+  }
+
+  function fullTimestamp(date: Date | string) {
+    return formatTimestamp(date, getUserLocale());
+  }
+
+  // ---------- Diff rendering ----------
+
+  type DiffLine = {
+    kind: 'context' | 'added' | 'removed';
+    html: string;
+  };
+
+  function pretty(value: unknown): string {
+    return JSON.stringify(value, null, 2);
+  }
+
+  // Highlight the full text once per side, then split on '\n'. JSON
+  // pretty-printed by JSON.stringify never produces tokens that span newlines,
+  // so the highlighted spans stay self-contained per line — picking out lines
+  // by index is safe.
+  function buildDiff(viewing: Revision | null, target: Revision | null): DiffLine[] {
+    if (!viewing) return [];
+    if (!target || viewing.id === target.id) {
+      // No comparison — just plain highlighted source as a single context block.
+      const html = highlightJsonSync(viewing.data);
+      return html.split('\n').map((line) => ({ kind: 'context', html: line }));
+    }
+
+    const oldText = pretty(viewing.data);
+    const newText = pretty(target.data);
+    const oldHtml = highlightJsonSync(oldText).split('\n');
+    const newHtml = highlightJsonSync(newText).split('\n');
+
+    const chunks = diffLines(oldText, newText);
+    const out: DiffLine[] = [];
+    let oldIdx = 0;
+    let newIdx = 0;
+
+    for (const chunk of chunks) {
+      // diffLines includes trailing '\n' inside chunk.value — drop the empty
+      // tail it produces after splitting so we don't render phantom lines.
+      const lines = chunk.value.split('\n');
+      if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+      const n = lines.length;
+
+      if (chunk.added) {
+        for (let i = 0; i < n; i++) out.push({ kind: 'added', html: newHtml[newIdx + i] ?? '' });
+        newIdx += n;
+      } else if (chunk.removed) {
+        for (let i = 0; i < n; i++) out.push({ kind: 'removed', html: oldHtml[oldIdx + i] ?? '' });
+        oldIdx += n;
+      } else {
+        // Unchanged chunks consume the same lines from both sides.
+        for (let i = 0; i < n; i++) out.push({ kind: 'context', html: newHtml[newIdx + i] ?? '' });
+        oldIdx += n;
+        newIdx += n;
+      }
+    }
+
+    return out;
+  }
+</script>
+
+<Dialog.Root open={true} onOpenChange={(next) => !next && onClose()}>
+  <Dialog.Content class="flex flex-col sm:max-w-3xl">
+    <Dialog.Header>
+      <div class="flex items-center gap-3">
+        <div class="bg-muted flex h-10 w-10 items-center justify-center rounded-full">
+          <History class="h-5 w-5" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <Dialog.Title class="text-left">Revision history</Dialog.Title>
+          <Dialog.Description class="text-left">
+            {#if total === 0}
+              No revisions yet. Each save adds one.
+            {:else if current}
+              {fullTimestamp(current.created_at)} · {formatRelativeTime(
+                current.created_at,
+                getUserLocale()
+              )} · by
+              {authorLabel(current)}{#if !isLatest}
+                · changes shown vs latest{/if}
+            {/if}
+          </Dialog.Description>
+        </div>
+      </div>
+    </Dialog.Header>
+
+    {#if total > 0 && current}
+      <div class="flex items-center justify-between gap-2 border-b pb-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!canGoOlder || restoring}
+          onclick={goOlder}
+          aria-label="Older revision"
+        >
+          <ChevronLeft class="mr-1 h-4 w-4" />
+          Older
+        </Button>
+        <span class="text-muted-foreground text-xs">
+          {currentIndex + 1} of {total}
+          {currentIndex === 0 ? '(latest)' : ''}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!canGoNewer || restoring}
+          onclick={goNewer}
+          aria-label="Newer revision"
+        >
+          Newer
+          <ChevronRight class="ml-1 h-4 w-4" />
+        </Button>
+      </div>
+
+      <div class="diff-source bg-muted/40 h-[55vh] shrink-0 overflow-auto rounded-md border">
+        <div class="hljs language-json m-0 p-3 font-mono text-xs leading-snug whitespace-pre">
+          {#each diffLinesHtml as line, i (i)}<span
+              class="diff-line"
+              class:added={line.kind === 'added'}
+              class:removed={line.kind === 'removed'}>{@html line.html}{'\n'}</span
+            >{/each}
+        </div>
+      </div>
+    {:else}
+      <div class="text-muted-foreground py-8 text-center text-sm">
+        Save the item to start building history.
+      </div>
+    {/if}
+
+    <Dialog.Footer class="flex gap-2">
+      <Button variant="outline" onclick={onClose} disabled={restoring}>Close</Button>
+      {#if total > 0 && current && !isLatest}
+        <Button onclick={handleRestore} disabled={restoring}>
+          {#if restoring}
+            <div
+              class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+            ></div>
+          {:else}
+            <RotateCcw class="mr-1 h-4 w-4" />
+          {/if}
+          Restore this version
+        </Button>
+      {/if}
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<style>
+  .diff-line {
+    display: block;
+    padding: 0 0.75rem;
+    border-left: 3px solid transparent;
+  }
+  .diff-line.added {
+    background: rgb(16 185 129 / 0.12);
+    border-left-color: rgb(16 185 129 / 0.7);
+  }
+  .diff-line.removed {
+    background: rgb(244 63 94 / 0.12);
+    border-left-color: rgb(244 63 94 / 0.7);
+  }
+</style>

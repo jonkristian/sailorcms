@@ -311,6 +311,7 @@ export type CollectionDefinition = {
     sortable?: boolean; // Enable/disable drag-and-drop reordering
     nestable?: boolean; // Enable/disable hierarchical parent-child relationships
     searchable?: boolean; // Include in frontend search() utility
+    revisions?: boolean | { keep: number }; // Snapshot a revision on each save; default cap 50
   };
 };
 
@@ -349,5 +350,6 @@ export type GlobalDefinition = {
     defaultView?: 'edit' | 'read'; // 'read' opens existing items in a read-only view with an Edit toggle (good for submissions); new items always start in edit mode
     defaultSort?: { field: string; direction: 'asc' | 'desc' }; // default sort order
     searchable?: boolean; // Include in frontend search() utility
+    revisions?: boolean | { keep: number }; // Snapshot a revision on each save; default cap 50
   };
 };

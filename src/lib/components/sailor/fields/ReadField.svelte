@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatDetailedDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
 
   const {
     field,
@@ -59,7 +60,7 @@
       {:else if field.type === 'boolean'}
         {value ? 'Yes' : 'No'}
       {:else if field.type === 'date'}
-        {formatDetailedDate(value)}
+        {formatDetailedDate(value, getUserLocale())}
       {:else if field.type === 'select'}
         {field.options?.find((o: any) => o.value === value)?.label || value}
       {:else if field.type === 'email' || (field.type === 'link' && isEmail(value))}

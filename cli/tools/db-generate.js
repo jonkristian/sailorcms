@@ -480,6 +480,7 @@ function generateTypes(
   typeDefinitions.push('  email_verified: boolean;');
   typeDefinitions.push('  status: string;');
   typeDefinitions.push('  last_login?: Date;');
+  typeDefinitions.push('  preferences?: string | null;');
   typeDefinitions.push('  created_at: Date;');
   typeDefinitions.push('  updated_at: Date;');
   typeDefinitions.push('}');

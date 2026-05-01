@@ -14,6 +14,7 @@
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import * as Select from '$lib/components/ui/select/index.js';
   import SelectDialog from '$lib/components/sailor/dialogs/SelectDialog.svelte';
   import {
@@ -324,7 +325,7 @@
           {:else if column.key === 'author'}
             {item.author_name || item.author_email || 'Unknown'}
           {:else if column.key === 'updated_at' || column.key === 'created_at'}
-            {formatTableDate(item[column.key])}
+            {formatTableDate(item[column.key], getUserLocale())}
           {:else}
             {item[column.key] || '-'}
           {/if}

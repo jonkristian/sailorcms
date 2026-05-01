@@ -6,6 +6,7 @@
   import { Eye, Save } from '@lucide/svelte';
   import PayloadPreview from '$lib/components/sailor/PayloadPreview.svelte';
   import HeaderActionButton from '$lib/components/sailor/HeaderActionButton.svelte';
+  import HeaderRevisionsButton from '$lib/components/sailor/HeaderRevisionsButton.svelte';
   import { Button } from '$lib/components/ui/button';
   import ThemeToggle from '$lib/components/sailor/ThemeToggle.svelte';
   import { page } from '$app/state';
@@ -73,6 +74,7 @@
               />
             {/if}
           {/each}
+          <HeaderRevisionsButton />
         </div>
 
         <!-- Right side: Save button -->

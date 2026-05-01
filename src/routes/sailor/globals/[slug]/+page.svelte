@@ -7,6 +7,7 @@
   import Header from '$lib/components/sailor/Header.svelte';
   import { generateUUID } from '$sailor/core/utils/common';
   import { deleteGlobalItem, reorderGlobalItems } from '../data.remote.js';
+  import OverlayLoader from '$lib/components/sailor/OverlayLoader.svelte';
 
   const { data }: { data: PageData } = $props();
 
@@ -131,77 +132,81 @@
   <title>{data.global.name.plural} - Sailor CMS</title>
 </svelte:head>
 
-<div class="container mx-auto px-6">
-  {#key data.global.slug}
-    <Header
-      title={data.global.name.plural}
-      description={data.global.description}
-      itemCount={data.global.dataType === 'flat' ? undefined : items.length}
-      showAddButton={data.global.dataType !== 'flat' && canCreate && !data.global.options?.readonly}
-      showCountBadge={data.global.dataType !== 'flat'}
-      addButtonAction={data.global.dataType === 'repeatable' && data.global.options?.nestable
-        ? nestableAddFunction || (() => {})
-        : data.global.dataType === 'repeatable' && data.global.options?.inline
-          ? inlineAddFunction || (() => {})
-          : handleAddNew}
-      showSaveButton={data.global.dataType === 'repeatable' && data.global.options?.inline}
-      saveButtonAction={inlineSaveFunction || (async () => {})}
-      showExpandCollapseButton={data.global.dataType === 'repeatable' &&
-        data.global.options?.inline}
-      expandCollapseAction={inlineExpandCollapseFunction || (() => {})}
-      {submitting}
-    />
-
-    {#if data.global.dataType === 'flat'}
-      <!-- FlatView: Flat Global with static fields (like Settings) -->
-      <FlatView global={data.global} bind:formData {submitting} permissions={data.permissions} />
-    {:else if data.global.dataType === 'repeatable' && data.global.options?.nestable}
-      <!-- RepeatableNestedView: Repeatable Global with hierarchy (like Categories) -->
-      <RepeatableNestedView
-        global={data.global}
-        {items}
-        bind:formData
-        bind:addFn={nestableAddFunction}
-        permissions={data.permissions}
-      />
-    {:else if data.global.dataType === 'repeatable' && data.global.options?.inline}
-      <!-- RepeatableInlineView: Repeatable Global with inline editing (like FAQs) -->
-      <RepeatableInlineView
-        global={data.global}
-        {items}
+<OverlayLoader>
+  <div class="container mx-auto px-6">
+    {#key data.global.slug}
+      <Header
+        title={data.global.name.plural}
+        description={data.global.description}
+        itemCount={data.global.dataType === 'flat' ? undefined : items.length}
+        showAddButton={data.global.dataType !== 'flat' &&
+          canCreate &&
+          !data.global.options?.readonly}
+        showCountBadge={data.global.dataType !== 'flat'}
+        addButtonAction={data.global.dataType === 'repeatable' && data.global.options?.nestable
+          ? nestableAddFunction || (() => {})
+          : data.global.dataType === 'repeatable' && data.global.options?.inline
+            ? inlineAddFunction || (() => {})
+            : handleAddNew}
+        showSaveButton={data.global.dataType === 'repeatable' && data.global.options?.inline}
+        saveButtonAction={inlineSaveFunction || (async () => {})}
+        showExpandCollapseButton={data.global.dataType === 'repeatable' &&
+          data.global.options?.inline}
+        expandCollapseAction={inlineExpandCollapseFunction || (() => {})}
         {submitting}
-        bind:addFn={inlineAddFunction}
-        bind:saveFn={inlineSaveFunction}
-        bind:expandCollapseFn={inlineExpandCollapseFunction}
-        permissions={data.permissions}
       />
-    {:else if data.global.dataType === 'repeatable'}
-      <!-- TableView: Repeatable Global with separate edit pages (simple repeatable) -->
-      <TableView
-        global={data.global}
-        {items}
-        onAddNew={handleAddNew}
-        onDelete={handleDelete}
-        onBulkDelete={handleBulkDelete}
-        sortable={!!data.global.options?.sortable}
-        onReorder={handleReorder}
-      />
-    {:else if data.global.dataType === 'relational'}
-      <!-- TableView: Relational Global with separate edit pages (like Menus) -->
-      <TableView
-        global={data.global}
-        {items}
-        onAddNew={handleAddNew}
-        onDelete={handleDelete}
-        onBulkDelete={handleBulkDelete}
-        sortable={!!data.global.options?.sortable}
-        onReorder={handleReorder}
-      />
-    {:else}
-      <!-- Fallback for unknown dataType -->
-      <div class="rounded-lg border border-dashed border-red-300 p-4 text-center text-red-500">
-        Unknown dataType: {data.global.dataType}
-      </div>
-    {/if}
-  {/key}
-</div>
+
+      {#if data.global.dataType === 'flat'}
+        <!-- FlatView: Flat Global with static fields (like Settings) -->
+        <FlatView global={data.global} bind:formData {submitting} permissions={data.permissions} />
+      {:else if data.global.dataType === 'repeatable' && data.global.options?.nestable}
+        <!-- RepeatableNestedView: Repeatable Global with hierarchy (like Categories) -->
+        <RepeatableNestedView
+          global={data.global}
+          {items}
+          bind:formData
+          bind:addFn={nestableAddFunction}
+          permissions={data.permissions}
+        />
+      {:else if data.global.dataType === 'repeatable' && data.global.options?.inline}
+        <!-- RepeatableInlineView: Repeatable Global with inline editing (like FAQs) -->
+        <RepeatableInlineView
+          global={data.global}
+          {items}
+          {submitting}
+          bind:addFn={inlineAddFunction}
+          bind:saveFn={inlineSaveFunction}
+          bind:expandCollapseFn={inlineExpandCollapseFunction}
+          permissions={data.permissions}
+        />
+      {:else if data.global.dataType === 'repeatable'}
+        <!-- TableView: Repeatable Global with separate edit pages (simple repeatable) -->
+        <TableView
+          global={data.global}
+          {items}
+          onAddNew={handleAddNew}
+          onDelete={handleDelete}
+          onBulkDelete={handleBulkDelete}
+          sortable={!!data.global.options?.sortable}
+          onReorder={handleReorder}
+        />
+      {:else if data.global.dataType === 'relational'}
+        <!-- TableView: Relational Global with separate edit pages (like Menus) -->
+        <TableView
+          global={data.global}
+          {items}
+          onAddNew={handleAddNew}
+          onDelete={handleDelete}
+          onBulkDelete={handleBulkDelete}
+          sortable={!!data.global.options?.sortable}
+          onReorder={handleReorder}
+        />
+      {:else}
+        <!-- Fallback for unknown dataType -->
+        <div class="rounded-lg border border-dashed border-red-300 p-4 text-center text-red-500">
+          Unknown dataType: {data.global.dataType}
+        </div>
+      {/if}
+    {/key}
+  </div>
+</OverlayLoader>

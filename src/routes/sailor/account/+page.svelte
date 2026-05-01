@@ -14,6 +14,7 @@
   import { User, Key, Shield, Globe, CheckCircle, XCircle, Copy } from '@lucide/svelte';
   import GithubIcon from '$lib/components/sailor/icons/GithubIcon.svelte';
   import { formatDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { invalidateAll } from '$app/navigation';
   import { getRoleColor, copyUserId, shortenUserId } from '$lib/sailor/core/utils/user';
   import Header from '$lib/components/sailor/Header.svelte';
@@ -25,10 +26,24 @@
   let formData = $state({
     // svelte-ignore state_referenced_locally
     name: data.user.name || '',
+    // svelte-ignore state_referenced_locally
+    date_format: data.user.preferences?.date_format || 'en-US',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Surfaced as a small enum — covers the most common admin locales without
+  // overwhelming the UI. Add more entries here as needed.
+  const DATE_FORMAT_OPTIONS = [
+    { value: 'en-US', label: 'English (US) — May 1, 2026' },
+    { value: 'en-GB', label: 'English (UK) — 1 May 2026' },
+    { value: 'nb-NO', label: 'Norsk (bokmål) — 1. mai 2026' },
+    { value: 'de-DE', label: 'Deutsch — 1. Mai 2026' },
+    { value: 'fr-FR', label: 'Français — 1 mai 2026' },
+    { value: 'sv-SE', label: 'Svenska — 1 maj 2026' },
+    { value: 'es-ES', label: 'Español — 1 may 2026' }
+  ];
 
   async function handleSubmit(event: Event) {
     event.preventDefault();
@@ -123,6 +138,23 @@
               <p class="text-muted-foreground text-xs">
                 Email address cannot be changed. It's used as your account identifier and for OAuth
                 authentication.
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <Label for="date_format">Date format</Label>
+              <select
+                id="date_format"
+                name="date_format"
+                bind:value={formData.date_format}
+                class="border-input bg-background ring-offset-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm focus-visible:ring-1 focus-visible:outline-none"
+              >
+                {#each DATE_FORMAT_OPTIONS as opt (opt.value)}
+                  <option value={opt.value}>{opt.label}</option>
+                {/each}
+              </select>
+              <p class="text-muted-foreground text-xs">
+                Used by date/time displays across the admin (tables, revisions, etc.).
               </p>
             </div>
 
@@ -275,14 +307,18 @@
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium">Member Since:</span>
                 <span class="text-muted-foreground text-sm">
-                  {data.user?.created_at ? formatDate(data.user.created_at) : 'N/A'}
+                  {data.user?.created_at
+                    ? formatDate(data.user.created_at, getUserLocale())
+                    : 'N/A'}
                 </span>
               </div>
 
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium">Last Updated:</span>
                 <span class="text-muted-foreground text-sm">
-                  {data.user?.updated_at ? formatDate(data.user.updated_at) : 'N/A'}
+                  {data.user?.updated_at
+                    ? formatDate(data.user.updated_at, getUserLocale())
+                    : 'N/A'}
                 </span>
               </div>
             </div>
@@ -307,7 +343,9 @@
                     <div class="flex-1">
                       <p class="text-sm font-medium">{getProviderName(account.provider_id)}</p>
                       <p class="text-muted-foreground text-xs">
-                        Connected {account.created_at ? formatDate(account.created_at) : 'recently'}
+                        Connected {account.created_at
+                          ? formatDate(account.created_at, getUserLocale())
+                          : 'recently'}
                       </p>
                     </div>
                   </div>

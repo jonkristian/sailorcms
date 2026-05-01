@@ -77,7 +77,17 @@ export const auth = betterAuth({
       banExpires: 'ban_expires',
       createdAt: 'created_at',
       updatedAt: 'updated_at'
-    } as any // Type assertion for admin plugin fields
+    } as any, // Type assertion for admin plugin fields
+    // Custom user columns Better Auth wouldn't otherwise know about. Without
+    // this, `auth.api.getSession()` strips these from the returned user
+    // object and our session-derived locals.user.preferences stays undefined.
+    additionalFields: {
+      preferences: {
+        type: 'string',
+        required: false,
+        input: false // Updated via our own account form, not Better Auth's signup/update API.
+      }
+    }
   },
   account: {
     fields: {

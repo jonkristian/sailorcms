@@ -14,7 +14,8 @@ export const pagesCollection: CollectionDefinition = {
     blocks: true, // Enable blocks for flexible page layouts
     sortable: true, // Enable sortable up/down reordering for pages
     nestable: true, // Enable hierarchical parent-child relationships for pages
-    searchable: true
+    searchable: true,
+    revisions: true // Snapshot a revision on each save (default cap 50)
   },
   fields: {
     // Core fields auto-added by generator:

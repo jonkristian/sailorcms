@@ -9,6 +9,8 @@
     parseDate,
     getLocalTimeZone
   } from '@internationalized/date';
+  import { formatTableDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
 
   const {
     value,
@@ -40,11 +42,7 @@
   const displayLabel = $derived.by(() => {
     const dv = calendarValue;
     if (!dv) return placeholder;
-    return dv.toDate(getLocalTimeZone()).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    return formatTableDate(dv.toDate(getLocalTimeZone()), getUserLocale());
   });
 
   function handleChange(next: DateValue | undefined) {

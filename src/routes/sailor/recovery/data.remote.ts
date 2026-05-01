@@ -9,6 +9,7 @@ import * as schema from '$sailor/generated/schema';
 import { files as filesTable } from '$sailor/generated/schema';
 import { log } from '$sailor/core/utils/logger';
 import { SearchIndexService } from '$sailor/core/services/search-index.server';
+import { RevisionsService } from '$sailor/core/services/revisions.server';
 import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
 
 export const purgeCollectionItem = command(
@@ -32,6 +33,12 @@ export const purgeCollectionItem = command(
         .delete(table)
         .where(and(eq((table as any).id, itemId), isNotNull((table as any).deleted_at)));
       await SearchIndexService.onDeleteSafe('collection', collectionSlug, itemId);
+      await RevisionsService.deleteForEntity({
+        entityType: `collection:${collectionSlug}`,
+        entityId: itemId
+      }).catch((err) =>
+        log.error('Failed to drop revisions on purge', { collectionSlug, itemId }, err as Error)
+      );
       return { success: true, message: 'Item permanently deleted' };
     } catch (err) {
       log.error('Failed to purge collection item', {}, err as Error);

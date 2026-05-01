@@ -9,6 +9,7 @@
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { page } from '$app/state';
   import { formatTableDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import type { PageData } from './$types';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
 
@@ -51,12 +52,7 @@
   ];
 
   function formatDate(date: string | Date) {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    return dateObj.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    return formatTableDate(date, getUserLocale());
   }
 
   function formatRole(role: string) {

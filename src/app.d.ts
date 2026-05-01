@@ -10,6 +10,7 @@ declare global {
         name: string;
         role: string;
         image?: string | null;
+        preferences?: string | null;
       };
       session?: Record<string, unknown>; // Add session property for better-auth
       security: {

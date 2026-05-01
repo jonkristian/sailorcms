@@ -22,6 +22,7 @@ type User = {
   name: string;
   role: string;
   image?: string | null;
+  preferences?: string | null;
 };
 
 /**
@@ -81,7 +82,10 @@ export async function handleSailorHooks(
         email: session.user.email,
         name: session.user.name || '',
         role: ((session.user as Record<string, unknown>).role as string) || 'user',
-        image: ((session.user as Record<string, unknown>).image as string) || null
+        image: ((session.user as Record<string, unknown>).image as string) || null,
+        preferences:
+          ((session.user as Record<string, unknown>).preferences as string | null | undefined) ??
+          null
       };
     }
 
@@ -154,6 +158,12 @@ export async function handleSailorHooks(
       }
     }
 
-    return await resolve(event);
+    const response = await resolve(event);
+
+    if (event.url.pathname.startsWith('/sailor')) {
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    }
+
+    return response;
   });
 }

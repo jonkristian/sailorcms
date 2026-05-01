@@ -3,6 +3,7 @@
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { FileImage, FileText, Video, Music, File, ExternalLink } from '@lucide/svelte';
   import { formatRelativeTime } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { formatFileSize } from '$sailor/utils/files';
   import type { File as FileType } from '$sailor/utils/types';
 
@@ -122,7 +123,7 @@
                   <div class="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
                     <span>{formatFileSize(file.size || 0)}</span>
                     <span>•</span>
-                    <span>{formatRelativeTime(file.created_at)}</span>
+                    <span>{formatRelativeTime(file.created_at, getUserLocale())}</span>
                   </div>
                 </div>
               </div>

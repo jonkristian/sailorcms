@@ -27,6 +27,7 @@ export class CoreGenerator {
     banned: ${this.adapter.getIntegerFieldDefinition('banned', { default: 0 })},
     ban_reason: ${this.adapter.getTextFieldDefinition('ban_reason')},
     ban_expires: ${this.adapter.getTimestampDefinition('ban_expires')},
+    preferences: ${this.adapter.getTextFieldDefinition('preferences')},
     created_at: ${this.adapter.getTimestampDefinition('created_at')},
     updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
   },
@@ -221,7 +222,29 @@ export class CoreGenerator {
   expires_at: ${this.adapter.getTextFieldDefinition('expires_at', { notNull: true })},
   created_at: ${this.adapter.getTimestampDefinition('created_at')},
   updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
-});`
+});`,
+
+      // Revisions: polymorphic snapshots of collection items / globals at save time.
+      // `entity_type` namespaces by source, e.g. 'collection:pages' / 'global:menu',
+      // so collection slugs and global slugs can't collide. `data` is a full JSON
+      // snapshot of the submitted payload (row + array fields + blocks + relations + tags),
+      // so restore = re-running save with `data` as the new formData. Pruning is per
+      // template, configurable via `options.revisions.keep` (default 50).
+      `export const revisions = ${this.adapter.getTableFunction()}(
+  'revisions',
+  {
+    id: ${this.adapter.getPrimaryKeyDefinition()},
+    entity_type: ${this.adapter.getTextFieldDefinition('entity_type', { notNull: true })},
+    entity_id: ${this.adapter.getTextFieldDefinition('entity_id', { notNull: true })},
+    data: ${this.adapter.getTextFieldDefinition('data', { notNull: true })},
+    created_by: ${this.adapter.getTextFieldDefinition('created_by')},
+    created_at: ${this.adapter.getTimestampDefinition('created_at')}
+  },
+  (table) => [
+    index('revisions_entity_idx').on(table.entity_type, table.entity_id, table.created_at),
+    index('revisions_created_at_idx').on(table.created_at)
+  ]
+);`
     ];
 
     return coreTableDefinitions.join('\n\n');
@@ -279,6 +302,13 @@ export class CoreGenerator {
 
       `export const filesRelations = relations(files, ({ many }) => ({
   taggables: many(taggables)
+}));`,
+
+      `export const revisionsRelations = relations(revisions, ({ one }) => ({
+  createdBy: one(users, {
+    fields: [revisions.created_by],
+    references: [users.id]
+  })
 }));`
     ];
 

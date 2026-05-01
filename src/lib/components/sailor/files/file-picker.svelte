@@ -17,6 +17,7 @@
   import { Checkbox } from '$lib/components/ui/checkbox';
   import * as Pagination from '$lib/components/ui/pagination';
   import { formatDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { formatFileSize } from '$sailor/core/files/file';
   import type { FileType } from '$sailor/core/files/file';
   import { debounce } from '$sailor/core/utils/debounce';
@@ -655,7 +656,7 @@
                             {formatFileSize(file.size ?? 0)}
                           </Table.Cell>
                           <Table.Cell class="text-muted-foreground px-4 text-right">
-                            {file.created_at ? formatDate(file.created_at) : '—'}
+                            {file.created_at ? formatDate(file.created_at, getUserLocale()) : '—'}
                           </Table.Cell>
                           <Table.Cell class="w-12 px-4"></Table.Cell>
                         </Table.Row>
@@ -707,7 +708,9 @@
                   <p class="font-medium break-words">{previewFile.name}</p>
                   <p class="text-muted-foreground">Size: {formatFileSize(previewFile.size ?? 0)}</p>
                   <p class="text-muted-foreground">
-                    Date: {previewFile.created_at ? formatDate(previewFile.created_at) : '—'}
+                    Date: {previewFile.created_at
+                      ? formatDate(previewFile.created_at, getUserLocale())
+                      : '—'}
                   </p>
                 </div>
               </div>

@@ -4,6 +4,7 @@
   import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar/index.js';
   import { Users, ExternalLink, UserPlus } from '@lucide/svelte';
   import { formatRelativeTime } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import type { User } from '$sailor/generated/types';
 
   interface Props {
@@ -101,7 +102,7 @@
             <!-- Registration Time -->
             <div class="flex-shrink-0 text-right">
               <span class="text-muted-foreground text-xs">
-                {formatRelativeTime(user.created_at)}
+                {formatRelativeTime(user.created_at, getUserLocale())}
               </span>
             </div>
           </div>

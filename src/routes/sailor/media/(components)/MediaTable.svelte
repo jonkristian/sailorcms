@@ -5,6 +5,7 @@
   import { formatFileSize, type FileType } from '$sailor/core/files/file';
   import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
+  import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { DataTable } from '$lib/components/sailor/table';
   import type { Tag } from '$sailor/core/types/tag';
 
@@ -112,7 +113,7 @@
     {:else if column.key === 'author'}
       <span class="text-sm">{item.authorName || item.author || '-'}</span>
     {:else if column.key === 'created_at'}
-      <span class="text-sm">{formatTableDate(item.created_at)}</span>
+      <span class="text-sm">{formatTableDate(item.created_at, getUserLocale())}</span>
     {:else if column.key === 'tags'}
       <div class="flex flex-wrap gap-1">
         {#each item.tags || [] as tag}
