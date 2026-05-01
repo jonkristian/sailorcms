@@ -143,6 +143,7 @@ export const postsCollection: CollectionDefinition = {
 | `basePath`   | `string`  | Base URL path for preview links and SEO canonical URLs                                                     |
 | `sortable`   | `boolean` | Enable drag-and-drop sorting on the collection table                                                       |
 | `nestable`   | `boolean` | Enable parent-child hierarchical relationships                                                             |
+| `revisions`  | `boolean \| { keep: number }` | Snapshot a revision on every save. `true` keeps the last 50; pass `{ keep: N }` to override. See [Revisions](#revisions) below. |
 
 ### Registration
 
@@ -310,6 +311,7 @@ export const menusGlobal: GlobalDefinition = {
 | `defaultView` | `'edit' \| 'read'`    | `'read'` opens existing items in a compact static view with an Edit toggle (good for write-once-then-read content like form submissions). New items always start in edit mode regardless. Default: `'edit'` |
 | `defaultSort` | `{ field, direction}` | Default sort order for list views                                                                                                                                                                           |
 | `searchable`  | `boolean`             | Include this global in the frontend `search()` utility                                                                                                                                                      |
+| `revisions`   | `boolean \| { keep: number }` | _Coming next round — declared in types, not yet wired into the global save path._ See [Revisions](#revisions) below.                                                                            |
 
 ### Registration
 
@@ -319,6 +321,36 @@ Register in `src/lib/sailor/templates/globals/index.ts`:
 export { settingsGlobal as settings } from './settings';
 export { menusGlobal as menus } from './menus';
 ```
+
+## Revisions
+
+Sailor can snapshot every save of a collection item so editors can browse history, see what changed, and roll back. Opt in per template:
+
+```typescript
+export const pagesCollection: CollectionDefinition = {
+  // ...
+  options: {
+    revisions: true // keeps the last 50 revisions per item
+  }
+};
+
+// or with a custom cap
+options: {
+  revisions: { keep: 200 };
+}
+```
+
+**What it stores.** Each save writes one row to a polymorphic `revisions` table containing the entire submitted form payload (row fields + array fields + blocks + file relations + tags). One save = one row, no timestamp pairing or partial diff merging.
+
+**The History dialog.** When revisions are enabled and the item has been saved at least once, a History icon appears in the admin header next to the Payload action. The dialog opens to the most recent revision and lets editors arrow-navigate back through history. The source view is syntax-highlighted JSON; for any older revision it switches to a unified diff against the current state (added lines green, removed lines red).
+
+**Restore.** Clicking _Restore this version_ re-runs the save command with the snapshot's payload — the same code path as a normal save, so search-index updates and a fresh revision row both happen automatically. The restored save itself becomes the new tip of history, so undo-of-restore is just navigating back one entry and restoring again.
+
+**Pruning.** After every save, the writer keeps the newest `keep` revisions for that item and drops the rest. Default is 50.
+
+**Soft-delete vs hard-delete.** Revisions persist through soft-delete so a recovered item still has its history. Permanent purge (`/sailor/recovery`) drops the entity's revisions alongside the row.
+
+**Globals.** Coverage for globals is on the next-round list — the type system already accepts `options.revisions` on `GlobalDefinition` so templates compile, but the save path doesn't write yet.
 
 ## Common Field Types
 
