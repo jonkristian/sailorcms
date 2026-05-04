@@ -2,7 +2,7 @@
   import { Toaster } from 'svelte-sonner';
   import { ModeWatcher } from 'mode-watcher';
   import ThemeToggle from 'sailorcms/components/sailor/ThemeToggle.svelte';
-  import '$sailor/styles/sailor.css';
+  import 'sailorcms/styles/sailor.css';
 
   let { children } = $props();
 </script>

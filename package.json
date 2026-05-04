@@ -30,7 +30,8 @@
     "./components/sailor/*": "./src/lib/components/sailor/*",
     "./core/*": "./src/lib/sailor/core/*",
     "./remote/*": "./src/lib/sailor/remote/*",
-    "./utils/*": "./src/lib/sailor/utils/*"
+    "./utils/*": "./src/lib/sailor/utils/*",
+    "./styles/*": "./src/lib/sailor/styles/*"
   },
   "scripts": {
     "dev": "vite dev",

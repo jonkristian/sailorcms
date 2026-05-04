@@ -15,7 +15,7 @@
   import { getPageTitle } from '$sailor/core/ui/page-title';
   import { toast } from '$sailor/core/ui/toast';
   import { afterNavigate, goto } from '$app/navigation';
-  import '$sailor/styles/sailor.css';
+  import 'sailorcms/styles/sailor.css';
 
   let { children, data } = $props();
 

@@ -22,6 +22,18 @@ const __dirname = path.dirname(__filename);
  */
 const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
 
+/**
+ * Subdirectories under `src/lib/sailor/` that are resolved from the package's
+ * `exports` map (e.g. `sailorcms/styles/*`, eventually `sailorcms/core/*`,
+ * `sailorcms/utils/*`, etc.) instead of being copied into the consumer's tree.
+ *
+ * Same recipe as `COMPONENT_DIRS_RESOLVED_VIA_PACKAGE` but anchored at
+ * `src/lib/sailor/` rather than `src/lib/components/`. Append entries here as
+ * each subtree migrates from copy-and-paste distribution to package-resolved
+ * imports.
+ */
+const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = ['styles'];
+
 async function pruneStalePackageExportedComponents(targetComponentsDir) {
   for (const dir of COMPONENT_DIRS_RESOLVED_VIA_PACKAGE) {
     const stale = path.join(targetComponentsDir, dir);
@@ -32,12 +44,31 @@ async function pruneStalePackageExportedComponents(targetComponentsDir) {
   }
 }
 
+async function pruneStalePackageExportedSailorDirs(targetSailorDir) {
+  for (const dir of SAILOR_DIRS_RESOLVED_VIA_PACKAGE) {
+    const stale = path.join(targetSailorDir, dir);
+    if (await fs.pathExists(stale)) {
+      await fs.remove(stale);
+      console.log(`🧹 Removed stale sailor/${dir}/ (now resolved from sailorcms package).`);
+    }
+  }
+}
+
 function packageExportedComponentsFilter(mainComponentsDir) {
   return (src) => {
     const rel = path.relative(mainComponentsDir, src).split(path.sep).join('/');
     if (rel === '') return true;
     const top = rel.split('/')[0];
     return !COMPONENT_DIRS_RESOLVED_VIA_PACKAGE.includes(top);
+  };
+}
+
+function packageExportedSailorDirsFilter(mainSailorDir) {
+  return (src) => {
+    const rel = path.relative(mainSailorDir, src).split(path.sep).join('/');
+    if (rel === '') return true;
+    const top = rel.split('/')[0];
+    return !SAILOR_DIRS_RESOLVED_VIA_PACKAGE.includes(top);
   };
 }
 
@@ -127,15 +158,18 @@ export async function setupSailorFiles(targetDir, force = false) {
   const mainTemplatesDir = path.join(mainSailorDir, 'templates');
   const targetTemplatesDir = path.join(targetSailorDir, 'templates');
 
-  // 1. Copy the sailor directory, always skipping templates
+  // 1. Copy the sailor directory, always skipping templates and any subdirs
+  //    that have migrated to package-resolved imports.
   if (await fs.pathExists(mainSailorDir)) {
+    const sailorPkgFilter = packageExportedSailorDirsFilter(mainSailorDir);
     await fs.copy(mainSailorDir, targetSailorDir, {
       overwrite: true,
       filter: (src) => {
-        // Always skip templates here, will handle below
-        return !src.includes(path.join('sailor', 'templates'));
+        if (src.includes(path.join('sailor', 'templates'))) return false;
+        return sailorPkgFilter(src);
       }
     });
+    await pruneStalePackageExportedSailorDirs(targetSailorDir);
   }
 
   // 2. Copy templates if needed
@@ -191,16 +225,17 @@ export async function updateSailorCoreFiles(targetDir) {
 
   // Copy entire sailor directory but exclude templates to preserve user customizations
   if (await fs.pathExists(mainSailorDir)) {
+    const sailorPkgFilter = packageExportedSailorDirsFilter(mainSailorDir);
     await fs.copy(mainSailorDir, targetSailorDir, {
       overwrite: true,
       filter: (src) => {
-        return (
-          !src.includes(path.join('sailor', 'templates')) &&
-          !src.includes(path.join('sailor', 'generated')) &&
-          !src.includes(path.join('sailor', 'i18n', 'messages'))
-        );
+        if (src.includes(path.join('sailor', 'templates'))) return false;
+        if (src.includes(path.join('sailor', 'generated'))) return false;
+        if (src.includes(path.join('sailor', 'i18n', 'messages'))) return false;
+        return sailorPkgFilter(src);
       }
     });
+    await pruneStalePackageExportedSailorDirs(targetSailorDir);
     console.log('📝 Updated sailor core files');
 
     // First-time seed for `i18n/messages` if the consumer doesn't have it yet
