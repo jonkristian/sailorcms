@@ -6,6 +6,39 @@ import { fileURLToPath, pathToFileURL } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Components exposed via the `sailorcms` package's `exports` map and resolved
+ * from `node_modules/sailorcms/...` instead of being copied into the consumer's
+ * tree. Paths are relative to `src/lib/components/` (the copy root).
+ *
+ * Two effects on `setupSailorFiles` / `updateSailorCoreFiles`:
+ *   1. The copy filter skips these paths so a fresh `core:init` doesn't write
+ *      them to the consumer.
+ *   2. After copy, any stale copies left from a previous sailor version are
+ *      removed from the consumer's tree, so vite resolves the package version.
+ *
+ * Append to this list as more components migrate from the copy-and-paste
+ * distribution model to package-resolved imports.
+ */
+const COMPONENTS_RESOLVED_VIA_PACKAGE = ['sailor/OverlayLoader.svelte'];
+
+async function pruneStalePackageExportedComponents(targetComponentsDir) {
+  for (const rel of COMPONENTS_RESOLVED_VIA_PACKAGE) {
+    const stale = path.join(targetComponentsDir, rel);
+    if (await fs.pathExists(stale)) {
+      await fs.remove(stale);
+      console.log(`🧹 Removed stale ${rel} (now resolved from sailorcms package).`);
+    }
+  }
+}
+
+function packageExportedComponentsFilter(mainComponentsDir) {
+  return (src) => {
+    const rel = path.relative(mainComponentsDir, src).split(path.sep).join('/');
+    return !COMPONENTS_RESOLVED_VIA_PACKAGE.includes(rel);
+  };
+}
+
 // Remove files/dirs in `tgtDir` that no longer exist in `srcDir`. Recurses into
 // matching subdirs. `skip` accepts bare entry names ("templates") or POSIX-style
 // relative paths from the top-level call ("i18n/messages") — both forms are left
@@ -123,7 +156,11 @@ export async function setupSailorFiles(targetDir, force = false) {
   const mainComponentsDir = path.join(mainProjectDir, 'src', 'lib', 'components');
   const targetComponentsDir = path.join(targetLibDir, 'components');
   if (await fs.pathExists(mainComponentsDir)) {
-    await fs.copy(mainComponentsDir, targetComponentsDir, { overwrite: true });
+    await fs.copy(mainComponentsDir, targetComponentsDir, {
+      overwrite: true,
+      filter: packageExportedComponentsFilter(mainComponentsDir)
+    });
+    await pruneStalePackageExportedComponents(targetComponentsDir);
   }
 
   const mainHooksDir = path.join(mainProjectDir, 'src', 'lib', 'hooks');
@@ -188,7 +225,11 @@ export async function updateSailorCoreFiles(targetDir) {
   const mainComponentsDir = path.join(mainProjectDir, 'src', 'lib', 'components');
   const targetComponentsDir = path.join(targetLibDir, 'components');
   if (await fs.pathExists(mainComponentsDir)) {
-    await fs.copy(mainComponentsDir, targetComponentsDir, { overwrite: true });
+    await fs.copy(mainComponentsDir, targetComponentsDir, {
+      overwrite: true,
+      filter: packageExportedComponentsFilter(mainComponentsDir)
+    });
+    await pruneStalePackageExportedComponents(targetComponentsDir);
     for (const sub of ['ui', 'sailor']) {
       await cleanDir(path.join(mainComponentsDir, sub), path.join(targetComponentsDir, sub));
     }
@@ -509,37 +550,127 @@ function patchSvelteConfig(content) {
         name: 'compilerOptions',
         hint: 'Add `compilerOptions: { runes: true, experimental: { async: true } }` to your config object.'
       });
+  } else if (!/\brunes\s*:\s*true\b/.test(updated)) {
+    // compilerOptions exists but runes isn't flat `true`. The current `sv create`
+    // scaffold writes a function form that excludes `node_modules` from runes
+    // mode — but shipped Svelte 5 packages like @lucide/svelte and bits-ui use
+    // runes (`$props()`) in their .svelte source, so compiling them in legacy
+    // mode breaks SSR with `<thing> is not defined` errors. Force flat `true`.
+    const before = updated;
+    updated = updated.replace(
+      /^(\s*)runes\s*:\s*[^\n]+?$/m,
+      (_m, indent) => `${indent}runes: true,`
+    );
+    if (updated !== before) applied.push('compilerOptions.runes (forced flat true)');
+    else
+      manual.push({
+        name: 'compilerOptions.runes',
+        hint: 'Change `compilerOptions.runes` to a flat `true` (sv create writes a function form that excludes node_modules — sailor needs runes mode for shipped Svelte 5 packages like @lucide/svelte).'
+      });
+  }
+
+  // 4. kit.experimental.remoteFunctions: true
+  // Sailor uses SvelteKit remote functions (`*.remote.ts`) for all admin RPC.
+  // Without this flag, every remote import errors with "An impossible situation
+  // occurred" + "To enable remote functions, add the following to your
+  // svelte.config.js" at vite-transform time.
+  if (!/\bremoteFunctions\s*:\s*true\b/.test(updated)) {
+    const before = updated;
+    const kit = findKitBlockRange(updated);
+    if (kit) {
+      const kitContent = updated.slice(kit.contentStart, kit.contentEnd);
+      const expMatch = /\bexperimental\s*:\s*\{([\s\S]*?)\}/.exec(kitContent);
+      if (expMatch) {
+        // Splice remoteFunctions: true into existing experimental object
+        const expGlobalStart = kit.contentStart + expMatch.index;
+        const expGlobalEnd = expGlobalStart + expMatch[0].length;
+        const innerTrimmed = expMatch[1].trim().replace(/,$/, '');
+        const replacement = `experimental: { remoteFunctions: true${innerTrimmed ? `, ${innerTrimmed}` : ''} }`;
+        updated = updated.slice(0, expGlobalStart) + replacement + updated.slice(expGlobalEnd);
+      } else {
+        // Append experimental block before kit's closing `}`
+        const insertAt = kit.contentEnd;
+        const tail = updated.slice(0, insertAt).trimEnd();
+        const needsComma = tail[tail.length - 1] !== ',' && tail[tail.length - 1] !== '{';
+        const block = `${needsComma ? ',' : ''}\n\t\texperimental: {\n\t\t\tremoteFunctions: true\n\t\t}\n\t`;
+        updated = updated.slice(0, insertAt) + block + updated.slice(insertAt);
+      }
+    }
+    if (updated !== before) applied.push('kit.experimental.remoteFunctions');
+    else
+      manual.push({
+        name: 'kit.experimental.remoteFunctions',
+        hint: 'Add `experimental: { remoteFunctions: true }` inside the `kit:` block. Sailor uses SvelteKit remote functions (*.remote.ts) which require this flag.'
+      });
   }
 
   return { content: updated, applied, manual };
 }
 
 /**
+ * Find the byte range of the `kit: { ... }` block's contents in a svelte config.
+ * Returns `{ contentStart, contentEnd }` where `contentEnd` is the index of the
+ * matching closing `}` (so the contents are `text.slice(contentStart, contentEnd)`).
+ * Walks brace depth so nested objects (like `experimental: {}`) don't terminate
+ * the search early. Returns null if no `kit: {` is found or braces don't balance.
+ */
+function findKitBlockRange(text) {
+  const m = /\bkit\s*:\s*\{/.exec(text);
+  if (!m) return null;
+  const contentStart = m.index + m[0].length;
+  let depth = 1;
+  let i = contentStart;
+  while (i < text.length && depth > 0) {
+    const c = text[i];
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    if (depth === 0) return { contentStart, contentEnd: i };
+    i++;
+  }
+  return null;
+}
+
+/**
  * Workaround for a bun-specific install quirk that breaks the Svelte compiler.
  *
- * When sailorcms is installed via a `file:../sailorcms` reference, bun
- * recursively re-installs sailorcms's own deps under
- * `node_modules/sailorcms/node_modules/` AND nests an older `acorn` under
- * `node_modules/svelte/node_modules/acorn` (8.15.0 alongside the top-level
- * 8.16.0). Two acorn instances are loaded into the same process: the one
+ * Triggers for ANY non-registry install of sailorcms — `file:../sailorcms`,
+ * `github:user/sailorcms`, `https://github.com/...`, etc. For these protocols
+ * bun re-resolves sailor's `package.json` transitives from scratch, separately
+ * from the consumer's existing resolution. When the freshly-resolved svelte
+ * matches acorn at one version (e.g. 8.15.0 from `^8.12.1`) while the
+ * consumer's top-level acorn is a different version (e.g. 8.16.0, pinned
+ * higher by espree's `^8.16.0`), bun nests rather than hoists, leaving an
+ * older `acorn` under `node_modules/svelte/node_modules/acorn`.
+ *
+ * Two acorn instances then load into the same process: the one
  * `@sveltejs/acorn-typescript`'s tsPlugin extends, and the one svelte's
  * parser actually calls into. tsPlugin's TypeScript-parsing extensions get
  * grafted onto the wrong instance, so any `<script lang="ts">` in shipped
  * .svelte files (lucide, bits-ui, the consumer's own routes after sailor
- * copies its admin chrome) fails with `Unexpected token`.
+ * copies its admin chrome) fails with `Unexpected token`. npm-registry
+ * installs of sailor would have lockfile info to align resolutions across
+ * the tree and largely sidestep this — so this is also one of the
+ * motivations for eventually publishing sailor to npm.
  *
  * The nested copy gets recreated on every `bun install`, so we strip it
  * after every CLI-driven install. Surgical: only removes
  * `node_modules/svelte/node_modules`, which only contains the duplicate
  * acorn anyway. Module resolution falls through to top-level `node_modules`
  * after removal, which is what we want.
+ *
+ * Caveat: this only runs from sailor's CLI. CI/PaaS pipelines that just call
+ * `bun install` (Coolify nixpacks, Vercel, Netlify, GitHub Actions) skip
+ * this entirely and will hit the parse error at build time. Workarounds
+ * there: switch the install command to `npm install` (npm doesn't nest the
+ * same way) or add a postinstall script in the consumer's package.json
+ * that runs the same `rm -rf`.
  */
 export async function dedupeNestedSvelteDeps(targetDir) {
   const nested = path.join(targetDir, 'node_modules', 'svelte', 'node_modules');
   if (!(await fs.pathExists(nested))) return false;
   await fs.remove(nested);
   console.log(
-    'ℹ️  Removed nested node_modules/svelte/node_modules (bun file:-link dedup workaround).'
+    'ℹ️  Removed nested node_modules/svelte/node_modules (bun non-registry-install dedup workaround).'
   );
   return true;
 }

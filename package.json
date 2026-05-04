@@ -25,6 +25,13 @@
   "bin": {
     "sailor": "./bin/sailor.js"
   },
+  "exports": {
+    "./package.json": "./package.json",
+    "./components/sailor/*": "./src/lib/components/sailor/*",
+    "./core/*": "./src/lib/sailor/core/*",
+    "./remote/*": "./src/lib/sailor/remote/*",
+    "./utils/*": "./src/lib/sailor/utils/*"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

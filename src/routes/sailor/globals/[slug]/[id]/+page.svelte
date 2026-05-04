@@ -16,7 +16,7 @@
     updateRepeatableGlobal,
     updateRelationalGlobal
   } from '../../data.remote.js';
-  import OverlayLoader from '$lib/components/sailor/OverlayLoader.svelte';
+  import OverlayLoader from 'sailorcms/components/sailor/OverlayLoader.svelte';
 
   const { data }: { data: any } = $props();
 

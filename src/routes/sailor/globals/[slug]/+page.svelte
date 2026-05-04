@@ -9,7 +9,7 @@
   import Header from '$lib/components/sailor/Header.svelte';
   import { generateUUID } from '$sailor/core/utils/common';
   import { deleteGlobalItem, reorderGlobalItems } from '../data.remote.js';
-  import OverlayLoader from '$lib/components/sailor/OverlayLoader.svelte';
+  import OverlayLoader from 'sailorcms/components/sailor/OverlayLoader.svelte';
 
   const { data }: { data: PageData } = $props();
 

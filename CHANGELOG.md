@@ -2,6 +2,18 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **`exports` map on the sailorcms package — first step of the consumer-copy shrink.** New wildcard subpath exports expose `sailorcms/components/sailor/*`, `sailorcms/core/*`, `sailorcms/remote/*`, and `sailorcms/utils/*` so consumers (and sailor's own routes) can resolve admin code from `node_modules/sailorcms` instead of from copied files. Wildcards mean adding a new file under any of these prefixes works automatically — no `package.json` churn. First component migrated end-to-end as a proof of concept: `OverlayLoader.svelte`. Sailor's own admin routes import it via `sailorcms/components/sailor/OverlayLoader.svelte` (Node self-reference, validated against vite-plugin-svelte 6); `cms-init` / `cms-update` skip copying it to the consumer's tree (and prune any stale copy left from earlier sailor versions). `cli/utils.js` carries a single `COMPONENTS_RESOLVED_VIA_PACKAGE` array — appending more leaf components to it is the entire migration recipe going forward.
+
+### Fixed
+
+- **`patchSvelteConfig` now ensures `kit.experimental.remoteFunctions: true` is set.** Sailor uses SvelteKit remote functions (`*.remote.ts`) for every admin RPC; without this flag, vite errors at transform time with "An impossible situation occurred" + "To enable remote functions, add the following to your svelte.config.js". The patcher previously handled the `$sailor` alias, `vitePreprocess`, and `compilerOptions` but never touched `kit.experimental` — so a fresh `core:init` left consumers having to add it themselves. The patcher now finds the `kit: { ... }` block (matching nested braces, so `compilerOptions.experimental` and the like don't confuse it), and either splices `remoteFunctions: true` into an existing `kit.experimental: { ... }` object or appends a new `experimental` block.
+
+- **`patchSvelteConfig` now rewrites a function-form `compilerOptions.runes` to flat `true`.** Current `sv create` scaffolds write `runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)` — runes mode for project files only, legacy mode for `node_modules`. Shipped Svelte 5 packages (`@lucide/svelte`, `bits-ui`) use runes (`$props()`) in their `.svelte` source, so compiling them in legacy mode breaks SSR with `<thing> is not defined` errors. Sailor's previous patcher only fired when `compilerOptions:` was entirely absent, so it skipped this case. Patcher now has a second branch that detects a non-`true` runes value and rewrites the line to `runes: true,`. Manual fallback hint is emitted if the regex can't anchor.
+
 ## [0.5.3] - 04-05-2026
 
 ### Fixed

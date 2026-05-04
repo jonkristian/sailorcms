@@ -14,7 +14,7 @@
   import { Blocks } from '$lib/components/sailor/dnd';
   import SEOFields from '$lib/components/sailor/SEOFields.svelte';
   import RevisionsDialog from '$lib/components/sailor/RevisionsDialog.svelte';
-  import OverlayLoader from '$lib/components/sailor/OverlayLoader.svelte';
+  import OverlayLoader from 'sailorcms/components/sailor/OverlayLoader.svelte';
   import { headerRevisions } from '$sailor/core/ui/header-revisions.svelte';
   import type { FlatItem } from '$lib/components/sailor/dnd/types';
   import { saveCollectionItem } from './data.remote';
