@@ -9,7 +9,7 @@
   } from '$lib/components/ui/card';
   import * as Collapsible from '$lib/components/ui/collapsible/index';
   import { Check, X, Shield, User, Users, ChevronDown } from '@lucide/svelte';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
   import type { BetterAuthResource, BetterAuthAction } from '$lib/sailor/core/settings/types';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
-  import ArrayField from '$lib/components/sailor/fields/ArrayField.svelte';
-  import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
+  import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
+  import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
   import { toast, toastResult } from '$sailor/core/ui/toast';
   import { m } from '$sailor/i18n';

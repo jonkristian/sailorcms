@@ -1,6 +1,6 @@
 <script lang="ts">
   import { FileText } from '@lucide/svelte';
-  import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
+  import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import { getImage, type FileType } from '$sailor/core/files/file';
   import type { Tag } from '$sailor/core/types/tag';
   import { m } from '$sailor/i18n';

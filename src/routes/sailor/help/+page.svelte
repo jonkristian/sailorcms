@@ -8,9 +8,9 @@
   } from '$lib/components/ui/card/index.js';
   import ExternalLink from '@lucide/svelte/icons/external-link';
   import Book from '@lucide/svelte/icons/book';
-  import Github from '$lib/components/sailor/icons/GithubIcon.svelte';
+  import Github from 'sailorcms/components/sailor/icons/GithubIcon.svelte';
   import Rocket from '@lucide/svelte/icons/rocket';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
 
   const baseDocsUrl = 'https://jonkristian.github.io/sailorcms';

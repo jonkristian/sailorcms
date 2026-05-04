@@ -1,8 +1,8 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import Header from '$lib/components/sailor/Header.svelte';
-  import Pagination from '$lib/components/sailor/Pagination.svelte';
-  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
+  import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
+  import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { Button } from '$lib/components/ui/button';
   import { toast } from '$sailor/core/ui/toast';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';

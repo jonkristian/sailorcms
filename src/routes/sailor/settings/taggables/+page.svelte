@@ -4,9 +4,9 @@
   import { Trash2 } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
   import { invalidateAll } from '$app/navigation';
-  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
+  import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { deleteTag } from '$sailor/remote/tags.remote.js';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
 

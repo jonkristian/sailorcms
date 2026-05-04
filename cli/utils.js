@@ -7,27 +7,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Components exposed via the `sailorcms` package's `exports` map and resolved
- * from `node_modules/sailorcms/...` instead of being copied into the consumer's
- * tree. Paths are relative to `src/lib/components/` (the copy root).
+ * Subdirectories under `src/lib/components/` that are resolved from the
+ * `sailorcms` package's `exports` map (e.g. `sailorcms/components/sailor/*`)
+ * instead of being copied into the consumer's tree.
  *
  * Two effects on `setupSailorFiles` / `updateSailorCoreFiles`:
- *   1. The copy filter skips these paths so a fresh `core:init` doesn't write
- *      them to the consumer.
+ *   1. The copy filter skips these subdirs entirely so a fresh `core:init`
+ *      doesn't write them to the consumer.
  *   2. After copy, any stale copies left from a previous sailor version are
- *      removed from the consumer's tree, so vite resolves the package version.
+ *      removed from the consumer's tree so vite resolves the package version.
  *
- * Append to this list as more components migrate from the copy-and-paste
- * distribution model to package-resolved imports.
+ * Append to this list as more component subtrees migrate from the
+ * copy-and-paste distribution model to package-resolved imports.
  */
-const COMPONENTS_RESOLVED_VIA_PACKAGE = ['sailor/OverlayLoader.svelte'];
+const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
 
 async function pruneStalePackageExportedComponents(targetComponentsDir) {
-  for (const rel of COMPONENTS_RESOLVED_VIA_PACKAGE) {
-    const stale = path.join(targetComponentsDir, rel);
+  for (const dir of COMPONENT_DIRS_RESOLVED_VIA_PACKAGE) {
+    const stale = path.join(targetComponentsDir, dir);
     if (await fs.pathExists(stale)) {
       await fs.remove(stale);
-      console.log(`🧹 Removed stale ${rel} (now resolved from sailorcms package).`);
+      console.log(`🧹 Removed stale components/${dir}/ (now resolved from sailorcms package).`);
     }
   }
 }
@@ -35,7 +35,9 @@ async function pruneStalePackageExportedComponents(targetComponentsDir) {
 function packageExportedComponentsFilter(mainComponentsDir) {
   return (src) => {
     const rel = path.relative(mainComponentsDir, src).split(path.sep).join('/');
-    return !COMPONENTS_RESOLVED_VIA_PACKAGE.includes(rel);
+    if (rel === '') return true;
+    const top = rel.split('/')[0];
+    return !COMPONENT_DIRS_RESOLVED_VIA_PACKAGE.includes(top);
   };
 }
 

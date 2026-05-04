@@ -7,7 +7,7 @@
   import { Textarea } from '$lib/components/ui/textarea';
   import { type FileType } from '$sailor/core/files/file';
   import { Save, Copy, ExternalLink } from '@lucide/svelte';
-  import TagsInput from '$lib/components/sailor/fields/TagsInput.svelte';
+  import TagsInput from 'sailorcms/components/sailor/fields/TagsInput.svelte';
   import { toast } from '$sailor/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { getFileTags, updateFile } from '$sailor/remote/files.remote.js';

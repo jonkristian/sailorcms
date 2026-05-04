@@ -16,7 +16,7 @@
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { getRoleColor, copyUserId, shortenUserId } from '$lib/sailor/core/utils/user';
   import type { PageData, ActionData } from './$types';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
 
   // Extract the type of availableUsers from PageData
   type AvailableUser = NonNullable<PageData['availableUsers']>[number];

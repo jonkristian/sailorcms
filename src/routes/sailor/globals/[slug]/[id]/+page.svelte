@@ -1,8 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import ArrayField from '$lib/components/sailor/fields/ArrayField.svelte';
-  import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
+  import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
+  import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, toastResult } from '$sailor/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';

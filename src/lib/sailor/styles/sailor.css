@@ -4,6 +4,18 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Tailwind v4 doesn't scan `node_modules` by default. As components migrate to
+   `sailorcms/components/sailor/...` (Path B), their class usages live in
+   `node_modules/sailorcms/src/lib/`, invisible to Tailwind's default scan.
+   This `@source` tells Tailwind to also scan the package source tree.
+   Path is resolved relative to this CSS file's location in the consumer's
+   copy (`consumer/src/lib/sailor/styles/sailor.css`) — so it points at
+   `consumer/node_modules/sailorcms/src/lib`. In sailor's own dev the same
+   relative path resolves to nothing (sailor isn't in its own `node_modules`);
+   Tailwind ignores non-existent sources, and the default project scan
+   already covers sailor's components. */
+@source '../../../../node_modules/sailorcms/src/lib';
+
 /* Highlight.js themes for code syntax highlighting */
 @import './highlight-light.css';
 @import './highlight-dark.css';

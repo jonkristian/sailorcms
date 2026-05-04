@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../../app.css';
-  import AuthWidget from '$lib/components/sailor/AuthWidget.svelte';
+  import AuthWidget from 'sailorcms/components/sailor/AuthWidget.svelte';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';

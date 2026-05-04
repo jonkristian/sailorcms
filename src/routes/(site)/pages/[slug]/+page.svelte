@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import AuthWidget from '$lib/components/sailor/AuthWidget.svelte';
+  import AuthWidget from 'sailorcms/components/sailor/AuthWidget.svelte';
   import { getImage } from '$lib/sailor/utils/files';
   const { data }: { data: PageData } = $props();
 </script>

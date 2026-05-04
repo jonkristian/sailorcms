@@ -4,10 +4,10 @@
   import { toast } from '$sailor/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { formatFileSize, type FileType } from '$sailor/core/files/file';
-  import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
+  import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
-  import { DataTable } from '$lib/components/sailor/table';
+  import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import type { Tag } from '$sailor/core/types/tag';
 
   // Type for the file data with tags (matches server response)

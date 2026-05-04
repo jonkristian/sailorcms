@@ -10,9 +10,9 @@
   import { CustomImageExtension } from '$sailor/core/editor/extensions/CustomImageExtension';
   import { getFiles } from '$sailor/remote/files.remote.js';
   import * as Tooltip from '$lib/components/ui/tooltip';
-  import TooltipButton from '$lib/components/sailor/TooltipButton.svelte';
+  import TooltipButton from 'sailorcms/components/sailor/TooltipButton.svelte';
   import { Separator } from '$lib/components/ui/separator';
-  import { LinkDialog } from '$lib/components/sailor/dialogs';
+  import LinkDialog from 'sailorcms/components/sailor/dialogs/LinkDialog.svelte';
   import {
     Bold,
     Italic,
@@ -42,7 +42,7 @@
     cleanFormattedHTML,
     tiptapJsonToHtml
   } from '$lib/sailor/core/content/content';
-  import FilePicker from '$lib/components/sailor/files/file-picker.svelte';
+  import FilePicker from 'sailorcms/components/sailor/files/file-picker.svelte';
   import { m } from '$sailor/i18n';
 
   type EditorMode = 'minimal' | 'compact' | 'full';

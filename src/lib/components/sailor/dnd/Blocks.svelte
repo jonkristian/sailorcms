@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import { Checkbox } from '$lib/components/ui/checkbox';
-  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
+  import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { m } from '$sailor/i18n';
 
   // Custom vertical-only animation

@@ -6,7 +6,7 @@
   } from '$lib/components/ui/collapsible';
   import { Button } from '$lib/components/ui/button';
   import { ChevronDown, RefreshCw } from '@lucide/svelte';
-  import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
+  import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { m } from '$sailor/i18n';
 
   interface Props {

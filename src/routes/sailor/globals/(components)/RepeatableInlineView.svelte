@@ -1,15 +1,15 @@
 <script lang="ts">
-  import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
+  import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, requirePermission } from '$sailor/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import { generateUUID } from '$sailor/core/utils/common';
-  import { Blocks } from '$lib/components/sailor/dnd';
-  import type { FlatItem } from '$lib/components/sailor/dnd';
+  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import { getDisplayTitle } from '$lib/sailor/core/content/display';
   import { getCurrentTimestamp } from '$sailor/core/utils/date';
-  import DraggableCard from '$lib/components/sailor/DraggableCard.svelte';
+  import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { Button } from '$lib/components/ui/button';
   import { SvelteSet } from 'svelte/reactivity';
   import { bulkUpdateGlobalItems, deleteGlobalItem } from '../data.remote.js';

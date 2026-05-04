@@ -12,13 +12,13 @@
   import { Badge } from '$lib/components/ui/badge';
   import { toast } from '$sailor/core/ui/toast';
   import { User, Key, Shield, Globe, CheckCircle, XCircle, Copy } from '@lucide/svelte';
-  import GithubIcon from '$lib/components/sailor/icons/GithubIcon.svelte';
+  import GithubIcon from 'sailorcms/components/sailor/icons/GithubIcon.svelte';
   import { formatDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { invalidateAll } from '$app/navigation';
   import { getRoleColor, copyUserId, shortenUserId } from '$lib/sailor/core/utils/user';
-  import Header from '$lib/components/sailor/Header.svelte';
-  import PasswordStrength from '$lib/components/sailor/PasswordStrength.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
+  import PasswordStrength from 'sailorcms/components/sailor/PasswordStrength.svelte';
   import { m } from '$sailor/i18n';
 
   const { data } = $props();

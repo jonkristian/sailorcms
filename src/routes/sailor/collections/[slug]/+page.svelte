@@ -4,10 +4,12 @@
   import { Badge } from '$lib/components/ui/badge';
   import { toast, toastResult } from '$sailor/core/ui/toast';
   import type { PageData } from './$types';
-  import Header from '$lib/components/sailor/Header.svelte';
-  import Pagination from '$lib/components/sailor/Pagination.svelte';
-  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
-  import { DataTable, BulkActionsBar, FilterBar } from '$lib/components/sailor/table';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
+  import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
+  import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
+  import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
+  import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
+  import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import { m } from '$sailor/i18n';
   import { generateUUID } from '$sailor/core/utils/common';
   import { invalidateAll } from '$app/navigation';
@@ -17,7 +19,7 @@
   import { formatTableDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import * as Select from '$lib/components/ui/select/index.js';
-  import SelectDialog from '$lib/components/sailor/dialogs/SelectDialog.svelte';
+  import SelectDialog from 'sailorcms/components/sailor/dialogs/SelectDialog.svelte';
   import {
     cloneCollectionItems,
     deleteCollectionItems,

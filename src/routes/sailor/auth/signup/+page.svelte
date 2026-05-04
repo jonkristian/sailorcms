@@ -8,7 +8,7 @@
   import { Alert, AlertDescription } from '$lib/components/ui/alert';
   import { AlertCircle } from '@lucide/svelte';
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
-  import PasswordStrength from '$lib/components/sailor/PasswordStrength.svelte';
+  import PasswordStrength from 'sailorcms/components/sailor/PasswordStrength.svelte';
   import { m } from '$sailor/i18n';
 
   let { data }: { data: { hasGitHubOAuth: boolean } } = $props();

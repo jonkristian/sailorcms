@@ -19,7 +19,7 @@
   import { formatJson } from '$sailor/core/ui/syntax-highlighting';
   import { Database, FileJson, Table as TableIcon, ChevronDown, Globe } from '@lucide/svelte';
   import { Badge } from '$lib/components/ui/badge';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
 
   let {

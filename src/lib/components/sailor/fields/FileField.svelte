@@ -1,10 +1,10 @@
 <script lang="ts">
-  import FilePicker from '$lib/components/sailor/files/file-picker.svelte';
+  import FilePicker from 'sailorcms/components/sailor/files/file-picker.svelte';
   import { Button } from '$lib/components/ui/button';
   import { Trash2, Plus } from '@lucide/svelte';
   import { getImage } from '$sailor/core/files/file';
-  import Grid from '$lib/components/sailor/dnd/Grid.svelte';
-  import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
+  import Grid from 'sailorcms/components/sailor/dnd/Grid.svelte';
+  import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import { getFiles, restoreFile } from '$sailor/remote/files.remote.js';
   import { toast, toastResult } from '$sailor/core/ui/toast';
   import { m } from '$sailor/i18n';

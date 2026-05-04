@@ -1,8 +1,8 @@
 <script lang="ts">
-  import ChartRecentActivity from '$lib/components/sailor/dashboard/RecentActivity.svelte';
-  import ContentOverview from '$lib/components/sailor/dashboard/ContentOverview.svelte';
-  import RecentMedia from '$lib/components/sailor/dashboard/RecentMedia.svelte';
-  import RecentUsers from '$lib/components/sailor/dashboard/RecentUsers.svelte';
+  import ChartRecentActivity from 'sailorcms/components/sailor/dashboard/RecentActivity.svelte';
+  import ContentOverview from 'sailorcms/components/sailor/dashboard/ContentOverview.svelte';
+  import RecentMedia from 'sailorcms/components/sailor/dashboard/RecentMedia.svelte';
+  import RecentUsers from 'sailorcms/components/sailor/dashboard/RecentUsers.svelte';
   import { ExternalLink } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
 

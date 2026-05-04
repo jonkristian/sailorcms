@@ -9,7 +9,7 @@
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   import * as Card from '$lib/components/ui/card';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
 
   const { data }: { data: PageData } = $props();
 

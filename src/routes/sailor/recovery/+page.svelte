@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { Badge } from '$lib/components/ui/badge';
   import Inbox from '@lucide/svelte/icons/inbox';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';

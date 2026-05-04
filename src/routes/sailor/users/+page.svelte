@@ -1,8 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { generateUUID } from '$sailor/core/utils/common';
-  import Header from '$lib/components/sailor/Header.svelte';
-  import { DataTable, FilterBar } from '$lib/components/sailor/table';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
+  import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
+  import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import UserBulkDeleteDialog from './(components)/UserBulkDeleteDialog.svelte';
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';

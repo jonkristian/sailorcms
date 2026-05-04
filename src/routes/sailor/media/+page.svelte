@@ -6,15 +6,16 @@
   import { LayoutGrid, List } from '@lucide/svelte';
   import { toast, toastResult } from '$sailor/core/ui/toast';
   import { type FileType } from '$sailor/core/files/file';
-  import Header from '$lib/components/sailor/Header.svelte';
-  import MediaEditModal from '$lib/components/sailor/MediaEditModal.svelte';
-  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
-  import { BulkActionsBar, FilterBar } from '$lib/components/sailor/table';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
+  import MediaEditModal from 'sailorcms/components/sailor/MediaEditModal.svelte';
+  import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
+  import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
+  import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
-  import Pagination from '$lib/components/sailor/Pagination.svelte';
+  import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
   import type { Tag } from '$sailor/core/types/tag';
   import MediaGrid from './(components)/MediaGrid.svelte';
   import MediaTable from './(components)/MediaTable.svelte';
@@ -25,8 +26,8 @@
   import { uploadFiles, type UploadOptions } from '$sailor/core/files/upload';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
-  import TagsInput from '$lib/components/sailor/fields/TagsInput.svelte';
-  import FileUploadProgress from '$lib/components/sailor/FileUploadProgress.svelte';
+  import TagsInput from 'sailorcms/components/sailor/fields/TagsInput.svelte';
+  import FileUploadProgress from 'sailorcms/components/sailor/FileUploadProgress.svelte';
 
   // Type for the file data with tags (matches server response)
   type FileWithTags = FileType & {

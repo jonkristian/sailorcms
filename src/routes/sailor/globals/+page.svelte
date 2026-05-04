@@ -10,7 +10,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import { ArrowRight } from '@lucide/svelte';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
 
   const { data }: { data: PageData } = $props();

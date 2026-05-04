@@ -3,8 +3,9 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Plus } from '@lucide/svelte';
   import { goto } from '$app/navigation';
-  import { DataTable, BulkActionsBar } from '$lib/components/sailor/table';
-  import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
+  import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
+  import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
+  import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';

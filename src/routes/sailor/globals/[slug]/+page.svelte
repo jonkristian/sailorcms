@@ -6,7 +6,7 @@
   import { goto } from '$app/navigation';
   import { invalidateAll } from '$app/navigation';
   import { FlatView, TableView, RepeatableNestedView, RepeatableInlineView } from '../(components)';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
   import { generateUUID } from '$sailor/core/utils/common';
   import { deleteGlobalItem, reorderGlobalItems } from '../data.remote.js';
   import OverlayLoader from 'sailorcms/components/sailor/OverlayLoader.svelte';

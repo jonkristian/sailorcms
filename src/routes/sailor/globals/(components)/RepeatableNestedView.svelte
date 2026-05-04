@@ -6,8 +6,9 @@
   import { pluralize } from '$sailor/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import EditModal from './EditModal.svelte';
-  import { Blocks, type FlatItem } from '$lib/components/sailor/dnd';
-  import DraggableCard from '$lib/components/sailor/DraggableCard.svelte';
+  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
+  import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { generateUUID } from '$sailor/core/utils/common';
   import { reorderGlobalItems, deleteGlobalItem } from '../data.remote.js';
 

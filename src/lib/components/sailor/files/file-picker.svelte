@@ -26,8 +26,8 @@
   import * as Select from '$lib/components/ui/select';
   import { getFiles } from '$sailor/remote/files.remote.js';
   import { uploadFiles } from '$sailor/core/files/upload';
-  import FileUploadProgress from '$lib/components/sailor/FileUploadProgress.svelte';
-  import VerticalList from '$lib/components/sailor/dnd/VerticalList.svelte';
+  import FileUploadProgress from 'sailorcms/components/sailor/FileUploadProgress.svelte';
+  import VerticalList from 'sailorcms/components/sailor/dnd/VerticalList.svelte';
   import { m } from '$sailor/i18n';
 
   let {

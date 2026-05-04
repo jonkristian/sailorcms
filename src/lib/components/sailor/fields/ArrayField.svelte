@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
-  import { Blocks } from '$lib/components/sailor/dnd';
-  import type { FlatItem } from '$lib/components/sailor/dnd';
+  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import ArrayFieldModal from './ArrayFieldModal.svelte';
-  import DraggableCard from '$lib/components/sailor/DraggableCard.svelte';
+  import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { Plus } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
 

@@ -9,7 +9,7 @@
   import { Label } from '$lib/components/ui/label';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
 
   let { data } = $props();
 
@@ -19,7 +19,7 @@
 
   // Dynamic import state
   let WordPressImportComponent:
-    | typeof import('$lib/components/sailor/WordPressImport.svelte').default
+    | typeof import('sailorcms/components/sailor/WordPressImport.svelte').default
     | null = $state(null);
   let loadingImportComponent = $state(false);
 
@@ -42,7 +42,7 @@
 
     loadingImportComponent = true;
     try {
-      const module = await import('$lib/components/sailor/WordPressImport.svelte');
+      const module = await import('sailorcms/components/sailor/WordPressImport.svelte');
       WordPressImportComponent = module.default;
     } catch (error) {
       console.error('Failed to load WordPressImport component:', error);

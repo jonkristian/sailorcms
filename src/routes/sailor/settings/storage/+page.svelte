@@ -7,7 +7,7 @@
   import { pluralize } from '$sailor/utils/ui/text';
   import { Cloud, HardDrive, FileText, Wrench, Loader2, Download } from '@lucide/svelte';
   import type { PageData } from './$types';
-  import Header from '$lib/components/sailor/Header.svelte';
+  import Header from 'sailorcms/components/sailor/Header.svelte';
 
   const { data }: { data: PageData } = $props();
 
