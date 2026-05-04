@@ -829,6 +829,7 @@
                   fieldKey={fieldName}
                   titleValue={fieldName === 'slug' ? formData.title : null}
                   entityType="collection_{data.slug}"
+                  variant="sidebar"
                   onChange={(value) => {
                     if (fieldName === 'title') {
                       handleTitleChange(value);

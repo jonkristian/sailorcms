@@ -86,7 +86,7 @@
                 <img
                   src={file.url}
                   alt={file.alt || file.name}
-                  class="h-full w-full object-cover object-top"
+                  class="h-full w-full object-contain"
                   loading="lazy"
                 />
               {:else}

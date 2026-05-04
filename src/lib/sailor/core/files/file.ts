@@ -196,7 +196,14 @@ export function validateFile(
 
 // CMS-internal function for transforming images by file ID
 export function getImage(fileId: string, options: FileTransformOptions = {}): string {
-  const { width = 512, height = 512, quality = 70, format = 'webp', resize = 'cover' } = options;
+  const {
+    width = 512,
+    height = 512,
+    quality = 70,
+    format = 'webp',
+    resize = 'cover',
+    position
+  } = options;
 
   const params = new URLSearchParams();
   params.append('id', fileId);
@@ -205,5 +212,6 @@ export function getImage(fileId: string, options: FileTransformOptions = {}): st
   params.append('quality', quality.toString());
   params.append('format', format);
   params.append('resize', resize);
+  if (position) params.append('position', position);
   return `/sailor/api/images/transform?${params.toString()}`;
 }

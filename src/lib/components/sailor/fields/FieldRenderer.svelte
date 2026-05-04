@@ -18,7 +18,7 @@
     fieldKey: string;
     titleValue?: string | null;
     onGenerateSlug?: ((title: string) => void) | null;
-    variant?: 'default' | 'main';
+    variant?: 'default' | 'main' | 'sidebar';
     currentItemId?: string | null;
     entityType?: string | null; // e.g., 'collection_posts', 'global_faq'
     readonly?: boolean;
@@ -117,7 +117,7 @@
 </script>
 
 {#if mode === 'read'}
-  <ReadField {field} {value} {fieldKey} />
+  <ReadField {field} {value} {fieldKey} variant={variant === 'sidebar' ? 'sidebar' : 'default'} />
 {:else}
   <div class="space-y-2">
     {#if field.type !== 'file' && field.showLabel !== false}

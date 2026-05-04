@@ -173,11 +173,13 @@
       <div class="space-y-6">
         <!-- Large Preview for Images -->
         {#if file.mime_type?.startsWith('image/')}
-          <div class="overflow-hidden rounded-lg border">
+          <div
+            class="bg-muted/40 flex max-h-96 items-center justify-center overflow-hidden rounded-lg border"
+          >
             <img
               src={file.url}
               alt={file.alt || file.name}
-              class="h-96 w-full object-cover object-top"
+              class="max-h-96 w-auto max-w-full object-contain"
             />
           </div>
         {/if}

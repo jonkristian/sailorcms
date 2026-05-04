@@ -436,7 +436,7 @@
                               <img
                                 src={selectedFile.url}
                                 alt={selectedFile.name}
-                                class="h-full w-full object-cover object-top"
+                                class="h-full w-full object-contain"
                               />
                               <!-- Control buttons overlay -->
                               <div
@@ -636,7 +636,7 @@
                                 <img
                                   src={file.url}
                                   alt={file.name}
-                                  class="h-full w-full object-cover object-top"
+                                  class="h-full w-full object-contain"
                                 />
                               {:else}
                                 <div

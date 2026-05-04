@@ -97,7 +97,10 @@
   let isDeleted = $derived(deletedAt !== null && deletedAt !== undefined);
 </script>
 
-<div class="group relative {aspectRatio} overflow-hidden rounded border {className}" {...restProps}>
+<div
+  class="group bg-muted/40 relative {aspectRatio} overflow-hidden rounded border {className}"
+  {...restProps}
+>
   {#if isMissingFile}
     <!-- Missing file - empty src -->
     <div
@@ -145,7 +148,7 @@
     <img
       {src}
       {alt}
-      class="h-full w-full object-cover object-top"
+      class="h-full w-full object-contain"
       class:opacity-50={selected}
       onload={handleImageLoad}
       onerror={handleImageError}

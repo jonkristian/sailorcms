@@ -31,7 +31,7 @@
 <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
   {#each files as file (file.id)}
     <FileWithControls
-      src={file.mime_type?.startsWith('image/') ? getImage(file.id) : ''}
+      src={file.mime_type?.startsWith('image/') ? getImage(file.id, { position: 'top' }) : ''}
       alt={file.name}
       filename={file.name}
       mimeType={file.mime_type}

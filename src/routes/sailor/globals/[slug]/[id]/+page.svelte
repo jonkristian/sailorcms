@@ -334,6 +334,7 @@
                         entityType="global_{data.global.slug}"
                         onChange={(value) => updateField(fieldKey, value)}
                         readonly={data.global.options?.readonly}
+                        variant="sidebar"
                         {mode}
                       />
                     {/if}

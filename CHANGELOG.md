@@ -2,6 +2,18 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.5.2]
+
+### Changed
+
+- **`getImage()` forwards `position` to the transform endpoint.** The 0.5.1 `position` plumbing existed end-to-end through `<Image>` and `getFileUrl`, but `getImage()` (the CMS-internal helper used by media library, file fields, etc.) destructured `width/height/quality/format/resize` only — so passing `position` was a silent no-op. Now wired through. Media library grid (`MediaGrid.svelte`) opts in with `position: 'top'` so heads stay visible on portrait thumbs instead of getting clipped by the default centered cover crop.
+- **Admin media thumbnails switched from `object-cover` to `object-contain`.** 0.5.1 moved admin thumbs to `object-cover object-top` to stop heads getting clipped on portraits — but the same crop just shifts the problem on logos and wide images, where it lops off the left/right edges instead. For a media library where the goal is to _recognize_ the asset, contain (no crop, letterbox the difference against a subtle `bg-muted/40`) handles photos, logos, and screenshots equally well. Applied to `FileWithControls.svelte` (covers `MediaGrid`, `MediaTable`, `FileField`, `RecoverySection`), `RecentMedia.svelte` dashboard tile, and both file-picker thumbnails. The server-side `position` plumbing from 0.5.1 stays — callers needing a cropped/anchored image can still opt in via `<Image position="top">` etc.; this only changes the unstyled defaults.
+- **`MediaEditModal` preview shows the whole image.** Previously fixed `h-96 w-full object-cover object-top`, which clipped the bottom of any portrait or anything taller than 384px. Now `max-h-[60vh] object-contain` with a flex-centered `bg-muted/40` panel, so the asset fits the modal regardless of orientation and the user actually sees what they're editing.
+
+### Fixed
+
+- **`defaultView: 'read'` no longer mangles long sidebar values.** `ReadField` always rendered as a 2-column inline grid (`grid-cols-[minmax(8rem,12rem)_1fr]`), which works fine in the wide main column but in the 320px sidebar leaves only ~135px for the value after the label, gap, and panel padding — long values like multi-paragraph addresses wrapped one word per line. `FieldRenderer` now accepts `variant="sidebar"`, plumbed through to `ReadField`, which switches to a stacked layout (label on top, full-width value below) and adds `break-words` so long URLs / emails wrap cleanly. Wired into both the globals and collections sidebar `<FieldRenderer>` usages. Read-mode rendering branches were also collapsed into a single `valueContent` snippet, removing the prior `isLongForm` duplication.
+
 ## [0.5.1] - 04-05-2026
 
 ### Added
