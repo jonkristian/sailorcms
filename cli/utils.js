@@ -463,6 +463,28 @@ function patchSvelteConfig(content) {
         name: 'vitePreprocess',
         hint: 'Add `preprocess: vitePreprocess({ script: true })` to your config and `import { vitePreprocess } from \'@sveltejs/vite-plugin-svelte\';` at the top. Required so <script lang="ts"> in node_modules .svelte files parses.'
       });
+  } else if (!/vitePreprocess\s*\([^)]*script\s*:\s*true/.test(updated)) {
+    // vitePreprocess(...) is present but missing `script: true` — upgrade in place.
+    // Without `script: true`, <script lang="ts"> in shipped .svelte files (sailor admin
+    // chrome, lucide, bits-ui) doesn't get TS-stripped, and the svelte parser fails
+    // with "Unexpected token" on the first identifier in the script block.
+    const before = updated;
+    if (/vitePreprocess\s*\(\s*\)/.test(updated)) {
+      // Empty call — replace with explicit { script: true }
+      updated = updated.replace(/vitePreprocess\s*\(\s*\)/, 'vitePreprocess({ script: true })');
+    } else if (/vitePreprocess\s*\(\s*\{[^}]*\}\s*\)/.test(updated)) {
+      // Has options object — splice script: true in
+      updated = updated.replace(/vitePreprocess\s*\(\s*\{([^}]*)\}\s*\)/, (_m, inner) => {
+        const trimmed = inner.trim().replace(/,$/, '');
+        return `vitePreprocess({ script: true${trimmed ? `, ${trimmed}` : ''} })`;
+      });
+    }
+    if (updated !== before) applied.push('vitePreprocess (added script: true)');
+    else
+      manual.push({
+        name: 'vitePreprocess script: true',
+        hint: 'Your existing `vitePreprocess(...)` call is missing `script: true`. Change it to `vitePreprocess({ script: true })` so <script lang="ts"> in node_modules .svelte files parses.'
+      });
   }
 
   // 3. compilerOptions: { runes: true, experimental: { async: true } }

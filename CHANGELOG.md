@@ -2,7 +2,15 @@
 
 All notable changes to SailorCMS are documented here.
 
-## [0.5.2]
+## [0.5.3] - 04-05-2026
+
+### Fixed
+
+- **Bumped `@sveltejs/vite-plugin-svelte` from `^5.1.1` to `^6.0.0` to match the `vite@^7` we already ship.** Sailor's own `package.json` was internally inconsistent: vite was pinned at `^7.3.2`, but `@sveltejs/vite-plugin-svelte@5.1.1` only declares `vite@^6.0.0` as its peer. Bun installed it anyway (it's permissive about peer mismatches); npm 8+ refuses to resolve the tree, so any consumer trying to deploy with `npm install` (e.g. on Coolify, Vercel, or any CI that uses npm) hit `ERESOLVE` failures. The dep-mirroring loop in `cms-update.js` already mirrors sailor's devDependencies into consumer projects on every `core:update`, so consumers get the bump automatically — no consumer-side action needed beyond running `npx sailor core:update`. v6 supports the same svelte 5 + vite 7 stack we use, so no API breakage.
+
+- **`patchSvelteConfig` now upgrades existing `vitePreprocess(...)` calls that are missing `script: true`.** The 0.5.1 patcher only fired when `vitePreprocess(` was absent — a config with bare `vitePreprocess()` (the SvelteKit default) matched the regex, so the patcher skipped the whole block. Without `script: true`, `<script lang="ts">` blocks in shipped node_modules `.svelte` files (sailor admin chrome, lucide, bits-ui) don't get TS-stripped and the svelte parser fails the build with `Unexpected token` on the first identifier. The patcher now has a second branch: if `vitePreprocess(...)` is present without `script: true`, it rewrites the call in place — empty `()` becomes `({ script: true })`, an existing options object gets `script: true` spliced in.
+
+## [0.5.2] - 04-05-2026
 
 ### Changed
 
