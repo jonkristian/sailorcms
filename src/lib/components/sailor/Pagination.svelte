@@ -4,6 +4,7 @@
   import { Label } from '$lib/components/ui/label';
   import * as Select from '$lib/components/ui/select';
   import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   const {
     page,
@@ -97,22 +98,26 @@
               {/each}
             </Select.Content>
           </Select.Root>
-          <Label for="rows-per-page" class="text-sm font-medium">Rows per page</Label>
+          <Label for="rows-per-page" class="text-sm font-medium"
+            >{m.pagination_rows_per_page()}</Label
+          >
         </div>
       {/if}
 
       {#if showTotalItems}
         <div class="text-muted-foreground text-sm">
-          Showing {Math.min((page - 1) * pageSize + 1, totalItems)}
-          to {Math.min(page * pageSize, totalItems)}
-          of {totalItems} results
+          {m.pagination_showing_results({
+            from: Math.min((page - 1) * pageSize + 1, totalItems),
+            to: Math.min(page * pageSize, totalItems),
+            total: totalItems
+          })}
         </div>
       {/if}
     </div>
 
     <div class="flex items-center gap-2">
       <span class="text-sm">
-        Page {page} of {totalPages}
+        {m.pagination_page_position({ current: page, total: totalPages })}
       </span>
       <Button
         variant="outline"

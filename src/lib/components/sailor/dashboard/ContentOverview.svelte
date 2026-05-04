@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Card from '$lib/components/ui/card/index.js';
   import { FileText, Users, Folder, Globe } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   interface Props {
     stats: {
@@ -15,33 +16,33 @@
 
   const statCards = $derived([
     {
-      title: 'Collections',
+      title: m.dashboard_stat_collections(),
       value: stats.collections,
       icon: FileText,
-      description: 'Content types'
+      description: m.dashboard_stat_collections_help()
     },
     // Only show users if count > 0 (means user has permission)
     ...(stats.users > 0
       ? [
           {
-            title: 'Users',
+            title: m.dashboard_stat_users(),
             value: stats.users,
             icon: Users,
-            description: 'Registered users'
+            description: m.dashboard_stat_users_help()
           }
         ]
       : []),
     {
-      title: 'Media Files',
+      title: m.dashboard_stat_media(),
       value: stats.files,
       icon: Folder,
-      description: 'Uploaded files'
+      description: m.dashboard_stat_media_help()
     },
     {
-      title: 'Globals',
+      title: m.dashboard_stat_globals(),
       value: stats.globals,
       icon: Globe,
-      description: 'Global settings'
+      description: m.dashboard_stat_globals_help()
     }
   ]);
 </script>

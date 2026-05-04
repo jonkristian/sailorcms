@@ -9,6 +9,7 @@
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { m } from '$sailor/i18n';
 
   const {
     global,
@@ -28,8 +29,12 @@
     onReorder?: (items: any[]) => void;
   } = $props();
 
-  // Use composables for selection and delete functionality
-  const selection = useBulkSelection(() => items);
+  // Use composables for selection and delete functionality. SvelteKit
+  // reuses the parent page component across `[slug]` changes, so without an
+  // explicit reset the previous slug's selected IDs would persist against
+  // the new list. `resetOnPathnameChange` clears selection on slug
+  // transitions.
+  const selection = useBulkSelection(() => items, { resetOnPathnameChange: true });
 
   // Create custom delete handler that uses the provided onDelete/onBulkDelete functions
   async function handleCustomDelete(itemIds: string[]) {
@@ -70,12 +75,12 @@
   // If no table fields defined, use default columns
   let columns = $derived(
     tableColumns.length > 0
-      ? [...tableColumns, { key: 'created_at', label: 'Created' }]
+      ? [...tableColumns, { key: 'created_at', label: m.globals_table_col_created() }]
       : [
-          { key: 'title', label: 'Title' },
-          { key: 'slug', label: 'Slug' },
-          { key: 'status', label: 'Status' },
-          { key: 'updated_at', label: 'Last Updated' }
+          { key: 'title', label: m.globals_table_col_title() },
+          { key: 'slug', label: m.globals_table_col_slug() },
+          { key: 'status', label: m.globals_table_col_status() },
+          { key: 'updated_at', label: m.globals_table_col_last_updated() }
         ]
   );
 
@@ -86,18 +91,20 @@
 <div class="space-y-6">
   {#if items.length === 0}
     <div class="flex flex-col items-center justify-center py-12 text-center">
-      <h3 class="mb-2 text-lg font-medium">No {global.name.plural.toLowerCase()} yet</h3>
+      <h3 class="mb-2 text-lg font-medium">
+        {m.globals_table_empty_title({ plural: global.name.plural.toLowerCase() })}
+      </h3>
       <p class="text-muted-foreground mb-6 max-w-md">
         {#if global.options?.readonly}
-          {global.name.plural} will appear here when data is submitted.
+          {m.globals_table_empty_readonly({ plural: global.name.plural })}
         {:else}
-          Get started by creating your first {global.name.singular.toLowerCase()}
+          {m.globals_table_empty_text({ singular: global.name.singular.toLowerCase() })}
         {/if}
       </p>
       {#if onAddNew && !global.options?.readonly}
         <Button onclick={onAddNew}>
           <Plus class="mr-2 h-4 w-4" />
-          Add {global.name.singular}
+          {m.globals_table_add_button({ label: global.name.singular })}
         </Button>
       {/if}
     </div>
@@ -106,10 +113,13 @@
     <BulkActionsBar
       selectedCount={selection.selectedCount}
       totalCount={selection.totalCount}
-      itemType={global.name.singular.toLowerCase()}
+      labels={{
+        singular: global.name.singular.toLowerCase(),
+        plural: global.name.plural.toLowerCase()
+      }}
       actions={[
         {
-          label: `Delete (${selection.selectedCount})`,
+          label: m.globals_table_delete_count({ count: selection.selectedCount }),
           variant: 'destructive',
           onClick: () => bulkDelete.initiateBulkDelete(selection.selectedItems)
         }
@@ -192,7 +202,9 @@
       {/snippet}
       {#snippet empty()}
         <div class="text-center">
-          <h3 class="text-sm font-medium">No {global.name.plural.toLowerCase()} found.</h3>
+          <h3 class="text-sm font-medium">
+            {m.globals_table_no_results({ plural: global.name.plural.toLowerCase() })}
+          </h3>
         </div>
       {/snippet}
     </DataTable>
@@ -203,7 +215,10 @@
 <DeleteDialog
   bind:open={bulkDelete.deleteDialogOpen}
   itemCount={bulkDelete.pendingDeleteItems.count}
-  itemType={global.name.singular.toLowerCase()}
+  labels={{
+    singular: global.name.singular.toLowerCase(),
+    plural: global.name.plural.toLowerCase()
+  }}
   onConfirm={bulkDelete.executeBulkDelete}
   isLoading={bulkDelete.deleteDialogLoading}
 />

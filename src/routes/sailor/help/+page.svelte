@@ -11,49 +11,50 @@
   import Github from '$lib/components/sailor/icons/GithubIcon.svelte';
   import Rocket from '@lucide/svelte/icons/rocket';
   import Header from '$lib/components/sailor/Header.svelte';
+  import { m } from '$sailor/i18n';
 
   const baseDocsUrl = 'https://jonkristian.github.io/sailorcms';
 </script>
 
 <svelte:head>
-  <title>Help & Documentation - Sailor CMS</title>
+  <title>{m.help_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="px-6">
-  <Header title="Help & Documentation" description="Get help and learn how to use Sailor CMS" />
+  <Header title={m.help_page_title()} description={m.help_page_description()} />
 
   <!-- Quick Start Card -->
   <Card class="mb-8">
     <CardHeader>
       <CardTitle class="flex items-center gap-2">
         <Rocket class="h-5 w-5" />
-        Quick Start
+        {m.help_quickstart_title()}
       </CardTitle>
       <CardDescription>
-        New to Sailor CMS? Start here to get up and running quickly.
+        {m.help_quickstart_description()}
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-4">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="space-y-2">
-          <h4 class="font-medium">1. Create Collections</h4>
+          <h4 class="font-medium">{m.help_step1_title()}</h4>
           <p class="text-muted-foreground text-sm">
-            Define your content types like posts, pages, or products
+            {m.help_step1_text()}
           </p>
         </div>
         <div class="space-y-2">
-          <h4 class="font-medium">2. Add Blocks</h4>
+          <h4 class="font-medium">{m.help_step2_title()}</h4>
           <p class="text-muted-foreground text-sm">
-            Create reusable content components for flexible layouts
+            {m.help_step2_text()}
           </p>
         </div>
         <div class="space-y-2">
-          <h4 class="font-medium">3. Configure Globals</h4>
-          <p class="text-muted-foreground text-sm">Set up site-wide settings and navigation</p>
+          <h4 class="font-medium">{m.help_step3_title()}</h4>
+          <p class="text-muted-foreground text-sm">{m.help_step3_text()}</p>
         </div>
         <div class="space-y-2">
-          <h4 class="font-medium">4. Manage Users</h4>
-          <p class="text-muted-foreground text-sm">Add team members and configure permissions</p>
+          <h4 class="font-medium">{m.help_step4_title()}</h4>
+          <p class="text-muted-foreground text-sm">{m.help_step4_text()}</p>
         </div>
       </div>
       <a
@@ -63,7 +64,7 @@
         class="bg-primary text-primary-foreground ring-offset-background hover:bg-primary/90 focus-visible:ring-ring inline-flex h-10 w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
       >
         <Rocket class="mr-2 h-4 w-4" />
-        Get Started
+        {m.help_get_started()}
         <ExternalLink class="ml-2 h-4 w-4" />
       </a>
     </CardContent>
@@ -74,10 +75,10 @@
     <CardHeader>
       <CardTitle class="flex items-center gap-2">
         <Github class="h-5 w-5" />
-        Complete Documentation
+        {m.help_docs_title()}
       </CardTitle>
       <CardDescription>
-        View the full documentation, contribute improvements, or report issues on GitHub.
+        {m.help_docs_description()}
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-3">
@@ -89,7 +90,7 @@
           class="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex h-10 flex-1 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
         >
           <Book class="mr-2 h-4 w-4" />
-          Browse All Docs
+          {m.help_docs_browse()}
           <ExternalLink class="ml-2 h-4 w-4" />
         </a>
         <a
@@ -99,7 +100,7 @@
           class="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex h-10 flex-1 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
         >
           <Github class="mr-2 h-4 w-4" />
-          Contributing Guide
+          {m.help_contributing()}
           <ExternalLink class="ml-2 h-4 w-4" />
         </a>
       </div>

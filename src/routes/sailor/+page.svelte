@@ -4,6 +4,7 @@
   import RecentMedia from '$lib/components/sailor/dashboard/RecentMedia.svelte';
   import RecentUsers from '$lib/components/sailor/dashboard/RecentUsers.svelte';
   import { ExternalLink } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   interface DashboardData {
     stats: { collections: number; globals: number; users: number; files: number };
@@ -26,7 +27,7 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard - Sailor CMS</title>
+  <title>{m.dashboard_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto space-y-8 px-6">
@@ -36,7 +37,7 @@
       <div>
         <div class="flex items-center gap-3">
           <h1 class="text-3xl font-bold tracking-tight">
-            {dashboardData.siteInfo.name || 'Dashboard'}
+            {dashboardData.siteInfo.name || m.dashboard_page_title()}
           </h1>
           {#if dashboardData.siteInfo.url}
             <a
@@ -44,14 +45,14 @@
               target="_blank"
               rel="noopener noreferrer"
               class="text-muted-foreground hover:text-primary transition-colors"
-              title="Visit site: {dashboardData.siteInfo.url}"
+              title={m.dashboard_visit_site({ url: dashboardData.siteInfo.url })}
             >
               <ExternalLink class="h-5 w-5" />
             </a>
           {/if}
         </div>
         <p class="text-muted-foreground">
-          {dashboardData.siteInfo.description || 'Overview of your content management system'}
+          {dashboardData.siteInfo.description || m.dashboard_fallback_description()}
         </p>
       </div>
     </div>

@@ -5,6 +5,7 @@
   import ArrayFieldModal from './ArrayFieldModal.svelte';
   import DraggableCard from '$lib/components/sailor/DraggableCard.svelte';
   import { Plus } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   const {
     label,
@@ -211,7 +212,9 @@
         >
           {#snippet children()}
             <div class="p-4 text-center">
-              <Button onclick={() => handleEdit(node)} variant="outline">Edit Item</Button>
+              <Button onclick={() => handleEdit(node)} variant="outline"
+                >{m.array_edit_item()}</Button
+              >
             </div>
           {/snippet}
         </DraggableCard>
@@ -221,7 +224,7 @@
 
   <Button type="button" variant="outline" size="sm" onclick={addItem}>
     <Plus class="mr-2 h-4 w-4" />
-    Add Item
+    {m.array_add_item()}
   </Button>
 </div>
 

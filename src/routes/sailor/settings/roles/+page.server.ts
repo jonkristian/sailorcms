@@ -1,4 +1,5 @@
 import { getSettings } from '$lib/sailor/core/settings';
+import { m } from '$sailor/i18n';
 
 export const load = async ({ parent }) => {
   // Get shared settings data from layout
@@ -14,7 +15,7 @@ export const load = async ({ parent }) => {
     props: {
       type: 'settings',
       id: 'settings',
-      title: 'Roles Payload',
+      title: m.payload_title_roles(),
       expandedCategory: 'roles',
       initialPayload: settingsData
     }

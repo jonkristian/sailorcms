@@ -2,6 +2,8 @@
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
   import { Plus, Save, ChevronDown, ChevronUp } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
 
   // All props are optional for flexibility
   const {
@@ -41,14 +43,17 @@
             size="icon"
             class="h-6 w-6 rounded-full"
             onclick={addButtonAction}
-            aria-label="Add new"
+            aria-label={m.header_add_button_aria()}
             disabled={submitting}
           >
             <Plus class="h-3 w-3" />
           </Button>
         {/if}
         {#if showCountBadge && itemCount !== undefined}
-          <Badge variant="secondary">{itemCount} item{itemCount !== 1 ? 's' : ''}</Badge>
+          <Badge variant="secondary"
+            >{itemCount}
+            {pluralize(itemCount, m.common_item_singular(), m.common_item_plural())}</Badge
+          >
         {/if}
       </div>
       {#if description}
@@ -65,14 +70,14 @@
             size="sm"
             onclick={handleExpandCollapse}
             disabled={submitting}
-            aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
+            aria-label={allExpanded ? m.header_collapse_all_aria() : m.header_expand_all_aria()}
           >
             {#if allExpanded}
               <ChevronUp class="mr-2 h-4 w-4" />
-              Collapse All
+              {m.header_collapse_all()}
             {:else}
               <ChevronDown class="mr-2 h-4 w-4" />
-              Expand All
+              {m.header_expand_all()}
             {/if}
           </Button>
         {/if}
@@ -85,7 +90,7 @@
             {:else}
               <Save class="mr-2 h-4 w-4" />
             {/if}
-            Save Changes
+            {m.header_save_changes()}
           </Button>
         {/if}
       </div>

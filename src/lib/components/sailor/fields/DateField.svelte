@@ -11,10 +11,11 @@
   } from '@internationalized/date';
   import { formatTableDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { m } from '$sailor/i18n';
 
   const {
     value,
-    placeholder = 'Pick a date',
+    placeholder = m.date_field_placeholder(),
     required = false,
     onChange
   }: {
@@ -78,8 +79,8 @@
         type="button"
         onclick={clear}
         class="rounded transition-colors hover:text-red-500 focus:outline-none"
-        title="Clear date"
-        aria-label="Clear date"
+        title={m.date_field_clear()}
+        aria-label={m.date_field_clear()}
       >
         <X class="h-3.5 w-3.5" />
       </button>

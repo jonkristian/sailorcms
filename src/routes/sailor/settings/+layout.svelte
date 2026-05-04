@@ -2,48 +2,49 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { Database, Cloud, Upload, Settings, Users, Tags } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   const { children } = $props();
 
   // Navigation items for settings
-  const navItems = [
+  const navItems = $derived([
     {
-      label: 'Settings',
+      label: m.settings_nav_settings_label(),
       href: '/sailor/settings',
       icon: Settings,
-      description: 'Basic site information'
+      description: m.settings_nav_settings_description()
     },
     {
-      label: 'Roles',
+      label: m.settings_nav_roles_label(),
       href: '/sailor/settings/roles',
       icon: Users,
-      description: 'Manage roles & permissions'
+      description: m.settings_nav_roles_description()
     },
     {
-      label: 'Database',
+      label: m.settings_nav_database_label(),
       href: '/sailor/settings/database',
       icon: Database,
-      description: 'Schema and data management'
+      description: m.settings_nav_database_description()
     },
     {
-      label: 'Storage',
+      label: m.settings_nav_storage_label(),
       href: '/sailor/settings/storage',
       icon: Cloud,
-      description: 'File storage configuration'
+      description: m.settings_nav_storage_description()
     },
     {
-      label: 'Taggables',
+      label: m.settings_nav_taggables_label(),
       href: '/sailor/settings/taggables',
       icon: Tags,
-      description: 'Manage tags and their usage'
+      description: m.settings_nav_taggables_description()
     },
     {
-      label: 'Import & Export',
+      label: m.settings_nav_import_label(),
       href: '/sailor/settings/import',
       icon: Upload,
-      description: 'Content migration tools'
+      description: m.settings_nav_import_description()
     }
-  ];
+  ]);
 
   // Check if current route matches nav item
   function isActive(href: string) {

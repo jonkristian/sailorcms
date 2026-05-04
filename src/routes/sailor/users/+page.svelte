@@ -12,6 +12,8 @@
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import type { PageData } from './$types';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
 
   interface User {
     id: string;
@@ -45,10 +47,10 @@
   let deleteLoading = $state(false);
 
   const columns: Column[] = [
-    { key: 'title', label: 'Name', sortable: true },
-    { key: 'email', label: 'Email', sortable: true },
-    { key: 'role', label: 'Role', sortable: true },
-    { key: 'created_at', label: 'Created', sortable: true }
+    { key: 'title', label: m.users_col_name(), sortable: true },
+    { key: 'email', label: m.users_col_email(), sortable: true },
+    { key: 'role', label: m.users_col_role(), sortable: true },
+    { key: 'created_at', label: m.users_col_created(), sortable: true }
   ];
 
   function formatDate(date: string | Date) {
@@ -71,13 +73,13 @@
 </script>
 
 <svelte:head>
-  <title>Users - Sailor CMS</title>
+  <title>{m.users_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
   <Header
-    title="Users"
-    description="Manage user accounts and permissions"
+    title={m.users_page_title()}
+    description={m.users_page_description()}
     itemCount={data.users.length}
     showAddButton={true}
     showCountBadge={true}
@@ -90,9 +92,11 @@
     <div class="flex items-center gap-4">
       {#if selection.selectedCount > 0}
         <div class="text-muted-foreground text-sm">
-          {selection.selectedCount} of {selection.totalCount} user{selection.totalCount === 1
-            ? ''
-            : 's'} selected
+          {m.bulk_selection_count({
+            selected: selection.selectedCount,
+            total: selection.totalCount,
+            items: pluralize(selection.totalCount, m.common_user_singular(), m.common_user_plural())
+          })}
         </div>
       {:else}
         <!-- Search when no selection -->
@@ -110,7 +114,9 @@
         }}
         disabled={selection.selectedCount === 0}
       >
-        {selection.selectedCount > 0 ? `Delete (${selection.selectedCount})` : 'Delete'}
+        {selection.selectedCount > 0
+          ? `${m.common_delete()} (${selection.selectedCount})`
+          : m.common_delete()}
       </Button>
     </div>
   </div>

@@ -5,11 +5,9 @@
 // honoured everywhere.
 
 import { page } from '$app/state';
-import {
-  resolvePreferences,
-  DEFAULT_PREFERENCES,
-  type UserPreferences
-} from '$sailor/core/utils/user-preferences';
+import { browser } from '$app/environment';
+import { getLocale } from '$sailor/i18n';
+import { resolvePreferences, type UserPreferences } from '$sailor/core/utils/user-preferences';
 
 export function getUserLocale(): string {
   // Tolerate both wire shapes — some routes pre-parse `preferences` into an
@@ -17,5 +15,21 @@ export function getUserLocale(): string {
   // user row. `resolvePreferences` accepts either.
   const raw = (page.data?.user as { preferences?: string | UserPreferences } | undefined)
     ?.preferences;
-  return resolvePreferences(raw).date_format ?? DEFAULT_PREFERENCES.date_format ?? 'en-US';
+  const prefs = resolvePreferences(raw);
+  const dateFormat = prefs.date_format;
+
+  // 'auto' or unset → follow the active UI locale (which itself was already
+  // resolved against the user's `language` preference + Accept-Language).
+  if (!dateFormat || dateFormat === 'auto') {
+    if (browser) {
+      try {
+        return getLocale();
+      } catch {
+        // getLocale() throws if AsyncLocalStorage is unset, fall through.
+      }
+    }
+    return prefs.language && prefs.language !== 'auto' ? prefs.language : 'en-US';
+  }
+
+  return dateFormat;
 }

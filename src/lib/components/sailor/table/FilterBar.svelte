@@ -7,6 +7,7 @@
   import * as Command from '$lib/components/ui/command';
   import { Badge } from '$lib/components/ui/badge';
   import { Check, ChevronDown } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   interface FilterConfig {
     search?: boolean;
@@ -77,7 +78,7 @@
       <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
       <Input
         type="text"
-        placeholder="Search..."
+        placeholder={m.filter_search_placeholder()}
         value={tableFilters?.searchQuery ?? ''}
         class="h-9 w-64 pr-9 pl-9"
         oninput={(e) => {
@@ -143,16 +144,22 @@
             >
               <span class="text-muted-foreground">
                 {(tableFilters?.multiSelectFilters?.[multiConfig.key]?.length ?? 0) > 0
-                  ? `${tableFilters?.multiSelectFilters?.[multiConfig.key]?.length ?? 0} selected`
-                  : `Select ${multiConfig.label.toLowerCase()}...`}
+                  ? m.filter_select_count_selected({
+                      count: tableFilters?.multiSelectFilters?.[multiConfig.key]?.length ?? 0
+                    })
+                  : m.filter_select_placeholder({ label: multiConfig.label.toLowerCase() })}
               </span>
               <ChevronDown class="h-4 w-4 opacity-50" />
             </div>
           </Popover.Trigger>
           <Popover.Content id={`${multiConfig.key}-content`} class="w-48 p-0">
             <Command.Root>
-              <Command.Input placeholder={`Search ${multiConfig.label.toLowerCase()}...`} />
-              <Command.Empty>No {multiConfig.label.toLowerCase()} found.</Command.Empty>
+              <Command.Input
+                placeholder={m.filter_search_label({ label: multiConfig.label.toLowerCase() })}
+              />
+              <Command.Empty>
+                {m.filter_no_results({ label: multiConfig.label.toLowerCase() })}
+              </Command.Empty>
               <Command.Group class="max-h-64 overflow-auto">
                 {#each multiConfig.options as option}
                   <Command.Item
@@ -200,7 +207,8 @@
 
   <!-- Clear Filters Button -->
   {#if tableFilters?.hasActiveFilters}
-    <Button variant="ghost" class="h-9" onclick={tableFilters.clearAllFilters}>Clear Filters</Button
+    <Button variant="ghost" class="h-9" onclick={tableFilters.clearAllFilters}
+      >{m.filter_clear_filters()}</Button
     >
   {/if}
 </div>

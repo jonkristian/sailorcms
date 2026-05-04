@@ -11,6 +11,7 @@ import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import { resolveRevisionsKeep } from '$sailor/core/services/revisions.server';
 import type { PageServerLoad } from './$types';
 import { log } from '$sailor/core/utils/logger';
+import { m } from '$sailor/i18n';
 import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';
 
 export const load: PageServerLoad = async ({ params, locals, request, url }) => {
@@ -330,7 +331,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
       type: 'collection',
       id: String(page.id || ''),
       slug: slug,
-      title: 'Collection Payload',
+      title: m.payload_title_collection(),
       fields: effectiveFields,
       initialPayload: {
         ...page,
@@ -362,7 +363,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
       type: 'preview-link',
       props: {
         href: previewUrl,
-        title: 'Preview'
+        title: m.payload_title_preview()
       }
     });
   }
@@ -371,8 +372,8 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
   headerActions.push({
     type: 'save-button',
     props: {
-      text: isNewItem ? 'Create' : 'Save',
-      submittingText: isNewItem ? 'Creating...' : 'Saving...',
+      text: isNewItem ? m.common_create() : m.common_save(),
+      submittingText: isNewItem ? m.common_creating() : m.common_saving(),
       submitting: false, // Will be updated client-side
       formId: 'collection-form' // Submit the form instead
     }

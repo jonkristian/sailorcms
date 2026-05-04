@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Loader2 } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   // Renders children immediately and lays a viewport-centered spinner over
   // the page until the browser signals an idle moment, then fades the
@@ -45,5 +46,5 @@
   aria-hidden={ready}
   aria-live="polite"
 >
-  <Loader2 class="text-muted-foreground size-8 animate-spin" aria-label="Loading" />
+  <Loader2 class="text-muted-foreground size-8 animate-spin" aria-label={m.overlay_loading()} />
 </div>

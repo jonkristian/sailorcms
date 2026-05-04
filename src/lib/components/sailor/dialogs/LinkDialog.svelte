@@ -11,6 +11,7 @@
   import { Label } from '$lib/components/ui/label';
   import { Button } from '$lib/components/ui/button';
   import * as Select from '$lib/components/ui/select';
+  import { m } from '$sailor/i18n';
 
   const {
     open,
@@ -46,20 +47,24 @@
 <Dialog {open}>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Add Link</DialogTitle>
-      <DialogDescription>Enter the URL and optional link text for your link.</DialogDescription>
+      <DialogTitle>{m.link_dialog_title()}</DialogTitle>
+      <DialogDescription>{m.link_dialog_description()}</DialogDescription>
     </DialogHeader>
     <div class="space-y-4">
       <div class="space-y-2">
-        <Label for="link-url">URL</Label>
+        <Label for="link-url">{m.link_dialog_field_url()}</Label>
         <Input id="link-url" bind:value={linkUrl} placeholder="https://example.com" type="url" />
       </div>
       <div class="space-y-2">
-        <Label for="link-text">Link Text (optional)</Label>
-        <Input id="link-text" bind:value={linkText} placeholder="Display text for the link" />
+        <Label for="link-text">{m.link_dialog_field_text()}</Label>
+        <Input
+          id="link-text"
+          bind:value={linkText}
+          placeholder={m.link_dialog_field_text_placeholder()}
+        />
       </div>
       <div class="space-y-2">
-        <Label for="link-target">Target</Label>
+        <Label for="link-target">{m.link_dialog_field_target()}</Label>
         <Select.Root
           type="single"
           value={linkTarget}
@@ -69,27 +74,27 @@
         >
           <Select.Trigger id="link-target">
             {linkTarget === '_self'
-              ? 'Same window (_self)'
+              ? m.link_dialog_target_self()
               : linkTarget === '_blank'
-                ? 'New tab (_blank)'
+                ? m.link_dialog_target_blank()
                 : linkTarget === '_parent'
-                  ? 'Parent frame (_parent)'
+                  ? m.link_dialog_target_parent()
                   : linkTarget === '_top'
-                    ? 'Top window (_top)'
-                    : 'Select target'}
+                    ? m.link_dialog_target_top()
+                    : m.link_dialog_target_select()}
           </Select.Trigger>
           <Select.Content>
-            <Select.Item value="_self">Same window (_self)</Select.Item>
-            <Select.Item value="_blank">New tab (_blank)</Select.Item>
-            <Select.Item value="_parent">Parent frame (_parent)</Select.Item>
-            <Select.Item value="_top">Top window (_top)</Select.Item>
+            <Select.Item value="_self">{m.link_dialog_target_self()}</Select.Item>
+            <Select.Item value="_blank">{m.link_dialog_target_blank()}</Select.Item>
+            <Select.Item value="_parent">{m.link_dialog_target_parent()}</Select.Item>
+            <Select.Item value="_top">{m.link_dialog_target_top()}</Select.Item>
           </Select.Content>
         </Select.Root>
       </div>
     </div>
     <DialogFooter>
-      <Button variant="outline" onclick={handleCancel}>Cancel</Button>
-      <Button onclick={handleSubmit}>Add Link</Button>
+      <Button variant="outline" onclick={handleCancel}>{m.link_dialog_button_cancel()}</Button>
+      <Button onclick={handleSubmit}>{m.link_dialog_button_add()}</Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>

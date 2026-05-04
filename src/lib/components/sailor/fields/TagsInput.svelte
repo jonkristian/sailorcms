@@ -3,6 +3,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { X } from '@lucide/svelte';
   import { searchTags } from '$sailor/remote/tags.remote.js';
+  import { m } from '$sailor/i18n';
 
   interface Tag {
     id: string;
@@ -11,7 +12,7 @@
 
   const {
     value = [],
-    placeholder = 'Type tag name and press Enter',
+    placeholder = m.tags_input_placeholder(),
     onChange,
     required = false,
     disabled = false,
@@ -263,7 +264,7 @@
               type="button"
               onclick={() => removeTag(index)}
               class="ml-1 rounded transition-colors hover:text-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
-              title="Remove tag"
+              title={m.tags_remove_tag()}
             >
               <X class="h-3 w-3" />
             </button>

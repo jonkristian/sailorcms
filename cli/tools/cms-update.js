@@ -10,7 +10,10 @@ import {
   cleanupUnusedDependencies,
   trackInstalledDependencies,
   updateSvelteConfig,
-  updateViteConfig
+  updateViteConfig,
+  stripLegacyDbScripts,
+  printManualActionBanner,
+  dedupeNestedSvelteDeps
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -115,17 +118,28 @@ export function registerCoreUpdate(program) {
             }
           });
 
-          // Update dev dependencies
+          // Update dev dependencies. If the consumer has the package in
+          // regular `dependencies`, keep its placement and just bump the
+          // version there — otherwise write to `devDependencies`. (Without
+          // this, packages sailor lists as devDeps that consumers happen to
+          // have under `dependencies` — bits-ui is the canonical case —
+          // never get version-bumped on update.)
           cmsDevDeps.forEach(([packageName, version]) => {
-            if (packageJson.devDependencies[packageName]) {
-              packageJson.devDependencies[packageName] = version;
-            } else if (!packageJson.dependencies[packageName]) {
-              // Only add if not already in dependencies
+            if (packageJson.dependencies[packageName]) {
+              packageJson.dependencies[packageName] = version;
+            } else {
               packageJson.devDependencies[packageName] = version;
             }
           });
 
           await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+
+          const removedLegacyScripts = await stripLegacyDbScripts(targetDir);
+          if (removedLegacyScripts.length > 0) {
+            console.log(
+              `🧹 Removed legacy package.json script(s): ${removedLegacyScripts.join(', ')}`
+            );
+          }
 
           // Detect and use appropriate package manager
           const packageManager = await detectPackageManager(targetDir);
@@ -146,6 +160,13 @@ export function registerCoreUpdate(program) {
             } else {
               throw error;
             }
+          }
+
+          // Bun's `file:` install nests a duplicate acorn under
+          // node_modules/svelte/node_modules — strip it before anything else
+          // touches node_modules. See dedupeNestedSvelteDeps() docstring.
+          if (packageManager === 'bun') {
+            await dedupeNestedSvelteDeps(targetDir);
           }
 
           // Compare old vs new CMS dependencies to show what's no longer needed
@@ -174,10 +195,14 @@ export function registerCoreUpdate(program) {
         await updateSailorCoreFiles(targetDir);
 
         // Update config files
-        await updateSvelteConfig(targetDir);
-        await updateViteConfig(targetDir);
+        const manual = [];
+        const svelteResult = await updateSvelteConfig(targetDir);
+        if (svelteResult?.manual) manual.push(...svelteResult.manual);
+        const viteResult = await updateViteConfig(targetDir);
+        if (viteResult?.manual) manual.push(...viteResult.manual);
 
         console.log('✅ Sailor CMS updated successfully!');
+        printManualActionBanner(manual);
       } catch (error) {
         console.error('❌ Error updating Sailor CMS:', error.message);
         process.exit(1);

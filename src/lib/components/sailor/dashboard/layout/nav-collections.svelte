@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import * as Sidebar from '$lib/components/ui/sidebar/index.js';
   import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+  import { m } from '$sailor/i18n';
   import FileText from '@lucide/svelte/icons/file-text';
   import Layout from '@lucide/svelte/icons/layout';
   import FolderTree from '@lucide/svelte/icons/folder-tree';
@@ -65,7 +66,8 @@
 
 {#if loading || items().length > 0}
   <Sidebar.Group>
-    <Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Collections</Sidebar.GroupLabel
+    <Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden"
+      >{m.nav_collections()}</Sidebar.GroupLabel
     >
     <Sidebar.GroupContent>
       {#if loading}

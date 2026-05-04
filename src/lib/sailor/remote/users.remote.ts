@@ -2,6 +2,11 @@ import { command, getRequestEvent } from '$app/server';
 import { db } from '$sailor/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { asc, sql, eq } from 'drizzle-orm';
+import {
+  parsePreferences,
+  mergePreferences,
+  type UserPreferences
+} from '$sailor/core/utils/user-preferences';
 
 /**
  * Get users for selection/search
@@ -83,6 +88,41 @@ export const getUserRoles = command('unchecked', async () => {
     };
   }
 });
+
+/**
+ * Patch the calling user's preferences (additive merge over the existing
+ * JSON blob in `users.preferences`). Use this for any per-user UI state —
+ * UI language, date format, default landing page, table vs grid view, page
+ * size, density, etc. — so they all share the same persistence path.
+ */
+export const updateMyPreferences = command(
+  'unchecked',
+  async ({ patch }: { patch: Partial<UserPreferences> }) => {
+    const { locals } = getRequestEvent();
+    if (!locals.user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    try {
+      const existing = await db.query.users.findFirst({
+        where: eq(schema.users.id, locals.user.id),
+        columns: { preferences: true } as any
+      });
+      const current = parsePreferences((existing as any)?.preferences);
+      const next = mergePreferences(current, patch);
+
+      await db
+        .update(schema.users)
+        .set({ preferences: JSON.stringify(next) })
+        .where(eq(schema.users.id, locals.user.id));
+
+      return { success: true, preferences: next };
+    } catch (err) {
+      console.error('Failed to update user preferences:', err);
+      return { success: false, error: 'Failed to update preferences' };
+    }
+  }
+);
 
 /**
  * Get author name by user ID

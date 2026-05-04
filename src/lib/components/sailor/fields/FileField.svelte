@@ -6,7 +6,8 @@
   import Grid from '$lib/components/sailor/dnd/Grid.svelte';
   import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
   import { getFiles, restoreFile } from '$sailor/remote/files.remote.js';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
 
   let {
@@ -133,14 +134,11 @@
   async function handleRestore(fileId: string) {
     try {
       const result = await restoreFile({ fileId });
-      if (result.success) {
-        toast.success(result.message || 'File restored');
+      if (toastResult(result, m.toast_file_restored, m.toast_restore_file_failed)) {
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to restore file');
       }
     } catch {
-      toast.error('Failed to restore file');
+      toast.error(m.toast_restore_file_failed());
     }
   }
 
@@ -164,7 +162,7 @@
           id: fv,
           value: fv,
           url: '',
-          label: 'Missing file',
+          label: m.file_field_missing_name(),
           type: fileType,
           deletedAt: null
         };
@@ -173,7 +171,7 @@
         id: fv,
         value: fv,
         url: f.url,
-        label: f.name || 'Unknown file',
+        label: f.name || m.file_field_unknown_name(),
         type: f.mime_type?.includes('image') ? 'image' : 'document',
         deletedAt: f.deleted_at ?? null
       };
@@ -186,7 +184,7 @@
   <div class="flex items-center justify-between">
     <div class="flex items-center gap-2">
       <span class="text-sm font-medium">
-        {field.label || 'Files'}
+        {field.label || m.file_field_label()}
       </span>
       <Button
         type="button"
@@ -194,7 +192,7 @@
         size="icon"
         class="h-6 w-6 rounded-full"
         onclick={(e) => openPicker(e)}
-        title="Select {multiple ? 'files' : 'file'}"
+        title={multiple ? m.file_field_select_many_title() : m.file_field_select_one_title()}
         disabled={readonly}
       >
         <Plus class="h-3 w-3" />
@@ -212,7 +210,7 @@
             class="h-7 px-2"
           >
             <Trash2 class="mr-1 h-3 w-3" />
-            Delete {selectedForDeletion.size}
+            {m.file_field_delete_count({ count: selectedForDeletion.size })}
           </Button>
           <Button
             type="button"
@@ -221,14 +219,16 @@
             onclick={clearSelection}
             class="h-7 px-2 text-xs"
           >
-            Cancel
+            {m.file_field_cancel()}
           </Button>
         {:else}
           <span class="text-muted-foreground text-sm">
             {#if Array.isArray(value)}
-              {value.length} {value.length === 1 ? 'file' : 'files'}
+              {value.length === 1
+                ? m.file_field_count_one()
+                : m.file_field_count_many({ count: value.length })}
             {:else}
-              1 file
+              {m.file_field_count_one()}
             {/if}
           </span>
           {#if (Array.isArray(value) ? value.length : 1) > 1}
@@ -239,7 +239,7 @@
               onclick={selectAllVisible}
               class="h-7 px-2 text-xs"
             >
-              Select all
+              {m.file_field_select_all()}
             </Button>
           {:else}
             <Button
@@ -250,13 +250,13 @@
               class="h-7 px-2 text-xs"
             >
               <Trash2 class="mr-1 h-3 w-3" />
-              Remove
+              {m.file_field_remove()}
             </Button>
           {/if}
         {/if}
       {:else}
         <span class="text-muted-foreground text-sm">
-          No {multiple ? 'files' : 'file'} selected
+          {multiple ? m.file_field_no_many_selected() : m.file_field_no_one_selected()}
         </span>
       {/if}
     </div>
@@ -345,7 +345,7 @@
             <!-- Single missing file -->
             <FileWithControls
               src=""
-              alt="Missing file"
+              alt={m.file_field_missing_name()}
               filename="unknown"
               {fileType}
               aspectRatio="aspect-[4/3]"
@@ -360,7 +360,7 @@
                 {@const selectedFile = fileItems.find((f) => f.value === selectedValue)}
                 <FileWithControls
                   src={selectedFile?.type === 'image' ? getImage(selectedFile.value) : ''}
-                  alt={selectedFile?.label || 'Missing file'}
+                  alt={selectedFile?.label || m.file_field_missing_name()}
                   filename={selectedFile?.label || 'unknown'}
                   fileType={selectedFile?.type || fileType}
                   deletedAt={selectedFile?.deletedAt ?? null}

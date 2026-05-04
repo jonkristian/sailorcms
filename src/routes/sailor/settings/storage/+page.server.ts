@@ -1,4 +1,5 @@
 import { getSettings } from '$sailor/core/settings';
+import { m } from '$sailor/i18n';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -15,7 +16,7 @@ export const load: PageServerLoad = async ({ parent }) => {
     props: {
       type: 'settings',
       id: 'settings',
-      title: 'Storage Settings Payload',
+      title: m.payload_title_storage(),
       expandedCategory: 'storage',
       initialPayload: settingsData
     }

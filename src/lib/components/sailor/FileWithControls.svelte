@@ -1,6 +1,7 @@
 <script lang="ts">
   import { GripVertical, Copy, X, ImageOff, FileText, Video, RotateCcw } from '@lucide/svelte';
   import { Checkbox as CheckboxComponent } from '$lib/components/ui/checkbox';
+  import { m } from '$sailor/i18n';
 
   let {
     src,
@@ -105,7 +106,7 @@
     >
       <ImageOff class="mb-2 h-6 w-6" />
       {#if showFilename}
-        <span class="px-2 text-center text-xs">Missing file</span>
+        <span class="px-2 text-center text-xs">{m.file_controls_missing()}</span>
       {/if}
     </div>
   {:else if isDocument}
@@ -121,7 +122,10 @@
       {/if}
       {#if showFilename}
         <span class="max-w-full truncate px-2 text-center text-xs"
-          >{filename || (mimeType?.startsWith('video/') ? 'Video' : 'Document')}</span
+          >{filename ||
+            (mimeType?.startsWith('video/')
+              ? m.file_controls_video()
+              : m.file_controls_document())}</span
         >
       {/if}
     </div>
@@ -133,7 +137,7 @@
     >
       <ImageOff class="h-6 w-6 {showFilename ? 'mb-2' : ''}" />
       {#if showFilename}
-        <span class="px-2 text-center text-xs">Missing file</span>
+        <span class="px-2 text-center text-xs">{m.file_controls_missing()}</span>
       {/if}
     </div>
   {:else}
@@ -141,7 +145,7 @@
     <img
       {src}
       {alt}
-      class="h-full w-full object-cover"
+      class="h-full w-full object-cover object-top"
       class:opacity-50={selected}
       onload={handleImageLoad}
       onerror={handleImageError}
@@ -153,7 +157,7 @@
       <button
         type="button"
         class="absolute right-2 bottom-2 flex items-center gap-1 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm hover:bg-red-600"
-        title="Restore this file from Recovery"
+        title={m.file_controls_restore_title()}
         onclick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -161,14 +165,14 @@
         }}
       >
         <RotateCcw class="h-3 w-3" />
-        Restore
+        {m.file_controls_restore()}
       </button>
     {:else}
       <div
         class="absolute right-2 bottom-2 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm"
-        title="This file is in Recovery. Restore it or pick a replacement."
+        title={m.file_controls_in_recovery_title()}
       >
-        In Recovery
+        {m.file_controls_in_recovery()}
       </div>
     {/if}
   {/if}
@@ -191,7 +195,7 @@
           }}
           tabindex="0"
           role="button"
-          aria-label="Select image"
+          aria-label={m.file_controls_select_image()}
         >
           <CheckboxComponent
             checked={selected}
@@ -206,7 +210,7 @@
           class="flex cursor-grab items-center justify-center rounded p-1 hover:bg-white/20"
           role="button"
           tabindex="0"
-          aria-label="Drag handle"
+          aria-label={m.file_controls_drag_handle()}
           {...dragHandleAttributes}
           ondragstart={dragHandleAttributes.ondragstart || handleDragStartInternal}
           ondragend={dragHandleAttributes.ondragend || handleDragEndInternal}
@@ -233,7 +237,7 @@
           }}
           tabindex="0"
           role="button"
-          aria-label="Copy filename"
+          aria-label={m.file_controls_copy_filename()}
         >
           <Copy class="h-3 w-3 text-white" />
         </div>
@@ -257,7 +261,7 @@
           }}
           tabindex="0"
           role="button"
-          aria-label="Remove image"
+          aria-label={m.file_controls_remove_image()}
         >
           <X class="h-3 w-3 text-white" />
         </div>

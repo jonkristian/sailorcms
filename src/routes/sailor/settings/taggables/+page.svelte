@@ -7,6 +7,8 @@
   import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
   import { deleteTag } from '$sailor/remote/tags.remote.js';
   import Header from '$lib/components/sailor/Header.svelte';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
 
   let { data } = $props();
 
@@ -49,15 +51,15 @@
       const result = await deleteTag({ tagId: pendingDeleteTag.id });
 
       if (result.success) {
-        toast.success(`Tag "${pendingDeleteTag.name}" deleted successfully`);
+        toast.success(m.toast_tag_deleted_named({ name: pendingDeleteTag.name }));
         await invalidateAll();
         deleteDialogOpen = false;
       } else {
-        throw new Error(result.error || 'Failed to delete tag');
+        throw new Error(result.error || m.toast_delete_tag_failed());
       }
     } catch (error) {
       console.error('Failed to delete tag:', error);
-      toast.error('Failed to delete tag');
+      toast.error(m.toast_delete_tag_failed());
     } finally {
       deleteDialogLoading = false;
     }
@@ -66,9 +68,9 @@
   function getEntityTypeLabel(entityType: string): string {
     switch (entityType) {
       case 'file':
-        return 'Media Files';
+        return m.settings_taggables_entity_files();
       case 'collection':
-        return 'Collection Items';
+        return m.settings_taggables_entity_collections();
       default:
         return entityType.charAt(0).toUpperCase() + entityType.slice(1);
     }
@@ -76,13 +78,13 @@
 </script>
 
 <svelte:head>
-  <title>Taggables - Sailor CMS</title>
+  <title>{m.settings_taggables_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
   <Header
-    title="Taggables"
-    description="Manage tags and view where they are being used across your content."
+    title={m.settings_taggables_page_title()}
+    description={m.settings_taggables_description()}
   />
 
   <!-- Tags Overview -->
@@ -90,44 +92,48 @@
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <div class="rounded-lg border p-4">
         <div class="text-2xl font-bold">{data.tags.length}</div>
-        <p class="text-muted-foreground text-sm">Total Tags</p>
+        <p class="text-muted-foreground text-sm">{m.settings_taggables_total()}</p>
       </div>
       <div class="rounded-lg border p-4">
         <div class="text-2xl font-bold">
           {data.tags.filter((tag) => tag.usage.length > 0).length}
         </div>
-        <p class="text-muted-foreground text-sm">Tags in Use</p>
+        <p class="text-muted-foreground text-sm">{m.settings_taggables_in_use()}</p>
       </div>
       <div class="rounded-lg border p-4">
         <div class="text-2xl font-bold">
           {data.tags.filter((tag) => tag.usage.length === 0).length}
         </div>
-        <p class="text-muted-foreground text-sm">Unused Tags</p>
+        <p class="text-muted-foreground text-sm">{m.settings_taggables_unused()}</p>
       </div>
     </div>
   </div>
 
   <!-- All Available Tags -->
   <div class="mt-8 space-y-3">
-    <h2 class="text-lg font-medium">All Tags</h2>
+    <h2 class="text-lg font-medium">{m.settings_taggables_all_heading()}</h2>
     <div class="rounded-lg border">
       <div class="divide-y">
         {#each data.tags as tag (tag.id)}
+          {@const totalUses = tag.usage.reduce((sum, u) => sum + u.usage_count, 0)}
           <div class="flex items-center justify-between p-4">
             <div class="flex items-center gap-3">
               <Badge variant="outline">{tag.name}</Badge>
               {#if tag.usage.length > 0}
                 <span class="text-muted-foreground text-sm">
-                  Used {tag.usage.reduce((sum, u) => sum + u.usage_count, 0)} time{tag.usage.reduce(
-                    (sum, u) => sum + u.usage_count,
-                    0
-                  ) !== 1
-                    ? 's'
-                    : ''}
-                  across {tag.usage.length} entity type{tag.usage.length !== 1 ? 's' : ''}
+                  {m.settings_taggables_usage_summary({
+                    count: totalUses,
+                    times: pluralize(totalUses, m.common_time_singular(), m.common_time_plural()),
+                    typeCount: tag.usage.length,
+                    types: pluralize(
+                      tag.usage.length,
+                      m.common_entity_type_singular(),
+                      m.common_entity_type_plural()
+                    )
+                  })}
                 </span>
               {:else}
-                <span class="text-muted-foreground text-sm">Not used</span>
+                <span class="text-muted-foreground text-sm">{m.settings_taggables_not_used()}</span>
               {/if}
             </div>
             <Button
@@ -147,7 +153,9 @@
   <!-- Tags by Entity Type -->
   {#each Object.entries(tagsByEntityType) as [entityType, tags] (entityType)}
     <div class="mt-8 space-y-3">
-      <h2 class="text-lg font-medium">{getEntityTypeLabel(entityType)} Usage</h2>
+      <h2 class="text-lg font-medium">
+        {m.settings_taggables_usage_heading({ label: getEntityTypeLabel(entityType) })}
+      </h2>
       <div class="rounded-lg border">
         <div class="divide-y">
           {#each tags as tag (tag.id)}
@@ -155,7 +163,14 @@
               <div class="flex items-center gap-3">
                 <Badge variant="outline">{tag.name}</Badge>
                 <span class="text-muted-foreground text-sm">
-                  Used {tag.usage[0].usage_count} time{tag.usage[0].usage_count !== 1 ? 's' : ''}
+                  {m.settings_taggables_used_count({
+                    count: tag.usage[0].usage_count,
+                    times: pluralize(
+                      tag.usage[0].usage_count,
+                      m.common_time_singular(),
+                      m.common_time_plural()
+                    )
+                  })}
                 </span>
               </div>
               <Button
@@ -176,7 +191,7 @@
   <!-- No tags at all -->
   {#if data.tags.length === 0}
     <div class="py-8 text-center">
-      <p class="text-muted-foreground">No tags found. Tags will appear here as you create them.</p>
+      <p class="text-muted-foreground">{m.settings_taggables_no_tags()}</p>
     </div>
   {/if}
 </div>
@@ -185,7 +200,7 @@
 <DeleteDialog
   bind:open={deleteDialogOpen}
   itemCount={1}
-  itemType="tag"
+  labels={{ singular: m.common_tag_singular(), plural: m.common_tag_plural() }}
   itemName={pendingDeleteTag?.name}
   onConfirm={executeDeleteTag}
   isLoading={deleteDialogLoading}

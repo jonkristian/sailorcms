@@ -1,6 +1,7 @@
 import { fail, error } from '@sveltejs/kit';
 import { SystemSettingsService } from '$sailor/core/services/settings.server';
 import { log } from '$sailor/core/utils/logger';
+import { m } from '$sailor/i18n';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
@@ -25,7 +26,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
     props: {
       type: 'settings',
       id: 'settings',
-      title: 'Settings Payload',
+      title: m.payload_title_settings(),
       expandedCategory: 'site',
       initialPayload: settingsData
     }

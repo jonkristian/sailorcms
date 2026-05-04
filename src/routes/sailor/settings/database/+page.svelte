@@ -20,6 +20,7 @@
   import { Database, FileJson, Table as TableIcon, ChevronDown, Globe } from '@lucide/svelte';
   import { Badge } from '$lib/components/ui/badge';
   import Header from '$lib/components/sailor/Header.svelte';
+  import { m } from '$sailor/i18n';
 
   let {
     data
@@ -195,14 +196,11 @@
 </script>
 
 <svelte:head>
-  <title>Database - Sailor CMS</title>
+  <title>{m.settings_db_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
-  <Header
-    title="Database"
-    description="View your database schema, tables, and generated content types"
-  />
+  <Header title={m.settings_db_page_title()} description={m.settings_db_description()} />
 
   <div class="flex flex-col gap-6">
     <!-- Summary Statistics -->
@@ -212,7 +210,9 @@
           <div class="flex items-center gap-4">
             <Database class="h-6 w-6 text-blue-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Collections</p>
+              <p class="text-muted-foreground text-sm font-medium">
+                {m.settings_db_stat_collections()}
+              </p>
               <p class="text-2xl font-bold">{data.collectionTypes.length}</p>
             </div>
           </div>
@@ -223,7 +223,9 @@
           <div class="flex items-center gap-4">
             <Globe class="h-6 w-6 text-green-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Globals</p>
+              <p class="text-muted-foreground text-sm font-medium">
+                {m.settings_db_stat_globals()}
+              </p>
               <p class="text-2xl font-bold">{data.globalTypes.length}</p>
             </div>
           </div>
@@ -234,7 +236,7 @@
           <div class="flex items-center gap-4">
             <FileJson class="h-6 w-6 text-purple-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Blocks</p>
+              <p class="text-muted-foreground text-sm font-medium">{m.settings_db_stat_blocks()}</p>
               <p class="text-2xl font-bold">{data.blockTypes.length}</p>
             </div>
           </div>
@@ -245,7 +247,7 @@
           <div class="flex items-center gap-4">
             <TableIcon class="h-6 w-6 text-gray-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Tables</p>
+              <p class="text-muted-foreground text-sm font-medium">{m.settings_db_stat_tables()}</p>
               <p class="text-2xl font-bold">{data.tables.length}</p>
             </div>
           </div>
@@ -258,9 +260,9 @@
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <Database class="h-5 w-5" />
-            Collections
+            {m.settings_db_stat_collections()}
           </CardTitle>
-          <CardDescription>Content type definitions for your collections</CardDescription>
+          <CardDescription>{m.settings_db_collections_description()}</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
@@ -276,7 +278,7 @@
                         variant="secondary"
                         class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                       >
-                        Collection
+                        {m.settings_db_badge_collection()}
                       </Badge>
                       {#if collection.description}
                         <span class="text-muted-foreground text-sm">{collection.description}</span>
@@ -304,9 +306,9 @@
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <Globe class="h-5 w-5" />
-            Globals
+            {m.settings_db_stat_globals()}
           </CardTitle>
-          <CardDescription>Global content and site-wide configuration</CardDescription>
+          <CardDescription>{m.settings_db_globals_description()}</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
@@ -350,9 +352,9 @@
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <FileJson class="h-5 w-5" />
-            Blocks
+            {m.settings_db_stat_blocks()}
           </CardTitle>
-          <CardDescription>Reusable content components for page building</CardDescription>
+          <CardDescription>{m.settings_db_blocks_description()}</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
@@ -368,7 +370,7 @@
                         variant="secondary"
                         class="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                       >
-                        Block
+                        {m.settings_db_badge_block()}
                       </Badge>
                     </div>
                     <ChevronDown class="h-4 w-4" />
@@ -393,17 +395,17 @@
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <TableIcon class="h-5 w-5" />
-            Tables ({data.tables.length})
+            {m.settings_db_table_count_title({ count: data.tables.length })}
           </CardTitle>
-          <CardDescription>Current tables in the database</CardDescription>
+          <CardDescription>{m.settings_db_tables_description()}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Rows</TableHead>
+                <TableHead>{m.settings_db_col_name()}</TableHead>
+                <TableHead>{m.settings_db_col_type()}</TableHead>
+                <TableHead>{m.settings_db_col_rows()}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

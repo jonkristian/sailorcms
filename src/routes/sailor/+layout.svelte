@@ -9,6 +9,7 @@
   import HeaderRevisionsButton from '$lib/components/sailor/HeaderRevisionsButton.svelte';
   import { Button } from '$lib/components/ui/button';
   import ThemeToggle from '$lib/components/sailor/ThemeToggle.svelte';
+  import LocaleSwitcher from '$lib/components/sailor/LocaleSwitcher.svelte';
   import { page } from '$app/state';
   import { getPageTitle } from '$sailor/core/ui/page-title';
   import { toast } from '$sailor/core/ui/toast';
@@ -97,7 +98,8 @@
             {/if}
           {/each}
 
-          <!-- Theme Toggle -->
+          <!-- Locale Switcher + Theme Toggle -->
+          <LocaleSwitcher />
           <ThemeToggle />
         </div>
       {/if}

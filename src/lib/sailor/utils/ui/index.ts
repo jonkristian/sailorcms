@@ -6,3 +6,6 @@ export { buildNavigationTree, generateBreadcrumbs, createPagination } from './na
 
 // Date and time utilities
 export { formatDate, timeAgo, sortByDate } from './datetime';
+
+// Text utilities
+export { pluralize } from './text';

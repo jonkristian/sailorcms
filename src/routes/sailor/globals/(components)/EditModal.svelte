@@ -3,7 +3,8 @@
   import ArrayField from '$lib/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import {
     updateFlatGlobal,
@@ -64,16 +65,19 @@
           throw new Error('Unknown data type');
       }
 
-      if (result.success) {
-        toast.success(isNewItem ? 'Item created successfully' : 'Item saved successfully');
+      if (
+        toastResult(
+          result,
+          isNewItem ? m.toast_item_created : m.toast_item_saved,
+          m.toast_save_item_failed
+        )
+      ) {
         // Manual invalidation needed because we use "unchecked" command mode
         await invalidateAll();
         onClose();
-      } else {
-        toast.error(result.error || 'Failed to save item');
       }
     } catch (error) {
-      toast.error('Failed to save item');
+      toast.error(m.toast_save_item_failed());
     } finally {
       saving = false;
     }
@@ -123,7 +127,9 @@
   <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
     <DialogHeader>
       <DialogTitle>
-        {isNewItem ? `Add ${global.name.singular}` : `Edit ${global.name.singular}`}
+        {isNewItem
+          ? m.global_modal_add_title({ label: global.name.singular })
+          : m.global_modal_edit_title({ label: global.name.singular })}
       </DialogTitle>
     </DialogHeader>
     <form onsubmit={handleSubmit} class="space-y-6">
@@ -151,9 +157,13 @@
       {/each}
 
       <div class="flex justify-end gap-2">
-        <Button type="button" variant="outline" onclick={onClose}>Cancel</Button>
+        <Button type="button" variant="outline" onclick={onClose}>{m.global_cancel()}</Button>
         <Button type="submit" disabled={saving}>
-          {#if saving}Saving...{:else}{isNewItem ? 'Create' : 'Save'}{/if}
+          {#if saving}
+            {m.global_saving()}
+          {:else}
+            {isNewItem ? m.global_modal_create() : m.global_modal_save()}
+          {/if}
         </Button>
       </div>
     </form>

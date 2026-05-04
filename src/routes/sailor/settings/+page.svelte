@@ -5,6 +5,7 @@
   import { Textarea } from '$lib/components/ui/textarea';
   import { Save, RotateCcw } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   import * as Card from '$lib/components/ui/card';
@@ -46,25 +47,21 @@
       const result = await response.json();
 
       if (result.type === 'failure') {
-        const errorMessage = result.data?.error || 'Failed to save site settings';
+        const errorMessage = result.data?.error || m.toast_save_site_settings_failed();
         toast.error(errorMessage);
       } else {
-        toast.success(result.message || 'Site settings saved successfully');
+        toast.success(result.message || m.toast_site_settings_saved());
         await invalidateAll();
       }
     } catch (error) {
-      toast.error('Failed to save site settings');
+      toast.error(m.toast_save_site_settings_failed());
     } finally {
       submitting = false;
     }
   }
 
   async function handlePurge() {
-    if (
-      !confirm(
-        'This will remove all old template/environment settings and reload them fresh. Continue?'
-      )
-    ) {
+    if (!confirm(m.settings_purge_confirm())) {
       return;
     }
 
@@ -78,14 +75,14 @@
       const result = await response.json();
 
       if (result.type === 'success') {
-        toast.success(result.data?.message || 'Settings purged successfully');
+        toast.success(result.data?.message || m.toast_settings_purged());
         await invalidateAll();
       } else {
-        toast.error(result.data?.error || 'Failed to purge settings');
+        toast.error(result.data?.error || m.toast_purge_settings_failed());
       }
     } catch (error) {
       console.error('Purge error:', error);
-      toast.error('Failed to purge settings');
+      toast.error(m.toast_purge_settings_failed());
     } finally {
       purging = false;
     }
@@ -93,42 +90,40 @@
 </script>
 
 <svelte:head>
-  <title>Settings - Sailor CMS</title>
+  <title>{m.settings_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
-  <Header title="Settings" description="Configure your site's basic information and settings" />
+  <Header title={m.settings_page_title()} description={m.settings_page_description()} />
 
   <form onsubmit={handleSubmit}>
     <Card.Root>
       <Card.Header>
-        <Card.Title>Basic Information</Card.Title>
-        <Card.Description
-          >Configure your site's name, description, and other settings</Card.Description
-        >
+        <Card.Title>{m.settings_basic_info_title()}</Card.Title>
+        <Card.Description>{m.settings_basic_info_description()}</Card.Description>
       </Card.Header>
       <Card.Content class="space-y-6">
         <!-- Site Name -->
         <div class="space-y-2">
-          <Label for="siteName">Site Name</Label>
+          <Label for="siteName">{m.settings_field_site_name()}</Label>
           <Input id="siteName" name="siteName" bind:value={formData.siteName} required />
           <p class="text-muted-foreground text-xs">
-            The name of your website, used in templates and API responses
+            {m.settings_field_site_name_help()}
           </p>
         </div>
 
         <!-- Site URL -->
         <div class="space-y-2">
-          <Label for="siteUrl">Site URL</Label>
+          <Label for="siteUrl">{m.settings_field_site_url()}</Label>
           <Input id="siteUrl" name="siteUrl" bind:value={formData.siteUrl} type="url" />
           <p class="text-muted-foreground text-xs">
-            Base URL for your site, used for canonical links and API responses
+            {m.settings_field_site_url_help()}
           </p>
         </div>
 
         <!-- Site Description -->
         <div class="space-y-2">
-          <Label for="siteDescription">Site Description</Label>
+          <Label for="siteDescription">{m.settings_field_site_description()}</Label>
           <Textarea
             id="siteDescription"
             name="siteDescription"
@@ -136,13 +131,13 @@
             rows={3}
           />
           <p class="text-muted-foreground text-xs">
-            Default description used in templates and as fallback meta description
+            {m.settings_field_site_description_help()}
           </p>
         </div>
 
         <!-- User Registration -->
         <div class="space-y-2">
-          <Label for="allowRegistration">User Registration</Label>
+          <Label for="allowRegistration">{m.settings_field_user_registration()}</Label>
           <div class="flex items-center space-x-3">
             <input
               id="allowRegistration"
@@ -152,9 +147,9 @@
               class="border-input focus:ring-ring h-4 w-4 rounded border focus:ring-2"
             />
             <div class="space-y-1">
-              <p class="text-sm font-medium">Allow new user registrations</p>
+              <p class="text-sm font-medium">{m.settings_user_registration_label()}</p>
               <p class="text-muted-foreground text-xs">
-                When disabled, only existing users can log in. New users cannot sign up.
+                {m.settings_user_registration_help()}
               </p>
             </div>
           </div>
@@ -164,7 +159,7 @@
         <div class="flex items-center justify-end border-t pt-6">
           <Button type="submit" disabled={submitting} class="flex items-center gap-2">
             <Save class="h-4 w-4" />
-            {submitting ? 'Saving...' : 'Save Settings'}
+            {submitting ? m.settings_saving() : m.settings_save_button()}
           </Button>
         </div>
       </Card.Content>
@@ -174,17 +169,16 @@
   <!-- Settings Management -->
   <Card.Root class="mt-6">
     <Card.Header>
-      <Card.Title class="text-lg">Settings Management</Card.Title>
-      <Card.Description>Advanced settings maintenance and cleanup tools</Card.Description>
+      <Card.Title class="text-lg">{m.settings_management_title()}</Card.Title>
+      <Card.Description>{m.settings_management_description()}</Card.Description>
     </Card.Header>
     <Card.Content>
       <div class="space-y-4">
         <div class="flex items-center justify-between rounded-lg border p-4">
           <div>
-            <h4 class="font-medium">Purge & Reload Settings</h4>
+            <h4 class="font-medium">{m.settings_purge_title()}</h4>
             <p class="text-muted-foreground text-sm">
-              Remove all old template and environment settings, then reload fresh copies. This helps
-              clean up outdated settings after updates.
+              {m.settings_purge_description()}
             </p>
           </div>
           <Button
@@ -194,7 +188,7 @@
             class="flex items-center gap-2"
           >
             <RotateCcw class="h-4 w-4" />
-            {purging ? 'Purging...' : 'Purge Settings'}
+            {purging ? m.settings_purging() : m.settings_purge_button()}
           </Button>
         </div>
       </div>

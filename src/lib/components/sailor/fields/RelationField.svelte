@@ -6,6 +6,7 @@
   import { cn } from '$lib/sailor/utils';
   import { getGlobalItems } from '$sailor/remote/globals.remote.js';
   import { getCollectionItems } from '$sailor/remote/collections.remote.js';
+  import { m } from '$sailor/i18n';
 
   interface Props {
     value: string | string[];
@@ -100,7 +101,7 @@
         if (isSingleSelect) {
           if (!val.startsWith('[') && !val.startsWith('{')) {
             // Single ID string - set placeholder title that will be resolved later
-            return [{ id: val, title: `Loading...` }];
+            return [{ id: val, title: 'Loading...' }];
           } else {
             const parsed = JSON.parse(val);
             if (Array.isArray(parsed)) {
@@ -309,15 +310,25 @@
       <span class="text-muted-foreground flex min-w-0 flex-1 items-center gap-2">
         {#if isSingleSelect}
           {#if selectedItems.length > 0}
-            <span class="truncate">{selectedItems[0].title}</span>
+            <span class="truncate"
+              >{selectedItems[0].title === 'Loading...'
+                ? m.common_loading_dots()
+                : selectedItems[0].title}</span
+            >
           {:else}
-            <span class="truncate">Select {field.label || field.title}...</span>
+            <span class="truncate"
+              >{m.relation_select_placeholder({ label: field.label || field.title })}</span
+            >
           {/if}
         {:else}
           <span class="truncate">
             {selectedItems.length > 0
-              ? `${selectedItems.length} item${selectedItems.length === 1 ? '' : 's'} selected`
-              : `Select ${field.label || field.title}...`}
+              ? m.relation_items_selected({
+                  count: selectedItems.length,
+                  items:
+                    selectedItems.length === 1 ? m.common_item_singular() : m.common_item_plural()
+                })
+              : m.relation_select_placeholder({ label: field.label || field.title })}
           </span>
         {/if}
       </span>
@@ -330,8 +341,8 @@
               onChange('');
             }}
             class="rounded transition-colors hover:text-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
-            title="Clear selection"
-            aria-label="Clear selection"
+            title={m.relation_clear_selection()}
+            aria-label={m.relation_clear_selection()}
           >
             <X class="h-3 w-3" />
           </button>
@@ -347,13 +358,17 @@
     align="start"
   >
     <Command.Root>
-      <Command.Input placeholder="Search items..." bind:value={searchTerm} class="h-9" />
+      <Command.Input
+        placeholder={m.relation_search_placeholder()}
+        bind:value={searchTerm}
+        class="h-9"
+      />
       <Command.List class="max-h-60">
         {#if loading}
-          <Command.Loading>Loading items...</Command.Loading>
+          <Command.Loading>{m.relation_loading_items()}</Command.Loading>
         {:else if getFilteredItems().length === 0}
           <Command.Empty>
-            {searchTerm ? 'No items found.' : 'No items available.'}
+            {searchTerm ? m.relation_no_items_found() : m.relation_no_items_available()}
           </Command.Empty>
         {:else}
           <Command.Group>

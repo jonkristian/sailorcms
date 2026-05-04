@@ -1,11 +1,12 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
+  import { m } from '$sailor/i18n';
   import type { Snippet } from 'svelte';
 
   let {
     selectedCount = 0,
     totalCount = 0,
-    itemType = 'item',
+    labels = { singular: 'item', plural: 'items' },
     actions = [],
     filters,
     children,
@@ -13,7 +14,7 @@
   }: {
     selectedCount: number;
     totalCount: number;
-    itemType?: string;
+    labels?: { singular: string; plural: string };
     actions?: Array<{
       label: string;
       variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
@@ -23,8 +24,6 @@
     children?: Snippet;
     extraActions?: Snippet;
   } = $props();
-
-  const pluralItemType = $derived(itemType + (itemType.endsWith('s') ? '' : 's'));
 </script>
 
 <div class="mb-4 flex items-center justify-between">
@@ -32,8 +31,11 @@
   <div class="flex items-center gap-4">
     {#if selectedCount > 0}
       <div class="text-muted-foreground text-sm">
-        {selectedCount} of {totalCount}
-        {totalCount === 1 ? itemType : pluralItemType} selected
+        {m.bulk_selection_count({
+          selected: selectedCount,
+          total: totalCount,
+          items: totalCount === 1 ? labels.singular : labels.plural
+        })}
       </div>
     {:else}
       <!-- Show filters when no selection -->

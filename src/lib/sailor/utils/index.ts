@@ -48,7 +48,8 @@ export {
   createPagination,
   formatDate,
   timeAgo,
-  sortByDate
+  sortByDate,
+  pluralize
 } from './ui';
 
 // Core utilities (re-exported for convenience)

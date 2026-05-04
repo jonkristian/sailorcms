@@ -2,11 +2,12 @@
   import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
   import { AlertTriangle } from '@lucide/svelte';
+  import { m } from '$sailor/i18n';
 
   let {
     open = $bindable(),
     itemCount = 1,
-    itemType = 'item',
+    labels = { singular: 'item', plural: 'items' },
     itemName = '',
     onConfirm,
     onCancel = () => {},
@@ -17,13 +18,40 @@
   }: {
     open?: boolean;
     itemCount?: number;
-    itemType?: string;
+    labels?: { singular: string; plural: string };
     itemName?: string;
     onConfirm: () => void | Promise<void>;
     onCancel?: () => void;
     isLoading?: boolean;
     permanent?: boolean;
   } = $props();
+
+  const titleText = $derived.by(() => {
+    if (itemCount === 1) {
+      return permanent
+        ? m.delete_dialog_title_one_permanent({ item: labels.singular })
+        : m.delete_dialog_title_one({ item: labels.singular });
+    }
+    return permanent
+      ? m.delete_dialog_title_many_permanent({ count: itemCount, items: labels.plural })
+      : m.delete_dialog_title_many({ count: itemCount, items: labels.plural });
+  });
+
+  const bodyText = $derived.by(() => {
+    if (itemCount === 1) {
+      if (itemName) {
+        return permanent
+          ? m.delete_dialog_body_one_named_permanent({ name: itemName })
+          : m.delete_dialog_body_one_named_soft({ name: itemName });
+      }
+      return permanent
+        ? m.delete_dialog_body_one_permanent({ item: labels.singular })
+        : m.delete_dialog_body_one_soft({ item: labels.singular });
+    }
+    return permanent
+      ? m.delete_dialog_body_many_permanent({ count: itemCount, items: labels.plural })
+      : m.delete_dialog_body_many_soft({ count: itemCount, items: labels.plural });
+  });
 
   async function handleConfirm() {
     await onConfirm();
@@ -43,53 +71,31 @@
           <AlertTriangle class="h-6 w-6 text-red-600" />
         </div>
         <div>
-          <Dialog.Title class="text-left">
-            {permanent ? 'Permanently delete' : 'Delete'}
-            {itemCount === 1 ? itemType : `${itemCount} ${itemType}s`}
-          </Dialog.Title>
+          <Dialog.Title class="text-left">{titleText}</Dialog.Title>
           <Dialog.Description class="text-left">
-            {permanent ? 'This action cannot be undone.' : 'You can restore from Recovery.'}
+            {permanent
+              ? m.delete_dialog_description_permanent()
+              : m.delete_dialog_description_soft()}
           </Dialog.Description>
         </div>
       </div>
     </Dialog.Header>
 
     <div class="py-4">
-      {#if itemCount === 1}
-        <p class="text-sm">
-          {#if permanent}
-            Permanently delete this {itemType}?
-            {#if itemName}<span class="font-medium">"{itemName}"</span>{/if}
-            This cannot be undone.
-          {:else}
-            Delete this {itemType}?
-            {#if itemName}<span class="font-medium">"{itemName}"</span>{/if}
-            It will be moved to Recovery, where you can restore or permanently delete it.
-          {/if}
-        </p>
-      {:else if permanent}
-        <p class="text-sm">
-          Permanently delete these <span class="font-medium">{itemCount} {itemType}s</span>? This
-          cannot be undone.
-        </p>
-      {:else}
-        <p class="text-sm">
-          Delete these <span class="font-medium">{itemCount} {itemType}s</span>? They will be moved
-          to Recovery, where you can restore or permanently delete them.
-        </p>
-      {/if}
+      <p class="text-sm">{bodyText}</p>
     </div>
 
     <Dialog.Footer class="flex gap-3">
-      <Button variant="outline" onclick={handleCancel} disabled={isLoading}>Cancel</Button>
+      <Button variant="outline" onclick={handleCancel} disabled={isLoading}>
+        {m.common_cancel()}
+      </Button>
       <Button variant="destructive" onclick={handleConfirm} disabled={isLoading}>
         {#if isLoading}
           <div
             class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
           ></div>
         {/if}
-        {permanent ? 'Permanently delete' : 'Delete'}
-        {itemCount === 1 ? itemType : `${itemCount} ${itemType}s`}
+        {titleText}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

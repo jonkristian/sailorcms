@@ -3,6 +3,7 @@
   import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
   import { getImage, type FileType } from '$sailor/core/files/file';
   import type { Tag } from '$sailor/core/types/tag';
+  import { m } from '$sailor/i18n';
 
   // Type for the file data with tags (matches server response)
   type FileWithTags = FileType & {
@@ -50,6 +51,6 @@
 {#if files.length === 0}
   <div class="py-12 text-center">
     <FileText class="text-muted-foreground mx-auto my-2 size-12" />
-    <h3 class="text-lg font-medium">No files found.</h3>
+    <h3 class="text-lg font-medium">{m.media_empty_no_files()}</h3>
   </div>
 {/if}

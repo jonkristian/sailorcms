@@ -10,6 +10,7 @@
     TableRow
   } from '$lib/components/ui/table';
   import type { Snippet } from 'svelte';
+  import { m } from '$sailor/i18n';
 
   interface Column {
     key: string;
@@ -515,7 +516,7 @@
                 checked={isAllSelected()}
                 indeterminate={isSomeSelected()}
                 onCheckedChange={handleSelectAll}
-                aria-label="Select all"
+                aria-label={m.table_select_all()}
               />
             </div>
           </TableHead>
@@ -576,7 +577,7 @@
                             class="hover:bg-muted/50 cursor-grab rounded p-0.5 transition-colors hover:cursor-grabbing"
                           >
                             <GripVertical class="text-muted-foreground h-3.5 w-3.5" />
-                            <span class="sr-only">Drag to reorder</span>
+                            <span class="sr-only">{m.table_drag_to_reorder()}</span>
                           </button>
                         </div>
                       {/if}
@@ -608,7 +609,7 @@
                     checked={selectedItems.includes(item.id)}
                     onCheckedChange={(checked) => handleSelect(item.id, checked)}
                     disabled={isDeleteDisabled?.(item)}
-                    aria-label="Select row"
+                    aria-label={m.table_select_row()}
                   />
                 </div>
               </TableCell>
@@ -622,7 +623,7 @@
               {@render empty()}
             {:else}
               <div class="text-center">
-                <h3 class="text-sm font-medium">No results.</h3>
+                <h3 class="text-sm font-medium">{m.table_no_results()}</h3>
               </div>
             {/if}
           </TableCell>

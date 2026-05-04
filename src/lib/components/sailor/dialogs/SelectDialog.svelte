@@ -2,6 +2,7 @@
   import * as Dialog from '$lib/components/ui/dialog';
   import * as Select from '$lib/components/ui/select/index.js';
   import { Button } from '$lib/components/ui/button';
+  import { m } from '$sailor/i18n';
 
   export interface SelectItem {
     label: string;
@@ -11,10 +12,10 @@
 
   let {
     open = $bindable(false),
-    title = 'Select',
+    title = m.select_dialog_default_title(),
     description = '',
-    confirmLabel = 'Confirm',
-    cancelLabel = 'Cancel',
+    confirmLabel = m.select_dialog_confirm(),
+    cancelLabel = m.select_dialog_cancel(),
     items = [] as SelectItem[],
     selected = $bindable('' as string),
     onConfirm
@@ -50,7 +51,7 @@
         <Select.Trigger class="h-9 w-full"
           >{selected
             ? items.find((item: SelectItem) => item.value === selected)?.label
-            : 'Select...'}</Select.Trigger
+            : m.select_dialog_placeholder()}</Select.Trigger
         >
         <Select.Content>
           {#each items as item (item.value)}

@@ -9,6 +9,7 @@
   import { Save, Copy, ExternalLink } from '@lucide/svelte';
   import TagsInput from '$lib/components/sailor/fields/TagsInput.svelte';
   import { toast } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { getFileTags, updateFile } from '$sailor/remote/files.remote.js';
 
   // Props
@@ -74,11 +75,11 @@
 
       await onSave();
 
-      toast.success('File updated successfully');
+      toast.success(m.toast_file_updated());
       onClose();
     } catch (error) {
       console.error('Failed to save file:', error);
-      toast.error('Failed to update file');
+      toast.error(m.toast_file_update_failed());
     } finally {
       saving = false;
     }
@@ -121,20 +122,20 @@
               {file.name}
             {:else}
               {file.mime_type?.startsWith('image/')
-                ? 'Image'
+                ? m.media_edit_image()
                 : file.mime_type?.startsWith('video/')
-                  ? 'Video'
+                  ? m.media_edit_video()
                   : file.mime_type === 'application/pdf'
-                    ? 'Document'
+                    ? m.media_edit_document()
                     : file.mime_type?.includes('spreadsheet') || file.mime_type?.includes('excel')
-                      ? 'Spreadsheet'
+                      ? m.media_edit_spreadsheet()
                       : file.mime_type?.includes('presentation') ||
                           file.mime_type?.includes('powerpoint')
-                        ? 'Presentation'
-                        : 'File'}
+                        ? m.media_edit_presentation()
+                        : m.media_edit_file()}
             {/if}
           {:else}
-            Edit Media
+            {m.media_edit_default_title()}
           {/if}
         </Dialog.Title>
         {#if file}
@@ -145,12 +146,12 @@
               onclick={async () => {
                 try {
                   await navigator.clipboard.writeText(file.name);
-                  toast.success('Filename copied to clipboard');
+                  toast.success(m.toast_filename_copied());
                 } catch {
-                  toast.error('Failed to copy filename');
+                  toast.error(m.toast_filename_copy_failed());
                 }
               }}
-              title="Copy filename to clipboard"
+              title={m.media_edit_copy_filename_title()}
             >
               <Copy class="h-4 w-4" />
             </button>
@@ -159,7 +160,7 @@
               target="_blank"
               rel="noopener noreferrer"
               class="text-muted-foreground hover:text-foreground inline-flex p-1 transition-colors"
-              title="View original"
+              title={m.media_edit_view_original()}
             >
               <ExternalLink class="h-4 w-4" />
             </a>
@@ -173,7 +174,11 @@
         <!-- Large Preview for Images -->
         {#if file.mime_type?.startsWith('image/')}
           <div class="overflow-hidden rounded-lg border">
-            <img src={file.url} alt={file.alt || file.name} class="h-96 w-full object-cover" />
+            <img
+              src={file.url}
+              alt={file.alt || file.name}
+              class="h-96 w-full object-cover object-top"
+            />
           </div>
         {/if}
 
@@ -182,43 +187,43 @@
           <!-- Alt Text -->
           <div class="space-y-2">
             <Label for="alt-text">
-              Alt Text
+              {m.media_edit_alt_text()}
               <span class="text-muted-foreground ml-1 text-xs">
-                ({altTextLength}/125 chars)
+                {m.media_edit_alt_chars({ current: altTextLength, max: 125 })}
               </span>
             </Label>
             <Textarea
               id="alt-text"
               bind:value={altText}
-              placeholder="Describe this image for screen readers and SEO..."
+              placeholder={m.media_edit_alt_placeholder()}
               class="min-h-20 resize-none"
               disabled={saving}
             />
             {#if isAltTextLong}
               <p class="text-xs text-amber-600">
-                Consider keeping alt text under 125 characters for better accessibility
+                {m.media_edit_alt_long_warning()}
               </p>
             {/if}
           </div>
 
           <!-- Title -->
           <div class="space-y-2">
-            <Label for="title">Title</Label>
+            <Label for="title">{m.media_edit_title_label()}</Label>
             <Input
               id="title"
               bind:value={title}
-              placeholder="Optional title for this file"
+              placeholder={m.media_edit_title_placeholder()}
               disabled={saving}
             />
           </div>
 
           <!-- Description -->
           <div class="space-y-2">
-            <Label for="description">Description</Label>
+            <Label for="description">{m.media_edit_description_label()}</Label>
             <Textarea
               id="description"
               bind:value={description}
-              placeholder="Optional description or caption"
+              placeholder={m.media_edit_description_placeholder()}
               class="min-h-16 resize-none"
               disabled={saving}
             />
@@ -226,18 +231,18 @@
 
           <!-- Tags -->
           <div class="space-y-2">
-            <Label>Tags</Label>
+            <Label>{m.media_edit_tags_label()}</Label>
             {#if loadingTags}
               <div class="text-muted-foreground flex items-center gap-2 text-sm">
                 <div
                   class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
                 ></div>
-                Loading tags...
+                {m.media_edit_tags_loading()}
               </div>
             {:else}
               <TagsInput
                 value={fileTags}
-                placeholder="Type tag name and press Enter"
+                placeholder={m.media_edit_tags_placeholder()}
                 scope="media"
                 disabled={saving}
                 onChange={handleTagsChange}
@@ -257,7 +262,7 @@
         {:else}
           <Save class="mr-2 h-4 w-4" />
         {/if}
-        Save
+        {m.media_edit_save()}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

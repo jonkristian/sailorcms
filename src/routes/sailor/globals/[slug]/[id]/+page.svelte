@@ -3,7 +3,8 @@
   import { Button } from '$lib/components/ui/button';
   import ArrayField from '$lib/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import { Save, Pencil } from '@lucide/svelte';
   import { Separator } from '$lib/components/ui/separator';
@@ -107,15 +108,16 @@
           throw new Error('Unknown data type');
       }
 
-      if (result.success) {
-        toast.success('Global saved successfully', { id: 'global-save' });
+      if (
+        toastResult(result, m.toast_global_saved, m.toast_save_global_failed, {
+          id: 'global-save'
+        })
+      ) {
         userChanges = {};
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to save global', { id: 'global-save' });
       }
     } catch (error) {
-      toast.error('Failed to save global', { id: 'global-save' });
+      toast.error(m.toast_save_global_failed(), { id: 'global-save' });
     } finally {
       submitting = false;
     }
@@ -141,11 +143,11 @@
         // Reload data to show the updated order
         await invalidateAll();
       } else {
-        toast.error('Failed to reorder items');
+        toast.error(m.toast_reorder_items_failed());
       }
     } catch (error) {
       console.error('Reorder error:', error);
-      toast.error('Failed to reorder items');
+      toast.error(m.toast_reorder_items_failed());
     }
   }
 
@@ -261,10 +263,8 @@
               </div>
             {:else}
               <div class="flex flex-col items-center justify-center py-12 text-center">
-                <h3 class="mb-2 text-lg font-medium">No main fields</h3>
-                <p class="text-muted-foreground">
-                  This global doesn't have any main content fields.
-                </p>
+                <h3 class="mb-2 text-lg font-medium">{m.global_no_main_fields_title()}</h3>
+                <p class="text-muted-foreground">{m.global_no_main_fields_text()}</p>
               </div>
             {/if}
           </div>
@@ -347,7 +347,7 @@
             <div class="space-y-4">
               {#if data.item?.created_at}
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium">Created</span>
+                  <span class="text-sm font-medium">{m.common_created()}</span>
                   <span class="text-muted-foreground text-sm">
                     {formatDetailedDate(data.item.created_at, getUserLocale())}
                   </span>
@@ -356,7 +356,7 @@
 
               {#if data.item?.updated_at}
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium">Updated</span>
+                  <span class="text-sm font-medium">{m.common_updated()}</span>
                   <span class="text-muted-foreground text-sm">
                     {formatDetailedDate(data.item.updated_at, getUserLocale())}
                   </span>
@@ -369,16 +369,16 @@
               {#if mode === 'read'}
                 <Button type="button" onclick={() => (mode = 'edit')} class="w-full">
                   <Pencil class="mr-2 h-4 w-4" />
-                  Edit {data.global.name.singular}
+                  {m.global_edit_button({ label: data.global.name.singular })}
                 </Button>
               {:else}
                 <Button type="submit" disabled={submitting} class="w-full">
                   {#if submitting}
                     <Save class="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {m.global_saving()}
                   {:else}
                     <Save class="mr-2 h-4 w-4" />
-                    Save {data.global.name.singular}
+                    {m.global_save_button({ label: data.global.name.singular })}
                   {/if}
                 </Button>
                 {#if data.global.options?.defaultView === 'read' && !data.isNewItem}
@@ -390,7 +390,7 @@
                       mode = 'read';
                     }}
                   >
-                    Cancel
+                    {m.global_cancel()}
                   </button>
                 {/if}
               {/if}

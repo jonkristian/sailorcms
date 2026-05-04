@@ -3,6 +3,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import Inbox from '@lucide/svelte/icons/inbox';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import { m } from '$sailor/i18n';
   import type { PageData } from './$types';
 
   const { data }: { data: PageData } = $props();
@@ -15,7 +16,13 @@
 
   const filesEntry = $derived<ListEntry[]>(
     data.filesCount > 0
-      ? [{ href: '/sailor/recovery/files', label: 'Files', count: data.filesCount }]
+      ? [
+          {
+            href: '/sailor/recovery/files',
+            label: m.recovery_section_files(),
+            count: data.filesCount
+          }
+        ]
       : []
   );
 
@@ -37,13 +44,13 @@
 </script>
 
 <svelte:head>
-  <title>Recovery - Sailor CMS</title>
+  <title>{m.recovery_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
   <Header
-    title="Recovery"
-    description="Restore deleted items, or permanently remove them. Pick a type to drill in."
+    title={m.recovery_page_title()}
+    description={m.recovery_page_description()}
     itemCount={data.totalItems}
     showCountBadge={true}
   />
@@ -51,16 +58,16 @@
   {#if data.totalItems === 0}
     <div class="rounded-lg border p-12 text-center">
       <Inbox class="text-muted-foreground mx-auto my-2 size-8" />
-      <h3 class="text-lg font-medium">Nothing to recover</h3>
+      <h3 class="text-lg font-medium">{m.recovery_empty_title()}</h3>
       <p class="text-muted-foreground mt-1">
-        Deleted content and files appear here so you can restore or permanently remove them.
+        {m.recovery_empty_text()}
       </p>
     </div>
   {:else}
     <div class="space-y-8">
       {#if filesEntry.length > 0}
         <section>
-          <h2 class="mb-3 text-lg font-semibold">Files</h2>
+          <h2 class="mb-3 text-lg font-semibold">{m.recovery_section_files()}</h2>
           <div class="divide-border/40 divide-y rounded-lg border">
             {#each filesEntry as entry}
               <a
@@ -80,7 +87,7 @@
 
       {#if collectionEntries.length > 0}
         <section>
-          <h2 class="mb-3 text-lg font-semibold">Collections</h2>
+          <h2 class="mb-3 text-lg font-semibold">{m.recovery_section_collections()}</h2>
           <div class="divide-border/40 divide-y rounded-lg border">
             {#each collectionEntries as entry}
               <a
@@ -100,7 +107,7 @@
 
       {#if globalEntries.length > 0}
         <section>
-          <h2 class="mb-3 text-lg font-semibold">Globals</h2>
+          <h2 class="mb-3 text-lg font-semibold">{m.recovery_section_globals()}</h2>
           <div class="divide-border/40 divide-y rounded-lg border">
             {#each globalEntries as entry}
               <a

@@ -7,6 +7,7 @@
   import { Button } from '$lib/components/ui/button';
   import { ChevronDown, RefreshCw } from '@lucide/svelte';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
+  import { m } from '$sailor/i18n';
 
   interface Props {
     formData: Record<string, any>;
@@ -57,50 +58,50 @@
     });
   }
 
-  // SEO field definitions - simplified without derived
-  const seoFields = [
+  // SEO field definitions — labels/descriptions/placeholders are translated.
+  const seoFields = $derived([
     {
       key: 'meta_title',
       field: {
         type: 'string',
-        label: 'Meta Title',
-        description: 'Custom title for search engines (overrides page title)',
-        placeholder: 'Enter meta title...'
+        label: m.seo_meta_title_label(),
+        description: m.seo_meta_title_description(),
+        placeholder: m.seo_meta_title_placeholder()
       }
     },
     {
       key: 'meta_description',
       field: {
         type: 'textarea',
-        label: 'Meta Description',
-        description: 'Description shown in search results (150-160 characters recommended)',
-        placeholder: 'Enter meta description...'
+        label: m.seo_meta_description_label(),
+        description: m.seo_meta_description_description(),
+        placeholder: m.seo_meta_description_placeholder()
       }
     },
     {
       key: 'og_title',
       field: {
         type: 'string',
-        label: 'Open Graph Title',
-        description: 'Title for social media sharing (leave empty to use meta title)',
-        placeholder: 'Enter Open Graph title...'
+        label: m.seo_og_title_label(),
+        description: m.seo_og_title_description(),
+        placeholder: m.seo_og_title_placeholder()
       }
     },
     {
       key: 'og_description',
       field: {
         type: 'textarea',
-        label: 'Open Graph Description',
-        description: 'Description for social media sharing (leave empty to use meta description)',
-        placeholder: 'Enter Open Graph description...'
+        label: m.seo_og_description_label(),
+        description: m.seo_og_description_description(),
+        placeholder: m.seo_og_description_placeholder()
       }
     },
     {
       key: 'og_image',
       field: {
         type: 'file',
-        label: 'Open Graph Image',
-        description: 'Image for social media sharing (1200x630px recommended)',
+        label: m.seo_og_image_label(),
+        description: m.seo_og_image_description(),
         file: {
           fileType: 'image',
           accept: 'image/*'
@@ -111,38 +112,37 @@
       key: 'canonical_url',
       field: {
         type: 'string',
-        label: 'Canonical URL',
-        description:
-          'Override the canonical URL. Leave empty to use the default (site URL + collection basePath + slug).',
-        placeholder: 'https://yoursite.com/page-slug'
+        label: m.seo_canonical_url_label(),
+        description: m.seo_canonical_url_description(),
+        placeholder: m.seo_canonical_url_placeholder()
       }
     },
     {
       key: 'noindex',
       field: {
         type: 'boolean',
-        label: 'Discourage Search Engine Indexing',
-        description: 'Request that search engines do not index this page (not guaranteed)'
+        label: m.seo_noindex_label(),
+        description: m.seo_noindex_description()
       }
     }
-  ];
+  ]);
 </script>
 
 <div class="space-y-2">
   <Collapsible bind:open={isOpen} class="w-full space-y-1">
     <div class="flex items-center justify-between">
       <span class="text-muted-foreground text-sm leading-none font-medium tracking-wide uppercase"
-        >SEO Settings</span
+        >{m.seo_heading()}</span
       >
       <div class="flex items-center gap-2">
         <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={refreshFromContent}>
           <RefreshCw class="mr-1 h-3 w-3" />
-          Refresh from Content
+          {m.seo_refresh()}
         </Button>
         <CollapsibleTrigger class="flex items-center justify-center">
           <Button variant="ghost" size="sm" class="flex h-7 w-7 items-center justify-center p-0">
             <ChevronDown class="h-3.5 w-3.5" />
-            <span class="sr-only">Toggle SEO settings</span>
+            <span class="sr-only">{m.seo_toggle()}</span>
           </Button>
         </CollapsibleTrigger>
       </div>

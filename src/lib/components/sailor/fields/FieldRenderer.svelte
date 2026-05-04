@@ -31,6 +31,7 @@
   import { RefreshCw } from '@lucide/svelte';
   import { slugify } from '$sailor/core/utils/common';
   import { toast } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { getUniqueSlug } from '$sailor/remote/collections.remote.js';
   import ArrayField from './ArrayField.svelte';
   import ReadField from './ReadField.svelte';
@@ -62,7 +63,7 @@
       if (onGenerateSlug) {
         onGenerateSlug('');
       } else {
-        toast.info('Please enter a title first, then generate the slug');
+        toast.info(m.toast_slug_needs_title());
       }
       return;
     }
@@ -88,11 +89,7 @@
     }
 
     updateValue(finalSlug);
-    toast.success(
-      finalSlug === base
-        ? 'Slug generated from title'
-        : `Slug generated from title (suffixed to avoid a conflict)`
-    );
+    toast.success(finalSlug === base ? m.toast_slug_generated() : m.toast_slug_generated_unique());
   }
 
   async function normalizeSlugOnBlur(e: FocusEvent) {
@@ -139,7 +136,7 @@
           <div class="bg-input-bg inline-flex items-center gap-2 rounded-lg px-3 py-2">
             <span class="h-3 w-3 rounded-full {value ? 'bg-green-500' : 'bg-muted-foreground/40'}"
             ></span>
-            <span class="font-medium">{value ? 'Yes' : 'No'}</span>
+            <span class="font-medium">{value ? m.common_yes() : m.common_no()}</span>
           </div>
         {:else if field.type === 'select'}
           <div class="bg-input-bg rounded-lg px-3 py-2 font-medium">
@@ -158,7 +155,9 @@
               </div>
             </div>
           {:else}
-            <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">No tags</div>
+            <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">
+              {m.field_no_tags()}
+            </div>
           {/if}
         {:else if field.type === 'email'}
           {#if value}
@@ -171,7 +170,7 @@
             </div>
           {:else}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">
-              No email
+              {m.field_no_email()}
             </div>
           {/if}
         {:else if field.type === 'link'}
@@ -202,7 +201,9 @@
               {/if}
             </div>
           {:else}
-            <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">No link</div>
+            <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">
+              {m.field_no_link()}
+            </div>
           {/if}
         {:else if field.type === 'relation'}
           {#if Array.isArray(value) && value.length > 0}
@@ -217,31 +218,31 @@
             </div>
           {:else}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">
-              No selection
+              {m.field_no_selection()}
             </div>
           {/if}
         {:else if field.type === 'file'}
           {#if Array.isArray(value) && value.length > 0}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 font-medium">
-              {value.length} files selected
+              {m.field_files_selected_count({ count: value.length })}
             </div>
           {:else if value}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 font-medium">
-              1 file selected
+              {m.field_one_file_selected()}
             </div>
           {:else}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">
-              No files
+              {m.field_no_files()}
             </div>
           {/if}
         {:else if field.type === 'array'}
           {#if Array.isArray(value) && value.length > 0}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 font-medium">
-              {value.length} items
+              {m.field_items_count({ count: value.length })}
             </div>
           {:else}
             <div class="text-muted-foreground bg-input-bg rounded-lg px-3 py-2 italic">
-              No items
+              {m.field_no_items()}
             </div>
           {/if}
         {:else if field.type === 'textarea' || field.type === 'wysiwyg' || field.type === 'text'}
@@ -273,7 +274,7 @@
             <InputGroup.Button
               size="icon-xs"
               onclick={generateSlugFromTitle}
-              title="Generate slug from title"
+              title={m.field_slug_generate_title()}
               disabled={!titleValue || readonly}
             >
               <RefreshCw class="h-3.5 w-3.5" />
@@ -287,7 +288,7 @@
               <div
                 class="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
               ></div>
-              Loading rich text editor...
+              {m.field_wysiwyg_loading()}
             </div>
           </div>
         {:then m}
@@ -300,7 +301,7 @@
           />
         {:catch}
           <div class="bg-input-bg rounded-lg border p-4 text-center">
-            <p class="text-muted-foreground">Failed to load rich text editor</p>
+            <p class="text-muted-foreground">{m.field_wysiwyg_load_failed()}</p>
           </div>
         {/await}
       {:else if field.type === 'textarea'}

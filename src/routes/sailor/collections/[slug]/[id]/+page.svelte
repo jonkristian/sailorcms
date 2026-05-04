@@ -4,7 +4,9 @@
   import { Card, CardHeader, CardTitle, CardDescription } from '$lib/components/ui/card';
   import { Plus, ChevronDown, ChevronRight, Puzzle, Clock } from '@lucide/svelte';
   import { Checkbox } from '$lib/components/ui/checkbox';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
   import { Separator } from '$lib/components/ui/separator';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
   import DraggableCard from '$lib/components/sailor/DraggableCard.svelte';
@@ -149,7 +151,7 @@
         formData: snapshot as Record<string, any>
       });
       if (!result.success) {
-        toast.error(result.error || 'Failed to restore revision');
+        toast.error(result.error || m.revisions_restore_failed());
         return false;
       }
       await invalidateAll();
@@ -157,11 +159,11 @@
       blocks = buildBlocksFromPage(data.page);
       userChanges = {};
       blocksChanged = false;
-      toast.success('Revision restored');
+      toast.success(m.revisions_restore_success());
       return true;
     } catch (err) {
       console.error('Restore error', err);
-      toast.error('Failed to restore revision');
+      toast.error(m.revisions_restore_failed());
       return false;
     } finally {
       submitting = false;
@@ -178,14 +180,11 @@
         collectionSlug: data.slug,
         itemId: data.page.id
       });
-      if (result.success) {
-        toast.success(result.message || 'Item restored');
+      if (toastResult(result, m.toast_item_restored, m.toast_restore_item_failed)) {
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to restore item');
       }
     } catch {
-      toast.error('Failed to restore item');
+      toast.error(m.toast_restore_item_failed());
     }
   }
 
@@ -243,9 +242,9 @@
       if (result.success) {
         const wasNew = data.isNewItem;
         if (wasNew) {
-          toast.success('Collection created successfully', { id: 'collection-save' });
+          toast.success(m.toast_collection_created(), { id: 'collection-save' });
         } else {
-          toast.success('Collection saved successfully', { id: 'collection-save' });
+          toast.success(m.toast_collection_saved(), { id: 'collection-save' });
         }
         userChanges = {};
         blocksChanged = false;
@@ -273,11 +272,11 @@
           void invalidateAll();
         }
       } else {
-        toast.error(result.error || 'Failed to save collection', { id: 'collection-save' });
+        toast.error(result.error || m.toast_save_collection_failed(), { id: 'collection-save' });
       }
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save collection', { id: 'collection-save' });
+      toast.error(m.toast_save_collection_failed(), { id: 'collection-save' });
     } finally {
       submitting = false;
     }
@@ -505,11 +504,11 @@
         >
           <div class="flex items-center gap-2">
             <AlertTriangle class="size-4 shrink-0" />
-            <span>This item is in recovery. Restore it to bring it back to the collection.</span>
+            <span>{m.editor_recovery_banner()}</span>
           </div>
           <Button variant="outline" size="sm" onclick={handleRestoreFromBanner}>
             <RotateCcw class="mr-1 size-3.5" />
-            Restore
+            {m.editor_recovery_restore()}
           </Button>
         </div>
       {/if}
@@ -555,7 +554,7 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="flex items-center gap-2">
-                <span class="text-xl font-medium">Blocks</span>
+                <span class="text-xl font-medium">{m.editor_blocks_heading()}</span>
                 <Button
                   type="button"
                   variant="default"
@@ -572,18 +571,28 @@
                 <!-- Selection info -->
                 {#if selectedBlocks.size > 0}
                   <span class="text-muted-foreground text-sm">
-                    {selectedBlocks.size} of {blocks.length} selected
+                    {m.editor_blocks_count_selected({
+                      selected: selectedBlocks.size,
+                      total: blocks.length
+                    })}
                   </span>
                 {:else}
                   <span class="text-muted-foreground text-sm"
-                    >{blocks.length} block{blocks.length !== 1 ? 's' : ''}</span
+                    >{m.editor_blocks_count({
+                      count: blocks.length,
+                      blocks: pluralize(
+                        blocks.length,
+                        m.common_block_singular(),
+                        m.common_block_plural()
+                      )
+                    })}</span
                   >
                 {/if}
 
                 <!-- Delete Selected Button -->
                 {#if selectedBlocks.size > 0}
                   <Button variant="destructive" size="sm" onclick={handleBulkDeleteSelectedBlocks}>
-                    Delete Selected ({selectedBlocks.size})
+                    {m.editor_blocks_delete_selected({ count: selectedBlocks.size })}
                   </Button>
                 {/if}
 
@@ -599,11 +608,11 @@
                       checked={allSelected}
                       indeterminate={someSelected}
                       onCheckedChange={handleSelectAll}
-                      aria-label="Select all"
+                      aria-label={m.editor_blocks_select_all_aria()}
                       onclick={(e: Event) => e.stopPropagation()}
                     />
                   </div>
-                  <span class="text-sm font-medium">Select All</span>
+                  <span class="text-sm font-medium">{m.editor_blocks_select_all()}</span>
                 </Button>
 
                 <!-- Expand/Collapse Button -->
@@ -624,10 +633,10 @@
                 >
                   {#if blocks.every((block: any) => blockStates.get(block.id) !== false)}
                     <ChevronDown class="h-4 w-4" />
-                    Collapse
+                    {m.editor_blocks_collapse()}
                   {:else}
                     <ChevronRight class="h-4 w-4" />
-                    Expand
+                    {m.editor_blocks_expand()}
                   {/if}
                 </Button>
               </div>
@@ -698,7 +707,7 @@
                         </div>
                       {:else}
                         <p class="text-muted-foreground text-sm">
-                          No fields available for this block type.
+                          {m.editor_blocks_no_fields()}
                         </p>
                       {/if}
                     {/snippet}
@@ -709,13 +718,13 @@
               <!-- Empty state when no blocks -->
               <div class="flex flex-col items-center justify-center py-12 text-center">
                 <Puzzle class="text-muted-foreground mb-4 h-12 w-12" />
-                <h3 class="mb-2 text-lg font-medium">No blocks yet</h3>
+                <h3 class="mb-2 text-lg font-medium">{m.editor_blocks_empty_title()}</h3>
                 <p class="text-muted-foreground mb-4">
-                  Add your first block to start building your content
+                  {m.editor_blocks_empty_text()}
                 </p>
                 <Button type="button" variant="default" onclick={() => (showBlockSelector = true)}>
                   <Plus class="mr-2 h-4 w-4" />
-                  Add Block
+                  {m.editor_blocks_add_button()}
                 </Button>
               </div>
             {/if}
@@ -786,9 +795,9 @@
           <div class="flex items-center justify-center py-12">
             <div class="text-center">
               <Puzzle class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-              <h3 class="mb-2 text-lg font-medium">No main fields</h3>
+              <h3 class="mb-2 text-lg font-medium">{m.editor_main_empty_title()}</h3>
               <p class="text-muted-foreground">
-                This collection doesn't have any main fields. Use the sidebar to edit content.
+                {m.editor_main_empty_text()}
               </p>
             </div>
           </div>
@@ -917,12 +926,12 @@
               <div class="flex items-center gap-2 overflow-hidden text-xs whitespace-nowrap">
                 <Clock class="text-muted-foreground h-3 w-3 flex-shrink-0" />
                 <div class="text-muted-foreground flex min-w-0 items-center gap-1">
-                  <span>Created</span>
+                  <span>{m.common_created()}</span>
                   <span class="text-foreground">
                     {formatRelativeTime(data.page.created_at, getUserLocale())}
                   </span>
                   {#if data.page?.author_name || data.page?.author_email}
-                    <span>by</span>
+                    <span>{m.common_by()}</span>
                     <span class="text-foreground truncate font-medium">
                       {data.page.author_name || data.page.author_email}
                     </span>
@@ -935,12 +944,12 @@
               <div class="flex items-center gap-2 overflow-hidden text-xs whitespace-nowrap">
                 <Clock class="text-muted-foreground h-3 w-3 flex-shrink-0" />
                 <div class="text-muted-foreground flex min-w-0 items-center gap-1">
-                  <span>Updated</span>
+                  <span>{m.common_updated()}</span>
                   <span class="text-foreground">
                     {formatRelativeTime(data.page.updated_at, getUserLocale())}
                   </span>
                   {#if (data.page?.last_modified_by_name || data.page?.last_modified_by_email) && data.page.last_modified_by !== data.page.author}
-                    <span>by</span>
+                    <span>{m.common_by()}</span>
                     <span class="text-foreground truncate font-medium">
                       {data.page.last_modified_by_name || data.page.last_modified_by_email}
                     </span>
@@ -958,7 +967,7 @@
 <Dialog bind:open={showBlockSelector}>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Add Block</DialogTitle>
+      <DialogTitle>{m.editor_blocks_add_dialog_title()}</DialogTitle>
     </DialogHeader>
     <div class="grid max-h-96 gap-2 overflow-y-auto py-2">
       {#each availableBlocks as blockType}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatDetailedDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { m } from '$sailor/i18n';
 
   const {
     field,
@@ -58,7 +59,7 @@
       {#if isEmpty}
         <span class="text-muted-foreground">—</span>
       {:else if field.type === 'boolean'}
-        {value ? 'Yes' : 'No'}
+        {value ? m.common_yes() : m.common_no()}
       {:else if field.type === 'date'}
         {formatDetailedDate(value, getUserLocale())}
       {:else if field.type === 'select'}

@@ -9,6 +9,8 @@
   import { restoreFile } from '$sailor/remote/files.remote.js';
   import { purgeFile } from '../data.remote.js';
   import RecoverySection from '../(components)/RecoverySection.svelte';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
   import type { PageData } from './$types';
 
   const { data }: { data: PageData } = $props();
@@ -33,11 +35,16 @@
     const failed = results.length - ok;
 
     if (ok > 0 && failed === 0) {
-      toast.success(`Restored ${ok} file${ok === 1 ? '' : 's'}`);
+      toast.success(
+        m.toast_items_restored({
+          count: ok,
+          items: pluralize(ok, m.common_file_singular(), m.common_file_plural())
+        })
+      );
     } else if (ok > 0 && failed > 0) {
-      toast.error(`Restored ${ok}, ${failed} failed`);
+      toast.error(m.toast_restore_partial({ ok, failed }));
     } else {
-      toast.error('Failed to restore');
+      toast.error(m.toast_restore_failed());
     }
 
     await invalidateAll();
@@ -69,11 +76,16 @@
       const failed = results.length - ok;
 
       if (ok > 0 && failed === 0) {
-        toast.success(`Permanently deleted ${ok} file${ok === 1 ? '' : 's'}`);
+        toast.success(
+          m.toast_items_permanent_deleted({
+            count: ok,
+            items: pluralize(ok, m.common_file_singular(), m.common_file_plural())
+          })
+        );
       } else if (ok > 0 && failed > 0) {
-        toast.error(`Deleted ${ok}, ${failed} failed`);
+        toast.error(m.toast_delete_partial({ ok, failed }));
       } else {
-        toast.error('Failed to permanently delete');
+        toast.error(m.toast_permanent_delete_failed());
       }
 
       await invalidateAll();
@@ -86,27 +98,27 @@
 </script>
 
 <svelte:head>
-  <title>Files - Recovery - Sailor CMS</title>
+  <title>{m.recovery_breadcrumb_title({ label: m.recovery_files_title() })} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
   <div class="mb-2">
     <Button variant="ghost" size="sm" href="/sailor/recovery" class="px-2">
       <ChevronLeft class="mr-1 size-4" />
-      Recovery
+      {m.recovery_back_button()}
     </Button>
   </div>
 
   <Header
-    title="Files"
-    description="Soft-deleted files. Restore to bring them back, or permanently delete to remove the underlying blob."
+    title={m.recovery_files_title()}
+    description={m.recovery_files_description()}
     itemCount={data.pagination.totalItems}
     showCountBadge={true}
   />
 
   <RecoverySection
-    titleColumnLabel="Name"
-    itemType="file"
+    titleColumnLabel={m.recovery_files_column_name()}
+    labels={{ singular: m.common_file_singular(), plural: m.common_file_plural() }}
     showPreview={true}
     items={data.files}
     canRestore={data.permissions.restoreFiles}
@@ -130,7 +142,7 @@
   <DeleteDialog
     bind:open={purgeDialogOpen}
     itemCount={pendingPurge?.items.length ?? 1}
-    itemType="file"
+    labels={{ singular: m.common_file_singular(), plural: m.common_file_plural() }}
     itemName={pendingPurge?.label || ''}
     onConfirm={executePurge}
     isLoading={purgeDialogLoading}

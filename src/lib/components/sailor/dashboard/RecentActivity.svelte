@@ -1,6 +1,5 @@
 <script lang="ts">
   import * as Card from '$lib/components/ui/card/index.js';
-  import { Badge } from '$lib/components/ui/badge/index.js';
   import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar/index.js';
   import {
     FileText,
@@ -16,6 +15,24 @@
   import { goto } from '$app/navigation';
   import { formatRelativeTime } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { m } from '$sailor/i18n';
+
+  function getActionLabel(action: string): string {
+    switch (action) {
+      case 'created':
+        return m.dashboard_action_created();
+      case 'updated':
+        return m.dashboard_action_updated();
+      case 'deleted':
+        return m.dashboard_action_deleted();
+      case 'published':
+        return m.dashboard_action_published();
+      case 'viewed':
+        return m.dashboard_action_viewed();
+      default:
+        return action;
+    }
+  }
 
   interface ActivityItem {
     id: string;
@@ -84,15 +101,15 @@
 
 <Card.Root class="@container/activity">
   <Card.Header>
-    <Card.Title>Recent Activity</Card.Title>
-    <Card.Description>Latest changes and updates in your CMS</Card.Description>
+    <Card.Title>{m.dashboard_activity_title()}</Card.Title>
+    <Card.Description>{m.dashboard_activity_description()}</Card.Description>
   </Card.Header>
   <Card.Content class="p-0">
     {#if limitedData.length === 0}
       <div class="text-muted-foreground flex h-[300px] items-center justify-center">
         <div class="text-center">
           <Clock class="mx-auto mb-2 h-8 w-8" />
-          <p>No recent activity</p>
+          <p>{m.dashboard_activity_empty()}</p>
         </div>
       </div>
     {:else}
@@ -108,12 +125,18 @@
             role={activity.link ? 'button' : undefined}
             {...activity.link ? { tabindex: 0 } : {}}
           >
-            <!-- Icon Column -->
+            <!-- Icon Column — colored circle + icon convey the action; col
+                 below still spells it out in words. `aria-label` is the
+                 textual fallback for screen readers since the visual badge
+                 ("Created"/"Updated"/etc.) was dropped from the row. Sized
+                 to match the avatar in RecentUsers so dashboard widgets
+                 share visual rhythm. -->
             <div class="flex-shrink-0">
               <div
-                class="flex size-6 items-center justify-center rounded-full {getActivityColor(
+                class="flex size-8 items-center justify-center rounded-full {getActivityColor(
                   activity.action
                 )}"
+                aria-label={getActionLabel(activity.action)}
               >
                 {#if activity.action === 'created'}
                   <Plus class="size-4" />
@@ -133,24 +156,6 @@
                   <Clock class="size-4" />
                 {/if}
               </div>
-            </div>
-
-            <!-- Action Column -->
-            <div class="w-24 flex-shrink-0">
-              <Badge variant="outline" class="text-xs capitalize">
-                {activity.action}
-              </Badge>
-            </div>
-
-            <!-- Content Type Column -->
-            <div class="w-28 flex-shrink-0">
-              {#if activity.contentType}
-                <Badge variant="secondary" class="text-xs">
-                  {activity.contentType}
-                </Badge>
-              {:else}
-                <span class="text-muted-foreground text-xs">-</span>
-              {/if}
             </div>
 
             <!-- Title Column -->
@@ -174,26 +179,26 @@
               {/if}
             </div>
 
-            <!-- User Column -->
-            <div class="w-36 flex-shrink-0">
-              <div class="flex items-center gap-2">
-                <Avatar class="h-6 w-6">
+            <!-- Author + Time stacked (mirrors the Title + description layout).
+                 Avatar sized to match the action icon (size-8) so both ends
+                 of the row carry equal visual weight. -->
+            <div class="w-44 flex-shrink-0">
+              <div class="flex items-center gap-3">
+                <Avatar class="size-8 flex-shrink-0">
                   <AvatarImage src={getUserAvatar(activity.user)} alt={activity.user.name} />
                   <AvatarFallback class="text-xs">
                     {getUserInitials(activity.user.name)}
                   </AvatarFallback>
                 </Avatar>
-                <span class="text-muted-foreground truncate text-xs">
-                  {activity.user.name}
-                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm leading-tight font-medium">
+                    {activity.user.name}
+                  </p>
+                  <p class="text-muted-foreground mt-1 truncate text-xs">
+                    {formatRelativeTime(activity.timestamp, getUserLocale())}
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <!-- Time Column -->
-            <div class="w-28 flex-shrink-0 text-right">
-              <span class="text-muted-foreground text-xs">
-                {formatRelativeTime(activity.timestamp, getUserLocale())}
-              </span>
             </div>
           </div>
         {/each}
@@ -202,7 +207,7 @@
       {#if data.length > limit}
         <div class="border-t p-4">
           <button class="text-muted-foreground hover:text-foreground text-sm font-medium">
-            View all activity ({data.length} total)
+            {m.dashboard_activity_view_all({ total: data.length })}
           </button>
         </div>
       {/if}

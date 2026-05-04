@@ -28,6 +28,7 @@ export const GET: RequestHandler = async ({ url }) => {
         | 'inside'
         | 'outside'
         | undefined) || 'cover';
+    const position = url.searchParams.get('position') || undefined;
     const transform = url.searchParams.get('transform') !== 'false'; // Default to true unless explicitly set to false
 
     // Require either id or path parameter
@@ -122,7 +123,8 @@ export const GET: RequestHandler = async ({ url }) => {
       height,
       quality,
       format,
-      resize
+      resize,
+      position
     });
 
     // Return processed image using SvelteKit's Response

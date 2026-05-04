@@ -2,12 +2,13 @@
   import { goto } from '$app/navigation';
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
   import type { PageData } from './$types';
   import Header from '$lib/components/sailor/Header.svelte';
   import Pagination from '$lib/components/sailor/Pagination.svelte';
   import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
   import { DataTable, BulkActionsBar, FilterBar } from '$lib/components/sailor/table';
+  import { m } from '$sailor/i18n';
   import { generateUUID } from '$sailor/core/utils/common';
   import { invalidateAll } from '$app/navigation';
   import FileText from '@lucide/svelte/icons/file-text';
@@ -32,8 +33,11 @@
   // Use server-provided pagination data
   let pagination = $derived(data.pagination);
 
-  // Use composables for selection and delete functionality
-  const selection = useBulkSelection(() => items);
+  // Use composables for selection and delete functionality. SvelteKit reuses
+  // this page component across `[slug]` changes, so without an explicit
+  // reset the previous slug's selected IDs would persist against the new
+  // list. `resetOnPathnameChange` clears selection on slug transitions.
+  const selection = useBulkSelection(() => items, { resetOnPathnameChange: true });
 
   // Custom delete handler for collections (using form actions)
   let deleteDialogOpen = $state(false);
@@ -54,16 +58,13 @@
         itemIds: pendingDeleteItems.ids
       });
 
-      if (result.success) {
-        toast.success(result.message || 'Items deleted successfully');
+      if (toastResult(result, m.toast_items_deleted, m.toast_items_delete_failed)) {
         await invalidateAll();
         selection.clearSelection();
         deleteDialogOpen = false;
-      } else {
-        toast.error(result.error || 'Failed to delete items');
       }
     } catch (error) {
-      toast.error('Failed to delete items');
+      toast.error(m.toast_items_delete_failed());
     } finally {
       deleteDialogLoading = false;
     }
@@ -73,17 +74,17 @@
   const sortOptions = $derived(
     data.collectionType.options?.sortable
       ? [
-          { label: 'Sorted', value: 'sort' },
-          { label: 'Title', value: 'title' },
-          { label: 'Status', value: 'status' },
-          { label: 'Updated', value: 'updated_at' },
-          { label: 'Created', value: 'created_at' }
+          { label: m.collections_sort_sorted(), value: 'sort' },
+          { label: m.collections_sort_title(), value: 'title' },
+          { label: m.collections_sort_status(), value: 'status' },
+          { label: m.collections_sort_updated(), value: 'updated_at' },
+          { label: m.collections_sort_created(), value: 'created_at' }
         ]
       : [
-          { label: 'Title', value: 'title' },
-          { label: 'Status', value: 'status' },
-          { label: 'Updated', value: 'updated_at' },
-          { label: 'Created', value: 'created_at' }
+          { label: m.collections_sort_title(), value: 'title' },
+          { label: m.collections_sort_status(), value: 'status' },
+          { label: m.collections_sort_updated(), value: 'updated_at' },
+          { label: m.collections_sort_created(), value: 'created_at' }
         ]
   );
 
@@ -125,11 +126,11 @@
 
   // Column definitions with sorting and fixed widths
   const columns = [
-    { key: 'title', label: 'Title', sortable: true, width: 300 },
-    { key: 'status', label: 'Status', sortable: true, width: 100 },
-    { key: 'author', label: 'Author', sortable: true, width: 150 },
-    { key: 'updated_at', label: 'Last Updated', sortable: true, width: 120 },
-    { key: 'created_at', label: 'Created', sortable: true, width: 120 }
+    { key: 'title', label: m.collections_col_title(), sortable: true, width: 300 },
+    { key: 'status', label: m.collections_col_status(), sortable: true, width: 100 },
+    { key: 'author', label: m.collections_col_author(), sortable: true, width: 150 },
+    { key: 'updated_at', label: m.collections_col_updated(), sortable: true, width: 120 },
+    { key: 'created_at', label: m.collections_col_created(), sortable: true, width: 120 }
   ];
 
   function handleEdit(id: string) {
@@ -151,10 +152,12 @@
       if (result.success) {
         await invalidateAll();
       } else {
-        toast.error(result.error || 'Failed to update sort order', { id: 'collection-reorder' });
+        toast.error(result.error || m.toast_sort_order_update_failed(), {
+          id: 'collection-reorder'
+        });
       }
     } catch (error) {
-      toast.error('Failed to update sort order', { id: 'collection-reorder' });
+      toast.error(m.toast_sort_order_update_failed(), { id: 'collection-reorder' });
     }
   }
 
@@ -167,14 +170,15 @@
         newIndex
       });
 
-      if (result.success) {
+      if (
+        toastResult(result, m.toast_item_moved, m.toast_nesting_update_failed, {
+          id: 'collection-nest'
+        })
+      ) {
         await invalidateAll();
-        toast.success('Item moved successfully', { id: 'collection-nest' });
-      } else {
-        toast.error(result.error || 'Failed to update nesting', { id: 'collection-nest' });
       }
     } catch (error) {
-      toast.error('Failed to update nesting', { id: 'collection-nest' });
+      toast.error(m.toast_nesting_update_failed(), { id: 'collection-nest' });
     }
   }
 
@@ -194,15 +198,12 @@
         itemIds: selection.selectedItems
       });
 
-      if (result.success) {
-        toast.success(result.message || 'Items cloned successfully');
+      if (toastResult(result, m.toast_items_cloned, m.toast_items_clone_failed)) {
         await invalidateAll();
         selection.clearSelection();
-      } else {
-        toast.error(result.error || 'Failed to clone items');
       }
     } catch (error) {
-      toast.error('Failed to clone items');
+      toast.error(m.toast_items_clone_failed());
     }
   }
 </script>
@@ -227,11 +228,14 @@
       <BulkActionsBar
         selectedCount={selection.selectedCount}
         totalCount={selection.totalCount}
-        itemType={data.collectionType.name.singular.toLowerCase()}
+        labels={{
+          singular: data.collectionType.name.singular.toLowerCase(),
+          plural: data.collectionType.name.plural.toLowerCase()
+        }}
         actions={selection.selectedCount > 0
           ? [
               {
-                label: `Delete (${selection.selectedCount})`,
+                label: m.globals_table_delete_count({ count: selection.selectedCount }),
                 variant: 'destructive',
                 onClick: () => initiateBulkDelete(selection.selectedItems)
               }
@@ -254,10 +258,14 @@
                   bulkAction = '';
                 }}
               >
-                <Select.Trigger class="h-9 w-44">Bulk actions…</Select.Trigger>
+                <Select.Trigger class="h-9 w-44"
+                  >{m.collections_bulk_action_select()}</Select.Trigger
+                >
                 <Select.Content>
-                  <Select.Item value="change-author">Change author…</Select.Item>
-                  <Select.Item value="clone">Clone selected…</Select.Item>
+                  <Select.Item value="change-author"
+                    >{m.collections_action_change_author()}</Select.Item
+                  >
+                  <Select.Item value="clone">{m.collections_action_clone()}</Select.Item>
                 </Select.Content>
               </Select.Root>
             </div>
@@ -279,7 +287,8 @@
               }}
             >
               <Select.Trigger class="h-9">
-                {sortOptions.find((o) => o.value === tableFilters.sortBy)?.label || 'Unknown'}
+                {sortOptions.find((o) => o.value === tableFilters.sortBy)?.label ||
+                  m.common_unknown()}
               </Select.Trigger>
               <Select.Content>
                 {#each sortOptions as option}
@@ -323,7 +332,7 @@
               {item.status}
             </Badge>
           {:else if column.key === 'author'}
-            {item.author_name || item.author_email || 'Unknown'}
+            {item.author_name || item.author_email || m.common_unknown()}
           {:else if column.key === 'updated_at' || column.key === 'created_at'}
             {formatTableDate(item[column.key], getUserLocale())}
           {:else}
@@ -343,10 +352,14 @@
       <div class="rounded-lg border p-8 text-center">
         <FileText class="text-muted-foreground mx-auto my-2 size-6" />
         <h3 class="text-lg font-medium">
-          No {data.collectionType.name.plural.toLowerCase()} found
+          {m.collections_empty_title({
+            plural: data.collectionType.name.plural.toLowerCase()
+          })}
         </h3>
         <p class="text-muted-foreground mt-1">
-          Get started by creating your first {data.collectionType.name.singular.toLowerCase()}.
+          {m.collections_empty_text({
+            singular: data.collectionType.name.singular.toLowerCase()
+          })}
         </p>
       </div>
     {/if}
@@ -367,7 +380,10 @@
     <DeleteDialog
       bind:open={deleteDialogOpen}
       itemCount={pendingDeleteItems.count}
-      itemType={data.collectionType.name.singular.toLowerCase()}
+      labels={{
+        singular: data.collectionType.name.singular.toLowerCase(),
+        plural: data.collectionType.name.plural.toLowerCase()
+      }}
       onConfirm={executeBulkDelete}
       isLoading={deleteDialogLoading}
     />
@@ -375,10 +391,10 @@
     <!-- Change Author Dialog -->
     <SelectDialog
       bind:open={authorDialogOpen}
-      title="Change author"
-      description="Select an author to assign to the selected items"
-      confirmLabel="Apply"
-      cancelLabel="Cancel"
+      title={m.collections_change_author_dialog_title()}
+      description={m.collections_change_author_dialog_description()}
+      confirmLabel={m.common_apply()}
+      cancelLabel={m.common_cancel()}
       items={authorOptions}
       bind:selected={selectedAuthorId}
       onConfirm={async (authorId: string) => {
@@ -389,15 +405,12 @@
             authorId
           });
 
-          if (result.success) {
-            toast.success(result.message || 'Author updated successfully');
+          if (toastResult(result, m.toast_author_updated, m.toast_author_update_failed)) {
             await invalidateAll();
             selection.clearSelection();
-          } else {
-            toast.error(result.error || 'Failed to update author');
           }
         } catch (error) {
-          toast.error('Failed to update author');
+          toast.error(m.toast_author_update_failed());
         }
       }}
     />

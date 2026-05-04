@@ -5,6 +5,7 @@
   import { diffLines } from 'diff';
   import { formatRelativeTime, formatTimestamp } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { m } from '$sailor/i18n';
   import { highlightJsonSync } from '$sailor/core/ui/syntax-highlighting';
   import { toast } from '$sailor/core/ui/toast';
 
@@ -63,7 +64,7 @@
       }
     } catch (err) {
       console.error('Restore failed', err);
-      toast.error('Restore failed');
+      toast.error(m.revisions_restore_failed());
     } finally {
       restoring = false;
     }
@@ -143,17 +144,17 @@
           <History class="h-5 w-5" />
         </div>
         <div class="min-w-0 flex-1">
-          <Dialog.Title class="text-left">Revision history</Dialog.Title>
+          <Dialog.Title class="text-left">{m.revisions_history_title()}</Dialog.Title>
           <Dialog.Description class="text-left">
             {#if total === 0}
-              No revisions yet. Each save adds one.
+              {m.revisions_empty()}
             {:else if current}
               {fullTimestamp(current.created_at)} · {formatRelativeTime(
                 current.created_at,
                 getUserLocale()
               )} · by
               {authorLabel(current)}{#if !isLatest}
-                · changes shown vs latest{/if}
+                · {m.revisions_changes_vs_latest()}{/if}
             {/if}
           </Dialog.Description>
         </div>
@@ -167,23 +168,23 @@
           size="sm"
           disabled={!canGoOlder || restoring}
           onclick={goOlder}
-          aria-label="Older revision"
+          aria-label={m.revisions_aria_older()}
         >
           <ChevronLeft class="mr-1 h-4 w-4" />
-          Older
+          {m.revisions_older()}
         </Button>
         <span class="text-muted-foreground text-xs">
-          {currentIndex + 1} of {total}
-          {currentIndex === 0 ? '(latest)' : ''}
+          {m.revisions_position({ current: currentIndex + 1, total })}
+          {currentIndex === 0 ? m.revisions_latest_marker() : ''}
         </span>
         <Button
           variant="ghost"
           size="sm"
           disabled={!canGoNewer || restoring}
           onclick={goNewer}
-          aria-label="Newer revision"
+          aria-label={m.revisions_aria_newer()}
         >
-          Newer
+          {m.revisions_newer()}
           <ChevronRight class="ml-1 h-4 w-4" />
         </Button>
       </div>
@@ -199,12 +200,12 @@
       </div>
     {:else}
       <div class="text-muted-foreground py-8 text-center text-sm">
-        Save the item to start building history.
+        {m.revisions_empty_save_first()}
       </div>
     {/if}
 
     <Dialog.Footer class="flex gap-2">
-      <Button variant="outline" onclick={onClose} disabled={restoring}>Close</Button>
+      <Button variant="outline" onclick={onClose} disabled={restoring}>{m.common_close()}</Button>
       {#if total > 0 && current && !isLatest}
         <Button onclick={handleRestore} disabled={restoring}>
           {#if restoring}
@@ -214,7 +215,7 @@
           {:else}
             <RotateCcw class="mr-1 h-4 w-4" />
           {/if}
-          Restore this version
+          {m.revisions_restore_button()}
         </Button>
       {/if}
     </Dialog.Footer>

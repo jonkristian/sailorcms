@@ -10,6 +10,7 @@
   import * as Collapsible from '$lib/components/ui/collapsible/index';
   import { Check, X, Shield, User, Users, ChevronDown } from '@lucide/svelte';
   import Header from '$lib/components/sailor/Header.svelte';
+  import { m } from '$sailor/i18n';
   import type { BetterAuthResource, BetterAuthAction } from '$lib/sailor/core/settings/types';
 
   const { data } = $props();
@@ -30,14 +31,11 @@
 </script>
 
 <svelte:head>
-  <title>Role Permissions - Sailor CMS</title>
+  <title>{m.settings_roles_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
-  <Header
-    title="Role Permissions"
-    description="User roles and their access permissions throughout the CMS"
-  />
+  <Header title={m.settings_roles_page_title()} description={m.settings_roles_description()} />
 
   <div class="flex flex-col gap-6">
     <!-- Summary Statistics -->
@@ -47,7 +45,9 @@
           <div class="flex items-center gap-4">
             <Shield class="h-6 w-6 text-blue-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Total Roles</p>
+              <p class="text-muted-foreground text-sm font-medium">
+                {m.settings_roles_total_roles()}
+              </p>
               <p class="text-2xl font-bold">{roleCount}</p>
             </div>
           </div>
@@ -58,7 +58,9 @@
           <div class="flex items-center gap-4">
             <Users class="h-6 w-6 text-red-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Admin Roles</p>
+              <p class="text-muted-foreground text-sm font-medium">
+                {m.settings_roles_admin_roles()}
+              </p>
               <p class="text-2xl font-bold">{adminRoleCount}</p>
             </div>
           </div>
@@ -69,7 +71,9 @@
           <div class="flex items-center gap-4">
             <User class="h-6 w-6 text-green-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Resources</p>
+              <p class="text-muted-foreground text-sm font-medium">
+                {m.settings_roles_resources()}
+              </p>
               <p class="text-2xl font-bold">{resourceCount}</p>
             </div>
           </div>
@@ -80,7 +84,9 @@
           <div class="flex items-center gap-4">
             <Shield class="h-6 w-6 text-purple-600" />
             <div>
-              <p class="text-muted-foreground text-sm font-medium">Permissions</p>
+              <p class="text-muted-foreground text-sm font-medium">
+                {m.settings_roles_permissions()}
+              </p>
               <p class="text-2xl font-bold">{permissionCount}</p>
             </div>
           </div>
@@ -93,11 +99,10 @@
       <CardHeader>
         <CardTitle class="flex items-center gap-2">
           <Shield class="h-5 w-5" />
-          User Roles
+          {m.settings_roles_card_title()}
         </CardTitle>
         <CardDescription>
-          Role definitions and their resource permissions configured in
-          src/lib/sailor/templates/settings.ts
+          {m.settings_roles_card_description()}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -115,7 +120,7 @@
                         variant="default"
                         class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                       >
-                        Admin
+                        {m.settings_roles_admin_badge()}
                       </Badge>
                     {/if}
                     {#if roleKey === roleSettings?.defaultRole}
@@ -123,7 +128,7 @@
                         variant="secondary"
                         class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                       >
-                        Default
+                        {m.settings_roles_default_badge()}
                       </Badge>
                     {/if}
                   </div>

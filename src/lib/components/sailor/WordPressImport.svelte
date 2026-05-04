@@ -7,6 +7,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { FileText, CheckCircle, XCircle, Loader2, AlertCircle } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import * as Select from '$lib/components/ui/select';
   import { Progress } from '$lib/components/ui/progress';
   import { Separator } from '$lib/components/ui/separator';
@@ -115,7 +116,7 @@
 
   async function fetchPreview() {
     if (!isApiConfigValid) {
-      toast.error('Please provide valid WordPress API credentials');
+      toast.error(m.toast_wp_invalid_credentials());
       return;
     }
 
@@ -137,13 +138,13 @@
       if (result.success) {
         previewData = result.data;
         currentStep = 2; // Move to preview step
-        toast.success('Preview loaded successfully!');
+        toast.success(m.toast_preview_loaded());
       } else {
-        previewError = result.error || 'Failed to load preview';
+        previewError = result.error || m.wp_error_load_preview();
         toast.error(previewError);
       }
     } catch (error) {
-      previewError = 'Failed to connect to WordPress API';
+      previewError = m.wp_error_connect();
       toast.error(previewError);
       console.error('Preview error:', error);
     } finally {
@@ -161,24 +162,24 @@
   // Import function
   async function startImport() {
     if (!isApiConfigValid) {
-      toast.error('Please provide valid WordPress API credentials');
+      toast.error(m.toast_wp_invalid_credentials());
       return;
     }
 
     importing = true;
     importProgress = 0;
-    importStatus = 'Connecting to WordPress API...';
+    importStatus = m.wp_status_connecting();
     importResult = null;
 
     try {
       // Start import process with manual progress updates
-      importStatus = 'Connecting to WordPress API...';
+      importStatus = m.wp_status_connecting();
       importProgress = 10;
 
       const { importWordPressContent } = await import('$sailor/remote/wordpress.remote.js');
 
       // Update progress during fetch phase
-      importStatus = 'Fetching content from WordPress...';
+      importStatus = m.wp_status_fetching();
       importProgress = 25;
 
       // Start the import
@@ -201,10 +202,10 @@
 
       // Simulate progress during import
       const progressUpdates = [
-        { progress: 40, status: 'Processing posts and media...' },
-        { progress: 55, status: 'Creating categories and tags...' },
-        { progress: 70, status: 'Downloading images...' },
-        { progress: 85, status: 'Finalizing import...' }
+        { progress: 40, status: m.wp_status_processing() },
+        { progress: 55, status: m.wp_status_categories_tags() },
+        { progress: 70, status: m.wp_status_downloading() },
+        { progress: 85, status: m.wp_status_finalizing() }
       ];
 
       let updateIndex = 0;
@@ -221,7 +222,7 @@
       clearInterval(progressInterval);
 
       importProgress = 100;
-      importStatus = 'Import completed!';
+      importStatus = m.wp_status_completed();
 
       if (result.success) {
         importResult = {
@@ -236,17 +237,21 @@
           total: (result.data?.result?.imported || 0) + (result.data?.result?.skipped || 0)
         };
 
-        toast.success(result.data?.message || 'Import completed successfully');
+        toast.success(result.data?.message || m.toast_import_completed());
         if (onImportComplete) {
           onImportComplete();
         }
       } else {
-        importStatus = 'Import failed';
-        toast.error(result.error || 'Import failed');
+        importStatus = m.toast_import_failed();
+        toast.error(result.error || m.toast_import_failed());
       }
     } catch (error) {
-      importStatus = 'Import failed';
-      toast.error('Import failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      importStatus = m.toast_import_failed();
+      toast.error(
+        m.toast_import_failed_with_error({
+          error: error instanceof Error ? error.message : m.toast_unknown_error()
+        })
+      );
     } finally {
       importing = false;
     }
@@ -279,20 +284,22 @@
   <div class="flex items-center justify-between">
     <h2 class="flex items-center gap-2 text-lg font-semibold">
       <FileText class="h-5 w-5" />
-      WordPress Import to {isMediaLibraryImport ? 'Media Library' : collectionSlug}
+      {isMediaLibraryImport
+        ? m.wp_import_title_media()
+        : m.wp_import_title_collection({ collection: collectionSlug })}
     </h2>
     <div class="text-muted-foreground flex items-center gap-2 text-sm">
-      <span class={currentStep >= 1 ? 'text-primary' : ''}>1. Connect</span>
+      <span class={currentStep >= 1 ? 'text-primary' : ''}>{m.wp_step_connect()}</span>
       <span class="text-muted-foreground">→</span>
-      <span class={currentStep >= 2 ? 'text-primary' : ''}>2. Select</span>
+      <span class={currentStep >= 2 ? 'text-primary' : ''}>{m.wp_step_select()}</span>
       {#if !isMediaLibraryImport}
         <span class="text-muted-foreground">→</span>
-        <span class={currentStep >= 3 ? 'text-primary' : ''}>3. Map</span>
+        <span class={currentStep >= 3 ? 'text-primary' : ''}>{m.wp_step_map()}</span>
       {/if}
       <span class="text-muted-foreground">→</span>
       <span
         class={currentStep >= (isMediaLibraryImport ? 3 : 4) ? 'text-primary font-semibold' : ''}
-        >{isMediaLibraryImport ? '3' : '4'}. Import</span
+        >{m.wp_step_import_short({ step: isMediaLibraryImport ? 3 : 4 })}</span
       >
     </div>
   </div>
@@ -303,39 +310,37 @@
       <!-- WordPress API Configuration -->
       <div class="border-muted-foreground/20 space-y-4 rounded-lg border p-4">
         <div class="space-y-3">
-          <Label for="base-url" class="text-sm font-medium">WordPress Site URL</Label>
+          <Label for="base-url" class="text-sm font-medium">{m.wp_field_site_url()}</Label>
           <Input
             id="base-url"
             type="url"
-            placeholder="https://yoursite.com"
+            placeholder={m.wp_field_site_url_placeholder()}
             bind:value={apiConfig.baseUrl}
           />
-          <p class="text-muted-foreground text-xs">
-            Enter your WordPress site URL (without /wp-json/wp/v2)
-          </p>
+          <p class="text-muted-foreground text-xs">{m.wp_field_site_url_help()}</p>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-2">
-            <Label for="username" class="text-sm font-medium">Username</Label>
+            <Label for="username" class="text-sm font-medium">{m.wp_field_username()}</Label>
             <Input
               id="username"
               type="text"
-              placeholder="WordPress username"
+              placeholder={m.wp_field_username_placeholder()}
               bind:value={apiConfig.username}
             />
           </div>
           <div class="space-y-2">
-            <Label for="password" class="text-sm font-medium">Password</Label>
+            <Label for="password" class="text-sm font-medium">{m.wp_field_password()}</Label>
             <Input
               id="password"
               type="password"
-              placeholder="WordPress password"
+              placeholder={m.wp_field_password_placeholder()}
               bind:value={apiConfig.password}
             />
           </div>
         </div>
-        <p class="text-muted-foreground text-xs">Use your regular WordPress admin credentials</p>
+        <p class="text-muted-foreground text-xs">{m.wp_field_credentials_help()}</p>
       </div>
 
       <!-- Step 1 Actions -->
@@ -347,9 +352,9 @@
         >
           {#if loadingPreview}
             <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-            Connecting...
+            {m.wp_connecting()}
           {:else}
-            Connect & Continue
+            {m.wp_button_connect()}
           {/if}
         </Button>
       </div>
@@ -370,36 +375,36 @@
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <CheckCircle class="h-5 w-5 text-green-500" />
-            Select What to Import
+            {m.wp_select_what()}
           </CardTitle>
           <p class="text-muted-foreground text-sm">
-            Connected to {previewData.siteInfo.name} ({previewData.siteInfo.url})
+            {m.wp_connected_to({
+              name: previewData.siteInfo.name,
+              url: previewData.siteInfo.url
+            })}
           </p>
         </CardHeader>
         <CardContent class="space-y-4">
           <div>
             {#if isMediaLibraryImport}
-              <h4 class="mb-3 text-sm font-medium">Import Media Files</h4>
-              <p class="text-muted-foreground mb-4 text-sm">
-                Import WordPress media files directly to your media library with all metadata
-                preserved.
-              </p>
+              <h4 class="mb-3 text-sm font-medium">{m.wp_import_media_heading()}</h4>
+              <p class="text-muted-foreground mb-4 text-sm">{m.wp_import_media_description()}</p>
               <div class="flex items-center justify-between rounded-md border p-3">
                 <div class="flex items-center gap-3">
                   <div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
                     <FileText class="text-primary h-4 w-4" />
                   </div>
                   <div>
-                    <p class="text-sm font-medium">WordPress Media Library</p>
-                    <p class="text-muted-foreground text-xs">All media files with metadata</p>
+                    <p class="text-sm font-medium">{m.wp_import_media_label()}</p>
+                    <p class="text-muted-foreground text-xs">{m.wp_import_media_meta()}</p>
                   </div>
                 </div>
-                <Badge variant="outline" class="text-xs">Ready</Badge>
+                <Badge variant="outline" class="text-xs">{m.wp_badge_ready()}</Badge>
               </div>
             {:else}
-              <h4 class="mb-3 text-sm font-medium">Select Content Types to Import</h4>
+              <h4 class="mb-3 text-sm font-medium">{m.wp_select_post_types_heading()}</h4>
               <p class="text-muted-foreground mb-4 text-sm">
-                Choose which content types you want to import from your WordPress site.
+                {m.wp_select_post_types_description()}
               </p>
               <div class="space-y-3">
                 {#each previewData.postTypes as postType}
@@ -426,10 +431,10 @@
                         {postType.label}
                       </Label>
                       <p class="text-muted-foreground text-xs">
-                        Available for import • WordPress {postType.name}
+                        {m.wp_post_type_available({ name: postType.name })}
                       </p>
                     </div>
-                    <Badge variant="outline" class="text-xs">Available</Badge>
+                    <Badge variant="outline" class="text-xs">{m.wp_badge_available()}</Badge>
                   </div>
                 {/each}
               </div>
@@ -439,13 +444,13 @@
       </Card>
 
       <div class="flex gap-2">
-        <Button variant="outline" onclick={() => goToStep(1)}>Back</Button>
+        <Button variant="outline" onclick={() => goToStep(1)}>{m.wp_button_back()}</Button>
         <Button
           onclick={() => goToStep(isMediaLibraryImport ? 4 : 3)}
           class="flex-1"
           disabled={!canProceedToMapping}
         >
-          {isMediaLibraryImport ? 'Continue to Import' : 'Continue to Field Mapping'}
+          {isMediaLibraryImport ? m.wp_button_continue_import() : m.wp_button_continue_mapping()}
         </Button>
       </div>
     </div>
@@ -457,16 +462,18 @@
       {#if loadingFields}
         <div class="text-muted-foreground flex items-center gap-2">
           <Loader2 class="h-4 w-4 animate-spin" />
-          <span class="text-sm">Loading fields...</span>
+          <span class="text-sm">{m.wp_loading_fields()}</span>
         </div>
       {:else if availableFields.length > 0}
         <Card>
           <CardHeader class="pb-3">
             <CardTitle class="text-base">
-              Field Mapping for {selectedPostTypeData?.label || selectedPostType}
+              {m.wp_field_mapping_for({
+                label: selectedPostTypeData?.label || selectedPostType
+              })}
             </CardTitle>
             <p class="text-muted-foreground text-sm">
-              Map WordPress {selectedPostType} fields to your collection fields
+              {m.wp_field_mapping_description({ type: selectedPostType })}
             </p>
           </CardHeader>
           <CardContent class="space-y-4">
@@ -475,7 +482,7 @@
               <!-- Content Field -->
               <div class="bg-muted/30 rounded-md px-3 py-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium">Content</span>
+                  <span class="text-sm font-medium">{m.wp_field_content()}</span>
                   <div class="flex items-center gap-3">
                     <Select.Root
                       type="single"
@@ -487,11 +494,11 @@
                           {availableFields.find((f) => f.key === fieldMappings.content)?.label ||
                             fieldMappings.content}
                         {:else}
-                          Don't import
+                          {m.wp_dont_import()}
                         {/if}
                       </Select.Trigger>
                       <Select.Content>
-                        <Select.Item value="">Don't import</Select.Item>
+                        <Select.Item value="">{m.wp_dont_import()}</Select.Item>
                         {#each availableFields.filter( (f) => ['wysiwyg', 'textarea', 'text'].includes(f.type) ) as field (field.key)}
                           <Select.Item value={field.key}>{field.label} ({field.type})</Select.Item>
                         {/each}
@@ -501,7 +508,7 @@
                       <div class="flex items-center gap-2">
                         <Checkbox id="content-strip-html" bind:checked={stripHtmlOptions.content} />
                         <Label for="content-strip-html" class="text-muted-foreground text-xs">
-                          Strip HTML
+                          {m.wp_strip_html()}
                         </Label>
                       </div>
                     {/if}
@@ -512,7 +519,7 @@
               <!-- Excerpt Field -->
               <div class="bg-muted/30 rounded-md px-3 py-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium">Excerpt</span>
+                  <span class="text-sm font-medium">{m.wp_field_excerpt()}</span>
                   <div class="flex items-center gap-3">
                     <Select.Root
                       type="single"
@@ -524,11 +531,11 @@
                           {availableFields.find((f) => f.key === fieldMappings.excerpt)?.label ||
                             fieldMappings.excerpt}
                         {:else}
-                          Don't import
+                          {m.wp_dont_import()}
                         {/if}
                       </Select.Trigger>
                       <Select.Content>
-                        <Select.Item value="">Don't import</Select.Item>
+                        <Select.Item value="">{m.wp_dont_import()}</Select.Item>
                         {#each availableFields.filter( (f) => ['wysiwyg', 'textarea', 'text'].includes(f.type) ) as field (field.key)}
                           <Select.Item value={field.key}>{field.label} ({field.type})</Select.Item>
                         {/each}
@@ -538,7 +545,7 @@
                       <div class="flex items-center gap-2">
                         <Checkbox id="excerpt-strip-html" bind:checked={stripHtmlOptions.excerpt} />
                         <Label for="excerpt-strip-html" class="text-muted-foreground text-xs">
-                          Strip HTML
+                          {m.wp_strip_html()}
                         </Label>
                       </div>
                     {/if}
@@ -548,7 +555,7 @@
 
               <!-- Featured Image Field -->
               <div class="bg-muted/30 flex items-center justify-between rounded-md px-3 py-2">
-                <span class="text-sm font-medium">Featured Image</span>
+                <span class="text-sm font-medium">{m.wp_field_featured_image()}</span>
                 <Select.Root
                   type="single"
                   value={fieldMappings.featured_image}
@@ -559,11 +566,11 @@
                       {availableFields.find((f) => f.key === fieldMappings.featured_image)?.label ||
                         fieldMappings.featured_image}
                     {:else}
-                      Don't import
+                      {m.wp_dont_import()}
                     {/if}
                   </Select.Trigger>
                   <Select.Content>
-                    <Select.Item value="">Don't import</Select.Item>
+                    <Select.Item value="">{m.wp_dont_import()}</Select.Item>
                     {#each availableFields.filter( (f) => ['file', 'image'].includes(f.type) ) as field (field.key)}
                       <Select.Item value={field.key}>{field.label} ({field.type})</Select.Item>
                     {/each}
@@ -573,7 +580,7 @@
 
               <!-- Categories Field -->
               <div class="bg-muted/30 flex items-center justify-between rounded-md px-3 py-2">
-                <span class="text-sm font-medium">Categories</span>
+                <span class="text-sm font-medium">{m.wp_field_categories()}</span>
                 <Select.Root
                   type="single"
                   value={fieldMappings.categories}
@@ -584,11 +591,11 @@
                       {availableFields.find((f) => f.key === fieldMappings.categories)?.label ||
                         fieldMappings.categories}
                     {:else}
-                      Don't import
+                      {m.wp_dont_import()}
                     {/if}
                   </Select.Trigger>
                   <Select.Content>
-                    <Select.Item value="">Don't import</Select.Item>
+                    <Select.Item value="">{m.wp_dont_import()}</Select.Item>
                     {#each availableFields.filter( (f) => ['relation'].includes(f.type) ) as field (field.key)}
                       <Select.Item value={field.key}>{field.label} ({field.type})</Select.Item>
                     {/each}
@@ -601,10 +608,12 @@
 
             <!-- Status Mapping -->
             <div class="space-y-4">
-              <h4 class="text-sm font-medium">Status Mapping</h4>
+              <h4 class="text-sm font-medium">{m.wp_status_mapping()}</h4>
               <div class="grid grid-cols-3 gap-4">
                 <div class="space-y-2">
-                  <Label for="status-published" class="text-sm">Published →</Label>
+                  <Label for="status-published" class="text-sm"
+                    >{m.wp_status_published_arrow()}</Label
+                  >
                   <Select.Root
                     type="single"
                     value={statusMapping.publish}
@@ -614,15 +623,15 @@
                       {statusMapping.publish}
                     </Select.Trigger>
                     <Select.Content>
-                      <Select.Item value="published">Published</Select.Item>
-                      <Select.Item value="draft">Draft</Select.Item>
-                      <Select.Item value="archived">Archived</Select.Item>
-                      <Select.Item value="private">Private</Select.Item>
+                      <Select.Item value="published">{m.wp_status_value_published()}</Select.Item>
+                      <Select.Item value="draft">{m.wp_status_value_draft()}</Select.Item>
+                      <Select.Item value="archived">{m.wp_status_value_archived()}</Select.Item>
+                      <Select.Item value="private">{m.wp_status_value_private()}</Select.Item>
                     </Select.Content>
                   </Select.Root>
                 </div>
                 <div class="space-y-2">
-                  <Label for="status-draft" class="text-sm">Draft →</Label>
+                  <Label for="status-draft" class="text-sm">{m.wp_status_draft_arrow()}</Label>
                   <Select.Root
                     type="single"
                     value={statusMapping.draft}
@@ -632,15 +641,15 @@
                       {statusMapping.draft}
                     </Select.Trigger>
                     <Select.Content>
-                      <Select.Item value="published">Published</Select.Item>
-                      <Select.Item value="draft">Draft</Select.Item>
-                      <Select.Item value="archived">Archived</Select.Item>
-                      <Select.Item value="private">Private</Select.Item>
+                      <Select.Item value="published">{m.wp_status_value_published()}</Select.Item>
+                      <Select.Item value="draft">{m.wp_status_value_draft()}</Select.Item>
+                      <Select.Item value="archived">{m.wp_status_value_archived()}</Select.Item>
+                      <Select.Item value="private">{m.wp_status_value_private()}</Select.Item>
                     </Select.Content>
                   </Select.Root>
                 </div>
                 <div class="space-y-2">
-                  <Label for="status-private" class="text-sm">Private →</Label>
+                  <Label for="status-private" class="text-sm">{m.wp_status_private_arrow()}</Label>
                   <Select.Root
                     type="single"
                     value={statusMapping.private}
@@ -650,10 +659,10 @@
                       {statusMapping.private}
                     </Select.Trigger>
                     <Select.Content>
-                      <Select.Item value="published">Published</Select.Item>
-                      <Select.Item value="draft">Draft</Select.Item>
-                      <Select.Item value="archived">Archived</Select.Item>
-                      <Select.Item value="private">Private</Select.Item>
+                      <Select.Item value="published">{m.wp_status_value_published()}</Select.Item>
+                      <Select.Item value="draft">{m.wp_status_value_draft()}</Select.Item>
+                      <Select.Item value="archived">{m.wp_status_value_archived()}</Select.Item>
+                      <Select.Item value="private">{m.wp_status_value_private()}</Select.Item>
                     </Select.Content>
                   </Select.Root>
                 </div>
@@ -664,24 +673,28 @@
 
             <!-- Import Options -->
             <div class="space-y-4">
-              <h4 class="text-sm font-medium">Import Options</h4>
+              <h4 class="text-sm font-medium">{m.wp_options_heading()}</h4>
               <div class="flex flex-wrap gap-6">
                 <div class="flex items-center space-x-2">
                   <Checkbox id="create-categories" bind:checked={createCategories} />
-                  <Label for="create-categories" class="text-sm">Create categories</Label>
+                  <Label for="create-categories" class="text-sm"
+                    >{m.wp_option_create_categories()}</Label
+                  >
                 </div>
                 <div class="flex items-center space-x-2">
                   <Checkbox id="create-tags" bind:checked={createTags} />
-                  <Label for="create-tags" class="text-sm">Create tags</Label>
+                  <Label for="create-tags" class="text-sm">{m.wp_option_create_tags()}</Label>
                 </div>
                 <div class="flex items-center space-x-2">
                   <Checkbox id="skip-existing-slugs" bind:checked={skipExistingSlugs} />
-                  <Label for="skip-existing-slugs" class="text-sm">Skip duplicates</Label>
+                  <Label for="skip-existing-slugs" class="text-sm"
+                    >{m.wp_option_skip_duplicates()}</Label
+                  >
                 </div>
                 <div class="flex items-center space-x-2">
                   <Checkbox id="try-author-matching" bind:checked={tryEmailMatching} />
                   <Label for="try-author-matching" class="text-sm">
-                    Try matching authors by name
+                    {m.wp_option_match_authors()}
                   </Label>
                 </div>
               </div>
@@ -691,9 +704,9 @@
       {/if}
 
       <div class="flex gap-2">
-        <Button variant="outline" onclick={() => goToStep(2)}>Back</Button>
+        <Button variant="outline" onclick={() => goToStep(2)}>{m.wp_button_back()}</Button>
         <Button onclick={() => goToStep(4)} class="flex-1" disabled={availableFields.length === 0}>
-          Continue to Summary
+          {m.wp_button_continue_summary()}
         </Button>
       </div>
     </div>
@@ -704,12 +717,12 @@
     <div class="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Ready to Import</CardTitle>
+          <CardTitle>{m.wp_ready_title()}</CardTitle>
         </CardHeader>
         <CardContent class="space-y-4">
           <div class="space-y-4">
             <div>
-              <h4 class="mb-3 text-sm font-medium">Import Summary</h4>
+              <h4 class="mb-3 text-sm font-medium">{m.wp_summary_heading()}</h4>
               <div class="space-y-2">
                 <div class="flex items-center justify-between rounded-md border p-3">
                   <div class="flex items-center gap-3">
@@ -720,17 +733,19 @@
                     </div>
                     <div>
                       {#if isMediaLibraryImport}
-                        <p class="text-sm font-medium">WordPress Media Library</p>
-                        <p class="text-muted-foreground text-xs">All media files with metadata</p>
+                        <p class="text-sm font-medium">{m.wp_import_media_label()}</p>
+                        <p class="text-muted-foreground text-xs">{m.wp_import_media_meta()}</p>
                       {:else}
                         <p class="text-sm font-medium">
                           {selectedPostTypeData?.label || selectedPostType}
                         </p>
-                        <p class="text-muted-foreground text-xs">WordPress {selectedPostType}</p>
+                        <p class="text-muted-foreground text-xs">
+                          {m.wp_summary_post_type({ type: selectedPostType })}
+                        </p>
                       {/if}
                     </div>
                   </div>
-                  <Badge variant="secondary" class="text-sm">Available</Badge>
+                  <Badge variant="secondary" class="text-sm">{m.wp_badge_available()}</Badge>
                 </div>
               </div>
             </div>
@@ -739,56 +754,56 @@
               <Separator />
 
               <div>
-                <h4 class="mb-3 text-sm font-medium">Field Mappings</h4>
+                <h4 class="mb-3 text-sm font-medium">{m.wp_field_mappings_heading()}</h4>
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Content:</span>
+                    <span class="text-muted-foreground">{m.wp_label_content()}</span>
                     <div class="text-right">
                       <div>
                         {fieldMappings.content
                           ? availableFields.find((f) => f.key === fieldMappings.content)?.label ||
                             fieldMappings.content
-                          : 'Not imported'}
+                          : m.wp_not_imported()}
                       </div>
                       {#if fieldMappings.content}
                         <div class="text-muted-foreground text-xs">
-                          {stripHtmlOptions.content ? 'Strip HTML' : 'Keep HTML'}
+                          {stripHtmlOptions.content ? m.wp_strip_html() : m.wp_keep_html()}
                         </div>
                       {/if}
                     </div>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Excerpt:</span>
+                    <span class="text-muted-foreground">{m.wp_label_excerpt()}</span>
                     <div class="text-right">
                       <div>
                         {fieldMappings.excerpt
                           ? availableFields.find((f) => f.key === fieldMappings.excerpt)?.label ||
                             fieldMappings.excerpt
-                          : 'Not imported'}
+                          : m.wp_not_imported()}
                       </div>
                       {#if fieldMappings.excerpt}
                         <div class="text-muted-foreground text-xs">
-                          {stripHtmlOptions.excerpt ? 'Strip HTML' : 'Keep HTML'}
+                          {stripHtmlOptions.excerpt ? m.wp_strip_html() : m.wp_keep_html()}
                         </div>
                       {/if}
                     </div>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Featured Image:</span>
+                    <span class="text-muted-foreground">{m.wp_label_featured_image()}</span>
                     <span
                       >{fieldMappings.featured_image
                         ? availableFields.find((f) => f.key === fieldMappings.featured_image)
                             ?.label || fieldMappings.featured_image
-                        : 'Not imported'}</span
+                        : m.wp_not_imported()}</span
                     >
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Categories:</span>
+                    <span class="text-muted-foreground">{m.wp_label_categories()}</span>
                     <span
                       >{fieldMappings.categories
                         ? availableFields.find((f) => f.key === fieldMappings.categories)?.label ||
                           fieldMappings.categories
-                        : 'Not imported'}</span
+                        : m.wp_not_imported()}</span
                     >
                   </div>
                 </div>
@@ -799,43 +814,43 @@
 
             {#if !isMediaLibraryImport}
               <div>
-                <h4 class="mb-3 text-sm font-medium">Import Options</h4>
+                <h4 class="mb-3 text-sm font-medium">{m.wp_options_summary_heading()}</h4>
                 <div class="space-y-1 text-sm">
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Create categories:</span>
-                    <span>{createCategories ? 'Yes' : 'No'}</span>
+                    <span class="text-muted-foreground">{m.wp_label_create_categories()}</span>
+                    <span>{createCategories ? m.wp_value_yes() : m.wp_value_no()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Create tags:</span>
-                    <span>{createTags ? 'Yes' : 'No'}</span>
+                    <span class="text-muted-foreground">{m.wp_label_create_tags()}</span>
+                    <span>{createTags ? m.wp_value_yes() : m.wp_value_no()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Skip duplicates:</span>
-                    <span>{skipExistingSlugs ? 'Yes' : 'No'}</span>
+                    <span class="text-muted-foreground">{m.wp_label_skip_duplicates()}</span>
+                    <span>{skipExistingSlugs ? m.wp_value_yes() : m.wp_value_no()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Author matching:</span>
+                    <span class="text-muted-foreground">{m.wp_label_author_matching()}</span>
                     <span>
-                      {tryEmailMatching ? 'Try name matching' : 'Assign all to current user'}
+                      {tryEmailMatching ? m.wp_author_match_name() : m.wp_author_match_current()}
                     </span>
                   </div>
                 </div>
               </div>
             {:else}
               <div>
-                <h4 class="mb-3 text-sm font-medium">Media Import</h4>
+                <h4 class="mb-3 text-sm font-medium">{m.wp_media_import_heading()}</h4>
                 <div class="space-y-1 text-sm">
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Import type:</span>
-                    <span>Media files only</span>
+                    <span class="text-muted-foreground">{m.wp_label_import_type()}</span>
+                    <span>{m.wp_value_media_only()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Metadata:</span>
-                    <span>Alt text, titles, descriptions preserved</span>
+                    <span class="text-muted-foreground">{m.wp_label_metadata()}</span>
+                    <span>{m.wp_value_metadata()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Duplicates:</span>
-                    <span>Automatically skipped</span>
+                    <span class="text-muted-foreground">{m.wp_label_duplicates()}</span>
+                    <span>{m.wp_value_duplicates_skipped()}</span>
                   </div>
                 </div>
               </div>
@@ -845,13 +860,13 @@
       </Card>
 
       <div class="flex gap-2">
-        <Button variant="outline" onclick={() => goToStep(3)}>Back</Button>
+        <Button variant="outline" onclick={() => goToStep(3)}>{m.wp_button_back()}</Button>
         <Button onclick={startImport} disabled={importing} class="flex-1">
           {#if importing}
             <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-            Importing...
+            {m.wp_importing_dots()}
           {:else}
-            Start Import
+            {m.wp_button_start_import()}
           {/if}
         </Button>
       </div>
@@ -862,13 +877,15 @@
   {#if importing}
     <Card>
       <CardHeader>
-        <CardTitle>Importing...</CardTitle>
+        <CardTitle>{m.wp_importing_dots()}</CardTitle>
       </CardHeader>
       <CardContent class="space-y-4">
         <Progress value={importProgress} />
         <p class="text-muted-foreground text-sm">{importStatus}</p>
         {#if importProgress > 0}
-          <p class="text-muted-foreground text-xs">{importProgress}% complete</p>
+          <p class="text-muted-foreground text-xs">
+            {m.wp_progress_complete({ percent: importProgress })}
+          </p>
         {/if}
       </CardContent>
     </Card>
@@ -884,26 +901,26 @@
           {:else}
             <XCircle class="h-5 w-5 text-red-500" />
           {/if}
-          Import Results
+          {m.wp_results_title()}
         </CardTitle>
       </CardHeader>
       <CardContent class="space-y-4">
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div class="text-center">
             <p class="text-2xl font-bold text-green-600">{importResult.imported}</p>
-            <p class="text-muted-foreground text-sm">Imported</p>
+            <p class="text-muted-foreground text-sm">{m.wp_results_imported()}</p>
           </div>
           <div class="text-center">
             <p class="text-2xl font-bold text-yellow-600">{importResult.skipped}</p>
-            <p class="text-muted-foreground text-sm">Skipped</p>
+            <p class="text-muted-foreground text-sm">{m.wp_results_skipped()}</p>
           </div>
           <div class="text-center">
             <p class="text-2xl font-bold text-blue-600">{importResult.files.imported}</p>
-            <p class="text-muted-foreground text-sm">Files Imported</p>
+            <p class="text-muted-foreground text-sm">{m.wp_results_files_imported()}</p>
           </div>
           <div class="text-center">
             <p class="text-2xl font-bold text-red-600">{importResult.files.failed}</p>
-            <p class="text-muted-foreground text-sm">Files Failed</p>
+            <p class="text-muted-foreground text-sm">{m.wp_results_files_failed()}</p>
           </div>
         </div>
 
@@ -912,7 +929,7 @@
           <div class="space-y-2">
             <Label class="flex items-center gap-2">
               <AlertCircle class="h-4 w-4" />
-              Errors ({importResult.errors.length})
+              {m.wp_results_errors_label({ count: importResult.errors.length })}
             </Label>
             <div class="max-h-32 space-y-1 overflow-y-auto">
               {#each importResult.errors as error, index (index)}

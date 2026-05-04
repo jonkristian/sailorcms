@@ -28,6 +28,7 @@
   import { uploadFiles } from '$sailor/core/files/upload';
   import FileUploadProgress from '$lib/components/sailor/FileUploadProgress.svelte';
   import VerticalList from '$lib/components/sailor/dnd/VerticalList.svelte';
+  import { m } from '$sailor/i18n';
 
   let {
     value = $bindable(''),
@@ -291,7 +292,7 @@
               />
               <input
                 type="text"
-                placeholder="Search for files..."
+                placeholder={m.file_picker_search_placeholder()}
                 value={searchInput}
                 oninput={handleSearch}
                 class="bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring border-input h-9 w-full rounded-md border pr-4 pl-9 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -309,14 +310,16 @@
               {:else}
                 <Upload class="h-4 w-4" />
               {/if}
-              <span>Upload {multiple ? 'files' : 'file'}</span>
+              <span>{multiple ? m.file_picker_upload_many() : m.file_picker_upload_one()}</span>
             </Button>
           </div>
 
           <!-- Right side: Pagination -->
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-2">
-              <Label for="file-rows-per-page" class="text-sm font-medium">Rows per page</Label>
+              <Label for="file-rows-per-page" class="text-sm font-medium"
+                >{m.pagination_rows_per_page()}</Label
+              >
               <Select.Root
                 type="single"
                 value={itemsPerPage.toString()}
@@ -399,7 +402,7 @@
         <!-- Selected Files Sidebar -->
         <div class="bg-muted/30 flex w-[180px] flex-col border-r">
           <div class="flex h-[49px] items-center border-b px-4 py-3">
-            <h4 class="text-sm font-medium">Selected files</h4>
+            <h4 class="text-sm font-medium">{m.file_picker_selected_files()}</h4>
           </div>
           <div class="flex-1 overflow-auto">
             <div class="p-4">
@@ -433,7 +436,7 @@
                               <img
                                 src={selectedFile.url}
                                 alt={selectedFile.name}
-                                class="h-full w-full object-cover"
+                                class="h-full w-full object-cover object-top"
                               />
                               <!-- Control buttons overlay -->
                               <div
@@ -444,14 +447,14 @@
                                   {...dragHandleAttributes}
                                   role="button"
                                   tabindex={0}
-                                  aria-label="Drag handle"
+                                  aria-label={m.file_picker_drag_handle()}
                                 >
                                   <GripVertical class="h-3 w-3 text-white" />
                                 </div>
                                 <button
                                   type="button"
                                   class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
-                                  title="Copy filename"
+                                  title={m.file_picker_copy_filename()}
                                   onclick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -495,14 +498,14 @@
                                   {...dragHandleAttributes}
                                   role="button"
                                   tabindex={0}
-                                  aria-label="Drag handle"
+                                  aria-label={m.file_picker_drag_handle()}
                                 >
                                   <GripVertical class="h-3 w-3 text-white" />
                                 </div>
                                 <button
                                   type="button"
                                   class="flex items-center justify-center rounded p-1 text-white hover:bg-white/20"
-                                  title="Copy filename"
+                                  title={m.file_picker_copy_filename()}
                                   onclick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -534,7 +537,7 @@
                 <div
                   class="text-muted-foreground flex h-full items-center justify-center p-4 pl-0 text-center text-sm"
                 >
-                  Click on a row to select images.
+                  {m.file_picker_click_to_select()}
                 </div>
               {/if}
             </div>
@@ -549,7 +552,7 @@
             </div>
           {:else if files.length === 0}
             <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-              No files found.
+              {m.file_picker_no_files_found()}
             </div>
           {:else}
             <div class="flex-1 overflow-hidden border-r">
@@ -559,9 +562,9 @@
                     <Table.Row class="h-[48px]">
                       <Table.Head class="w-10 px-4"></Table.Head>
                       <Table.Head class="w-12 px-4"></Table.Head>
-                      <Table.Head class="px-4">Filename</Table.Head>
-                      <Table.Head class="px-4 text-right">Size</Table.Head>
-                      <Table.Head class="px-4 text-right">Date</Table.Head>
+                      <Table.Head class="px-4">{m.file_picker_filename()}</Table.Head>
+                      <Table.Head class="px-4 text-right">{m.file_picker_size()}</Table.Head>
+                      <Table.Head class="px-4 text-right">{m.file_picker_date()}</Table.Head>
                       <Table.Head class="w-12 px-4"></Table.Head>
                     </Table.Row>
                   </Table.Header>
@@ -617,7 +620,9 @@
                               checked={selected}
                               onCheckedChange={() => handleSelect(file.id)}
                               onclick={(e) => e.stopPropagation()}
-                              aria-label={selected ? 'Deselect file' : 'Select file'}
+                              aria-label={selected
+                                ? m.file_picker_deselect_file()
+                                : m.file_picker_select_file()}
                             />
                           </Table.Cell>
                           <Table.Cell class="w-12 px-4 py-1.5">
@@ -631,7 +636,7 @@
                                 <img
                                   src={file.url}
                                   alt={file.name}
-                                  class="h-full w-full object-cover"
+                                  class="h-full w-full object-cover object-top"
                                 />
                               {:else}
                                 <div
@@ -674,7 +679,7 @@
           <div class="bg-muted/30 flex w-[280px] flex-col">
             <div class="flex h-[49px] items-center border-b px-4 py-3">
               <div class="flex w-full items-center justify-between">
-                <h4 class="text-sm font-medium">Preview</h4>
+                <h4 class="text-sm font-medium">{m.file_picker_preview()}</h4>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -706,11 +711,15 @@
                 {/if}
                 <div class="space-y-2 text-sm">
                   <p class="font-medium break-words">{previewFile.name}</p>
-                  <p class="text-muted-foreground">Size: {formatFileSize(previewFile.size ?? 0)}</p>
                   <p class="text-muted-foreground">
-                    Date: {previewFile.created_at
-                      ? formatDate(previewFile.created_at, getUserLocale())
-                      : '—'}
+                    {m.file_picker_size_label({ size: formatFileSize(previewFile.size ?? 0) })}
+                  </p>
+                  <p class="text-muted-foreground">
+                    {m.file_picker_date_label({
+                      date: previewFile.created_at
+                        ? formatDate(previewFile.created_at, getUserLocale())
+                        : '—'
+                    })}
                   </p>
                 </div>
               </div>

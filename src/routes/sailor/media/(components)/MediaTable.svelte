@@ -2,6 +2,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Copy, FileText, Trash2 } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { formatFileSize, type FileType } from '$sailor/core/files/file';
   import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
   import { formatTableDate } from '$sailor/core/utils/date';
@@ -32,15 +33,15 @@
   } = $props();
 
   // Define columns for DataTable
-  const columns = [
+  const columns = $derived([
     { key: 'preview', label: '', width: 80 },
-    { key: 'name', label: 'Name' },
-    { key: 'type', label: 'Type', width: 100 },
-    { key: 'size', label: 'Size', width: 80 },
-    { key: 'author', label: 'Author', width: 120 },
-    { key: 'tags', label: 'Tags' },
-    { key: 'created_at', label: 'Created', width: 120 }
-  ];
+    { key: 'name', label: m.media_col_name() },
+    { key: 'type', label: m.media_col_type(), width: 100 },
+    { key: 'size', label: m.media_col_size(), width: 80 },
+    { key: 'author', label: m.media_col_author(), width: 120 },
+    { key: 'tags', label: m.media_col_tags() },
+    { key: 'created_at', label: m.media_col_created(), width: 120 }
+  ]);
 
   function getFileTypeColor(type: string) {
     switch (type) {
@@ -85,9 +86,9 @@
             onclick={async () => {
               try {
                 await navigator.clipboard.writeText(item.url);
-                toast.success('URL copied to clipboard');
+                toast.success(m.toast_url_copied());
               } catch {
-                toast.error('Failed to copy URL');
+                toast.error(m.toast_copy_url_failed());
               }
             }}
             title={item.url}
@@ -97,7 +98,7 @@
           <button
             class="text-muted-foreground flex h-5 w-5 items-center justify-center p-0 transition-colors hover:text-red-600"
             onclick={() => onDelete(item.id)}
-            title="Delete file"
+            title={m.media_delete_file_title()}
           >
             <Trash2 class="h-4 w-4" />
           </button>
@@ -128,7 +129,7 @@
   {#snippet empty()}
     <div class="text-center">
       <FileText class="text-muted-foreground mx-auto my-2 size-6" />
-      <h3 class="text-sm font-medium">No files found.</h3>
+      <h3 class="text-sm font-medium">{m.media_empty_no_files()}</h3>
     </div>
   {/snippet}
 </DataTable>

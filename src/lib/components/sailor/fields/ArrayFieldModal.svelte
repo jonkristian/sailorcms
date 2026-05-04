@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import * as Dialog from '$lib/components/ui/dialog';
+  import { m } from '$sailor/i18n';
 
   import FieldRenderer from './FieldRenderer.svelte';
 
@@ -51,9 +52,9 @@
   <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
     <Dialog.Header>
       <Dialog.Title>
-        Edit Item {itemIndex + 1}
+        {m.array_modal_title({ index: itemIndex + 1 })}
       </Dialog.Title>
-      <Dialog.Description>Update the details for this item</Dialog.Description>
+      <Dialog.Description>{m.array_modal_description()}</Dialog.Description>
     </Dialog.Header>
 
     <div class="space-y-6">
@@ -68,8 +69,8 @@
     </div>
 
     <Dialog.Footer>
-      <Button type="button" variant="outline" onclick={onClose}>Cancel</Button>
-      <Button type="button" onclick={handleSave}>Save</Button>
+      <Button type="button" variant="outline" onclick={onClose}>{m.array_modal_cancel()}</Button>
+      <Button type="button" onclick={handleSave}>{m.array_modal_save()}</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

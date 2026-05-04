@@ -4,6 +4,7 @@
   import { Button } from '$lib/components/ui/button';
   import { slide } from 'svelte/transition';
   import { quintIn, quintOut } from 'svelte/easing';
+  import { m } from '$sailor/i18n';
 
   let {
     title,
@@ -84,7 +85,7 @@
             {/each}
             {#if tags.length > 3}
               <span class="text-muted-foreground text-xs">
-                +{tags.length - 3} more
+                {m.draggable_more_count({ count: tags.length - 3 })}
               </span>
             {/if}
           </div>
@@ -94,7 +95,7 @@
         <span
           class="bg-primary/10 text-primary border-primary/20 rounded-full border px-2 py-0.5 text-xs font-medium"
         >
-          Featured
+          {m.draggable_featured()}
         </span>
       {/if}
     </div>
@@ -126,7 +127,7 @@
           <Checkbox
             checked={isSelected}
             onCheckedChange={(checked) => onSelectNode?.(!!checked)}
-            aria-label="Select row"
+            aria-label={m.draggable_select_row()}
             onclick={(e) => e.stopPropagation()}
           />
         </div>

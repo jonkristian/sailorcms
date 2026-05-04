@@ -4,6 +4,7 @@
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
   import * as Avatar from '$lib/components/ui/avatar/index.js';
   import { authClient } from '$sailor/core/auth';
+  import { m } from '$sailor/i18n';
 
   type Props = {
     loggedInOnly?: boolean;
@@ -48,7 +49,7 @@
       class="sailor-widget-trigger"
       onclick={togglePopover}
       type="button"
-      aria-label="Sailor CMS Widget"
+      aria-label={m.auth_widget_aria()}
     >
       <div style="width: 2.25rem; height: 2.25rem;">{@html emblemSvg}</div>
     </button>
@@ -72,8 +73,8 @@
                 </Avatar.Fallback>
               </Avatar.Root>
             </div>
-            <h3 class="sailor-widget-title">Hello, {user.name}</h3>
-            <p class="sailor-widget-subtitle">Welcome back to your dashboard</p>
+            <h3 class="sailor-widget-title">{m.auth_widget_hello({ name: user.name })}</h3>
+            <p class="sailor-widget-subtitle">{m.auth_widget_welcome_back()}</p>
           </div>
 
           <div class="sailor-widget-actions">
@@ -91,7 +92,7 @@
                 />
                 <circle cx="12" cy="12" r="3" />
               </svg>
-              Admin Dashboard
+              {m.auth_widget_admin_dashboard()}
             </a>
             <a
               class="sailor-widget-button secondary"
@@ -105,7 +106,7 @@
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
-              Edit Profile
+              {m.auth_widget_edit_profile()}
             </a>
             <button class="sailor-widget-button secondary" onclick={handleSignOut}>
               <svg class="sailor-widget-icon" viewBox="0 0 24 24">
@@ -113,7 +114,7 @@
                 <polyline points="16,17 21,12 16,7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              Sign Out
+              {m.auth_widget_signout()}
             </button>
           </div>
         {:else}
@@ -122,10 +123,8 @@
             <div class="sailor-widget-avatar">
               <div style="width: 1.5rem; height: 1.5rem;">{@html emblemSvg}</div>
             </div>
-            <h3 class="sailor-widget-title">Welcome to Sailor CMS</h3>
-            <p class="sailor-widget-subtitle">
-              Sign in to your account or create a new one to get started.
-            </p>
+            <h3 class="sailor-widget-title">{m.auth_widget_welcome()}</h3>
+            <p class="sailor-widget-subtitle">{m.auth_widget_signin_subtitle()}</p>
           </div>
 
           <div class="sailor-widget-actions">
@@ -142,7 +141,7 @@
                 <polyline points="10,17 15,12 10,7" />
                 <line x1="15" y1="12" x2="3" y2="12" />
               </svg>
-              Sign In
+              {m.auth_widget_signin()}
             </a>
             {#if siteSettings?.registrationEnabled !== false}
               <a
@@ -159,7 +158,7 @@
                   <line x1="19" y1="8" x2="19" y2="14" />
                   <line x1="22" y1="11" x2="16" y2="11" />
                 </svg>
-                Create Account
+                {m.auth_widget_create_account()}
               </a>
             {/if}
           </div>

@@ -3,6 +3,7 @@
   import { Button } from '$lib/components/ui/button';
   import { X, Upload, CheckCircle, AlertCircle } from '@lucide/svelte';
   import * as Dialog from '$lib/components/ui/dialog';
+  import { m } from '$sailor/i18n';
 
   interface UploadFile {
     name: string;
@@ -78,17 +79,20 @@
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2">
         <Upload class="h-5 w-5" />
-        Uploading Files
+        {m.upload_uploading_files()}
       </Dialog.Title>
       <Dialog.Description>
         {#if isComplete}
           {#if hasErrors}
-            Upload completed with {failedFiles} error{failedFiles > 1 ? 's' : ''}
+            {m.upload_completed_with_errors({
+              count: failedFiles,
+              errors: failedFiles === 1 ? m.upload_error_singular() : m.upload_error_plural()
+            })}
           {:else}
-            All files uploaded successfully!
+            {m.upload_all_success()}
           {/if}
         {:else}
-          Uploading {uploadingFiles} of {totalFiles} files
+          {m.upload_in_progress({ current: uploadingFiles, total: totalFiles })}
         {/if}
       </Dialog.Description>
     </Dialog.Header>
@@ -97,13 +101,13 @@
       <!-- Overall Progress -->
       <div class="space-y-2">
         <div class="flex justify-between text-sm">
-          <span>Overall Progress</span>
+          <span>{m.upload_overall_progress()}</span>
           <span>{overallProgress()}%</span>
         </div>
         <Progress value={overallProgress()} class="w-full" />
         <div class="text-muted-foreground flex justify-between text-xs">
-          <span>{completedFiles} completed</span>
-          <span>{pendingFiles} pending</span>
+          <span>{m.upload_completed_count({ count: completedFiles })}</span>
+          <span>{m.upload_pending_count({ count: pendingFiles })}</span>
         </div>
       </div>
 
@@ -147,15 +151,15 @@
     <Dialog.Footer class="flex justify-between">
       <div class="text-muted-foreground text-sm">
         {#if isComplete}
-          {completedFiles} of {totalFiles} files uploaded successfully
+          {m.upload_summary_done({ completed: completedFiles, total: totalFiles })}
         {:else}
-          {uploadingFiles} uploading, {pendingFiles} pending
+          {m.upload_summary_progress({ uploading: uploadingFiles, pending: pendingFiles })}
         {/if}
       </div>
 
       <div class="flex gap-2">
         {#if onCancel && !isComplete}
-          <Button variant="outline" onclick={onCancel}>Cancel</Button>
+          <Button variant="outline" onclick={onCancel}>{m.upload_cancel()}</Button>
         {/if}
       </div>
     </Dialog.Footer>

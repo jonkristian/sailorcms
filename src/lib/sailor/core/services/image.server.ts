@@ -17,6 +17,7 @@ interface ImageTransformOptions {
   quality?: number;
   format?: 'webp' | 'jpg' | 'png';
   resize?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+  position?: string;
 }
 
 interface ProcessedImage {
@@ -73,14 +74,15 @@ export class ImageProcessor {
 
   // Generate cache key using predictable naming scheme
   private static generateCacheKey(imagePath: string, options: ImageTransformOptions): string {
-    const { width, height, quality = 80 } = options;
+    const { width, height, quality = 80, position } = options;
 
     // Get the base filename without extension
     const baseName = basename(imagePath, extname(imagePath));
 
-    // Create a simple cache key: filename_resolution_qquality
+    // Create a simple cache key: filename_resolution_qquality[_position]
     const sizeStr = width && height ? `${width}x${height}` : 'auto';
-    const cacheKey = `${baseName}_${sizeStr}_q${quality}`;
+    const positionStr = position ? `_${position.replace(/\s+/g, '-')}` : '';
+    const cacheKey = `${baseName}_${sizeStr}_q${quality}${positionStr}`;
 
     return cacheKey;
   }
@@ -298,7 +300,7 @@ export class ImageProcessor {
     originalPath: string,
     options: ImageTransformOptions
   ): Promise<ProcessedImage> {
-    const { width, height, quality = 80, format = 'webp', resize = 'cover' } = options;
+    const { width, height, quality = 80, format = 'webp', resize = 'cover', position } = options;
 
     // Handle remote URLs vs local files
     let sharpInstance: sharp.Sharp;
@@ -339,6 +341,8 @@ export class ImageProcessor {
         height,
         fit: resize as 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
       };
+      // Sharp's `position` only affects `cover` / `contain` fits; ignored otherwise.
+      if (position) resizeOptions.position = position as any;
 
       sharpInstance = sharpInstance.resize(resizeOptions);
     }

@@ -43,6 +43,7 @@
     tiptapJsonToHtml
   } from '$lib/sailor/core/content/content';
   import FilePicker from '$lib/components/sailor/files/file-picker.svelte';
+  import { m } from '$sailor/i18n';
 
   type EditorMode = 'minimal' | 'compact' | 'full';
 
@@ -397,7 +398,7 @@
             size="sm"
             class={cn('h-7 w-7 p-0', editor?.isActive('bold') && 'bg-accent')}
             onclick={toggleBold}
-            tooltip="Bold"
+            tooltip={m.wysiwyg_tooltip_bold()}
           >
             <Bold class="h-3.5 w-3.5" />
           </TooltipButton>
@@ -407,7 +408,7 @@
             size="sm"
             class={cn('h-7 w-7 p-0', editor?.isActive('italic') && 'bg-accent')}
             onclick={toggleItalic}
-            tooltip="Italic"
+            tooltip={m.wysiwyg_tooltip_italic()}
           >
             <Italic class="h-3.5 w-3.5" />
           </TooltipButton>
@@ -417,7 +418,7 @@
             size="sm"
             class={cn('h-7 w-7 p-0', editor?.isActive('underline') && 'bg-accent')}
             onclick={toggleUnderline}
-            tooltip="Underline"
+            tooltip={m.wysiwyg_tooltip_underline()}
           >
             <UnderlineIcon class="h-3.5 w-3.5" />
           </TooltipButton>
@@ -427,7 +428,7 @@
             size="sm"
             class={cn('h-7 w-7 p-0', editor?.isActive('strike') && 'bg-accent')}
             onclick={toggleStrike}
-            tooltip="Strikethrough"
+            tooltip={m.wysiwyg_tooltip_strikethrough()}
           >
             <Strikethrough class="h-3.5 w-3.5" />
           </TooltipButton>
@@ -442,7 +443,7 @@
                 size="sm"
                 class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 1 }) && 'bg-accent')}
                 onclick={() => setHeading(1)}
-                tooltip="Heading 1"
+                tooltip={m.wysiwyg_tooltip_h1()}
               >
                 <Heading1 class="h-3.5 w-3.5" />
               </TooltipButton>
@@ -453,7 +454,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 2 }) && 'bg-accent')}
               onclick={() => setHeading(2)}
-              tooltip="Heading 2"
+              tooltip={m.wysiwyg_tooltip_h2()}
             >
               <Heading2 class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -463,7 +464,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 3 }) && 'bg-accent')}
               onclick={() => setHeading(3)}
-              tooltip="Heading 3"
+              tooltip={m.wysiwyg_tooltip_h3()}
             >
               <Heading3 class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -473,7 +474,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 4 }) && 'bg-accent')}
               onclick={() => setHeading(4)}
-              tooltip="Heading 4"
+              tooltip={m.wysiwyg_tooltip_h4()}
             >
               <Heading4 class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -484,7 +485,7 @@
                 size="sm"
                 class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 5 }) && 'bg-accent')}
                 onclick={() => setHeading(5)}
-                tooltip="Heading 5"
+                tooltip={m.wysiwyg_tooltip_h5()}
               >
                 <Heading5 class="h-3.5 w-3.5" />
               </TooltipButton>
@@ -494,7 +495,7 @@
                 size="sm"
                 class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 6 }) && 'bg-accent')}
                 onclick={() => setHeading(6)}
-                tooltip="Heading 6"
+                tooltip={m.wysiwyg_tooltip_h6()}
               >
                 <Heading6 class="h-3.5 w-3.5" />
               </TooltipButton>
@@ -508,7 +509,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('bulletList') && 'bg-accent')}
               onclick={toggleBulletList}
-              tooltip="Bullet List"
+              tooltip={m.wysiwyg_tooltip_bullet_list()}
             >
               <List class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -518,7 +519,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('orderedList') && 'bg-accent')}
               onclick={toggleOrderedList}
-              tooltip="Numbered List"
+              tooltip={m.wysiwyg_tooltip_numbered_list()}
             >
               <ListOrdered class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -531,7 +532,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('blockquote') && 'bg-accent')}
               onclick={toggleBlockquote}
-              tooltip="Blockquote"
+              tooltip={m.wysiwyg_tooltip_blockquote()}
             >
               <Quote class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -544,7 +545,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive('code') && 'bg-accent')}
               onclick={toggleCode}
-              tooltip="Inline Code"
+              tooltip={m.wysiwyg_tooltip_inline_code()}
             >
               <Code class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -559,7 +560,7 @@
               size="sm"
               class="h-7 w-7 p-0"
               onclick={openImagePicker}
-              tooltip="Insert Image"
+              tooltip={m.wysiwyg_tooltip_insert_image()}
             >
               <ImageIcon class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -572,7 +573,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'left' }) && 'bg-accent')}
               onclick={() => setTextAlign('left')}
-              tooltip="Align Left"
+              tooltip={m.wysiwyg_tooltip_align_left()}
             >
               <AlignLeft class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -582,7 +583,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'center' }) && 'bg-accent')}
               onclick={() => setTextAlign('center')}
-              tooltip="Align Center"
+              tooltip={m.wysiwyg_tooltip_align_center()}
             >
               <AlignCenter class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -592,7 +593,7 @@
               size="sm"
               class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'right' }) && 'bg-accent')}
               onclick={() => setTextAlign('right')}
-              tooltip="Align Right"
+              tooltip={m.wysiwyg_tooltip_align_right()}
             >
               <AlignRight class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -606,7 +607,7 @@
             size="sm"
             class={cn('h-7 w-7 p-0', editor?.isActive('link') && 'bg-accent')}
             onclick={addLink}
-            tooltip="Add Link"
+            tooltip={m.wysiwyg_tooltip_add_link()}
           >
             <LinkIcon class="h-3.5 w-3.5" />
           </TooltipButton>
@@ -617,7 +618,7 @@
               size="sm"
               class="h-7 w-7 p-0"
               onclick={removeLink}
-              tooltip="Remove Link"
+              tooltip={m.wysiwyg_tooltip_remove_link()}
             >
               <Link2 class="h-3.5 w-3.5" />
             </TooltipButton>
@@ -630,7 +631,7 @@
           size="sm"
           class={cn('h-7 w-7 p-0', showSource && 'bg-accent')}
           onclick={toggleSourceView}
-          tooltip="Toggle Source View"
+          tooltip={m.wysiwyg_tooltip_source_view()}
         >
           <Eye class="h-3.5 w-3.5" />
         </TooltipButton>
@@ -647,7 +648,7 @@
             oninput={updateSourceContent}
             class="w-full resize-none border-0 bg-transparent p-4 font-mono text-sm outline-none"
             style="min-height: {computedMinHeight};"
-            placeholder="Enter HTML content..."
+            placeholder={m.wysiwyg_source_placeholder()}
           ></textarea>
         {:else if browser}
           <div bind:this={element}></div>

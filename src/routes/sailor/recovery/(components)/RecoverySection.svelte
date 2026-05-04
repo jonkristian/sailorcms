@@ -5,6 +5,7 @@
   import { formatTableDate } from '$sailor/core/utils/date';
   import FileWithControls from '$lib/components/sailor/FileWithControls.svelte';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+  import { m } from '$sailor/i18n';
 
   type Item = {
     id: string;
@@ -17,8 +18,8 @@
 
   let {
     label,
-    titleColumnLabel = 'Title',
-    itemType = 'item',
+    titleColumnLabel = m.recovery_col_title(),
+    labels = { singular: 'item', plural: 'items' },
     items,
     canRestore,
     canPurge,
@@ -28,7 +29,7 @@
   }: {
     label?: string;
     titleColumnLabel?: string;
-    itemType?: string;
+    labels?: { singular: string; plural: string };
     items: Item[];
     canRestore: boolean;
     canPurge: boolean;
@@ -37,14 +38,16 @@
     onPurge: (items: Array<{ id: string; title: string }>) => void;
   } = $props();
 
-  const selection = useBulkSelection(() => items);
+  // Recovery section is mounted under `/sailor/recovery/{collections,globals}/[slug]`
+  // — opt into pathname-based selection reset so switching `[slug]` clears.
+  const selection = useBulkSelection(() => items, { resetOnPathnameChange: true });
 
   const columns = $derived(
     [
       showPreview ? { key: 'preview', label: '', width: 80 } : null,
       { key: 'title', label: titleColumnLabel },
-      { key: 'deleted_at', label: 'Deleted', width: 192 },
-      { key: 'deleted_by_name', label: 'Deleted by', width: 160 },
+      { key: 'deleted_at', label: m.recovery_col_deleted_at(), width: 192 },
+      { key: 'deleted_by_name', label: m.recovery_col_deleted_by(), width: 160 },
       { key: 'actions', label: '', width: 192 }
     ].filter((c): c is { key: string; label: string; width?: number } => c !== null)
   );
@@ -69,14 +72,14 @@
     }> = [];
     if (canRestore) {
       list.push({
-        label: `Restore (${selection.selectedCount})`,
+        label: m.recovery_action_restore_count({ count: selection.selectedCount }),
         variant: 'outline',
         onClick: handleBulkRestore
       });
     }
     if (canPurge) {
       list.push({
-        label: `Delete (${selection.selectedCount})`,
+        label: m.recovery_action_delete_count({ count: selection.selectedCount }),
         variant: 'destructive',
         onClick: handleBulkPurge
       });
@@ -89,7 +92,7 @@
   <BulkActionsBar
     selectedCount={selection.selectedCount}
     totalCount={selection.totalCount}
-    {itemType}
+    {labels}
     {actions}
   >
     {#if label}
@@ -129,7 +132,7 @@
           {#if canRestore}
             <Button variant="outline" size="sm" onclick={() => onRestore([item.id])}>
               <RotateCcw class="mr-1 size-3.5" />
-              Restore
+              {m.recovery_action_restore()}
             </Button>
           {/if}
         </div>

@@ -3,7 +3,8 @@
   import { Label } from '$lib/components/ui/label';
   import ArrayField from '$lib/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult, requirePermission } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import { updateFlatGlobal } from '../data.remote.js';
 
@@ -46,10 +47,7 @@
   async function handleSubmit(event: Event) {
     event.preventDefault();
 
-    if (!canUpdate) {
-      toast.error('You do not have permission to update this global');
-      return;
-    }
+    if (!requirePermission(canUpdate, m.toast_perm_update_global)) return;
 
     submitting = true;
 
@@ -59,15 +57,12 @@
         data: formData
       });
 
-      if (result.success) {
-        toast.success('Global settings saved successfully');
+      if (toastResult(result, m.toast_global_settings_saved, m.toast_save_global_settings_failed)) {
         // Manual invalidation needed because we use "unchecked" command mode
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to save global settings');
       }
     } catch (error) {
-      toast.error('Failed to save global settings');
+      toast.error(m.toast_save_global_settings_failed());
     } finally {
       submitting = false;
     }
@@ -110,7 +105,11 @@
     {/each}
 
     <Button type="submit" disabled={submitting || !canUpdate} class="mt-6">
-      {#if submitting}Saving...{:else}Save {global.name.singular}{/if}
+      {#if submitting}
+        {m.global_saving()}
+      {:else}
+        {m.global_save_button({ label: global.name.singular })}
+      {/if}
     </Button>
   </form>
 </div>

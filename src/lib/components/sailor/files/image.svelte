@@ -8,7 +8,8 @@
     width,
     height,
     quality = 80,
-    format
+    format,
+    position
   }: {
     src: string | null | undefined;
     alt?: string;
@@ -17,6 +18,7 @@
     height?: number;
     quality?: number;
     format?: 'jpg' | 'png' | 'webp';
+    position?: FileTransformOptions['position'];
   } = $props();
 
   let imageUrl = $derived.by(() => {
@@ -27,7 +29,8 @@
       width,
       height,
       quality,
-      format
+      format,
+      position
     };
 
     // Always use getFileUrl - it now handles both local and cloud storage consistently

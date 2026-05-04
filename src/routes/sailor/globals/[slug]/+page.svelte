@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
   import { goto } from '$app/navigation';
   import { invalidateAll } from '$app/navigation';
   import { FlatView, TableView, RepeatableNestedView, RepeatableInlineView } from '../(components)';
@@ -47,15 +49,12 @@
         itemId: itemId
       });
 
-      if (result.success) {
-        toast.success('Item deleted successfully');
+      if (toastResult(result, m.toast_item_deleted, m.toast_delete_item_failed)) {
         // Refresh the page data to reflect the changes
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to delete item');
       }
     } catch (error) {
-      toast.error('Failed to delete item');
+      toast.error(m.toast_delete_item_failed());
     }
   }
 
@@ -82,16 +81,22 @@
       const errorCount = results.filter((r) => !r.success).length;
 
       if (successCount > 0) {
-        toast.success(`${successCount} item(s) deleted successfully`);
+        toast.success(
+          m.toast_items_deleted_count({
+            count: successCount,
+            items: pluralize(successCount, m.common_item_singular(), m.common_item_plural())
+          })
+        );
         await invalidateAll();
       }
 
       if (errorCount > 0) {
-        const firstError = results.find((r) => !r.success)?.error || 'Failed to delete some items';
+        const firstError =
+          results.find((r) => !r.success)?.error || m.toast_delete_some_items_failed();
         toast.error(firstError);
       }
     } catch (error) {
-      toast.error('Failed to delete some items');
+      toast.error(m.toast_delete_some_items_failed());
     }
   }
 
@@ -105,10 +110,10 @@
       if (result.success) {
         await invalidateAll();
       } else {
-        toast.error(result.error || 'Failed to update sort order');
+        toast.error(result.error || m.toast_sort_order_update_failed());
       }
     } catch {
-      toast.error('Failed to update sort order');
+      toast.error(m.toast_sort_order_update_failed());
     }
   }
 

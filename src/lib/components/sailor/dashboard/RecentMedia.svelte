@@ -6,6 +6,7 @@
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import { formatFileSize } from '$sailor/utils/files';
   import type { File as FileType } from '$sailor/utils/types';
+  import { m } from '$sailor/i18n';
 
   interface Props {
     files: FileType[];
@@ -48,14 +49,14 @@
   <Card.Header>
     <div class="flex items-center justify-between">
       <div>
-        <Card.Title>Recent Media</Card.Title>
-        <Card.Description>Latest uploaded files</Card.Description>
+        <Card.Title>{m.dashboard_media_title()}</Card.Title>
+        <Card.Description>{m.dashboard_media_description()}</Card.Description>
       </div>
       <a
         href="/sailor/media"
         class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm"
       >
-        View all
+        {m.common_view_all()}
         <ExternalLink class="h-3 w-3" />
       </a>
     </div>
@@ -65,7 +66,7 @@
       <div class="text-muted-foreground flex h-[200px] items-center justify-center">
         <div class="text-center">
           <FileImage class="mx-auto mb-2 h-8 w-8" />
-          <p>No media files uploaded</p>
+          <p>{m.dashboard_media_empty()}</p>
         </div>
       </div>
     {:else}
@@ -85,7 +86,7 @@
                 <img
                   src={file.url}
                   alt={file.alt || file.name}
-                  class="h-full w-full object-cover"
+                  class="h-full w-full object-cover object-top"
                   loading="lazy"
                 />
               {:else}
@@ -138,7 +139,7 @@
             href="/sailor/media"
             class="text-muted-foreground hover:text-foreground text-sm font-medium"
           >
-            View all media ({files.length} total)
+            {m.dashboard_media_view_all({ total: files.length })}
           </a>
         </div>
       {/if}

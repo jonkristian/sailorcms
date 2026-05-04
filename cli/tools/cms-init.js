@@ -7,7 +7,9 @@ import {
   detectPackageManager,
   getInstallCommand,
   setupSailorFiles,
-  trackInstalledDependencies
+  trackInstalledDependencies,
+  printManualActionBanner,
+  dedupeNestedSvelteDeps
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -116,21 +118,6 @@ export function registerCoreInit(program) {
                 packageJson.devDependencies[packageName] = version;
               });
 
-              // Add database scripts if they don't exist
-              if (!packageJson.scripts) packageJson.scripts = {};
-
-              const dbScripts = {
-                'db:generate': 'npx sailor db:generate && drizzle-kit generate',
-                'db:push': 'drizzle-kit push',
-                'db:update': 'npm run db:generate && npm run db:push && npx sailor db:seed'
-              };
-
-              Object.entries(dbScripts).forEach(([script, command]) => {
-                if (!packageJson.scripts[script]) {
-                  packageJson.scripts[script] = command;
-                }
-              });
-
               await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
 
               // Detect and use appropriate package manager
@@ -149,6 +136,13 @@ export function registerCoreInit(program) {
                 throw error;
               }
 
+              // Bun's `file:` install nests a duplicate acorn under
+              // node_modules/svelte/node_modules — strip it. See
+              // dedupeNestedSvelteDeps() docstring for the full story.
+              if (packageManager === 'bun') {
+                await dedupeNestedSvelteDeps(targetDir);
+              }
+
               // Track installed dependencies for future cleanup
               await trackInstalledDependencies(targetDir);
             } else {
@@ -158,7 +152,7 @@ export function registerCoreInit(program) {
 
           // Copy templates and configuration files
           console.log('🚢 Setting up Sailor CMS files...');
-          await setupSailorFiles(targetDir, options.force);
+          const setupResult = await setupSailorFiles(targetDir, options.force);
           console.log('✅ Files copied successfully');
 
           // Add Sailor CMS patterns to .gitignore
@@ -196,6 +190,7 @@ backup/
           console.log('2. Set up database: npx sailor db:update');
           console.log('3. Start development: npm run dev');
           console.log('4. Visit: http://localhost:5173/sailor');
+          printManualActionBanner(setupResult?.manual);
         }
       } catch (error) {
         console.error('❌ Error initializing Sailor CMS:', error.message);

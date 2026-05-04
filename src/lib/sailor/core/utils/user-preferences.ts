@@ -3,13 +3,24 @@
 // change. All keys are optional; consumers should always pass a default.
 
 export interface UserPreferences {
-  /** BCP-47 locale used by date helpers when no override is supplied. */
+  /**
+   * Admin UI language. Either a Paraglide locale (`'en'`, `'nb-NO'`, …) or
+   * `'auto'` to follow the browser's `Accept-Language` header. Stored
+   * separately from `date_format` so date formatting can use a different
+   * regional locale than the UI strings.
+   */
+  language?: string;
+  /**
+   * BCP-47 locale used by date helpers. Either a regional locale
+   * (`'en-US'`, `'nb-NO'`, `'de-DE'`, …) or `'auto'` to follow `language`.
+   */
   date_format?: string;
   // Future: theme override, default landing page, density, etc.
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
-  date_format: 'en-US'
+  language: 'auto',
+  date_format: 'auto'
 };
 
 export function parsePreferences(

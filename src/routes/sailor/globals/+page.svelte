@@ -11,21 +11,22 @@
   import { Button } from '$lib/components/ui/button';
   import { ArrowRight } from '@lucide/svelte';
   import Header from '$lib/components/sailor/Header.svelte';
+  import { m } from '$sailor/i18n';
 
   const { data }: { data: PageData } = $props();
 
   const getGlobalType = (global: any) => {
-    if (global.options?.singleton) return 'Singleton';
-    return 'Global';
+    if (global.options?.singleton) return m.globals_badge_singleton();
+    return m.globals_badge_global();
   };
 </script>
 
 <svelte:head>
-  <title>Globals - Sailor CMS</title>
+  <title>{m.globals_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6 py-6">
-  <Header title="Globals" description="Manage your site's global content and settings" />
+  <Header title={m.globals_page_title()} description={m.globals_page_description()} />
 
   <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
     {#each data.globals as global}
@@ -40,7 +41,7 @@
         <CardContent>
           <a href="/sailor/globals/{global.slug}">
             <Button class="w-full">
-              Manage {global.name.plural}
+              {m.globals_manage_button({ label: global.name.plural })}
               <ArrowRight class="ml-2 h-4 w-4" />
             </Button>
           </a>

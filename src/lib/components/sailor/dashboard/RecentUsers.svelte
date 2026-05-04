@@ -6,6 +6,7 @@
   import { formatRelativeTime } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import type { User } from '$sailor/generated/types';
+  import { m } from '$sailor/i18n';
 
   interface Props {
     users: User[];
@@ -52,23 +53,23 @@
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
         <Users class="h-4 w-4" />
-        <Card.Title>Recent Users</Card.Title>
+        <Card.Title>{m.dashboard_users_title()}</Card.Title>
       </div>
       <a
         href="/sailor/users"
         class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm"
       >
-        View all
+        {m.common_view_all()}
         <ExternalLink class="h-3 w-3" />
       </a>
     </div>
-    <Card.Description>Latest registered users</Card.Description>
+    <Card.Description>{m.dashboard_users_description()}</Card.Description>
   </Card.Header>
   <Card.Content class="p-0">
     {#if limitedUsers.length === 0}
       <div class="text-muted-foreground py-4 text-center">
         <UserPlus class="mx-auto mb-2 h-8 w-8 opacity-50" />
-        <p class="text-sm">No users registered yet</p>
+        <p class="text-sm">{m.dashboard_users_empty()}</p>
       </div>
     {:else}
       <div class="space-y-3 px-4">
@@ -115,7 +116,7 @@
             href="/sailor/users"
             class="text-muted-foreground hover:text-foreground text-sm font-medium"
           >
-            View all users ({users.length} total)
+            {m.dashboard_users_view_all({ total: users.length })}
           </a>
         </div>
       {/if}

@@ -56,6 +56,7 @@ export const actions = {
     const currentPassword = formData.get('currentPassword') as string;
     const newPassword = formData.get('newPassword') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
+    const language = formData.get('language') as string | null;
     const dateFormat = formData.get('date_format') as string | null;
 
     // Basic validation
@@ -88,6 +89,9 @@ export const actions = {
       });
       const currentPrefs = parsePreferences((existing as any)?.preferences);
       const patch: Partial<UserPreferences> = {};
+      if (typeof language === 'string' && language.length > 0) {
+        patch.language = language;
+      }
       if (typeof dateFormat === 'string' && dateFormat.length > 0) {
         patch.date_format = dateFormat;
       }

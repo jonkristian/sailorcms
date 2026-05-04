@@ -15,6 +15,7 @@
   import { formatTableDate } from '$sailor/core/utils/date';
   import { getUserLocale } from '$sailor/core/ui/user-locale';
   import FileText from '@lucide/svelte/icons/file-text';
+  import { m } from '$sailor/i18n';
 
   const {
     items,
@@ -91,7 +92,7 @@
                   disabled={!dragEnabled}
                 >
                   <GripVertical class="text-muted-foreground size-3" />
-                  <span class="sr-only">Drag to reorder</span>
+                  <span class="sr-only">{m.table_drag_to_reorder()}</span>
                 </Button>
               </TableCell>
             {/if}
@@ -128,12 +129,14 @@
                       class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                     >
                       <MoreVertical class="h-4 w-4" />
-                      <span class="sr-only">Open menu</span>
+                      <span class="sr-only">{m.table_open_menu()}</span>
                     </div>
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end" class="w-32">
                     {#if onEdit || editUrl}
-                      <DropdownMenu.Item onclick={() => handleEdit(item)}>Edit</DropdownMenu.Item>
+                      <DropdownMenu.Item onclick={() => handleEdit(item)}
+                        >{m.table_action_edit()}</DropdownMenu.Item
+                      >
                     {/if}
                     {#each actions as action (action.label)}
                       <DropdownMenu.Item
@@ -148,7 +151,7 @@
                     {/each}
                     {#if onDelete}
                       <DropdownMenu.Item variant="destructive" onclick={() => handleDelete(item)}>
-                        Delete
+                        {m.table_action_delete()}
                       </DropdownMenu.Item>
                     {/if}
                   </DropdownMenu.Content>
@@ -167,7 +170,7 @@
           >
             <div class="text-center">
               <FileText class="text-muted-foreground mx-auto my-4 size-6" />
-              <h3 class="text-lg font-medium">No results.</h3>
+              <h3 class="text-lg font-medium">{m.table_no_results()}</h3>
             </div>
           </TableCell>
         </TableRow>

@@ -3,6 +3,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Code, Copy } from '@lucide/svelte';
   import { toast } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
   import { htmlToTiptapJson } from '$lib/sailor/core/content/content';
   import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
   import CategoryTree from './CategoryTree.svelte';
@@ -11,7 +12,7 @@
     type = 'collection',
     id,
     slug,
-    title = 'JSON Preview',
+    title = m.payload_preview_default_title(),
     expandedCategory,
     open = $bindable(false),
     initialPayload = $bindable<unknown | null>(null),
@@ -158,7 +159,7 @@
   function copyPayload() {
     if (!rawPayload) return;
     navigator.clipboard.writeText(rawPayload);
-    toast.success('Payload copied to clipboard');
+    toast.success(m.toast_payload_copied());
   }
 
   function handleOpenChange(next: boolean) {
@@ -169,7 +170,12 @@
 
 <Sheet {open} onOpenChange={handleOpenChange}>
   <SheetTrigger type="button" class="h-8 w-8">
-    <Button variant="ghost" size="icon" title="Show Payload" class="hover:bg-muted h-8 w-8">
+    <Button
+      variant="ghost"
+      size="icon"
+      title={m.payload_preview_show()}
+      class="hover:bg-muted h-8 w-8"
+    >
       <Code class="h-4 w-4" />
     </Button>
   </SheetTrigger>
@@ -181,14 +187,14 @@
       </div>
       <Button type="button" variant="outline" size="sm" onclick={copyPayload} class="h-8">
         <Copy class="mr-2 h-4 w-4" />
-        Copy
+        {m.payload_preview_copy()}
       </Button>
     </SheetHeader>
     <div class="overflow-x-auto rounded">
       {#if error}
-        <div class="text-destructive">Error: {error}</div>
+        <div class="text-destructive">{m.payload_preview_error({ error })}</div>
       {:else if loading}
-        <div class="text-muted-foreground">Loading payload...</div>
+        <div class="text-muted-foreground">{m.payload_preview_loading()}</div>
       {:else if type === 'settings' && parsedData}
         <div class="p-4">
           <CategoryTree data={parsedData || {}} {expandedCategory} />
@@ -198,7 +204,7 @@
           {@html highlightedPayload}
         </div>
       {:else}
-        <div class="text-muted-foreground">No payload available</div>
+        <div class="text-muted-foreground">{m.payload_preview_none()}</div>
       {/if}
     </div>
   </SheetContent>

@@ -5,6 +5,7 @@
   import * as Popover from '$lib/components/ui/popover';
   import { Check, ChevronDown, X, Plus } from '@lucide/svelte';
   import { debounce } from '$sailor/core/utils/debounce';
+  import { m } from '$sailor/i18n';
 
   // Props
   interface Tag {
@@ -15,9 +16,9 @@
 
   let {
     selectedTags = [],
-    placeholder = 'Select tags...',
-    searchPlaceholder = 'Search tags...',
-    createLabel = 'Create tag',
+    placeholder = m.tag_selector_placeholder(),
+    searchPlaceholder = m.tag_selector_search_placeholder(),
+    createLabel = m.tag_selector_create_label(),
     onTagsChange = () => {},
     onSearch = async (query: string): Promise<Tag[]> => [],
     allowCreate = true,
@@ -195,11 +196,11 @@
                 <div
                   class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
                 ></div>
-                <span class="ml-2 text-sm">Searching...</span>
+                <span class="ml-2 text-sm">{m.common_searching()}</span>
               </div>
             </Command.Empty>
           {:else if filteredResults.length === 0 && searchQuery && !showCreateOption}
-            <Command.Empty>No tags found.</Command.Empty>
+            <Command.Empty>{m.tag_selector_no_tags_found()}</Command.Empty>
           {:else}
             <Command.Group>
               {#each filteredResults as tag (tag.id)}

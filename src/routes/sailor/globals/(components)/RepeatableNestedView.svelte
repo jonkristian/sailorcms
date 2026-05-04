@@ -1,7 +1,9 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import { Plus } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import EditModal from './EditModal.svelte';
   import { Blocks, type FlatItem } from '$lib/components/sailor/dnd';
@@ -88,7 +90,7 @@
             await invalidateAll();
           }, 1000);
         } else {
-          toast.error(result.error || 'Failed to update items');
+          toast.error(result.error || m.toast_update_items_failed());
           // Revert local changes on failure
           flatItems = items.map((item: any) => ({
             id: item.id,
@@ -101,7 +103,7 @@
         }
       }
     } catch (error) {
-      toast.error('Failed to update items');
+      toast.error(m.toast_update_items_failed());
       // Revert local changes on error
       flatItems = items.map((item: any) => ({
         id: item.id,
@@ -122,15 +124,12 @@
         itemId: itemId
       });
 
-      if (result.success) {
-        toast.success('Item deleted successfully');
+      if (toastResult(result, m.toast_item_deleted, m.toast_delete_item_failed)) {
         // Refresh the page data to reflect the changes
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to delete item');
       }
     } catch (error) {
-      toast.error('Failed to delete item');
+      toast.error(m.toast_delete_item_failed());
     }
   }
 
@@ -145,15 +144,20 @@
         });
 
         if (!result.success) {
-          throw new Error(result.error || 'Failed to delete item');
+          throw new Error(result.error || m.toast_delete_item_failed());
         }
       }
 
-      toast.success(`${itemIds.length} item(s) deleted successfully`);
+      toast.success(
+        m.toast_items_deleted_count({
+          count: itemIds.length,
+          items: pluralize(itemIds.length, m.common_item_singular(), m.common_item_plural())
+        })
+      );
       // Refresh the page data to reflect the changes
       await invalidateAll();
     } catch (error) {
-      toast.error('Failed to delete some items');
+      toast.error(m.toast_delete_some_items_failed());
     }
   }
 
@@ -206,17 +210,19 @@
 <div class="space-y-4">
   {#if items.length === 0}
     <div class="flex flex-col items-center justify-center py-12 text-center">
-      <h3 class="mb-2 text-lg font-medium">No {global.name.plural.toLowerCase()} yet</h3>
+      <h3 class="mb-2 text-lg font-medium">
+        {m.globals_table_empty_title({ plural: global.name.plural.toLowerCase() })}
+      </h3>
       <p class="text-muted-foreground mb-6 max-w-md">
-        Get started by creating your first {global.name.singular.toLowerCase()}
+        {m.globals_table_empty_text({ singular: global.name.singular.toLowerCase() })}
       </p>
       {#if canCreate}
         <Button onclick={handleAddNew}>
           <Plus class="mr-2 h-4 w-4" />
-          Add {global.name.singular}
+          {m.globals_table_add_button({ label: global.name.singular })}
         </Button>
       {:else}
-        <p class="text-muted-foreground text-sm">You don't have permission to create new items</p>
+        <p class="text-muted-foreground text-sm">{m.globals_no_create_permission()}</p>
       {/if}
     </div>
   {:else}

@@ -13,6 +13,7 @@
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import { page } from '$app/state';
   import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
+  import { m } from '$sailor/i18n';
 
   let {
     navData = {
@@ -53,7 +54,7 @@
   const mainItems = $derived(() => {
     const items = [
       {
-        name: 'Dashboard',
+        name: m.nav_dashboard(),
         url: '/sailor',
         icon: Sailboat
       }
@@ -62,7 +63,7 @@
     // Add Media Library if user can view files
     if (navData.canViewFiles) {
       items.push({
-        name: 'Media Library',
+        name: m.nav_media_library(),
         url: '/sailor/media',
         icon: Folder
       });
@@ -77,7 +78,7 @@
     // Add Users if user has user management permission
     if (navData.canViewUsers) {
       items.push({
-        title: 'Users',
+        title: m.nav_users(),
         url: '/sailor/users',
         icon: Users
       });
@@ -86,7 +87,7 @@
     // Recovery: list of soft-deleted content + restore/purge actions
     if (navData.canViewRecovery) {
       items.push({
-        title: 'Recovery',
+        title: m.nav_recovery(),
         url: '/sailor/recovery',
         icon: Trash2
       });
@@ -95,7 +96,7 @@
     // Add Settings if user can view settings
     if (navData.canViewSettings) {
       items.push({
-        title: 'Settings',
+        title: m.nav_settings(),
         url: '/sailor/settings',
         icon: Settings
       });
@@ -103,7 +104,7 @@
 
     // Always add help
     items.push({
-      title: 'Get help',
+      title: m.nav_get_help(),
       icon: HelpCircle,
       url: '/sailor/help'
     });

@@ -8,6 +8,7 @@
   import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
   import LogOutIcon from '@lucide/svelte/icons/log-out';
   import UserCircleIcon from '@lucide/svelte/icons/user';
+  import { m } from '$sailor/i18n';
 
   let { user }: { user: { name: string; email: string; avatar: string } } = $props();
   const sidebar = useSidebar();
@@ -56,14 +57,14 @@
           <a href="/sailor/account">
             <DropdownMenu.Item>
               <UserCircleIcon class="h-4 w-4" />
-              Account
+              {m.nav_user_account()}
             </DropdownMenu.Item>
           </a>
         </DropdownMenu.Group>
         <DropdownMenu.Separator />
         <DropdownMenu.Item onclick={handleSignOut}>
           <LogOutIcon class="h-4 w-4" />
-          Log out
+          {m.nav_user_logout()}
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>

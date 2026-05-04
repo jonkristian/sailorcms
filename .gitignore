@@ -49,4 +49,9 @@ docs/vendor/
 
 # Sailor
 src/lib/sailor/generated/
+src/lib/sailor/i18n/paraglide/
+src/lib/sailor/project.inlang/cache/
+src/lib/sailor/project.inlang/.gitignore
+src/lib/sailor/project.inlang/.meta.json
+src/lib/sailor/project.inlang/README.md
 backup/

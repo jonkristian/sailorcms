@@ -4,12 +4,14 @@
   import { page } from '$app/state';
   import { Button } from '$lib/components/ui/button';
   import { LayoutGrid, List } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from '$sailor/core/ui/toast';
   import { type FileType } from '$sailor/core/files/file';
   import Header from '$lib/components/sailor/Header.svelte';
   import MediaEditModal from '$lib/components/sailor/MediaEditModal.svelte';
   import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
   import { BulkActionsBar, FilterBar } from '$lib/components/sailor/table';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import Pagination from '$lib/components/sailor/Pagination.svelte';
@@ -44,16 +46,17 @@
   );
 
   // Set up filters with type and tags support
-  let filterConfigForState = {
+  let filterConfigForState = $derived({
     search: true,
     select: [
       {
         key: 'type',
+        label: m.media_filter_type_label(),
         options: [
-          { value: 'all', label: 'All Files' },
-          { value: 'image', label: 'Images' },
-          { value: 'video', label: 'Videos' },
-          { value: 'document', label: 'Documents' }
+          { value: 'all', label: m.media_filter_type_all() },
+          { value: 'image', label: m.media_filter_type_image() },
+          { value: 'video', label: m.media_filter_type_video() },
+          { value: 'document', label: m.media_filter_type_document() }
         ],
         default: 'all'
       }
@@ -61,14 +64,19 @@
     multiSelect: [
       {
         key: 'tags',
-        label: 'Tags',
+        label: m.media_filter_tags_label(),
         options: [] as { value: string; label: string }[]
       }
     ]
-  };
+  });
 
+  // `useTableFilters` only reads `config.sort` once on construction (static
+  // sort defaults), so capturing the initial `filterConfigForState` here is
+  // intentional — the FilterBar consumer below reads it reactively for
+  // the translated labels.
   const tableFilters = useTableFilters({
     baseUrl: '/sailor/media',
+    // svelte-ignore state_referenced_locally
     config: filterConfigForState
   });
 
@@ -178,10 +186,10 @@
   async function copyFilename(filename: string) {
     try {
       await navigator.clipboard.writeText(filename);
-      toast.success('Filename copied to clipboard');
+      toast.success(m.toast_filename_copied());
     } catch (err) {
       console.error('Failed to copy filename:', err);
-      toast.error('Failed to copy filename');
+      toast.error(m.toast_filename_copy_failed());
     }
   }
 
@@ -216,14 +224,11 @@
     try {
       const result = await deleteMediaFiles({ ids: idArray });
 
-      if (result.success) {
-        toast.success(result.message || 'Files deleted successfully');
+      if (toastResult(result, m.toast_files_deleted, m.toast_files_delete_failed)) {
         await invalidateAll();
-      } else {
-        toast.error(result.error || 'Failed to delete files');
       }
     } catch (error) {
-      toast.error('Failed to delete files');
+      toast.error(m.toast_files_delete_failed());
     }
   }
 
@@ -285,30 +290,27 @@
         mode: tagsDialogMode
       });
 
-      if (result.success) {
-        toast.success(result.message || 'Tags updated successfully');
+      if (toastResult(result, m.toast_tags_updated, m.toast_tags_update_failed)) {
         await invalidateAll();
         selection.clearSelection();
         tagsDialogOpen = false;
         selectedTags = [];
-      } else {
-        toast.error(result.error || 'Failed to update tags');
       }
     } catch (error) {
       console.error('Failed to update tags:', error);
-      toast.error('Failed to update tags');
+      toast.error(m.toast_tags_update_failed());
     }
   }
 </script>
 
 <svelte:head>
-  <title>Media Library - Sailor CMS</title>
+  <title>{m.media_page_title()} - Sailor CMS</title>
 </svelte:head>
 
 <div class="container mx-auto px-6">
   <Header
-    title="Media Library"
-    description="Manage your files and media assets"
+    title={m.media_page_title()}
+    description={m.media_page_description()}
     itemCount={pagination.totalItems}
     showAddButton={true}
     showCountBadge={true}
@@ -320,11 +322,11 @@
     <BulkActionsBar
       selectedCount={selection.selectedCount}
       totalCount={selection.totalCount}
-      itemType="file"
+      labels={{ singular: m.common_file_singular(), plural: m.common_file_plural() }}
       actions={selection.selectedCount > 0
         ? [
             {
-              label: `Delete (${selection.selectedCount})`,
+              label: m.globals_table_delete_count({ count: selection.selectedCount }),
               variant: 'destructive',
               onClick: handleBulkDelete
             }
@@ -349,11 +351,11 @@
                 bulkAction = '';
               }}
             >
-              <Select.Trigger class="h-9 w-44">Bulk actions…</Select.Trigger>
+              <Select.Trigger class="h-9 w-44">{m.media_bulk_action_select()}</Select.Trigger>
               <Select.Content>
-                <Select.Item value="add-tags">Add tags</Select.Item>
-                <Select.Item value="replace-tags">Replace tags</Select.Item>
-                <Select.Item value="remove-tags">Remove tags</Select.Item>
+                <Select.Item value="add-tags">{m.media_action_add_tags()}</Select.Item>
+                <Select.Item value="replace-tags">{m.media_action_replace_tags()}</Select.Item>
+                <Select.Item value="remove-tags">{m.media_action_remove_tags()}</Select.Item>
               </Select.Content>
             </Select.Root>
           </div>
@@ -366,7 +368,7 @@
             size="sm"
             onclick={() => changeViewMode('table')}
             class="h-9 px-2"
-            title="Table view"
+            title={m.media_view_table()}
           >
             <List class="h-4 w-4" />
           </Button>
@@ -375,7 +377,7 @@
             size="sm"
             onclick={() => changeViewMode('grid')}
             class="h-9 px-2"
-            title="Grid view"
+            title={m.media_view_grid()}
           >
             <LayoutGrid class="h-4 w-4" />
           </Button>
@@ -388,12 +390,12 @@
             select: [
               {
                 key: 'type',
-                label: 'File Type',
+                label: m.media_filter_type_label(),
                 options: [
-                  { value: 'all', label: 'All Files' },
-                  { value: 'image', label: 'Images' },
-                  { value: 'video', label: 'Videos' },
-                  { value: 'document', label: 'Documents' }
+                  { value: 'all', label: m.media_filter_type_all() },
+                  { value: 'image', label: m.media_filter_type_image() },
+                  { value: 'video', label: m.media_filter_type_video() },
+                  { value: 'document', label: m.media_filter_type_document() }
                 ],
                 default: 'all'
               }
@@ -401,7 +403,7 @@
             multiSelect: [
               {
                 key: 'tags',
-                label: 'Tags',
+                label: m.media_filter_tags_label(),
                 options: tagOptions
               }
             ]
@@ -462,7 +464,7 @@
 <DeleteDialog
   bind:open={deleteDialogOpen}
   itemCount={pendingDeleteItems.count}
-  itemType="file"
+  labels={{ singular: m.common_file_singular(), plural: m.common_file_plural() }}
   onConfirm={executeBulkDelete}
   isLoading={deleteDialogLoading}
 />
@@ -472,15 +474,41 @@
   <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title>
-        {tagsDialogMode === 'add' ? 'Add' : tagsDialogMode === 'remove' ? 'Remove' : 'Replace'} Tags
+        {tagsDialogMode === 'add'
+          ? m.media_tags_dialog_title_add()
+          : tagsDialogMode === 'remove'
+            ? m.media_tags_dialog_title_remove()
+            : m.media_tags_dialog_title_replace()}
       </Dialog.Title>
       <Dialog.Description>
-        {tagsDialogMode === 'add'
-          ? 'Add tags to'
-          : tagsDialogMode === 'remove'
-            ? 'Remove tags from'
-            : 'Replace tags for'}
-        {selection.selectedCount} selected file{selection.selectedCount > 1 ? 's' : ''}
+        {#if tagsDialogMode === 'add'}
+          {m.media_tags_dialog_description_add({
+            count: selection.selectedCount,
+            files: pluralize(
+              selection.selectedCount,
+              m.common_file_singular(),
+              m.common_file_plural()
+            )
+          })}
+        {:else if tagsDialogMode === 'remove'}
+          {m.media_tags_dialog_description_remove({
+            count: selection.selectedCount,
+            files: pluralize(
+              selection.selectedCount,
+              m.common_file_singular(),
+              m.common_file_plural()
+            )
+          })}
+        {:else}
+          {m.media_tags_dialog_description_replace({
+            count: selection.selectedCount,
+            files: pluralize(
+              selection.selectedCount,
+              m.common_file_singular(),
+              m.common_file_plural()
+            )
+          })}
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
     <div class="space-y-4">
@@ -488,20 +516,21 @@
         value={selectedTags}
         onChange={(tags) => (selectedTags = tags as Tag[])}
         placeholder={tagsDialogMode === 'add'
-          ? 'Add tags...'
+          ? m.media_tags_input_placeholder_add()
           : tagsDialogMode === 'remove'
-            ? 'Select tags to remove...'
-            : 'Select new tags...'}
+            ? m.media_tags_input_placeholder_remove()
+            : m.media_tags_input_placeholder_replace()}
       />
     </div>
     <Dialog.Footer>
-      <Button variant="outline" onclick={() => (tagsDialogOpen = false)}>Cancel</Button>
+      <Button variant="outline" onclick={() => (tagsDialogOpen = false)}>{m.common_cancel()}</Button
+      >
       <Button onclick={executeBulkTagOperation} disabled={selectedTags.length === 0}>
         {tagsDialogMode === 'add'
-          ? 'Add Tags'
+          ? m.media_tags_dialog_title_add()
           : tagsDialogMode === 'remove'
-            ? 'Remove Tags'
-            : 'Replace Tags'}
+            ? m.media_tags_dialog_title_remove()
+            : m.media_tags_dialog_title_replace()}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

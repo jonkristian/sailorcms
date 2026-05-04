@@ -524,6 +524,25 @@ export const saveCollectionItem = command(
             );
             const filteredContent: Record<string, any> = Object.fromEntries(allowedContentEntries);
 
+            // Single-FK relations (one-to-one / one-to-many) may arrive as a
+            // resolved entity object or JSON-stringified object — the column
+            // stores only the id, so normalize before insert. Mirrors the
+            // collection-level normalization above.
+            for (const [fieldName, fieldDef] of Object.entries(blockType.fields || {})) {
+              const f = fieldDef as any;
+              if (f?.type !== 'relation') continue;
+              const relType = f?.relation?.type;
+              if (relType !== 'one-to-one' && relType !== 'one-to-many') continue;
+              if (!(fieldName in filteredContent)) continue;
+              let v: any = filteredContent[fieldName];
+              try {
+                v = typeof v === 'string' && v.startsWith('{') ? JSON.parse(v) : v;
+              } catch {}
+              if (Array.isArray(v) && v.length > 0) v = v[0]?.id || v[0] || null;
+              else if (typeof v === 'object' && v !== null) v = v.id || null;
+              filteredContent[fieldName] = v ?? null;
+            }
+
             // Fill in defaults for required columns the user hasn't touched yet,
             // so SQLite NOT NULL constraints don't reject partially-filled blocks
             for (const [fieldName, fieldDef] of Object.entries(blockType.fields || {})) {

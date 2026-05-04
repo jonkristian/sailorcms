@@ -2,6 +2,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import DeleteDialog from '$lib/components/sailor/dialogs/DeleteDialog.svelte';
+  import { m } from '$sailor/i18n';
 
   // Custom vertical-only animation
   function verticalFlip(node: Element, { from, to }: { from: DOMRect; to: DOMRect }, params = {}) {
@@ -361,7 +362,7 @@
       <!-- Left side: Selection info -->
       {#if selectedNodes.size > 0}
         <div class="text-muted-foreground text-sm">
-          {selectedNodes.size} of {treeNodes.length} item(s) selected
+          {m.blocks_items_selected({ selected: selectedNodes.size, total: treeNodes.length })}
         </div>
       {:else}
         <div></div>
@@ -374,7 +375,7 @@
         {/if}
         {#if selectedNodes.size > 0}
           <Button variant="destructive" size="sm" onclick={handleBulkDelete}>
-            Delete Selected ({selectedNodes.size})
+            {m.blocks_delete_selected({ count: selectedNodes.size })}
           </Button>
         {/if}
         <Button
@@ -388,11 +389,11 @@
               checked={allSelected}
               indeterminate={someSelected}
               onCheckedChange={handleSelectAll}
-              aria-label="Select all"
+              aria-label={m.blocks_select_all_aria()}
               onclick={(e) => e.stopPropagation()}
             />
           </div>
-          <span class="text-sm font-medium">Select All</span>
+          <span class="text-sm font-medium">{m.blocks_select_all()}</span>
         </Button>
       </div>
     </div>
@@ -406,7 +407,7 @@
         style="pointer-events: auto;"
         role="button"
         tabindex="0"
-        aria-label="Drop zone for first position"
+        aria-label={m.blocks_drop_zone_first()}
         ondragover={(e) => handleDragOver(e, 0)}
         ondrop={(e) => handleDrop(e, 0)}
       >
@@ -428,7 +429,7 @@
         animate:verticalFlip={{ duration: 300 }}
         role="button"
         tabindex="0"
-        aria-label="Drop zone for item {index + 1}"
+        aria-label={m.blocks_drop_zone_item({ index: index + 1 })}
         ondragover={(e) => handleDragOver(e, index)}
         ondragleave={handleDragLeave}
         ondrop={(e) => handleDrop(e, index)}
@@ -476,7 +477,7 @@
         class="h-12 transition-all duration-200"
         role="button"
         tabindex="0"
-        aria-label="Drop zone for last position"
+        aria-label={m.blocks_drop_zone_last()}
         ondragover={(e) => handleDragOver(e, treeNodes.length)}
         ondrop={(e) => handleDrop(e, treeNodes.length)}
       ></div>
@@ -488,7 +489,7 @@
 <DeleteDialog
   bind:open={deleteDialogOpen}
   itemCount={pendingDeleteItems.count}
-  itemType="item"
+  labels={{ singular: m.common_item_singular(), plural: m.common_item_plural() }}
   itemName={pendingDeleteItems.itemName || ''}
   onConfirm={confirmBulkDelete}
   onCancel={cancelBulkDelete}

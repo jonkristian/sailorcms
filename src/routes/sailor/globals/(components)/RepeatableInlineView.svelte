@@ -1,6 +1,8 @@
 <script lang="ts">
   import FieldRenderer from '$lib/components/sailor/fields/FieldRenderer.svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast, requirePermission } from '$sailor/core/ui/toast';
+  import { m } from '$sailor/i18n';
+  import { pluralize } from '$sailor/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import { generateUUID } from '$sailor/core/utils/common';
   import { Blocks } from '$lib/components/sailor/dnd';
@@ -83,10 +85,7 @@
 
   // Handle bulk delete from Blocks component
   async function handleBulkDelete(nodeIds: string[]) {
-    if (!canDelete) {
-      toast.error('You do not have permission to delete items');
-      return;
-    }
+    if (!requirePermission(canDelete, m.toast_perm_delete_items)) return;
 
     try {
       for (const nodeId of nodeIds) {
@@ -101,7 +100,7 @@
           });
 
           if (!result.success) {
-            throw new Error(result.error || 'Failed to delete item from server');
+            throw new Error(result.error || m.toast_delete_item_failed());
           }
         }
 
@@ -109,20 +108,22 @@
         expandedItems.delete(nodeId);
       }
 
-      toast.success(`${nodeIds.length} item(s) deleted successfully`);
+      toast.success(
+        m.toast_items_deleted_count({
+          count: nodeIds.length,
+          items: pluralize(nodeIds.length, m.common_item_singular(), m.common_item_plural())
+        })
+      );
       await invalidateAll();
     } catch (error) {
       console.error('Error deleting items:', error);
-      toast.error('Failed to delete some items');
+      toast.error(m.toast_delete_some_items_failed());
     }
   }
 
   // Add new item
   function addItem() {
-    if (!canCreate) {
-      toast.error('You do not have permission to create new items');
-      return;
-    }
+    if (!requirePermission(canCreate, m.toast_perm_create_items)) return;
 
     const newItem: FlatItem = {
       id: `temp-${generateUUID()}`,
@@ -160,10 +161,7 @@
 
   // Handle item deletion from Blocks component
   async function handleDeleteItem(nodeId: string) {
-    if (!canDelete) {
-      toast.error('You do not have permission to delete items');
-      return;
-    }
+    if (!requirePermission(canDelete, m.toast_perm_delete_items)) return;
 
     const item = localItems.find((item) => item.id === nodeId);
     if (!item) return;
@@ -180,7 +178,7 @@
         });
 
         if (!result.success) {
-          throw new Error(result.error || 'Failed to delete item from server');
+          throw new Error(result.error || m.toast_delete_item_failed());
         }
       }
 
@@ -188,11 +186,11 @@
       expandedItems.delete(nodeId);
       expandedItems = new SvelteSet(expandedItems);
 
-      toast.success('Item deleted successfully');
+      toast.success(m.toast_item_deleted());
       await invalidateAll();
     } catch (error) {
       console.error('Error deleting item:', error);
-      toast.error('Failed to delete item');
+      toast.error(m.toast_delete_item_failed());
     }
   }
 
@@ -232,10 +230,7 @@
 
   // Save all items
   async function saveAllItems() {
-    if (!canUpdate) {
-      toast.error('You do not have permission to save items');
-      return;
-    }
+    if (!requirePermission(canUpdate, m.toast_perm_save_items)) return;
 
     try {
       // Prepare items with proper sort order, excluding the name field
@@ -254,14 +249,14 @@
       });
 
       if (result.success) {
-        toast.success('All items saved successfully');
+        toast.success(m.toast_all_items_saved());
         await invalidateAll();
       } else {
-        throw new Error(result.error || 'Failed to save items');
+        throw new Error(result.error || m.toast_save_items_failed());
       }
     } catch (error) {
       console.error('Error saving items:', error);
-      toast.error('Failed to save items');
+      toast.error(m.toast_save_items_failed());
     }
   }
 </script>

@@ -135,14 +135,14 @@ export const postsCollection: CollectionDefinition = {
 
 ### Collection Options
 
-| Option       | Type      | Description                                                                                                |
-| ------------ | --------- | ---------------------------------------------------------------------------------------------------------- |
-| `titleField` | `string`  | Field to display in admin lists and overviews                                                              |
-| `seo`        | `boolean` | Adds SEO fields (meta_title, meta_description, og_title, og_description, og_image, canonical_url, noindex) |
-| `blocks`     | `boolean` | Enable/disable blocks functionality (default: `true`)                                                      |
-| `basePath`   | `string`  | Base URL path for preview links and SEO canonical URLs                                                     |
-| `sortable`   | `boolean` | Enable drag-and-drop sorting on the collection table                                                       |
-| `nestable`   | `boolean` | Enable parent-child hierarchical relationships                                                             |
+| Option       | Type                          | Description                                                                                                                     |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `titleField` | `string`                      | Field to display in admin lists and overviews                                                                                   |
+| `seo`        | `boolean`                     | Adds SEO fields (meta_title, meta_description, og_title, og_description, og_image, canonical_url, noindex)                      |
+| `blocks`     | `boolean`                     | Enable/disable blocks functionality (default: `true`)                                                                           |
+| `basePath`   | `string`                      | Base URL path for preview links and SEO canonical URLs                                                                          |
+| `sortable`   | `boolean`                     | Enable drag-and-drop sorting on the collection table                                                                            |
+| `nestable`   | `boolean`                     | Enable parent-child hierarchical relationships                                                                                  |
 | `revisions`  | `boolean \| { keep: number }` | Snapshot a revision on every save. `true` keeps the last 50; pass `{ keep: N }` to override. See [Revisions](#revisions) below. |
 
 ### Registration
@@ -301,17 +301,17 @@ export const menusGlobal: GlobalDefinition = {
 
 ### Global Options
 
-| Option        | Type                  | Description                                                                                                                                                                                                 |
-| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `titleField`  | `string`              | Field to display in admin lists and overviews                                                                                                                                                               |
-| `sortable`    | `boolean`             | Enable manual drag-and-drop sorting in the admin UI                                                                                                                                                         |
-| `nestable`    | `boolean`             | Enable parent-child hierarchical relationships (repeatable only)                                                                                                                                            |
-| `inline`      | `boolean`             | Edit items inline in the list view rather than navigating to a per-item page (repeatable only)                                                                                                              |
-| `readonly`    | `boolean`             | Hide create/edit UI; items are display-only                                                                                                                                                                 |
-| `defaultView` | `'edit' \| 'read'`    | `'read'` opens existing items in a compact static view with an Edit toggle (good for write-once-then-read content like form submissions). New items always start in edit mode regardless. Default: `'edit'` |
-| `defaultSort` | `{ field, direction}` | Default sort order for list views                                                                                                                                                                           |
-| `searchable`  | `boolean`             | Include this global in the frontend `search()` utility                                                                                                                                                      |
-| `revisions`   | `boolean \| { keep: number }` | _Coming next round — declared in types, not yet wired into the global save path._ See [Revisions](#revisions) below.                                                                            |
+| Option        | Type                          | Description                                                                                                                                                                                                 |
+| ------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `titleField`  | `string`                      | Field to display in admin lists and overviews                                                                                                                                                               |
+| `sortable`    | `boolean`                     | Enable manual drag-and-drop sorting in the admin UI                                                                                                                                                         |
+| `nestable`    | `boolean`                     | Enable parent-child hierarchical relationships (repeatable only)                                                                                                                                            |
+| `inline`      | `boolean`                     | Edit items inline in the list view rather than navigating to a per-item page (repeatable only)                                                                                                              |
+| `readonly`    | `boolean`                     | Hide create/edit UI; items are display-only                                                                                                                                                                 |
+| `defaultView` | `'edit' \| 'read'`            | `'read'` opens existing items in a compact static view with an Edit toggle (good for write-once-then-read content like form submissions). New items always start in edit mode regardless. Default: `'edit'` |
+| `defaultSort` | `{ field, direction}`         | Default sort order for list views                                                                                                                                                                           |
+| `searchable`  | `boolean`                     | Include this global in the frontend `search()` utility                                                                                                                                                      |
+| `revisions`   | `boolean \| { keep: number }` | _Coming next round — declared in types, not yet wired into the global save path._ See [Revisions](#revisions) below.                                                                                        |
 
 ### Registration
 
@@ -336,7 +336,9 @@ export const pagesCollection: CollectionDefinition = {
 
 // or with a custom cap
 options: {
-  revisions: { keep: 200 };
+  revisions: {
+    keep: 200;
+  }
 }
 ```
 

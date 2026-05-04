@@ -4,6 +4,25 @@ export type FileTransformOptions = {
   width?: number;
   height?: number;
   resize?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+  /**
+   * Crop anchor when `resize: 'cover'` is active. Maps directly to Sharp's
+   * `resize.position`. Default is `centre` (centered crop) which can clip
+   * heads in portraits — pass `'top'` for headshots, or `'attention'` /
+   * `'entropy'` for content-aware crop.
+   */
+  position?:
+    | 'top'
+    | 'right top'
+    | 'right'
+    | 'right bottom'
+    | 'bottom'
+    | 'left bottom'
+    | 'left'
+    | 'left top'
+    | 'center'
+    | 'centre'
+    | 'attention'
+    | 'entropy';
   quality?: number;
   format?: 'jpg' | 'png' | 'webp';
   transform?: boolean;
@@ -51,6 +70,7 @@ export function getFileUrl(
     if (options.width) params.append('width', options.width.toString());
     if (options.height) params.append('height', options.height.toString());
     if (options.resize) params.append('resize', options.resize);
+    if (options.position) params.append('position', options.position);
     if (options.quality) params.append('quality', options.quality.toString() || '80');
     if (options.format) params.append('format', options.format);
 

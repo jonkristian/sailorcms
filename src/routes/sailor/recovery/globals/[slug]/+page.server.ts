@@ -50,7 +50,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     return {
       slug,
       label: globalType.name_plural,
-      itemType: globalType.name_singular.toLowerCase(),
+      itemLabels: {
+        singular: globalType.name_singular.toLowerCase(),
+        plural: globalType.name_plural.toLowerCase()
+      },
       items,
       pagination: {
         page,
