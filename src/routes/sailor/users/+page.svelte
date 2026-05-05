@@ -5,14 +5,14 @@
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import UserBulkDeleteDialog from './(components)/UserBulkDeleteDialog.svelte';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Button } from '$lib/components/ui/button';
-  import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
   import { page } from '$app/state';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import type { PageData } from './$types';
-  import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
+  import { useTableFilters } from 'sailorcms/composables/useTableFilters.svelte';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';
 

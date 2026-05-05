@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-  import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
+  import { Skeleton } from 'sailorcms/components/ui/skeleton/index.js';
   import { m } from '$sailor/i18n';
   import FileText from '@lucide/svelte/icons/file-text';
   import Layout from '@lucide/svelte/icons/layout';

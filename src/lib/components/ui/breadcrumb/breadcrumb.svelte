@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { WithElementRef } from "$lib/sailor/utils.js";
+	import type { WithElementRef } from "sailorcms/utils/shadcn.js";
 	import type { HTMLAttributes } from "svelte/elements";
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

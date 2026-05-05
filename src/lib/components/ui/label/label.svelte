@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Label as LabelPrimitive } from "bits-ui";
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

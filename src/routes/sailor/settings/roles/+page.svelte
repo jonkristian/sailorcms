@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { Badge } from '$lib/components/ui/badge';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import {
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle
-  } from '$lib/components/ui/card';
-  import * as Collapsible from '$lib/components/ui/collapsible/index';
+  } from 'sailorcms/components/ui/card/index.js';
+  import * as Collapsible from 'sailorcms/components/ui/collapsible/index.js';
   import { Check, X, Shield, User, Users, ChevronDown } from '@lucide/svelte';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';

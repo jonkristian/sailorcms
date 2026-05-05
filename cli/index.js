@@ -16,6 +16,7 @@ import { registerSearchReindex } from './tools/search-reindex.js';
 import { registerDbRepairTimestamps } from './tools/db-repair-timestamps.js';
 import { registerDbRepair } from './tools/db-repair.js';
 import { registerDoctor } from './tools/doctor.js';
+import { registerSyncUi } from './tools/sync-ui.js';
 
 // Load environment variables and start CLI
 (async () => {
@@ -53,6 +54,7 @@ import { registerDoctor } from './tools/doctor.js';
   registerDbRepair(program);
   registerUserCommands(program);
   registerDoctor(program);
+  registerSyncUi(program);
 
   program.parse();
 })();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import FilePicker from 'sailorcms/components/sailor/files/file-picker.svelte';
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Trash2, Plus } from '@lucide/svelte';
   import { getImage } from 'sailorcms/core/files/file';
   import Grid from 'sailorcms/components/sailor/dnd/Grid.svelte';

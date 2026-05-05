@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ChevronDown, Trash2, GripVertical, Edit } from '@lucide/svelte';
-  import { Checkbox } from '$lib/components/ui/checkbox';
-  import { Button } from '$lib/components/ui/button';
+  import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { slide } from 'svelte/transition';
   import { quintIn, quintOut } from 'svelte/easing';
   import { m } from '$sailor/i18n';

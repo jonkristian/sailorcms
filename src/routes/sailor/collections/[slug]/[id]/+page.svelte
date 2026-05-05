@@ -1,13 +1,23 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
-  import { Card, CardHeader, CardTitle, CardDescription } from '$lib/components/ui/card';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle
+  } from 'sailorcms/components/ui/dialog/index.js';
+  import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription
+  } from 'sailorcms/components/ui/card/index.js';
   import { Plus, ChevronDown, ChevronRight, Puzzle, Clock } from '@lucide/svelte';
-  import { Checkbox } from '$lib/components/ui/checkbox';
+  import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';
-  import { Separator } from '$lib/components/ui/separator';
+  import { Separator } from 'sailorcms/components/ui/separator/index.js';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { addBlock, updateBlockContent, removeBlock } from 'sailorcms/core/content/blocks';

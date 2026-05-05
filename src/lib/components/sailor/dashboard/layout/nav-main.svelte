@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
 
   let { items }: { items: { name: string; url: string; icon?: any }[] } = $props();
 

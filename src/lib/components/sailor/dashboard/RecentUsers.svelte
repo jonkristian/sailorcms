@@ -1,7 +1,7 @@
 <script lang="ts">
-  import * as Card from '$lib/components/ui/card/index.js';
-  import { Badge } from '$lib/components/ui/badge/index.js';
-  import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar/index.js';
+  import * as Card from 'sailorcms/components/ui/card/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import { Avatar, AvatarFallback, AvatarImage } from 'sailorcms/components/ui/avatar/index.js';
   import { Users, ExternalLink, UserPlus } from '@lucide/svelte';
   import { formatRelativeTime } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';

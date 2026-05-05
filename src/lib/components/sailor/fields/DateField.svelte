@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Calendar } from '$lib/components/ui/calendar';
-  import * as Popover from '$lib/components/ui/popover';
-  import { Button } from '$lib/components/ui/button';
+  import { Calendar } from 'sailorcms/components/ui/calendar/index.js';
+  import * as Popover from 'sailorcms/components/ui/popover/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Calendar as CalendarIcon, X } from '@lucide/svelte';
   import {
     CalendarDate,

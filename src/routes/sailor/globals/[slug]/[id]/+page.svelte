@@ -1,13 +1,13 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import { Save, Pencil } from '@lucide/svelte';
-  import { Separator } from '$lib/components/ui/separator';
+  import { Separator } from 'sailorcms/components/ui/separator/index.js';
   import { formatDetailedDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { useUnsavedChanges } from 'sailorcms/core/hooks/unsaved-changes.svelte';

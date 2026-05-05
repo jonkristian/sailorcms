@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import {
     Table,
     TableBody,
@@ -7,9 +7,9 @@
     TableHead,
     TableHeader,
     TableRow
-  } from '$lib/components/ui/table';
-  import { Badge } from '$lib/components/ui/badge';
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+  } from 'sailorcms/components/ui/table/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import * as DropdownMenu from 'sailorcms/components/ui/dropdown-menu/index.js';
   import { MoreVertical, GripVertical } from '@lucide/svelte';
   import { goto } from '$app/navigation';
   import { formatTableDate } from 'sailorcms/core/utils/date';

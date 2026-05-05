@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { m } from '$sailor/i18n';
   import type { Snippet } from 'svelte';
 

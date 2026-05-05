@@ -10,7 +10,7 @@ import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider
 import { validateFile as validateFileUtil } from 'sailorcms/core/files/file';
 import { type FileType } from 'sailorcms/core/files/file.server';
 import { getSettings, parseFileSize } from 'sailorcms/core/settings/index';
-import { repairFileURLs } from '$sailor/scripts/repair-file-urls';
+import { repairFileURLs } from 'sailorcms/scripts/repair-file-urls';
 import { generateUUID } from 'sailorcms/core/utils/common';
 
 /**

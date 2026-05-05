@@ -9,9 +9,9 @@
   import Underline from '@tiptap/extension-underline';
   import { CustomImageExtension } from 'sailorcms/core/editor/extensions/CustomImageExtension';
   import { getFiles } from 'sailorcms/remote/files.remote.js';
-  import * as Tooltip from '$lib/components/ui/tooltip';
+  import * as Tooltip from 'sailorcms/components/ui/tooltip/index.js';
   import TooltipButton from 'sailorcms/components/sailor/TooltipButton.svelte';
-  import { Separator } from '$lib/components/ui/separator';
+  import { Separator } from 'sailorcms/components/ui/separator/index.js';
   import LinkDialog from 'sailorcms/components/sailor/dialogs/LinkDialog.svelte';
   import {
     Bold,
@@ -36,7 +36,7 @@
     Eye,
     ImageIcon
   } from '@lucide/svelte';
-  import { cn } from '$lib/sailor/utils.js';
+  import { cn } from 'sailorcms/utils/shadcn.js';
   import { formatHTML, cleanFormattedHTML, tiptapJsonToHtml } from 'sailorcms/core/content/content';
   import FilePicker from 'sailorcms/components/sailor/files/file-picker.svelte';
   import { m } from '$sailor/i18n';

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Label } from '$lib/components/ui/label';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
   import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, toastResult, requirePermission } from 'sailorcms/core/ui/toast';

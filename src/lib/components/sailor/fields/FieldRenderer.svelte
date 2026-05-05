@@ -25,9 +25,9 @@
     mode?: 'edit' | 'read';
   } = $props();
 
-  import { Input } from '$lib/components/ui/input';
-  import * as InputGroup from '$lib/components/ui/input-group';
-  import { Label } from '$lib/components/ui/label';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import * as InputGroup from 'sailorcms/components/ui/input-group/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
   import { RefreshCw } from '@lucide/svelte';
   import { slugify } from 'sailorcms/core/utils/common';
   import { toast } from 'sailorcms/core/ui/toast';

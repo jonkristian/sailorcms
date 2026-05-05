@@ -1,6 +1,11 @@
 <script lang="ts">
-  import { Sheet, SheetContent, SheetHeader, SheetTrigger } from '$lib/components/ui/sheet';
-  import { Button } from '$lib/components/ui/button';
+  import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTrigger
+  } from 'sailorcms/components/ui/sheet/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Code, Copy } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';

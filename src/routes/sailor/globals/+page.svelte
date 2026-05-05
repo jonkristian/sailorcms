@@ -6,9 +6,9 @@
     CardDescription,
     CardHeader,
     CardTitle
-  } from '$lib/components/ui/card';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Button } from '$lib/components/ui/button';
+  } from 'sailorcms/components/ui/card/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { ArrowRight } from '@lucide/svelte';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';

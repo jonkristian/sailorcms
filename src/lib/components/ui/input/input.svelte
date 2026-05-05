@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { HTMLInputAttributes, HTMLInputTypeAttribute } from "svelte/elements";
-	import { cn, type WithElementRef } from "$lib/sailor/utils.js";
+	import { cn, type WithElementRef } from "sailorcms/utils/shadcn.js";
 
 	type InputType = Exclude<HTMLInputTypeAttribute, "file">;
 

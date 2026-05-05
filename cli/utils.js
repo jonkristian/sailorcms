@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
  * Append to this list as more component subtrees migrate from the
  * copy-and-paste distribution model to package-resolved imports.
  */
-export const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
+export const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor', 'ui'];
 
 /**
  * Subdirectories under `src/lib/sailor/` that are resolved from the package's
@@ -32,7 +32,15 @@ export const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
  * each subtree migrates from copy-and-paste distribution to package-resolved
  * imports.
  */
-export const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = ['styles', 'core', 'utils', 'remote'];
+export const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = [
+  'styles',
+  'core',
+  'utils',
+  'remote',
+  'composables',
+  'scripts',
+  'assets'
+];
 
 async function pruneStalePackageExportedComponents(targetComponentsDir) {
   for (const dir of COMPONENT_DIRS_RESOLVED_VIA_PACKAGE) {
@@ -515,14 +523,11 @@ export function patchViteConfig(content) {
     if (noExternalMatch && /noExternal\s*:\s*\[/.test(noExternalMatch[1])) {
       // ssr.noExternal exists but doesn't include 'sailorcms' — splice in
       const before = updated;
-      updated = updated.replace(
-        /(noExternal\s*:\s*\[)([^\]]*)(\])/,
-        (_m, open, inner, close) => {
-          const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
-          const additions = trimmed.trim() ? `${trimmed}, 'sailorcms'` : `'sailorcms'`;
-          return `${open}${additions}${close}`;
-        }
-      );
+      updated = updated.replace(/(noExternal\s*:\s*\[)([^\]]*)(\])/, (_m, open, inner, close) => {
+        const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
+        const additions = trimmed.trim() ? `${trimmed}, 'sailorcms'` : `'sailorcms'`;
+        return `${open}${additions}${close}`;
+      });
       if (updated !== before) applied.push('ssr.noExternal');
     } else if (/\bssr\s*:\s*\{/.test(updated)) {
       // ssr block exists without noExternal — inject it
@@ -630,9 +635,34 @@ export function patchSvelteConfig(content) {
   const applied = [];
   const manual = [];
 
-  // 1. $sailor alias
-  if (!/\$sailor/.test(updated)) {
-    const aliasBlock = `alias: {\n      '$sailor': 'src/lib/sailor'\n    }`;
+  // 1. Aliases: $sailor + sailorcms/* subpaths.
+  //
+  // Sailor's admin code lives in node_modules/sailorcms/... but consumers
+  // import from `sailorcms/components/sailor/X`, `sailorcms/core/X`, etc.
+  // TypeScript's `moduleResolution: bundler` is supposed to resolve these
+  // through the package's `exports` map and probe `.ts` extensions, but in
+  // practice it doesn't reliably probe TS sources through wildcard exports
+  // (the package would need shipped `.d.ts` files). Until sailor publishes
+  // pre-built declarations, we mirror the resolution into kit.alias so TS
+  // sees the paths via the consumer's tsconfig, and Vite gets a redundant
+  // (but harmless) alias that matches its exports-map result.
+  const REQUIRED_ALIASES = [
+    ['$sailor', 'src/lib/sailor'],
+    ['sailorcms/components/sailor/*', 'node_modules/sailorcms/src/lib/components/sailor/*'],
+    ['sailorcms/components/ui/*', 'node_modules/sailorcms/src/lib/components/ui/*'],
+    ['sailorcms/composables/*', 'node_modules/sailorcms/src/lib/sailor/composables/*'],
+    ['sailorcms/core/*', 'node_modules/sailorcms/src/lib/sailor/core/*'],
+    ['sailorcms/remote/*', 'node_modules/sailorcms/src/lib/sailor/remote/*'],
+    ['sailorcms/scripts/*', 'node_modules/sailorcms/src/lib/sailor/scripts/*'],
+    ['sailorcms/assets/*', 'node_modules/sailorcms/src/lib/sailor/assets/*'],
+    ['sailorcms/utils/*', 'node_modules/sailorcms/src/lib/sailor/utils/*'],
+    ['sailorcms/styles/*', 'node_modules/sailorcms/src/lib/sailor/styles/*']
+  ];
+
+  if (!/\balias\s*:\s*\{/.test(updated)) {
+    // No alias block at all — synthesize one with all required entries.
+    const aliasLines = REQUIRED_ALIASES.map(([k, v]) => `      '${k}': '${v}'`).join(',\n');
+    const aliasBlock = `alias: {\n${aliasLines}\n    }`;
     const before = updated;
     if (/\bkit\s*:\s*\{/.test(updated)) {
       updated = updated.replace(
@@ -645,12 +675,30 @@ export function patchSvelteConfig(content) {
         `$1\n  kit: {\n    adapter: adapter(),\n    ${aliasBlock}\n  },`
       );
     }
-    if (updated !== before) applied.push('$sailor alias');
+    if (updated !== before) applied.push('kit.alias');
     else
       manual.push({
-        name: '$sailor alias',
-        hint: "Add `alias: { '$sailor': 'src/lib/sailor' }` inside `kit: {}`."
+        name: 'kit.alias',
+        hint: `Add \`alias: { ${REQUIRED_ALIASES.map(([k]) => `'${k}': ...`).join(', ')} }\` inside \`kit: {}\`.`
       });
+  } else {
+    // Alias block exists — splice in any missing entries.
+    const missing = REQUIRED_ALIASES.filter(
+      ([k]) => !new RegExp(`['"]${k.replace(/[$/*]/g, '\\$&')}['"]`).test(updated)
+    );
+    if (missing.length > 0) {
+      const before = updated;
+      const additions = missing.map(([k, v]) => `      '${k}': '${v}'`).join(',\n');
+      // Insert at the start of the alias block so longer-prefix entries
+      // come first — matters for Vite's resolve order with overlapping keys.
+      updated = updated.replace(/(\balias\s*:\s*\{\s*\n?)/, `$1${additions},\n`);
+      if (updated !== before) applied.push(`kit.alias (${missing.length} entries)`);
+      else
+        manual.push({
+          name: 'kit.alias',
+          hint: `Add the following entries to your kit.alias object: ${missing.map(([k]) => k).join(', ')}.`
+        });
+    }
   }
 
   // 2. vitePreprocess({ script: true })

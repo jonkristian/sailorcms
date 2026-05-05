@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import * as Card from '$lib/components/ui/card';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import * as Card from 'sailorcms/components/ui/card/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';

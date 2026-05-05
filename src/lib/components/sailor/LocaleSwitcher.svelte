@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Globe } from '@lucide/svelte';
-  import * as Select from '$lib/components/ui/select';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
   import { page } from '$app/state';
   import { locales, m, setLocale, type Locale } from '$sailor/i18n';
   import { updateMyPreferences } from 'sailorcms/remote/users.remote.js';

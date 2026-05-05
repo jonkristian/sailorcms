@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Pagination as PaginationPrimitive } from "bits-ui";
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 	import { buttonVariants } from "../button/index.js";
 
 	let {

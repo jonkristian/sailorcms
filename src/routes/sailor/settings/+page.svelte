@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Label } from '$lib/components/ui/label';
-  import { Input } from '$lib/components/ui/input';
-  import { Textarea } from '$lib/components/ui/textarea';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Textarea } from 'sailorcms/components/ui/textarea/index.js';
   import { Save, RotateCcw } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
-  import * as Card from '$lib/components/ui/card';
+  import * as Card from 'sailorcms/components/ui/card/index.js';
   import Header from 'sailorcms/components/sailor/Header.svelte';
 
   const { data }: { data: PageData } = $props();

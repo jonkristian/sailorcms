@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ScrollArea as ScrollAreaPrimitive } from "bits-ui";
-	import { cn, type WithoutChild } from "$lib/sailor/utils.js";
+	import { cn, type WithoutChild } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

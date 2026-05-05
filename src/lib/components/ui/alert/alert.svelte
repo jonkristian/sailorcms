@@ -19,7 +19,7 @@
 
 <script lang="ts">
 	import type { HTMLAttributes } from "svelte/elements";
-	import { cn, type WithElementRef } from "$lib/sailor/utils.js";
+	import { cn, type WithElementRef } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

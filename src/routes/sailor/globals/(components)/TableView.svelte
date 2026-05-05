@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { Plus } from '@lucide/svelte';
   import { goto } from '$app/navigation';
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
-  import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
-  import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
+  import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
+  import { useBulkDelete } from 'sailorcms/composables/useBulkDelete.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { m } from '$sailor/i18n';

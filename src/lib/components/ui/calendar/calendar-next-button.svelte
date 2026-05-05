@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Calendar as CalendarPrimitive } from "bits-ui";
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { buttonVariants, type ButtonVariant } from "$lib/components/ui/button/index.js";
-	import { cn } from "$lib/sailor/utils.js";
+	import { buttonVariants, type ButtonVariant } from "sailorcms/components/ui/button/index.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

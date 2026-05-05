@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { cn } from "$lib/sailor/utils.js";
-	import { Textarea } from "$lib/components/ui/textarea/index.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
+	import { Textarea } from "sailorcms/components/ui/textarea/index.js";
 	import type { ComponentProps } from "svelte";
 
 	let {

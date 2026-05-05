@@ -1,6 +1,6 @@
 <script lang="ts">
-  import * as Tooltip from '$lib/components/ui/tooltip';
-  import { Button, type ButtonProps } from '$lib/components/ui/button';
+  import * as Tooltip from 'sailorcms/components/ui/tooltip/index.js';
+  import { Button, type ButtonProps } from 'sailorcms/components/ui/button/index.js';
   import type { Snippet } from 'svelte';
 
   const {

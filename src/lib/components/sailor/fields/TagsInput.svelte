@@ -1,6 +1,6 @@
 <script lang="ts">
   import { debounce } from 'sailorcms/core/utils/debounce';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { X } from '@lucide/svelte';
   import { searchTags } from 'sailorcms/remote/tags.remote.js';
   import { m } from '$sailor/i18n';

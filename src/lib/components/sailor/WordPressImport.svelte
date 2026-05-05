@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Checkbox } from '$lib/components/ui/checkbox';
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Card, CardContent, CardHeader, CardTitle } from 'sailorcms/components/ui/card/index.js';
+  import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { FileText, CheckCircle, XCircle, Loader2, AlertCircle } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import * as Select from '$lib/components/ui/select';
-  import { Progress } from '$lib/components/ui/progress';
-  import { Separator } from '$lib/components/ui/separator';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
+  import { Progress } from 'sailorcms/components/ui/progress/index.js';
+  import { Separator } from 'sailorcms/components/ui/separator/index.js';
   import { browser } from '$app/environment';
 
   let {

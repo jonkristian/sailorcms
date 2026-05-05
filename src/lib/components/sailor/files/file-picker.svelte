@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import * as Sheet from '$lib/components/ui/sheet';
-  import { Button } from '$lib/components/ui/button';
+  import * as Sheet from 'sailorcms/components/ui/sheet/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import {
     Search,
     LoaderCircle,
@@ -12,18 +12,18 @@
     Upload,
     Copy
   } from '@lucide/svelte';
-  import { cn } from '$lib/sailor/utils.js';
-  import * as Table from '$lib/components/ui/table';
-  import { Checkbox } from '$lib/components/ui/checkbox';
-  import * as Pagination from '$lib/components/ui/pagination';
+  import { cn } from 'sailorcms/utils/shadcn.js';
+  import * as Table from 'sailorcms/components/ui/table/index.js';
+  import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
+  import * as Pagination from 'sailorcms/components/ui/pagination/index.js';
   import { formatDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { formatFileSize } from 'sailorcms/core/files/file';
   import type { FileType } from 'sailorcms/core/files/file';
   import { debounce } from 'sailorcms/core/utils/debounce';
   import { GripVertical } from '@lucide/svelte';
-  import { Label } from '$lib/components/ui/label';
-  import * as Select from '$lib/components/ui/select';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
   import { getFiles } from 'sailorcms/remote/files.remote.js';
   import { uploadFiles } from 'sailorcms/core/files/upload';
   import FileUploadProgress from 'sailorcms/components/sailor/FileUploadProgress.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Card from '$lib/components/ui/card/index.js';
+  import * as Card from 'sailorcms/components/ui/card/index.js';
   import { FileText, Users, Folder, Globe } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
 

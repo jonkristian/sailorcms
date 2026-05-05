@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ComponentProps } from "svelte";
-	import { Input } from "$lib/components/ui/input/index.js";
-	import { cn } from "$lib/sailor/utils.js";
+	import { Input } from "sailorcms/components/ui/input/index.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

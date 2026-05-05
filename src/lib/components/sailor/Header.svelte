@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { Plus, Save, ChevronDown, ChevronUp } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';

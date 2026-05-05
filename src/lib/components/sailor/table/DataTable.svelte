@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Checkbox } from '$lib/components/ui/checkbox';
+  import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
   import { GripVertical, ChevronUp, ChevronDown, ChevronRight } from '@lucide/svelte';
   import {
     Table,
@@ -8,7 +8,7 @@
     TableHead,
     TableHeader,
     TableRow
-  } from '$lib/components/ui/table';
+  } from 'sailorcms/components/ui/table/index.js';
   import type { Snippet } from 'svelte';
   import { m } from '$sailor/i18n';
 

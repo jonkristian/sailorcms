@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import * as Dialog from '$lib/components/ui/dialog';
-  import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
-  import { Textarea } from '$lib/components/ui/textarea';
+  import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import { Textarea } from 'sailorcms/components/ui/textarea/index.js';
   import { type FileType } from 'sailorcms/core/files/file';
   import { Save, Copy, ExternalLink } from '@lucide/svelte';
   import TagsInput from 'sailorcms/components/sailor/fields/TagsInput.svelte';

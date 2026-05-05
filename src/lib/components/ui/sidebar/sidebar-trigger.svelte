@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button/index.js";
+	import { Button } from "sailorcms/components/ui/button/index.js";
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 	import type { ComponentProps } from "svelte";
 	import { useSidebar } from "./context.svelte.js";
 

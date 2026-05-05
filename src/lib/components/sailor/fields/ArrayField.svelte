@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import ArrayFieldModal from './ArrayFieldModal.svelte';

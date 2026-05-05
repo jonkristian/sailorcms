@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Input } from '$lib/components/ui/input';
-  import { Badge } from '$lib/components/ui/badge';
-  import * as Command from '$lib/components/ui/command';
-  import * as Popover from '$lib/components/ui/popover';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import * as Command from 'sailorcms/components/ui/command/index.js';
+  import * as Popover from 'sailorcms/components/ui/popover/index.js';
   import { Check, ChevronDown, X, Plus } from '@lucide/svelte';
   import { debounce } from 'sailorcms/core/utils/debounce';
   import { m } from '$sailor/i18n';

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { GripVertical, Copy, X, ImageOff, FileText, Video, RotateCcw } from '@lucide/svelte';
-  import { Checkbox as CheckboxComponent } from '$lib/components/ui/checkbox';
+  import { Checkbox as CheckboxComponent } from 'sailorcms/components/ui/checkbox/index.js';
   import { m } from '$sailor/i18n';
 
   let {

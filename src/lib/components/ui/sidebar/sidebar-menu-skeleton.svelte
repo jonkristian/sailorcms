@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { cn, type WithElementRef } from "$lib/sailor/utils.js";
-	import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+	import { cn, type WithElementRef } from "sailorcms/utils/shadcn.js";
+	import { Skeleton } from "sailorcms/components/ui/skeleton/index.js";
 	import type { HTMLAttributes } from "svelte/elements";
 
 	let {

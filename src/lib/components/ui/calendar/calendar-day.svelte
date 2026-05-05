@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 	import { Calendar as CalendarPrimitive } from "bits-ui";
 
 	let {

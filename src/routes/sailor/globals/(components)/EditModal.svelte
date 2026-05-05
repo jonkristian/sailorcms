@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
-  import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
+  import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle
+  } from 'sailorcms/components/ui/dialog/index.js';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';

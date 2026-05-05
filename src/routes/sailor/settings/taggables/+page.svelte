@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Badge } from '$lib/components/ui/badge';
-  import { Button } from '$lib/components/ui/button';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Trash2 } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { invalidateAll } from '$app/navigation';

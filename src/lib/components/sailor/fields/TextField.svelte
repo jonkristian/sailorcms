@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input } from '$lib/components/ui/input';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
 
   const {
     value,

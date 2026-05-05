@@ -2,9 +2,9 @@
 	import { Drawer as DrawerPrimitive } from "vaul-svelte";
 	import DrawerPortal from "./drawer-portal.svelte";
 	import DrawerOverlay from "./drawer-overlay.svelte";
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 	import type { ComponentProps } from "svelte";
-	import type { WithoutChildrenOrChild } from "$lib/sailor/utils.js";
+	import type { WithoutChildrenOrChild } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Badge } from '$lib/components/ui/badge';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { Copy, FileText, Trash2 } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';

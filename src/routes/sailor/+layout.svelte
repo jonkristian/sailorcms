@@ -1,14 +1,14 @@
 <script lang="ts">
   import { Toaster } from 'svelte-sonner';
   import { ModeWatcher } from 'mode-watcher';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
   import AppSidebar from 'sailorcms/components/sailor/dashboard/layout/app-sidebar.svelte';
   import SiteHeader from 'sailorcms/components/sailor/dashboard/layout/site-header.svelte';
   import { Eye, Save } from '@lucide/svelte';
   import PayloadPreview from 'sailorcms/components/sailor/PayloadPreview.svelte';
   import HeaderActionButton from 'sailorcms/components/sailor/HeaderActionButton.svelte';
   import HeaderRevisionsButton from 'sailorcms/components/sailor/HeaderRevisionsButton.svelte';
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import ThemeToggle from 'sailorcms/components/sailor/ThemeToggle.svelte';
   import LocaleSwitcher from 'sailorcms/components/sailor/LocaleSwitcher.svelte';
   import { page } from '$app/state';

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import type { PageData } from './$types';
   import Header from 'sailorcms/components/sailor/Header.svelte';
@@ -14,11 +14,11 @@
   import { generateUUID } from 'sailorcms/core/utils/common';
   import { invalidateAll } from '$app/navigation';
   import FileText from '@lucide/svelte/icons/file-text';
-  import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
-  import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
+  import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
+  import { useTableFilters } from 'sailorcms/composables/useTableFilters.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
-  import * as Select from '$lib/components/ui/select/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
   import SelectDialog from 'sailorcms/components/sailor/dialogs/SelectDialog.svelte';
   import {
     cloneCollectionItems,

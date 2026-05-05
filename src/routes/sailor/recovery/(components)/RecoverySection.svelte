@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
-  import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
+  import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';

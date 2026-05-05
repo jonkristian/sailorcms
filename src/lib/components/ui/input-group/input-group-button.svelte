@@ -20,9 +20,9 @@
 </script>
 
 <script lang="ts">
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 	import type { ComponentProps } from "svelte";
-	import { Button } from "$lib/components/ui/button/index.js";
+	import { Button } from "sailorcms/components/ui/button/index.js";
 
 	let {
 		ref = $bindable(null),

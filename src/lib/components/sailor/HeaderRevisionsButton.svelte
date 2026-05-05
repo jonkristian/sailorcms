@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { History } from '@lucide/svelte';
   import { headerRevisions } from 'sailorcms/core/ui/header-revisions.svelte';
   import { m } from '$sailor/i18n';

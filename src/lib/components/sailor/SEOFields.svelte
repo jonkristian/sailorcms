@@ -3,8 +3,8 @@
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger
-  } from '$lib/components/ui/collapsible';
-  import { Button } from '$lib/components/ui/button';
+  } from 'sailorcms/components/ui/collapsible/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { ChevronDown, RefreshCw } from '@lucide/svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { m } from '$sailor/i18n';

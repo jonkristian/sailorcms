@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ComponentProps } from "svelte";
-	import { cn } from "$lib/sailor/utils.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 	import { PaginationLink } from "./index.js";
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 

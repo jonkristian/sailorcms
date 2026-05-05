@@ -1,7 +1,7 @@
 <script lang="ts">
   import type LucideIcon from '@lucide/svelte/icons/database';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-  import type { WithoutChildren } from '$lib/sailor/utils.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
+  import type { WithoutChildren } from 'sailorcms/utils/shadcn.js';
   import type { ComponentProps } from 'svelte';
   import { page } from '$app/state';
 

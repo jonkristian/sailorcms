@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { invalidateAll } from '$app/navigation';
-  import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
-  import * as Avatar from '$lib/components/ui/avatar/index.js';
+  import emblemSvg from 'sailorcms/assets/emblem.svg?raw';
+  import * as Avatar from 'sailorcms/components/ui/avatar/index.js';
   import { authClient } from 'sailorcms/core/auth';
   import { m } from '$sailor/i18n';
 

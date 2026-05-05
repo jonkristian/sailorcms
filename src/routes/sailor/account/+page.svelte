@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
   import {
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle
-  } from '$lib/components/ui/card';
-  import { Badge } from '$lib/components/ui/badge';
+  } from 'sailorcms/components/ui/card/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { toast } from 'sailorcms/core/ui/toast';
   import { User, Key, Shield, Globe, CheckCircle, XCircle, Copy } from '@lucide/svelte';
   import GithubIcon from 'sailorcms/components/sailor/icons/GithubIcon.svelte';

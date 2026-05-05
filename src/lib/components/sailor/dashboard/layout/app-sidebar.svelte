@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
   import NavMain from './nav-main.svelte';
   import NavUser from './nav-user.svelte';
   import NavCollections from './nav-collections.svelte';
@@ -12,7 +12,7 @@
   import Users from '@lucide/svelte/icons/users';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import { page } from '$app/state';
-  import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
+  import emblemSvg from 'sailorcms/assets/emblem.svg?raw';
   import { m } from '$sailor/i18n';
 
   let {

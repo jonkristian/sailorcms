@@ -1,6 +1,6 @@
 <script lang="ts">
-  import * as Card from '$lib/components/ui/card/index.js';
-  import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar/index.js';
+  import * as Card from 'sailorcms/components/ui/card/index.js';
+  import { Avatar, AvatarFallback, AvatarImage } from 'sailorcms/components/ui/avatar/index.js';
   import {
     FileText,
     Edit,

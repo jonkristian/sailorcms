@@ -5,7 +5,7 @@
     CardDescription,
     CardHeader,
     CardTitle
-  } from '$lib/components/ui/card/index.js';
+  } from 'sailorcms/components/ui/card/index.js';
   import ExternalLink from '@lucide/svelte/icons/external-link';
   import Book from '@lucide/svelte/icons/book';
   import Github from 'sailorcms/components/sailor/icons/GithubIcon.svelte';

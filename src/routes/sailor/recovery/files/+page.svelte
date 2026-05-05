@@ -3,7 +3,7 @@
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { toast } from 'sailorcms/core/ui/toast';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import { restoreFile } from 'sailorcms/remote/files.remote.js';

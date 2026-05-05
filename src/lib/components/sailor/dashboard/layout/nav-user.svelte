@@ -1,8 +1,8 @@
 <script lang="ts">
-  import * as Avatar from '$lib/components/ui/avatar/index.js';
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-  import { useSidebar } from '$lib/components/ui/sidebar/index.js';
+  import * as Avatar from 'sailorcms/components/ui/avatar/index.js';
+  import * as DropdownMenu from 'sailorcms/components/ui/dropdown-menu/index.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
+  import { useSidebar } from 'sailorcms/components/ui/sidebar/index.js';
   import { authClient } from 'sailorcms/core/auth';
   import { goto } from '$app/navigation';
   import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';

@@ -1,11 +1,11 @@
 <script lang="ts">
   import { Search, X } from '@lucide/svelte';
-  import { Input } from '$lib/components/ui/input';
-  import { Button } from '$lib/components/ui/button';
-  import * as Select from '$lib/components/ui/select/index.js';
-  import * as Popover from '$lib/components/ui/popover';
-  import * as Command from '$lib/components/ui/command';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
+  import * as Popover from 'sailorcms/components/ui/popover/index.js';
+  import * as Command from 'sailorcms/components/ui/command/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { Check, ChevronDown } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
 

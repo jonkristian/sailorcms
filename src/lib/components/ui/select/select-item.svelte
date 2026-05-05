@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Select as SelectPrimitive } from "bits-ui";
-	import { cn, type WithoutChild } from "$lib/sailor/utils.js";
+	import { cn, type WithoutChild } from "sailorcms/utils/shadcn.js";
 	import CheckIcon from '@lucide/svelte/icons/check';
 
 	let {

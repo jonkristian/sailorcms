@@ -1,13 +1,13 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { authClient } from 'sailorcms/core/auth';
-  import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
-  import { Card, CardContent } from '$lib/components/ui/card';
-  import { Alert, AlertDescription } from '$lib/components/ui/alert';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import { Card, CardContent } from 'sailorcms/components/ui/card/index.js';
+  import { Alert, AlertDescription } from 'sailorcms/components/ui/alert/index.js';
   import { AlertCircle } from '@lucide/svelte';
-  import emblemSvg from '$lib/sailor/assets/emblem.svg?raw';
+  import emblemSvg from 'sailorcms/assets/emblem.svg?raw';
   import { m } from '$sailor/i18n';
 
   let { data } = $props();

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Card, CardContent, CardHeader, CardTitle } from 'sailorcms/components/ui/card/index.js';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { FileText, Download } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import * as Tabs from '$lib/components/ui/tabs';
-  import * as Select from '$lib/components/ui/select';
-  import { Label } from '$lib/components/ui/label';
+  import * as Tabs from 'sailorcms/components/ui/tabs/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   import Header from 'sailorcms/components/sailor/Header.svelte';

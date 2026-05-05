@@ -4,8 +4,8 @@
 		buttonVariants,
 		type ButtonVariant,
 		type ButtonSize,
-	} from "$lib/components/ui/button/index.js";
-	import { cn } from "$lib/sailor/utils.js";
+	} from "sailorcms/components/ui/button/index.js";
+	import { cn } from "sailorcms/utils/shadcn.js";
 
 	let {
 		ref = $bindable(null),

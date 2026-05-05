@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Badge } from '$lib/components/ui/badge';
-  import * as Popover from '$lib/components/ui/popover';
-  import * as Command from '$lib/components/ui/command';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
+  import * as Popover from 'sailorcms/components/ui/popover/index.js';
+  import * as Command from 'sailorcms/components/ui/command/index.js';
   import { X, ChevronsUpDown, Check } from '@lucide/svelte';
-  import { cn } from '$lib/sailor/utils.js';
+  import { cn } from 'sailorcms/utils/shadcn.js';
   import { getGlobalItems } from 'sailorcms/remote/globals.remote.js';
   import { getCollectionItems } from 'sailorcms/remote/collections.remote.js';
   import { m } from '$sailor/i18n';

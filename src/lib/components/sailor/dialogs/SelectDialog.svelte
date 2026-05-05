@@ -1,7 +1,7 @@
 <script lang="ts">
-  import * as Dialog from '$lib/components/ui/dialog';
-  import * as Select from '$lib/components/ui/select/index.js';
-  import { Button } from '$lib/components/ui/button';
+  import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { m } from '$sailor/i18n';
 
   export interface SelectItem {

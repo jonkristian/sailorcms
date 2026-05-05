@@ -6,11 +6,11 @@
     DialogFooter,
     DialogHeader,
     DialogTitle
-  } from '$lib/components/ui/dialog';
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
-  import { Button } from '$lib/components/ui/button';
-  import * as Select from '$lib/components/ui/select';
+  } from 'sailorcms/components/ui/dialog/index.js';
+  import { Input } from 'sailorcms/components/ui/input/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
   import { m } from '$sailor/i18n';
 
   const {

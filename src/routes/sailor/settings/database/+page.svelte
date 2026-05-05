@@ -5,7 +5,7 @@
     CardDescription,
     CardHeader,
     CardTitle
-  } from '$lib/components/ui/card';
+  } from 'sailorcms/components/ui/card/index.js';
   import {
     Table,
     TableBody,
@@ -13,12 +13,12 @@
     TableHead,
     TableHeader,
     TableRow
-  } from '$lib/components/ui/table';
-  import * as Collapsible from '$lib/components/ui/collapsible/index';
+  } from 'sailorcms/components/ui/table/index.js';
+  import * as Collapsible from 'sailorcms/components/ui/collapsible/index.js';
   import { onMount } from 'svelte';
   import { formatJson } from 'sailorcms/core/ui/syntax-highlighting';
   import { Database, FileJson, Table as TableIcon, ChevronDown, Globe } from '@lucide/svelte';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
 

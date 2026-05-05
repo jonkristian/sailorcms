@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { Button } from '$lib/components/ui/button';
-  import { Label } from '$lib/components/ui/label';
-  import * as Select from '$lib/components/ui/select';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
+  import { Label } from 'sailorcms/components/ui/label/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
   import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn, type WithElementRef, type WithoutChildren } from "$lib/sailor/utils.js";
+	import { cn, type WithElementRef, type WithoutChildren } from "sailorcms/utils/shadcn.js";
 	import type { HTMLAttributes } from "svelte/elements";
 
 	let {

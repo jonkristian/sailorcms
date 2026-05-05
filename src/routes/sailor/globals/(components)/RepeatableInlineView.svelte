@@ -10,7 +10,7 @@
   import { getDisplayTitle } from 'sailorcms/core/content/display';
   import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
-  import { Button } from '$lib/components/ui/button';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { SvelteSet } from 'svelte/reactivity';
   import { bulkUpdateGlobalItems, deleteGlobalItem } from '../data.remote.js';
 

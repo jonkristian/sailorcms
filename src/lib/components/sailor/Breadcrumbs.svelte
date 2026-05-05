@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+  import * as Breadcrumb from 'sailorcms/components/ui/breadcrumb/index.js';
   import { page } from '$app/state';
 
   let { title }: { title?: string } = $props();

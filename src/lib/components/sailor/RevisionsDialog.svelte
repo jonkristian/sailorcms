@@ -1,6 +1,6 @@
 <script lang="ts">
-  import * as Dialog from '$lib/components/ui/dialog';
-  import { Button } from '$lib/components/ui/button';
+  import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { History, RotateCcw, ChevronLeft, ChevronRight } from '@lucide/svelte';
   import { diffLines } from 'diff';
   import { formatRelativeTime, formatTimestamp } from 'sailorcms/core/utils/date';

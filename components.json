@@ -6,7 +6,7 @@
   },
   "aliases": {
     "components": "$lib/components",
-    "utils": "$lib/sailor/utils",
+    "utils": "$lib/sailor/utils/shadcn",
     "ui": "$lib/components/ui",
     "hooks": "$lib/hooks",
     "lib": "$lib"

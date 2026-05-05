@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Progress } from '$lib/components/ui/progress';
-  import { Button } from '$lib/components/ui/button';
+  import { Progress } from 'sailorcms/components/ui/progress/index.js';
+  import { Button } from 'sailorcms/components/ui/button/index.js';
   import { X, Upload, CheckCircle, AlertCircle } from '@lucide/svelte';
-  import * as Dialog from '$lib/components/ui/dialog';
+  import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
   import { m } from '$sailor/i18n';
 
   interface UploadFile {

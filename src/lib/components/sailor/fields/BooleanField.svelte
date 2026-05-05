@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Switch } from '$lib/components/ui/switch';
+  import { Switch } from 'sailorcms/components/ui/switch/index.js';
   import { m } from '$sailor/i18n';
 
   const {

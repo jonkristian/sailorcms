@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Separator } from '$lib/components/ui/separator/index.js';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+  import { Separator } from 'sailorcms/components/ui/separator/index.js';
+  import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
   import Breadcrumbs from 'sailorcms/components/sailor/Breadcrumbs.svelte';
   import { page } from '$app/state';
 
