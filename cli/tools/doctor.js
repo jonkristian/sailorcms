@@ -464,6 +464,18 @@ const CHECKS = [
   checkDbLocked
 ];
 
+// Tiny ANSI color helpers. Respects NO_COLOR (https://no-color.org/) and
+// non-TTY output (pipes, CI logs without TTY) — falls through to plain text.
+const useColor = process.stdout.isTTY && !process.env.NO_COLOR && process.env.TERM !== 'dumb';
+const c = {
+  green: (s) => (useColor ? `\x1b[32m${s}\x1b[0m` : s),
+  red: (s) => (useColor ? `\x1b[31m${s}\x1b[0m` : s),
+  yellow: (s) => (useColor ? `\x1b[33m${s}\x1b[0m` : s),
+  cyan: (s) => (useColor ? `\x1b[36m${s}\x1b[0m` : s),
+  dim: (s) => (useColor ? `\x1b[2m${s}\x1b[0m` : s),
+  bold: (s) => (useColor ? `\x1b[1m${s}\x1b[0m` : s)
+};
+
 export function registerDoctor(program) {
   program
     .command('doctor')
@@ -471,7 +483,9 @@ export function registerDoctor(program) {
     .option('--fix', 'Auto-apply fixes for fixable issues')
     .action(async (options) => {
       const targetDir = process.cwd();
-      console.log(`\nSailor doctor — ${path.basename(targetDir)}\n`);
+      console.log(
+        `\n${c.bold(c.cyan('Sailor doctor'))} ${c.dim('—')} ${path.basename(targetDir)}\n`
+      );
 
       const results = [];
       for (const check of CHECKS) {
@@ -489,10 +503,11 @@ export function registerDoctor(program) {
       }
 
       for (const r of results) {
-        const mark = r.ok ? '✓' : '✗';
-        const tag = r.fixable && !r.ok ? ' (fixable)' : '';
-        console.log(`${mark} ${r.label}${tag}`);
-        console.log(`  ${r.message}`);
+        const mark = r.ok ? c.green('✓') : c.red('✗');
+        const tag = r.fixable && !r.ok ? c.yellow(' (fixable)') : '';
+        const label = r.ok ? r.label : c.bold(r.label);
+        console.log(`${mark} ${label}${tag}`);
+        console.log(`  ${c.dim(r.message)}`);
         console.log('');
       }
 
@@ -500,37 +515,37 @@ export function registerDoctor(program) {
       const fixable = failing.filter((r) => r.fixable);
 
       if (failing.length === 0) {
-        console.log('All checks passed.');
+        console.log(c.green(c.bold('All checks passed.')));
         return;
       }
 
       if (!options.fix) {
         console.log(
-          `${failing.length} issue(s) found, ${fixable.length} fixable. Re-run with --fix to apply.`
+          `${c.bold(`${failing.length} issue(s) found`)}, ${c.yellow(`${fixable.length} fixable`)}. Re-run with ${c.cyan('--fix')} to apply.`
         );
         process.exit(failing.length === fixable.length ? 0 : 1);
       }
 
       if (fixable.length === 0) {
-        console.log(`${failing.length} issue(s) found, none auto-fixable.`);
+        console.log(c.red(`${failing.length} issue(s) found, none auto-fixable.`));
         process.exit(1);
       }
 
-      console.log(`Applying ${fixable.length} fix(es):\n`);
+      console.log(`${c.bold(`Applying ${fixable.length} fix(es):`)}\n`);
       for (const r of fixable) {
-        console.log(`→ ${r.label}`);
+        console.log(c.cyan(`→ ${r.label}`));
         try {
           await r.fix();
         } catch (err) {
-          console.error(`  ✗ fix failed: ${err?.message || err}`);
+          console.error(`  ${c.red('✗ fix failed:')} ${err?.message || err}`);
         }
         console.log('');
       }
       const unfixed = failing.length - fixable.length;
       console.log(
         unfixed === 0
-          ? '✅ All fixable issues resolved.'
-          : `✅ Applied ${fixable.length} fix(es); ${unfixed} issue(s) need manual attention.`
+          ? c.green(c.bold('✅ All fixable issues resolved.'))
+          : `${c.green(`✅ Applied ${fixable.length} fix(es)`)}; ${c.yellow(`${unfixed} issue(s) need manual attention.`)}`
       );
       if (unfixed > 0) process.exit(1);
     });
