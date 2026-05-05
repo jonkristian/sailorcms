@@ -261,7 +261,12 @@ export async function updateSailorCoreFiles(targetDir) {
     }
 
     // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
-    await cleanDir(mainSailorDir, targetSailorDir, ['templates', 'generated', 'i18n/messages']);
+    await cleanDir(mainSailorDir, targetSailorDir, [
+      'templates',
+      'generated',
+      'i18n/messages',
+      'i18n/paraglide'
+    ]);
   }
 
   // Update components — CMS-managed subfolders (ui/ and sailor/) get cleaned so
