@@ -16,9 +16,7 @@
 //
 // Postgres: skipped — driver/column semantics differ.
 
-import path from 'path';
-import { existsSync } from 'fs';
-import { pathToFileURL } from 'url';
+import { createConsumerLibsqlClient } from '../utils.js';
 
 const MS_THRESHOLD = 9999999999n; // year 2286 in seconds
 
@@ -30,31 +28,16 @@ export function registerDbRepairTimestamps(program) {
     .action(async (options) => {
       const targetDir = process.cwd();
 
-      // Load env
-      try {
-        const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
-        if (existsSync(dotenvPath)) {
-          const { config } = await import(pathToFileURL(dotenvPath).href);
-          config({ path: path.join(targetDir, '.env') });
-        }
-      } catch {}
-
-      const dbUrl = process.env.DATABASE_URL;
-      if (!dbUrl) {
-        console.error('❌ DATABASE_URL is not set.');
+      const { client, skipped, skipReason } = await createConsumerLibsqlClient(targetDir, {
+        skipPostgres: 'Postgres detected — repair is SQLite-only. Nothing to do.'
+      }).catch((err) => {
+        console.error(`❌ ${err.message}`);
         process.exit(1);
-      }
-
-      if (dbUrl.startsWith('postgres')) {
-        console.log('ℹ️  Postgres detected — repair is SQLite-only. Nothing to do.');
+      });
+      if (skipped) {
+        console.log(`ℹ️  ${skipReason}`);
         return;
       }
-
-      const { createClient } = await import('@libsql/client');
-      const client = createClient({
-        url: dbUrl,
-        authToken: process.env.DATABASE_AUTH_TOKEN
-      });
 
       console.log(
         options.dryRun

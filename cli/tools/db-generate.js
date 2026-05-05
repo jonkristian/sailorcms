@@ -6,7 +6,9 @@ import { pathToFileURL } from 'url';
 export function registerDbGenerate(program) {
   program
     .command('db:generate')
-    .description('Generate database schema from templates')
+    .description(
+      'Regenerate generated/schema.ts and types.ts from templates (types-only subset of db:update — does not run drizzle-kit generate or migrations)'
+    )
     .action(async () => {
       try {
         console.log('🗄️ Generating database schema...');

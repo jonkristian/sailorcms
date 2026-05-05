@@ -26,7 +26,7 @@ import { registerSyncUi } from './tools/sync-ui.js';
       // Import dotenv from the consumer project's node_modules
       const dotenvPath = path.join(process.cwd(), 'node_modules', 'dotenv', 'lib', 'main.js');
       const { config } = await import(dotenvPath);
-      config();
+      config({ quiet: true });
     } catch (error) {
       // dotenv not available - fallback to manual parsing or skip
     }
@@ -42,18 +42,32 @@ import { registerSyncUi } from './tools/sync-ui.js';
     .description("A smooth sailin' template-driven CMS for SvelteKit")
     .version(packageJson.version);
 
+  // Order matters for `--help` output. Group by namespace so consumers can
+  // scan the categories cleanly.
+
+  // core:* — install + update sailor in a SvelteKit project
   registerCoreInit(program);
   registerCoreUpdate(program);
-  registerDbGenerate(program);
+
+  // db:* — schema generation, migration, seeding, backup/restore, repair
   registerDbUpdate(program);
+  registerDbGenerate(program);
+  registerDbSeed(program);
   registerDbBackup(program);
   registerDbRestore(program);
-  registerDbSeed(program);
-  registerSearchReindex(program);
-  registerDbRepairTimestamps(program);
   registerDbRepair(program);
+  registerDbRepairTimestamps(program);
+
+  // search:* — index management
+  registerSearchReindex(program);
+
+  // users:* — user/role management
   registerUserCommands(program);
+
+  // doctor — consumer setup healthcheck
   registerDoctor(program);
+
+  // dev:* — maintainer-only commands (run from sailor's own repo)
   registerSyncUi(program);
 
   program.parse();

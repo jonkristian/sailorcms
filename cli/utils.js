@@ -1047,16 +1047,7 @@ export async function ensureDrizzleScaffold(targetDir) {
  * exists. Called before any CLI step that hands off to drizzle-kit / libsql.
  */
 export async function ensureDbDir(targetDir) {
-  // Load .env so DATABASE_URL is available.
-  try {
-    const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
-    const { config } = await import(dotenvPath);
-    config({ path: path.join(targetDir, '.env') });
-  } catch {
-    // dotenv not installed or .env missing — nothing to do.
-    return;
-  }
-
+  await loadConsumerEnv(targetDir);
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl || !dbUrl.startsWith('file:')) return;
   const filePath = dbUrl.replace(/^file:/, '');
@@ -1201,24 +1192,48 @@ export async function getConsumerSchemaOrFail(targetDir) {
   return await import(schemaUrl);
 }
 
-export async function createCliDbOrFail(targetDir) {
-  // Ensure env loaded from consumer project
+/**
+ * Load the consumer's `.env` via their installed dotenv. Silently no-ops if
+ * dotenv isn't present (still-uninstalled projects, CI environments where
+ * env vars come from elsewhere). Idempotent — safe to call repeatedly.
+ */
+export async function loadConsumerEnv(targetDir) {
   try {
     const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
-    const { config } = await import(dotenvPath);
-    config();
-  } catch {}
+    if (!(await fs.pathExists(dotenvPath))) return;
+    const { config } = await import(pathToFileURL(dotenvPath).href);
+    config({ path: path.join(targetDir, '.env'), quiet: true });
+  } catch {
+    /* ignore */
+  }
+}
 
-  // Create libsql client directly (avoid importing adapter files)
+/**
+ * Open a libsql client against the consumer's DATABASE_URL. Loads env first
+ * if not already loaded. Returns the raw client (not a drizzle wrapper) so
+ * callers can issue arbitrary `client.execute()` queries — useful for the
+ * repair commands that work below the schema level.
+ *
+ * Pass `{ skipPostgres: 'message...' }` to short-circuit if DATABASE_URL is a
+ * Postgres URL — the repair commands are SQLite/libsql-only.
+ */
+export async function createConsumerLibsqlClient(targetDir, { skipPostgres } = {}) {
+  await loadConsumerEnv(targetDir);
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     throw new Error('DATABASE_URL is not set. Copy .env.sailor to .env and set it.');
   }
+  if (skipPostgres && dbUrl.startsWith('postgres')) {
+    return { client: null, dbUrl, skipped: true, skipReason: skipPostgres };
+  }
   const { createClient } = await import('@libsql/client');
-  const { drizzle } = await import('drizzle-orm/libsql');
   const client = createClient({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN });
+  return { client, dbUrl, skipped: false };
+}
 
-  // Get consumer schema (throws if missing)
+export async function createCliDbOrFail(targetDir) {
+  const { client } = await createConsumerLibsqlClient(targetDir);
+  const { drizzle } = await import('drizzle-orm/libsql');
   const schema = await getConsumerSchemaOrFail(targetDir);
   return drizzle(client, { schema });
 }
@@ -1242,13 +1257,7 @@ export async function createCliDbOrFail(targetDir) {
  * for it until/unless we add a Postgres bootstrap path.
  */
 export async function runMigrations(targetDir) {
-  // Load env (DATABASE_URL etc.)
-  try {
-    const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
-    const { config } = await import(dotenvPath);
-    config({ path: path.join(targetDir, '.env') });
-  } catch {}
-
+  await loadConsumerEnv(targetDir);
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     throw new Error('DATABASE_URL is not set.');

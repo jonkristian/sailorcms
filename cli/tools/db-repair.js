@@ -18,9 +18,9 @@
 
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { pathToFileURL } from 'url';
 import fs from 'fs-extra';
 import crypto from 'node:crypto';
+import { createConsumerLibsqlClient } from '../utils.js';
 
 export function registerDbRepair(program) {
   program
@@ -32,25 +32,15 @@ export function registerDbRepair(program) {
     .action(async (options) => {
       const targetDir = process.cwd();
 
-      // Load env (.env)
-      try {
-        const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
-        if (existsSync(dotenvPath)) {
-          const { config } = await import(pathToFileURL(dotenvPath).href);
-          config({ path: path.join(targetDir, '.env') });
-        }
-      } catch {}
-
-      const dbUrl = process.env.DATABASE_URL;
-      if (!dbUrl) {
-        console.error('❌ DATABASE_URL is not set.');
+      const { client, skipped, skipReason } = await createConsumerLibsqlClient(targetDir, {
+        skipPostgres:
+          'Postgres detected — repair is SQLite/Turso-only. Use `drizzle-kit push` instead.'
+      }).catch((err) => {
+        console.error(`❌ ${err.message}`);
         process.exit(1);
-      }
-
-      if (dbUrl.startsWith('postgres')) {
-        console.log(
-          'ℹ️  Postgres detected — repair is SQLite/Turso-only. Use `drizzle-kit push` instead.'
-        );
+      });
+      if (skipped) {
+        console.log(`ℹ️  ${skipReason}`);
         return;
       }
 
@@ -67,12 +57,6 @@ export function registerDbRepair(program) {
         console.error('❌ Could not parse any tables from schema.ts.');
         process.exit(1);
       }
-
-      const { createClient } = await import('@libsql/client');
-      const client = createClient({
-        url: dbUrl,
-        authToken: process.env.DATABASE_AUTH_TOKEN
-      });
 
       console.log(
         options.dryRun ? '🔍 Dry run — scanning for schema drift…' : '🛠️  Repairing schema drift…'

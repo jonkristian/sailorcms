@@ -3,7 +3,7 @@ import { createDatabaseAdapter } from './adapter-factory';
 
 // Ensure environment variables are loaded
 import { config } from 'dotenv';
-config();
+config({ quiet: true });
 
 // Create database connection using adapter pattern
 async function createDatabaseConnection() {

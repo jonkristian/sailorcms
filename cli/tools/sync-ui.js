@@ -61,7 +61,7 @@ function rewriteContent(content) {
 
 export function registerSyncUi(program) {
   program
-    .command('sync:ui')
+    .command('dev:sync-ui')
     .description(
       'Normalize newly-added shadcn-svelte ui components: rewrite $lib/components/ui/... refs to sailorcms/components/ui/..., flatten bare barrels to /index.js'
     )
