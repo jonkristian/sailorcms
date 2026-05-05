@@ -36,25 +36,33 @@ async function walkSourceFiles(rootDir, onFile) {
 
 function buildStaleImportPatterns() {
   // The migrated subtree paths a consumer might still have in user-owned
-  // scaffold files (hooks.server.ts, (site)/* routes, customized templates).
-  // Each entry: [needle, replacement]
+  // scaffold files (hooks.server.ts, (site)/* routes, customized templates,
+  // root configs like drizzle.config.ts). Each entry: [needle, replacement]
   const patterns = [];
   for (const dir of SAILOR_DIRS_RESOLVED_VIA_PACKAGE) {
     patterns.push([`$sailor/${dir}/`, `sailorcms/${dir}/`]);
     patterns.push([`$lib/sailor/${dir}/`, `sailorcms/${dir}/`]);
+    // Older scaffolds (e.g. drizzle.config.ts) used the relative form into
+    // src/lib/sailor; that path no longer resolves once the subtree migrates.
+    patterns.push([`./src/lib/sailor/${dir}/`, `sailorcms/${dir}/`]);
   }
   for (const dir of COMPONENT_DIRS_RESOLVED_VIA_PACKAGE) {
     patterns.push([`$lib/components/${dir}/`, `sailorcms/components/${dir}/`]);
+    patterns.push([`./src/lib/components/${dir}/`, `sailorcms/components/${dir}/`]);
   }
   return patterns;
 }
+
+// Extra root-level files outside `src/` that may carry stale imports —
+// drizzle.config.ts is the only common case today.
+const EXTRA_ROOT_FILES = ['drizzle.config.ts'];
 
 async function checkStaleMigratedImports(targetDir) {
   const srcDir = path.join(targetDir, 'src');
   const patterns = buildStaleImportPatterns();
   const hits = []; // { file, line, lineText, needle }
 
-  await walkSourceFiles(srcDir, async (full) => {
+  const inspect = async (full) => {
     const content = await fs.readFile(full, 'utf8');
     let earliestPattern = null;
     for (const [needle] of patterns) {
@@ -78,7 +86,13 @@ async function checkStaleMigratedImports(targetDir) {
         }
       }
     }
-  });
+  };
+
+  await walkSourceFiles(srcDir, inspect);
+  for (const rel of EXTRA_ROOT_FILES) {
+    const full = path.join(targetDir, rel);
+    if (await fs.pathExists(full)) await inspect(full);
+  }
 
   if (hits.length === 0) {
     return {
@@ -102,7 +116,7 @@ async function checkStaleMigratedImports(targetDir) {
     fixable: true,
     fix: async () => {
       const touched = new Set();
-      await walkSourceFiles(srcDir, async (full) => {
+      const rewrite = async (full) => {
         let content = await fs.readFile(full, 'utf8');
         let changed = false;
         for (const [needle, replacement] of patterns) {
@@ -115,7 +129,12 @@ async function checkStaleMigratedImports(targetDir) {
           await fs.writeFile(full, content);
           touched.add(path.relative(targetDir, full));
         }
-      });
+      };
+      await walkSourceFiles(srcDir, rewrite);
+      for (const rel of EXTRA_ROOT_FILES) {
+        const full = path.join(targetDir, rel);
+        if (await fs.pathExists(full)) await rewrite(full);
+      }
       for (const f of touched) console.log(`  🔧 rewrote imports in ${f}`);
     }
   };

@@ -12,7 +12,7 @@
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
@@ -22,7 +22,7 @@
   import {
     deleteFiles as deleteMediaFiles,
     updateFilesTags as updateMediaFilesTags
-  } from '$sailor/remote/files.remote.js';
+  } from 'sailorcms/remote/files.remote.js';
   import { uploadFiles, type UploadOptions } from 'sailorcms/core/files/upload';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Select from '$lib/components/ui/select/index.js';

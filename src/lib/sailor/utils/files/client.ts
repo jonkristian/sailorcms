@@ -20,7 +20,7 @@ import type { ResponsiveImageData } from '../types';
  *
  * @example
  * ```typescript
- * import { getFile } from '$lib/sailor/utils/files';
+ * import { getFile } from 'sailorcms/utils/files/index';
  *
  * // With file path
  * const fileUrl = getFile('/uploads/document.pdf');
@@ -104,7 +104,7 @@ export function getDefaultBreakpoints(): number[] {
  *
  * @example
  * ```typescript
- * import { getImage, setDefaultBreakpoints } from '$lib/sailor/utils/files';
+ * import { getImage, setDefaultBreakpoints } from 'sailorcms/utils/files/index';
  *
  * // Set your app's defaults once (optional)
  * setDefaultBreakpoints([375, 768, 1024, 1400]);
@@ -247,7 +247,7 @@ export function getImage(
  *
  * @example
  * ```typescript
- * import { isImage } from '$lib/sailor/utils';
+ * import { isImage } from 'sailorcms/utils/index';
  *
  * if (isImage('/uploads/photo.jpg')) {
  *   // Show image preview
@@ -268,7 +268,7 @@ export function isImage(filePath: string): boolean {
  *
  * @example
  * ```typescript
- * import { getFileExtension } from '$lib/sailor/utils';
+ * import { getFileExtension } from 'sailorcms/utils/index';
  *
  * const ext = getFileExtension('/uploads/document.pdf'); // 'pdf'
  * ```
@@ -285,7 +285,7 @@ export function getFileExtension(filePath: string): string {
  *
  * @example
  * ```typescript
- * import { formatFileSize } from '$lib/sailor/utils';
+ * import { formatFileSize } from 'sailorcms/utils/index';
  *
  * const size = formatFileSize(1024); // '1 KB'
  * const size2 = formatFileSize(1048576); // '1 MB'

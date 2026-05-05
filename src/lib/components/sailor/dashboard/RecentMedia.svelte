@@ -4,8 +4,8 @@
   import { FileImage, FileText, Video, Music, File, ExternalLink } from '@lucide/svelte';
   import { formatRelativeTime } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
-  import { formatFileSize } from '$sailor/utils/files';
-  import type { File as FileType } from '$sailor/utils/types';
+  import { formatFileSize } from 'sailorcms/utils/files/index';
+  import type { File as FileType } from 'sailorcms/utils/types';
   import { m } from '$sailor/i18n';
 
   interface Props {

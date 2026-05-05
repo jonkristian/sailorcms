@@ -3,7 +3,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Plus, Save, ChevronDown, ChevronUp } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
 
   // All props are optional for flexibility
   const {

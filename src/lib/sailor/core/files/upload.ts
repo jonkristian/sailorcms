@@ -1,4 +1,4 @@
-import { uploadFiles as uploadFilesRemote } from '$sailor/remote/files.remote.js';
+import { uploadFiles as uploadFilesRemote } from 'sailorcms/remote/files.remote.js';
 
 export interface UploadOptions {
   onFileProgress?: (fileName: string, progress: number) => void;

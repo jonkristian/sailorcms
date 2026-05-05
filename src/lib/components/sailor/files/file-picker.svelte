@@ -12,7 +12,7 @@
     Upload,
     Copy
   } from '@lucide/svelte';
-  import { cn } from '$lib/sailor/utils';
+  import { cn } from '$lib/sailor/utils.js';
   import * as Table from '$lib/components/ui/table';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import * as Pagination from '$lib/components/ui/pagination';
@@ -24,7 +24,7 @@
   import { GripVertical } from '@lucide/svelte';
   import { Label } from '$lib/components/ui/label';
   import * as Select from '$lib/components/ui/select';
-  import { getFiles } from '$sailor/remote/files.remote.js';
+  import { getFiles } from 'sailorcms/remote/files.remote.js';
   import { uploadFiles } from 'sailorcms/core/files/upload';
   import FileUploadProgress from 'sailorcms/components/sailor/FileUploadProgress.svelte';
   import VerticalList from 'sailorcms/components/sailor/dnd/VerticalList.svelte';

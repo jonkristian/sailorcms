@@ -140,7 +140,7 @@
         return;
       }
 
-      const { getCollectionItem } = await import('$sailor/remote/collections.remote.js');
+      const { getCollectionItem } = await import('sailorcms/remote/collections.remote.js');
       const result = await getCollectionItem({ collection: slug || '', id });
 
       if (!result.success) {

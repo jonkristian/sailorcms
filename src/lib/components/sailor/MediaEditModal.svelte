@@ -10,7 +10,7 @@
   import TagsInput from 'sailorcms/components/sailor/fields/TagsInput.svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { getFileTags, updateFile } from '$sailor/remote/files.remote.js';
+  import { getFileTags, updateFile } from 'sailorcms/remote/files.remote.js';
 
   // Props
   let {

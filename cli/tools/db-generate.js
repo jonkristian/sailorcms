@@ -65,15 +65,19 @@ async function generateSchema() {
     pathToFileURL(path.join(targetDir, 'src/lib/sailor/templates/settings.ts')).href
   );
 
-  // Import CMS utilities from the consumer project (these are copied during init)
+  // Import CMS utilities from the package (sailor's admin code lives in
+  // node_modules/sailorcms/ in consumers; in sailor's own dev, the same
+  // relative path resolves to the repo's src/lib/sailor/).
+  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  const pkgRoot = path.join(__dirname, '..', '..');
   const typesModule = await import(
-    pathToFileURL(path.join(targetDir, 'src/lib/sailor/core/types.ts')).href
+    pathToFileURL(path.join(pkgRoot, 'src/lib/sailor/core/types.ts')).href
   );
   const adapterFactoryModule = await import(
-    pathToFileURL(path.join(targetDir, 'src/lib/sailor/core/db/adapter-factory.ts')).href
+    pathToFileURL(path.join(pkgRoot, 'src/lib/sailor/core/db/adapter-factory.ts')).href
   );
   const stringUtilsModule = await import(
-    pathToFileURL(path.join(targetDir, 'src/lib/sailor/core/utils/string.ts')).href
+    pathToFileURL(path.join(pkgRoot, 'src/lib/sailor/core/utils/string.ts')).href
   );
 
   // Extract the exports
@@ -89,7 +93,6 @@ async function generateSchema() {
   const adapter = await createDatabaseAdapter();
 
   // Import the schema generator from the CLI tools directory
-  const __dirname = path.dirname(new URL(import.meta.url).pathname);
   const { SchemaGenerator } = await import(
     pathToFileURL(path.join(__dirname, 'generator/schema.js')).href
   );

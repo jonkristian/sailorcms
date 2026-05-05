@@ -3,7 +3,7 @@
   import { Plus } from '@lucide/svelte';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import EditModal from './EditModal.svelte';
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';

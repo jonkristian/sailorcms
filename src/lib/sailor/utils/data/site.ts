@@ -7,7 +7,7 @@ import type { SiteConfig } from '../types';
  *
  * @example
  * ```typescript
- * import { getSiteSettings } from '$lib/sailor/utils/site';
+ * import { getSiteSettings } from 'sailorcms/utils/site';
  *
  * const config = await getSiteSettings();
  * ```

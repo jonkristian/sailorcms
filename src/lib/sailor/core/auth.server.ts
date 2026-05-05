@@ -12,7 +12,7 @@ import { users, sessions, accounts, verifications } from './db/index.server';
 import { getSettings } from './settings';
 import { building } from '$app/environment';
 import { SystemSettingsService } from './services/settings.server';
-import { sendMail } from '$sailor/utils/mail/server';
+import { sendMail } from 'sailorcms/utils/mail/server';
 import { eq } from 'drizzle-orm';
 
 // Create access control configuration based on settings

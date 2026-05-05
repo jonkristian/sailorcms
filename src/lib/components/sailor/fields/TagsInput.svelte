@@ -2,7 +2,7 @@
   import { debounce } from 'sailorcms/core/utils/debounce';
   import { Badge } from '$lib/components/ui/badge';
   import { X } from '@lucide/svelte';
-  import { searchTags } from '$sailor/remote/tags.remote.js';
+  import { searchTags } from 'sailorcms/remote/tags.remote.js';
   import { m } from '$sailor/i18n';
 
   interface Tag {

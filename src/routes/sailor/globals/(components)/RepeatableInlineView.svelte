@@ -2,7 +2,7 @@
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, requirePermission } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import { generateUUID } from 'sailorcms/core/utils/common';
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';

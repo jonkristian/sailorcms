@@ -2,7 +2,7 @@ import { error, type RequestHandler } from '@sveltejs/kit';
 import { ImageProcessor } from 'sailorcms/core/services/image.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 import { S3StorageService } from 'sailorcms/core/services/storage-s3.server';
-import { getFileObject } from '$sailor/utils/files/server';
+import { getFileObject } from 'sailorcms/utils/files/server';
 import { log } from 'sailorcms/core/utils/logger';
 
 export const GET: RequestHandler = async ({ url }) => {

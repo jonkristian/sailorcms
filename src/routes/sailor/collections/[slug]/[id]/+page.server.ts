@@ -146,7 +146,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
           const targetId = page[fieldName];
           if (targetId) {
             try {
-              const { getRelationItem } = await import('$sailor/remote/relations.remote');
+              const { getRelationItem } = await import('sailorcms/remote/relations.remote');
               const scope = (fieldDef as any).relation?.targetGlobal ? 'global' : 'collection';
               const slugArg =
                 (fieldDef as any).relation?.targetGlobal ||

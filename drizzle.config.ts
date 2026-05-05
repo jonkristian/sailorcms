@@ -1,3 +1,3 @@
-import { sailorDrizzleConfig } from './src/lib/sailor/core/db/drizzle-config';
+import { sailorDrizzleConfig } from 'sailorcms/core/db/drizzle-config';
 
 export default sailorDrizzleConfig();

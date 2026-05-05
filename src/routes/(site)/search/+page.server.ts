@@ -1,4 +1,4 @@
-import { search } from '$sailor/utils/index';
+import { search } from 'sailorcms/utils/index';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {

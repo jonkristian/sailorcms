@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getDashboardData } from '$lib/sailor/remote/dashboard.remote';
+import { getDashboardData } from 'sailorcms/remote/dashboard.remote';
 
 export const load: PageServerLoad = async () => {
   // Use existing remote function that handles its own authorization

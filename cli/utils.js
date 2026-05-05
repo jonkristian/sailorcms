@@ -32,7 +32,7 @@ export const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
  * each subtree migrates from copy-and-paste distribution to package-resolved
  * imports.
  */
-export const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = ['styles', 'core'];
+export const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = ['styles', 'core', 'utils', 'remote'];
 
 async function pruneStalePackageExportedComponents(targetComponentsDir) {
   for (const dir of COMPONENT_DIRS_RESOLVED_VIA_PACKAGE) {
@@ -498,6 +498,97 @@ export function patchViteConfig(content) {
       });
     } else {
       applied.push('resolve.dedupe');
+    }
+  }
+
+  // 4. ssr.noExternal — bundle sailor's admin code through Vite's SSR
+  //    pipeline instead of letting Node load it from node_modules. Lets
+  //    `$sailor/...` aliases inside sailor's package code resolve via the
+  //    consumer's Vite config (where `kit.alias.$sailor` points at the
+  //    consumer's `src/lib/sailor`, which holds generated/, templates/,
+  //    i18n/, etc. — the consumer-owned resources sailor's package code
+  //    references). Without this the SSR module loader externalizes sailor,
+  //    Node loads it without alias awareness, and imports like
+  //    `$sailor/generated/schema` from sailor's core fail at runtime.
+  if (!/ssr\s*:\s*\{[^}]*noExternal[^}]*['"]sailorcms['"]/.test(updated)) {
+    const noExternalMatch = updated.match(/ssr\s*:\s*\{([\s\S]*?)\}/);
+    if (noExternalMatch && /noExternal\s*:\s*\[/.test(noExternalMatch[1])) {
+      // ssr.noExternal exists but doesn't include 'sailorcms' — splice in
+      const before = updated;
+      updated = updated.replace(
+        /(noExternal\s*:\s*\[)([^\]]*)(\])/,
+        (_m, open, inner, close) => {
+          const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
+          const additions = trimmed.trim() ? `${trimmed}, 'sailorcms'` : `'sailorcms'`;
+          return `${open}${additions}${close}`;
+        }
+      );
+      if (updated !== before) applied.push('ssr.noExternal');
+    } else if (/\bssr\s*:\s*\{/.test(updated)) {
+      // ssr block exists without noExternal — inject it
+      const before = updated;
+      updated = updated.replace(/(\bssr\s*:\s*\{)/, `$1\n    noExternal: ['sailorcms'],`);
+      if (updated !== before) applied.push('ssr.noExternal');
+    } else {
+      // No ssr block — add one
+      const before = updated;
+      updated = updated.replace(
+        /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
+        `$1,\n  ssr: {\n    noExternal: ['sailorcms']\n  },`
+      );
+      if (updated === before) {
+        manual.push({
+          name: 'ssr.noExternal',
+          hint: `Add \`ssr: { noExternal: ['sailorcms'] }\` to your defineConfig in vite.config.ts. Required so sailor's admin code (resolved from node_modules/sailorcms) goes through Vite's SSR transform pipeline — without this, the \`$sailor/...\` aliases inside sailor's package code don't resolve and dev mode 500s on first request.`
+        });
+      } else {
+        applied.push('ssr.noExternal');
+      }
+    }
+  }
+
+  // 5. optimizeDeps — exclude sailorcms (so its source goes through Vite's
+  //    dev module pipeline instead of esbuild prebundle, which doesn't know
+  //    about Vite aliases or how to handle TS in `.svelte.ts` rune-state
+  //    files). Include the highlight.js subpaths sailor uses so Vite picks
+  //    up their ESM exports condition for proper named-export interop.
+  if (!/optimizeDeps\s*:\s*\{[^}]*exclude[^}]*['"]sailorcms['"]/.test(updated)) {
+    const optMatch = updated.match(/optimizeDeps\s*:\s*\{([\s\S]*?)\}/);
+    if (optMatch && /\bexclude\s*:\s*\[/.test(optMatch[1])) {
+      // optimizeDeps.exclude exists but doesn't include 'sailorcms' — splice in
+      const before = updated;
+      updated = updated.replace(
+        /(optimizeDeps\s*:\s*\{[\s\S]*?\bexclude\s*:\s*\[)([^\]]*)(\])/,
+        (_m, open, inner, close) => {
+          const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
+          const additions = trimmed.trim() ? `${trimmed}, 'sailorcms'` : `'sailorcms'`;
+          return `${open}${additions}${close}`;
+        }
+      );
+      if (updated !== before) applied.push('optimizeDeps.exclude');
+    } else if (/\boptimizeDeps\s*:\s*\{/.test(updated)) {
+      // optimizeDeps exists without exclude — inject
+      const before = updated;
+      updated = updated.replace(
+        /(\boptimizeDeps\s*:\s*\{)/,
+        `$1\n    exclude: ['sailorcms'],\n    include: ['highlight.js/lib/core', 'highlight.js/lib/languages/json'],`
+      );
+      if (updated !== before) applied.push('optimizeDeps.exclude');
+    } else {
+      // No optimizeDeps block — add one
+      const before = updated;
+      updated = updated.replace(
+        /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
+        `$1,\n  optimizeDeps: {\n    exclude: ['sailorcms'],\n    include: ['highlight.js/lib/core', 'highlight.js/lib/languages/json']\n  },`
+      );
+      if (updated === before) {
+        manual.push({
+          name: 'optimizeDeps',
+          hint: `Add \`optimizeDeps: { exclude: ['sailorcms'], include: ['highlight.js/lib/core', 'highlight.js/lib/languages/json'] }\` to your defineConfig in vite.config.ts. Required so esbuild prebundle skips sailor's source (which uses Vite-only features like \`$sailor\` aliases and \`.svelte.ts\` rune state files) and Vite picks up highlight.js's ESM exports condition.`
+        });
+      } else {
+        applied.push('optimizeDeps.exclude');
+      }
     }
   }
 

@@ -32,7 +32,7 @@
   import { slugify } from 'sailorcms/core/utils/common';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { getUniqueSlug } from '$sailor/remote/collections.remote.js';
+  import { getUniqueSlug } from 'sailorcms/remote/collections.remote.js';
   import ArrayField from './ArrayField.svelte';
   import ReadField from './ReadField.svelte';
   import BooleanField from './BooleanField.svelte';

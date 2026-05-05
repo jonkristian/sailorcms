@@ -112,7 +112,7 @@
   async function openAuthorDialog() {
     // Load users list on demand
     try {
-      const { getUsers } = await import('$sailor/remote/users.remote.js');
+      const { getUsers } = await import('sailorcms/remote/users.remote.js');
       const result = await getUsers({});
       if (result.success) {
         authorOptions = result.users.map((u: any) => ({

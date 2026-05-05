@@ -1,5 +1,5 @@
 // Main barrel export - maintains backward compatibility
-// Developers can import from '$sailor/utils' or from specific categories
+// Developers can import from 'sailorcms/utils/index' or from specific categories
 
 // Data utilities (server-side)
 export {

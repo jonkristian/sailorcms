@@ -4,14 +4,14 @@
   import { Badge } from '$lib/components/ui/badge';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import { Cloud, HardDrive, FileText, Wrench, Loader2, Download } from '@lucide/svelte';
   import type { PageData } from './$types';
   import Header from 'sailorcms/components/sailor/Header.svelte';
 
   const { data }: { data: PageData } = $props();
 
-  import { repairFileUrls, checkFiles, importFiles } from '$sailor/remote/files.remote.js';
+  import { repairFileUrls, checkFiles, importFiles } from 'sailorcms/remote/files.remote.js';
 
   // State for tracking scan results
   let importScanResult: any = $state(null);

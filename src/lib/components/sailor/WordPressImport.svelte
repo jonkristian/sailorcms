@@ -124,7 +124,7 @@
     previewError = '';
 
     try {
-      const { previewWordPressAPI } = await import('$sailor/remote/wordpress.remote.js');
+      const { previewWordPressAPI } = await import('sailorcms/remote/wordpress.remote.js');
       const result = await previewWordPressAPI({
         apiConfig: {
           baseUrl: apiConfig.baseUrl.trim(),
@@ -176,7 +176,7 @@
       importStatus = m.wp_status_connecting();
       importProgress = 10;
 
-      const { importWordPressContent } = await import('$sailor/remote/wordpress.remote.js');
+      const { importWordPressContent } = await import('sailorcms/remote/wordpress.remote.js');
 
       // Update progress during fetch phase
       importStatus = m.wp_status_fetching();
@@ -263,7 +263,7 @@
 
     loadingFields = true;
     try {
-      const { getCollectionFields } = await import('$sailor/remote/collections.remote.js');
+      const { getCollectionFields } = await import('sailorcms/remote/collections.remote.js');
       const result = await getCollectionFields({ collection: collectionSlug });
 
       if (result.success) {

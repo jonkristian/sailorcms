@@ -5,10 +5,10 @@
   import { toast } from 'sailorcms/core/ui/toast';
   import { invalidateAll } from '$app/navigation';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
-  import { deleteTag } from '$sailor/remote/tags.remote.js';
+  import { deleteTag } from 'sailorcms/remote/tags.remote.js';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
 
   let { data } = $props();
 

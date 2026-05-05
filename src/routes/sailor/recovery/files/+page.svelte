@@ -6,11 +6,11 @@
   import { Button } from '$lib/components/ui/button';
   import { toast } from 'sailorcms/core/ui/toast';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-  import { restoreFile } from '$sailor/remote/files.remote.js';
+  import { restoreFile } from 'sailorcms/remote/files.remote.js';
   import { purgeFile } from '../data.remote.js';
   import RecoverySection from '../(components)/RecoverySection.svelte';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import type { PageData } from './$types';
 
   const { data }: { data: PageData } = $props();

@@ -10,7 +10,7 @@
   import { purgeCollectionItem } from '../../data.remote.js';
   import RecoverySection from '../../(components)/RecoverySection.svelte';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import type { PageData } from './$types';
 
   const { data }: { data: PageData } = $props();

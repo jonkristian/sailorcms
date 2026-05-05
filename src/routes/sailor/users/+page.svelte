@@ -14,7 +14,7 @@
   import type { PageData } from './$types';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
 
   interface User {
     id: string;

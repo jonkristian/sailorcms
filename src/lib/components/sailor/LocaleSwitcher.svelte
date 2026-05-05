@@ -3,7 +3,7 @@
   import * as Select from '$lib/components/ui/select';
   import { page } from '$app/state';
   import { locales, m, setLocale, type Locale } from '$sailor/i18n';
-  import { updateMyPreferences } from '$sailor/remote/users.remote.js';
+  import { updateMyPreferences } from 'sailorcms/remote/users.remote.js';
   import { resolvePreferences } from 'sailorcms/core/utils/user-preferences';
 
   const items = $derived([

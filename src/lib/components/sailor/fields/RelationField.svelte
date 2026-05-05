@@ -3,9 +3,9 @@
   import * as Popover from '$lib/components/ui/popover';
   import * as Command from '$lib/components/ui/command';
   import { X, ChevronsUpDown, Check } from '@lucide/svelte';
-  import { cn } from '$lib/sailor/utils';
-  import { getGlobalItems } from '$sailor/remote/globals.remote.js';
-  import { getCollectionItems } from '$sailor/remote/collections.remote.js';
+  import { cn } from '$lib/sailor/utils.js';
+  import { getGlobalItems } from 'sailorcms/remote/globals.remote.js';
+  import { getCollectionItems } from 'sailorcms/remote/collections.remote.js';
   import { m } from '$sailor/i18n';
 
   interface Props {

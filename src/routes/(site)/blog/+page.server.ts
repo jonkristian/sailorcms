@@ -1,5 +1,5 @@
-import { getCollections } from '$sailor/utils/index';
-import type { CollectionsMultipleResult } from '$sailor/utils/types';
+import { getCollections } from 'sailorcms/utils/index';
+import type { CollectionsMultipleResult } from 'sailorcms/utils/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {

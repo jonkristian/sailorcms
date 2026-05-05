@@ -66,12 +66,16 @@ async function getDb() {
   globalDefinitions = t.globalDefinitions;
   settings = t.settings;
 
-  // Load core field definitions from consumer project
-  const coreTypesPath = path.join(targetDir, 'src', 'lib', 'sailor', 'core', 'types.ts');
+  // Load core field definitions from the package (sailor's admin code lives
+  // in node_modules/sailorcms in consumers; in sailor's own dev, the same
+  // relative path resolves to the repo's src/lib/sailor/).
+  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  const pkgRoot = path.join(__dirname, '..', '..');
+  const coreTypesPath = path.join(pkgRoot, 'src', 'lib', 'sailor', 'core', 'types.ts');
 
   if (!existsSync(coreTypesPath)) {
     throw new Error(
-      'Core types not found in app (src/lib/sailor/core/types.ts). Run "npx sailor core:init" first.'
+      'Sailor core types not found in node_modules/sailorcms. Re-run "bun install" / "npm install" to restore the package.'
     );
   }
   const coreTypesMod = await import(pathToFileURL(coreTypesPath).href);

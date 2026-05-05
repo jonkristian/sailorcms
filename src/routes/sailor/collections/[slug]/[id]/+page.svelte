@@ -6,7 +6,7 @@
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { pluralize } from '$sailor/utils/ui/text';
+  import { pluralize } from 'sailorcms/utils/ui/text';
   import { Separator } from '$lib/components/ui/separator';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
