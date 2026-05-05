@@ -104,6 +104,10 @@ npx sailor db:repair-timestamps --dry-run
 npx sailor users:list # List users
 npx sailor users:role user@example.com admin # Change user role
 npx sailor users:verify user@example.com # Verify a user
+
+# Diagnose common setup issues (run if upgrade or build behaves oddly)
+npx sailor doctor # Read-only healthcheck
+npx sailor doctor --fix # Auto-fix what's fixable
 ```
 
 > **Note**: Use `npx sailor` for all CLI commands.

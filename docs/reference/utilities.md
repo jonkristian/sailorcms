@@ -14,7 +14,7 @@ Simple helper functions for loading content in your SvelteKit app.
 The `getCollections()` function is your one-stop solution for all collection queries. It intelligently returns either a single item or multiple items based on the options you provide.
 
 ```typescript
-import { getCollections } from '$sailor/utils/index';
+import { getCollections } from 'sailorcms/utils/index';
 import type { Post, Page } from '$sailor/generated/types';
 
 // Multiple items - returns { items, total, hasMore, pagination?, grouped? }
@@ -154,7 +154,7 @@ type CollectionsMultipleResult<T> = {
 The `getGlobals()` function handles all global queries with the same intelligent single/multiple return pattern.
 
 ```typescript
-import { getGlobals } from '$sailor/utils/index';
+import { getGlobals } from 'sailorcms/utils/index';
 import type { Menu, Category } from '$sailor/generated/types';
 
 // Multiple items from repeatable globals
@@ -243,7 +243,7 @@ The `search()` function queries a denormalized `search_index` table that's popul
 On SQLite/Turso, search uses FTS5 with the trigram tokenizer (substring-friendly: "sail" finds "sailor", "mail" finds "email"). If FTS5 isn't available or returns zero matches, it falls back to a case-insensitive LIKE on title + indexed text.
 
 ```typescript
-import { search } from '$sailor/utils/index';
+import { search } from 'sailorcms/utils/index';
 
 // Search everything marked searchable (no scope)
 const results = await search('sailing', { user: locals.user });
@@ -317,7 +317,7 @@ Results are sorted by `updated_at` descending across all entities. For an empty 
 
 ```typescript
 // +page.server.ts
-import { search } from '$sailor/utils/index';
+import { search } from 'sailorcms/utils/index';
 
 export async function load({ url, locals }) {
   const query = url.searchParams.get('q')?.trim() ?? '';
@@ -353,7 +353,7 @@ This clears `search_index` + `search_index_fts` and repopulates from every searc
 ### Client-side (Browser Components)
 
 ```typescript
-import { getFile, getImage } from '$sailor/utils/files';
+import { getFile, getImage } from 'sailorcms/utils/files/index';
 
 // Get any file URL (works with UUIDs or file paths)
 const fileUrl = getFile('file-id-123');
@@ -378,7 +378,7 @@ const responsive = getImage('file-id-123', {
 
 // CMS provides default breakpoints: [375, 768, 1200, 1600]
 // Override if needed for your project:
-import { setDefaultBreakpoints } from '$sailor/utils/files';
+import { setDefaultBreakpoints } from 'sailorcms/utils/files/index';
 setDefaultBreakpoints([375, 768, 1024, 1400]);
 
 // getImage() is responsive by default (modern web best practice)
@@ -399,7 +399,7 @@ const html = getImage('file-id-123', {
 ### Server-side (Page Load Functions)
 
 ```typescript
-import { getFile, getImage, getImagesByTags } from '$sailor/utils/files/server';
+import { getFile, getImage, getImagesByTags } from 'sailorcms/utils/files/server';
 
 // Get file URL by database ID (for SEO meta tags, etc.)
 const fileUrl = await getFile('file-id-123');
@@ -433,7 +433,7 @@ const specificImages = await getImagesByTags(['nature', 'sunset'], {
 ## Content Utilities
 
 ```typescript
-import { renderContent, getExcerpt } from '$sailor/utils/content';
+import { renderContent, getExcerpt } from 'sailorcms/utils/content/index';
 
 // Convert TipTap JSON content to HTML
 const html = renderContent(post.content);
@@ -457,7 +457,7 @@ const excerpt = getExcerpt(post.content, 160, ' [read more]');
 ## Settings
 
 ```typescript
-import { getSiteSettings } from '$sailor/utils/index';
+import { getSiteSettings } from 'sailorcms/utils/index';
 
 // Site-specific settings (contact email, social media, etc.)
 const config = await getSiteSettings();
@@ -466,7 +466,7 @@ const config = await getSiteSettings();
 ## Email
 
 ```typescript
-import { sendMail, isMailConfigured } from '$sailor/utils/mail/server';
+import { sendMail, isMailConfigured } from 'sailorcms/utils/mail/server';
 
 // Send an email — server-only (e.g. from a +server.ts handler)
 const sent = await sendMail({
@@ -490,7 +490,7 @@ Sailor's own password-reset and email-verification flows use this helper interna
 ## SEO
 
 ```typescript
-import { extractSEO, generateMetaTags } from '$sailor/utils/content/seo';
+import { extractSEO, generateMetaTags } from 'sailorcms/utils/content/seo';
 
 // Get post with SEO fields (automatically included with seo: true)
 const post = await getCollections('posts', { itemSlug: 'my-post' });
@@ -623,7 +623,7 @@ Use content utilities to handle TipTap JSON content and create excerpts:
 
 ```svelte
 <script>
-  import { renderContent, getExcerpt } from '$sailor/utils/content';
+  import { renderContent, getExcerpt } from 'sailorcms/utils/content/index';
 
   let { data } = $props();
   const excerpt = getExcerpt(data.post.content, 160);
@@ -646,7 +646,7 @@ Use content utilities to handle TipTap JSON content and create excerpts:
 
 ```typescript
 // +page.server.ts
-import { getCollections } from '$sailor/utils/index';
+import { getCollections } from 'sailorcms/utils/index';
 import type { Post } from '$sailor/generated/types';
 
 export async function load() {
@@ -659,7 +659,7 @@ export async function load() {
 
 ```typescript
 // +page.server.ts
-import { getCollections } from '$sailor/utils/index';
+import { getCollections } from 'sailorcms/utils/index';
 import type { Post } from '$sailor/generated/types';
 
 export async function load({ url }) {
@@ -679,7 +679,7 @@ export async function load({ url }) {
 
 ```typescript
 // +layout.server.ts
-import { getGlobals, getSiteSettings } from '$sailor/utils/index';
+import { getGlobals, getSiteSettings } from 'sailorcms/utils/index';
 import type { Menu } from '$sailor/generated/types';
 
 export async function load() {
@@ -694,8 +694,8 @@ export async function load() {
 
 ```typescript
 // +page.server.ts
-import { getCollections, getSiteSettings } from '$sailor/utils/index';
-import { extractSEO } from '$sailor/utils/content/seo';
+import { getCollections, getSiteSettings } from 'sailorcms/utils/index';
+import { extractSEO } from 'sailorcms/utils/content/seo';
 import type { Post } from '$sailor/generated/types';
 
 export async function load({ params }) {
@@ -765,7 +765,7 @@ import {
   formatDate,
   timeAgo,
   sortByDate
-} from '$sailor/utils/ui';
+} from 'sailorcms/utils/ui/index';
 
 // Build hierarchical navigation tree from flat items
 const tree = buildNavigationTree(pages.items);

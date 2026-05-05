@@ -96,7 +96,7 @@ Content types with multiple entries (posts, pages, products).
 
 ```typescript
 // src/lib/sailor/templates/collections/posts.ts
-import type { CollectionDefinition } from '$sailor/core/types';
+import type { CollectionDefinition } from 'sailorcms/core/types';
 
 export const postsCollection: CollectionDefinition = {
   name: { singular: 'Post', plural: 'Posts' },
@@ -239,7 +239,7 @@ Site-wide settings and repeatable content.
 
 ```typescript
 // src/lib/sailor/templates/globals/settings.ts
-import type { GlobalDefinition } from '$sailor/core/types';
+import type { GlobalDefinition } from 'sailorcms/core/types';
 
 export const settingsGlobal: GlobalDefinition = {
   name: { singular: 'Settings', plural: 'Settings' },
@@ -397,7 +397,7 @@ Customize CMS behavior in `templates/settings.ts`:
 
 ```typescript
 // src/lib/sailor/templates/settings.ts
-import type { CMSSettings } from '$sailor/core/settings/types';
+import type { CMSSettings } from 'sailorcms/core/settings/types';
 
 export const settings: Partial<CMSSettings> = {
   storage: {
