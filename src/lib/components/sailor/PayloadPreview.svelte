@@ -1,4 +1,5 @@
 <script lang="ts">
+  import './PayloadPreview.css';
   import {
     Sheet,
     SheetContent,
@@ -214,10 +215,3 @@
     </div>
   </SheetContent>
 </Sheet>
-
-<style>
-  /* Hide the default close button */
-  :global([data-slot='sheet-content'] > button) {
-    display: none !important;
-  }
-</style>

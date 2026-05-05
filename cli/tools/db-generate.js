@@ -294,6 +294,32 @@ function mergeWithCoreFields(
   return mergedFields;
 }
 
+/**
+ * Convert a human-readable name to a valid TypeScript identifier.
+ *
+ * Splits on common separators (whitespace, em dash, en dash, hyphen,
+ * underscore, period) and PascalCases the parts. Preserves Unicode letters
+ * (`å`, `ø`, `æ`, etc. are valid TS identifier chars) but strips anything
+ * that isn't a letter, digit, `$`, or `_`. Ensures the result starts with
+ * a letter or underscore so it parses cleanly.
+ *
+ * Examples:
+ *   'Hero Section'         → 'HeroSection'
+ *   'Partnere—logobånd'    → 'PartnereLogobånd'    (em dash split, å kept)
+ *   'Forespørselsskjema'   → 'Forespørselsskjema'  (ø kept as-is)
+ *   '1st Block'            → 'Block'                (leading digit stripped)
+ */
+function toValidIdentifier(name) {
+  const parts = String(name || '')
+    .split(/[\s\-—–_.]+/)
+    .filter(Boolean);
+  const pascal = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+  // Strip anything that isn't a Unicode letter, digit, $, or _
+  const cleaned = pascal.replace(/[^\p{L}\p{N}$_]/gu, '');
+  // Identifiers can't start with a digit
+  return cleaned.replace(/^\p{N}+/u, '') || 'Unnamed';
+}
+
 function generateTypes(
   targetDir,
   { globalDefinitions, collectionDefinitions, blockDefinitions, CORE_FIELDS, SEO_FIELDS }
@@ -374,7 +400,7 @@ function generateTypes(
   // Generate collection types
   typeDefinitions.push('// Collection Types');
   for (const [slug, config] of Object.entries(fieldConfigs.collections)) {
-    const typeName = config.name.singular.replace(/\s+/g, '');
+    const typeName = toValidIdentifier(config.name.singular);
 
     // Start with core database fields that are always present
     const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
@@ -399,7 +425,7 @@ function generateTypes(
   // Generate global types
   typeDefinitions.push('// Global Types');
   for (const [slug, config] of Object.entries(fieldConfigs.globals)) {
-    const typeName = config.name.singular.replace(/\s+/g, '');
+    const typeName = toValidIdentifier(config.name.singular);
 
     // Start with core database fields that are always present
     const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
@@ -424,7 +450,7 @@ function generateTypes(
   // Generate block types
   typeDefinitions.push('// Block Types');
   for (const [slug, config] of Object.entries(fieldConfigs.blocks)) {
-    const typeName = config.name.replace(/\s+/g, '');
+    const typeName = toValidIdentifier(config.name);
 
     // Start with core database fields that are always present
     const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];

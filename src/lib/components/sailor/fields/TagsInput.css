@@ -1,0 +1,4 @@
+/* Ensure suggestions appear above modal content */
+div[class*='z-[100]'] {
+  z-index: 100 !important;
+}

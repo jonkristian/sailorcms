@@ -39,6 +39,7 @@
       controls={['select', 'copy', 'remove']}
       showSelection={true}
       selected={selectedItems.includes(file.id)}
+      selectionActive={selectedItems.length > 0}
       class="cursor-pointer transition-all hover:shadow-md"
       onSelect={() => onSelect(file.id)}
       onRemove={() => onRemove(file.id)}

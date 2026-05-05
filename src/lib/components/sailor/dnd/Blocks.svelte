@@ -3,6 +3,7 @@
   import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { m } from '$sailor/i18n';
+  import { Check, Minus } from '@lucide/svelte';
 
   // Custom vertical-only animation
   function verticalFlip(node: Element, { from, to }: { from: DOMRect; to: DOMRect }, params = {}) {
@@ -383,16 +384,21 @@
           size="sm"
           class="flex items-center gap-2"
           onclick={() => handleSelectAll(!allSelected)}
+          aria-label={m.blocks_select_all_aria()}
+          aria-pressed={allSelected}
         >
-          <div class="flex items-center justify-center">
-            <Checkbox
-              checked={allSelected}
-              indeterminate={someSelected}
-              onCheckedChange={handleSelectAll}
-              aria-label={m.blocks_select_all_aria()}
-              onclick={(e) => e.stopPropagation()}
-            />
-          </div>
+          <span
+            class="border-input bg-background flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border"
+            class:bg-primary={allSelected || someSelected}
+            class:border-primary={allSelected || someSelected}
+            aria-hidden="true"
+          >
+            {#if someSelected && !allSelected}
+              <Minus class="text-primary-foreground h-3 w-3" />
+            {:else if allSelected}
+              <Check class="text-primary-foreground h-3 w-3" />
+            {/if}
+          </span>
           <span class="text-sm font-medium">{m.blocks_select_all()}</span>
         </Button>
       </div>

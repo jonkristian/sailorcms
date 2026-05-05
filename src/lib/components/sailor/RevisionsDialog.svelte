@@ -1,4 +1,5 @@
 <script lang="ts">
+  import './RevisionsDialog.css';
   import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { History, RotateCcw, ChevronLeft, ChevronRight } from '@lucide/svelte';
@@ -221,19 +222,3 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
-
-<style>
-  .diff-line {
-    display: block;
-    padding: 0 0.75rem;
-    border-left: 3px solid transparent;
-  }
-  .diff-line.added {
-    background: rgb(16 185 129 / 0.12);
-    border-left-color: rgb(16 185 129 / 0.7);
-  }
-  .diff-line.removed {
-    background: rgb(244 63 94 / 0.12);
-    border-left-color: rgb(244 63 94 / 0.7);
-  }
-</style>

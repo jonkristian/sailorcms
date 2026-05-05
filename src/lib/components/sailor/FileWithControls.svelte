@@ -11,6 +11,7 @@
     controls = [],
     showSelection = false,
     selected = false,
+    selectionActive = false,
     showFilename = true, // Control whether to show filename overlay
     mimeType = '', // Accept mimeType to determine file type
     deletedAt = null,
@@ -31,6 +32,11 @@
     controls?: ('drag' | 'copy' | 'remove' | 'select')[];
     showSelection?: boolean;
     selected?: boolean;
+    /** When true, keep the controls overlay visible without hover. Used for
+     *  bulk-selection mode in the media gallery — once anything is selected,
+     *  every tile shows its checkbox so the user can pick more without
+     *  hovering each one individually. */
+    selectionActive?: boolean;
     showFilename?: boolean; // Control whether to show filename overlay
     mimeType?: string; // MIME type from database
     deletedAt?: string | Date | null;
@@ -183,28 +189,22 @@
   <!-- Control buttons overlay - top right like file-picker -->
   {#if controls.length > 0}
     <div
-      class="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+      class="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/70 p-1 transition-opacity group-hover:opacity-100"
+      class:opacity-0={!(selected || selectionActive)}
+      class:opacity-100={selected || selectionActive}
     >
       <!-- Selection checkbox -->
       {#if controls.includes('select') && showSelection}
-        <div
+        <label
           class="flex cursor-pointer items-center justify-center rounded p-1 hover:bg-white/20"
-          onclick={handleSelect}
-          onkeydown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleSelect();
-            }
-          }}
-          tabindex="0"
-          role="button"
-          aria-label={m.file_controls_select_image()}
         >
           <CheckboxComponent
             checked={selected}
+            onCheckedChange={() => handleSelect()}
+            aria-label={m.file_controls_select_image()}
             class="h-3 w-3 border-white data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
           />
-        </div>
+        </label>
       {/if}
 
       <!-- Drag handle - only show for existing files -->

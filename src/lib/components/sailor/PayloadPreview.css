@@ -1,0 +1,4 @@
+/* Hide the default close button */
+[data-slot='sheet-content'] > button {
+  display: none !important;
+}

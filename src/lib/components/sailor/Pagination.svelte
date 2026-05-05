@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page as pageState } from '$app/state';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Label } from 'sailorcms/components/ui/label/index.js';
   import * as Select from 'sailorcms/components/ui/select/index.js';
@@ -36,7 +37,7 @@
 
   async function goToPage(newPage: number) {
     if (useUrlNavigation) {
-      const url = new URL(window.location.href);
+      const url = new URL(pageState.url);
       url.searchParams.set('page', newPage.toString());
       await goto(url.pathname + url.search);
     } else if (onPageChange) {
@@ -47,7 +48,7 @@
   async function changePageSize(newPageSize: string) {
     const size = Number(newPageSize);
     if (useUrlNavigation) {
-      const url = new URL(window.location.href);
+      const url = new URL(pageState.url);
       url.searchParams.set('pageSize', newPageSize);
       url.searchParams.set('page', '1'); // Reset to first page
       await goto(url.pathname + url.search);

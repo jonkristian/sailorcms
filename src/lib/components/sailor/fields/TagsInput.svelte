@@ -1,4 +1,5 @@
 <script lang="ts">
+  import './TagsInput.css';
   import { debounce } from 'sailorcms/core/utils/debounce';
   import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { X } from '@lucide/svelte';
@@ -274,10 +275,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  /* Ensure suggestions appear above modal content */
-  div[class*='z-[100]'] {
-    z-index: 100 !important;
-  }
-</style>

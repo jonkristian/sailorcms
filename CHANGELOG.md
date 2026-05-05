@@ -4,6 +4,23 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.1] - 5 May 2026
+
+### Changed
+
+- **Bulk-selection toolbar in the media gallery stays visible while a selection is active.** New `selectionActive` prop on `FileWithControls` — once anything is selected, every tile shows its checkbox without requiring hover, so picking more items doesn't require hovering each one individually.
+
+### Fixed
+
+- **Schema generator escapes non-identifier characters in template names.** Previously, only whitespace was stripped from `name.singular` / `name.plural` when building TypeScript interface names, so names like `Partnere—logobånd` (em dash) emitted as the literal `Partnere—logobånd` interface — invalid TS, parser falls over, knock-on errors throughout `generated/types.ts`. The new `toValidIdentifier()` splits on whitespace, em/en dashes, hyphens, underscores, and periods, PascalCases the parts, and strips anything that isn't a Unicode letter, digit, `$`, or `_`. Norwegian/Nordic characters (`å`, `ø`, `æ`) are preserved as-is — they're valid TS identifier characters.
+
+- **`<button>` cannot be a child of `<button>` SSR warnings** — three places nested a sailor `Button` (or bits-ui-backed `Checkbox`, which renders a `<button>`) inside another button:
+  - `FileWithControls.svelte` — `<div role="button">` containing a `<Checkbox>` → replaced with a `<label>` wrapper, which is the canonical "click anywhere on the visual area to toggle the checkbox" pattern
+  - `dnd/Blocks.svelte` "Select all" — `<Button>` wrapping a `<Checkbox>` → replaced inner Checkbox with a span+icon visual; outer button gets `aria-pressed`
+  - `collections/[slug]/[id]/+page.svelte` "Select all" — same pattern, same fix
+
+- **`Pagination.svelte` uses `$app/state`'s reactive `page.url` instead of `window.location.href`.** Cleaner and more SvelteKit-idiomatic. Other intentional uses of `window.*` (locale-switcher hard reload, login redirects, `beforeunload`, `matchMedia`, `window.open`) audited and left alone with comments.
+
 ## [0.6.0] - 5 May 2026
 
 Structural release: sailor's admin code now lives in `node_modules/sailorcms` and is resolved from the package, not copied into the consumer's tree. Consumer upgrades stop merging admin-code edits, and new admin files are picked up automatically.
@@ -27,6 +44,8 @@ Structural release: sailor's admin code now lives in `node_modules/sailorcms` an
 - **`patchSvelteConfig` ensures `kit.experimental.remoteFunctions: true`.** Sailor uses SvelteKit remote functions for every admin RPC; fresh `core:init` previously left this off, breaking vite at transform time with "To enable remote functions, add the following to your svelte.config.js". The patcher now finds the `kit: { ... }` block (matching nested braces) and either splices `remoteFunctions: true` into an existing `experimental: { ... }` object or appends a new one.
 
 - **`patchSvelteConfig` rewrites function-form `compilerOptions.runes` to flat `true`.** `sv create` scaffolds write a function form that returns runes mode for project files only and legacy mode for `node_modules` — but Svelte 5 packages like `@lucide/svelte` and `bits-ui` use runes (`$props()`) in their shipped `.svelte` source, so compiling them in legacy mode breaks SSR with `<thing> is not defined`.
+
+- **Worked around an upstream `vite-plugin-svelte` bug** where `optimizeDeps.exclude`'d packages misroute the `?svelte&type=style&lang.css` virtual CSS lookup, causing PostCSS / Tailwind to parse the raw `.svelte` file's `<script>` block as CSS and throw `Invalid declaration`. Sailor's five `.svelte` files that had `<style>` blocks (`AuthWidget`, `PayloadPreview`, `RevisionsDialog`, `TagsInput`, `WysiwygField`) now import sibling `.css` files instead. CSS imports go through Vite's regular pipeline, sidestepping the bug. Tracked upstream at [sveltejs/vite-plugin-svelte#1325](https://github.com/sveltejs/vite-plugin-svelte/issues/1325); revert when it lands.
 
 ## [0.5.3] - 04-05-2026
 
