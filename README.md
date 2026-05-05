@@ -51,7 +51,7 @@ Sailor CMS uses a **template-driven approach**:
 - **GitHub Install** - `npm install github:jonkristian/sailorcms` from source
 - **Core Updates** - `npx sailor core:update` keeps CMS files up-to-date
 - **Database Management** - Schema generation and migration commands
-- **File Repair Tools** - Fix S3/cloud storage URLs with built-in utilities
+- **Setup Diagnostics** - `npx sailor doctor` healthchecks consumer setup with auto-fixes
 
 ### Content Management
 

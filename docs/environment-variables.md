@@ -17,6 +17,14 @@ Complete reference for all environment variables in Sailor CMS. For basic setup,
 BETTER_AUTH_SECRET=your-32-character-secret-key
 ```
 
+### Public Base URL (Required in production)
+
+```env
+# Your site's public origin. Used as Better Auth's baseURL and trustedOrigins.
+# Defaults to http://localhost:5173 when unset (fine for local dev).
+PUBLIC_BASE_URL=https://yourdomain.com
+```
+
 ### Database (Required)
 
 ```env

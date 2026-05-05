@@ -59,6 +59,9 @@ DATABASE_URL=file:./data/sailor.sqlite
 # Authentication (required)
 BETTER_AUTH_SECRET=your-32-character-secret-key
 
+# Public origin (required in production — Better Auth's baseURL + trustedOrigins)
+PUBLIC_BASE_URL=https://yourdomain.com
+
 # Optional: GitHub OAuth
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
