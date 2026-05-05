@@ -195,14 +195,24 @@
     >
       <!-- Selection checkbox -->
       {#if controls.includes('select') && showSelection}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <label
           class="flex cursor-pointer items-center justify-center rounded p-1 hover:bg-white/20"
+          onclick={(e) => {
+            // Don't let the click bubble up to the tile's onclick (which opens
+            // the edit modal). Toggle selection inline so clicking anywhere on
+            // the label area works, not just the small checkbox button itself.
+            // Keyboard a11y is provided by the inner Checkbox button.
+            e.preventDefault();
+            e.stopPropagation();
+            handleSelect();
+          }}
         >
           <CheckboxComponent
             checked={selected}
-            onCheckedChange={() => handleSelect()}
             aria-label={m.file_controls_select_image()}
-            class="h-3 w-3 border-white data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+            class="pointer-events-none h-3 w-3 border-white data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
           />
         </label>
       {/if}

@@ -21,6 +21,8 @@ All notable changes to SailorCMS are documented here.
 
 - **`Pagination.svelte` uses `$app/state`'s reactive `page.url` instead of `window.location.href`.** Cleaner and more SvelteKit-idiomatic. Other intentional uses of `window.*` (locale-switcher hard reload, login redirects, `beforeunload`, `matchMedia`, `window.open`) audited and left alone with comments.
 
+- **Clicking the selection checkbox in the media gallery no longer opens the edit modal.** The checkbox label was bubbling its click up to the tile's `onclick`, so toggling selection also fired off the edit-modal handler. Now `stopPropagation` + inline `handleSelect` keeps the click contained.
+
 ## [0.6.0] - 5 May 2026
 
 Structural release: sailor's admin code now lives in `node_modules/sailorcms` and is resolved from the package, not copied into the consumer's tree. Consumer upgrades stop merging admin-code edits, and new admin files are picked up automatically.
