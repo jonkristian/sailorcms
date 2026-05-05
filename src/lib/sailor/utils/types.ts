@@ -4,7 +4,7 @@
  */
 
 // Re-export generated types for developer convenience
-export type { CollectionTypes, GlobalTypes, File, Tag } from '../generated/types';
+export type { CollectionTypes, GlobalTypes, File, Tag } from '$sailor/generated/types';
 
 import type {
   CollectionItem,

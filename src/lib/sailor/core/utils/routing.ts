@@ -3,7 +3,7 @@
  * Defines canonical URL patterns for different content types
  */
 
-import type { CollectionTypes, GlobalTypes } from '../../generated/types';
+import type { CollectionTypes, GlobalTypes } from '$sailor/generated/types';
 
 /**
  * Generate the canonical URL for a global type

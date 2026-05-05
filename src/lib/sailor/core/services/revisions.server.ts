@@ -1,5 +1,5 @@
 import { db } from '../db/index.server';
-import { revisions } from '../../generated/schema';
+import { revisions } from '$sailor/generated/schema';
 import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { generateUUID } from '../utils/common';
 

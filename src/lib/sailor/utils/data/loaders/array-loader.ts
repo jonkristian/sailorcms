@@ -1,8 +1,8 @@
-import { db } from '../../../core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { sql } from 'drizzle-orm';
-import { log } from '../../../core/utils/logger';
+import { log } from 'sailorcms/core/utils/logger';
 import { loadFileFields } from './file-loader';
-import { toSnakeCase } from '../../../core/utils/string';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
 
 /**
  * Load array fields (repeatable components) for an item

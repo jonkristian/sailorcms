@@ -1,18 +1,18 @@
-import { db } from '../../core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { sql, ne, eq, and, asc, desc, count, inArray } from 'drizzle-orm';
-import { liveOnly } from '../../core/db/soft-delete';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import { loadBlocksForCollection, type BlockWithRelations } from './blocks';
-import { toSnakeCase } from '../../core/utils/string';
-import type { CollectionTypes } from '../../generated/types';
-import type { Pagination } from '../../core/types';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
+import type { CollectionTypes } from '$sailor/generated/types';
+import type { Pagination } from 'sailorcms/core/types';
 import type { BreadcrumbItem } from '../types';
-import { getCollectionType } from '../../core/utils/db.server';
-import * as schema from '../../generated/schema';
+import { getCollectionType } from 'sailorcms/core/utils/db.server';
+import * as schema from '$sailor/generated/schema';
 import { getGlobals } from './globals';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
 import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
-import { TagService } from '../../core/services/tag.server';
+import { TagService } from 'sailorcms/core/services/tag.server';
 
 /**
  * Load all fields (files, arrays, relations) for a collection

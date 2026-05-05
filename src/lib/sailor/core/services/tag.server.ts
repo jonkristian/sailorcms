@@ -1,5 +1,5 @@
 import { db } from '../db/index.server';
-import { tags, taggables } from '../../generated/schema';
+import { tags, taggables } from '$sailor/generated/schema';
 import { eq, and, like, desc, sql, inArray } from 'drizzle-orm';
 import { slugify } from '../utils/common';
 

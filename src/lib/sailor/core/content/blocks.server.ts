@@ -1,4 +1,4 @@
-import * as schema from '../../generated/schema';
+import * as schema from '$sailor/generated/schema';
 import { sql, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getCurrentTimestampSeconds } from '../utils/date';

@@ -1,12 +1,12 @@
-import { db } from '../../core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { sql, and, or, eq, desc, asc, inArray, type SQL } from 'drizzle-orm';
-import * as schema from '../../generated/schema';
+import * as schema from '$sailor/generated/schema';
 import { getCollections } from './collections';
 import { getGlobals } from './globals';
-import { ensureFtsReady } from '../../core/services/search-index.server';
-import { collectionDefinitions } from '../../templates/collections';
-import { globalDefinitions } from '../../templates/globals';
-import type { FieldDefinition, Pagination } from '../../core/types';
+import { ensureFtsReady } from 'sailorcms/core/services/search-index.server';
+import { collectionDefinitions } from '$sailor/templates/collections';
+import { globalDefinitions } from '$sailor/templates/globals';
+import type { FieldDefinition, Pagination } from 'sailorcms/core/types';
 
 type User = {
   id: string;

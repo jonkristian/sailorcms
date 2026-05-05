@@ -1,6 +1,6 @@
 import { db } from '../db/index.server';
 import { eq } from 'drizzle-orm';
-import * as schema from '../../generated/schema';
+import * as schema from '$sailor/generated/schema';
 
 /**
  * Get collection options from database

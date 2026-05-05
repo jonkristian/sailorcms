@@ -54,7 +54,7 @@ export async function getSettings(): Promise<CMSSettings> {
 
   // 2. Apply user overrides from templates/settings.ts
   try {
-    const generatedSettings = await import('../../generated/settings');
+    const generatedSettings = await import('$sailor/generated/settings');
     const userSettings = (generatedSettings.settings || {}) as unknown as Partial<CMSSettings>;
     settings = deepMerge<CMSSettings>(settings, userSettings);
   } catch (error) {

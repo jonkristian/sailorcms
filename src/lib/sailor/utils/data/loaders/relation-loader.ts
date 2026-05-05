@@ -1,8 +1,8 @@
-import { db } from '../../../core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq } from 'drizzle-orm';
-import * as schema from '../../../generated/schema';
-import { log } from '../../../core/utils/logger';
-import { toSnakeCase } from '../../../core/utils/string';
+import * as schema from '$sailor/generated/schema';
+import { log } from 'sailorcms/core/utils/logger';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { loadFileFields } from './file-loader';
 import { loadArrayFields } from './array-loader';
 

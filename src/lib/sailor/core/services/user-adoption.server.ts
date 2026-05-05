@@ -1,5 +1,5 @@
 import { db } from '../db/index.server';
-import * as schema from '../../generated/schema';
+import * as schema from '$sailor/generated/schema';
 import { eq, sql } from 'drizzle-orm';
 // Database type removed - using any for flexibility
 

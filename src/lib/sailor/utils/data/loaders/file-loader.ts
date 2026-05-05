@@ -1,10 +1,10 @@
-import { db } from '../../../core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, asc, and, sql } from 'drizzle-orm';
-import { files } from '../../../generated/schema';
-import { liveOnly } from '../../../core/db/soft-delete';
-import * as schema from '../../../generated/schema';
-import { log } from '../../../core/utils/logger';
-import { toSnakeCase } from '../../../core/utils/string';
+import { files } from '$sailor/generated/schema';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
+import * as schema from '$sailor/generated/schema';
+import { log } from 'sailorcms/core/utils/logger';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
 
 /**
  * Load file fields for an item

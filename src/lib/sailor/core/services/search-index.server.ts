@@ -1,9 +1,9 @@
 import { db } from '../db/index.server';
 import { and, eq, sql } from 'drizzle-orm';
-import * as schema from '../../generated/schema';
-import { collectionDefinitions } from '../../templates/collections';
-import { globalDefinitions } from '../../templates/globals';
-import { blockDefinitions } from '../../templates/blocks';
+import * as schema from '$sailor/generated/schema';
+import { collectionDefinitions } from '$sailor/templates/collections';
+import { globalDefinitions } from '$sailor/templates/globals';
+import { blockDefinitions } from '$sailor/templates/blocks';
 import type { FieldDefinition } from '../types';
 import { getCollections } from '../../utils/data/collections';
 import { getGlobals } from '../../utils/data/globals';

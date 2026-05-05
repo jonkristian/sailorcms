@@ -1,10 +1,10 @@
-import { db } from '../../core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { sql, eq, asc, desc, and } from 'drizzle-orm';
-import { blockTypes as blockTypesTable, files, globalTypes } from '../../generated/schema';
-import * as schema from '../../generated/schema';
-import { toSnakeCase } from '../../core/utils/string';
-import { log } from '../../core/utils/logger';
-import { TagService } from '../../core/services/tag.server';
+import { blockTypes as blockTypesTable, files, globalTypes } from '$sailor/generated/schema';
+import * as schema from '$sailor/generated/schema';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { log } from 'sailorcms/core/utils/logger';
+import { TagService } from 'sailorcms/core/services/tag.server';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
 import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';

@@ -53,8 +53,8 @@ export {
 } from './ui';
 
 // Core utilities (re-exported for convenience)
-export { debounce } from '../core/utils/debounce';
-export { getRoleColor, copyUserId, shortenUserId } from '../core/utils/user';
+export { debounce } from 'sailorcms/core/utils/debounce';
+export { getRoleColor, copyUserId, shortenUserId } from 'sailorcms/core/utils/user';
 
 // Types
 export * from './types';

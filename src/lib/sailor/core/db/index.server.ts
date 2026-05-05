@@ -1,4 +1,4 @@
-import * as schema from '../../generated/schema';
+import * as schema from '$sailor/generated/schema';
 import { createDatabaseAdapter } from './adapter-factory';
 
 // Ensure environment variables are loaded
@@ -57,7 +57,7 @@ export async function getDb() {
 }
 
 // Export schema tables for server-side use
-export * from '../../generated/schema';
+export * from '$sailor/generated/schema';
 
 // Migration function
 export async function runMigrations() {

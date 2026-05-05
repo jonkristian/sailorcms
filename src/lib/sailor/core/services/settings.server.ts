@@ -1,5 +1,5 @@
 import { db } from '../db/index.server';
-import { settings } from '../../generated/schema';
+import { settings } from '$sailor/generated/schema';
 import { eq, and, or } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 
@@ -158,7 +158,7 @@ export class SystemSettingsService {
    */
   static async loadTemplateSettings(): Promise<void> {
     // Import template settings
-    const { settings } = await import('../../templates/settings');
+    const { settings } = await import('$sailor/templates/settings');
 
     // Flatten the settings object and store each as a template setting
     await this.flattenAndStoreSettings(settings, 'template');
