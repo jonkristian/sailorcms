@@ -124,12 +124,17 @@ export function registerCoreUpdate(program) {
           // version there — otherwise write to `devDependencies`. (Without
           // this, packages sailor lists as devDeps that consumers happen to
           // have under `dependencies` — bits-ui is the canonical case —
-          // never get version-bumped on update.)
+          // never get version-bumped on update.) Dedupe in both branches: if
+          // a prior buggy init left a package in BOTH sections, this
+          // collapses it to one. The cmsRuntimeDeps loop above already
+          // dedupes via its move-from-dev branch.
           cmsDevDeps.forEach(([packageName, version]) => {
             if (packageJson.dependencies[packageName]) {
               packageJson.dependencies[packageName] = version;
+              delete packageJson.devDependencies[packageName];
             } else {
               packageJson.devDependencies[packageName] = version;
+              delete packageJson.dependencies[packageName];
             }
           });
 

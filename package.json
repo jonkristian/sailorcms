@@ -29,8 +29,18 @@
     "./package.json": "./package.json",
     "./components/sailor/*": "./src/lib/components/sailor/*",
     "./core/*": "./src/lib/sailor/core/*",
+    "./core/content": "./src/lib/sailor/core/content/index.ts",
+    "./core/db": "./src/lib/sailor/core/db/index.ts",
+    "./core/files": "./src/lib/sailor/core/files/index.ts",
+    "./core/settings": "./src/lib/sailor/core/settings/index.ts",
+    "./core/ui": "./src/lib/sailor/core/ui/index.ts",
     "./remote/*": "./src/lib/sailor/remote/*",
+    "./utils": "./src/lib/sailor/utils/index.ts",
     "./utils/*": "./src/lib/sailor/utils/*",
+    "./utils/content": "./src/lib/sailor/utils/content/index.ts",
+    "./utils/data": "./src/lib/sailor/utils/data/index.ts",
+    "./utils/files": "./src/lib/sailor/utils/files/index.ts",
+    "./utils/ui": "./src/lib/sailor/utils/ui/index.ts",
     "./styles/*": "./src/lib/sailor/styles/*"
   },
   "scripts": {

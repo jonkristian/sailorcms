@@ -63,31 +63,29 @@ export function registerCoreInit(program) {
             const mainPackageJsonPath = path.join(mainProjectDir, 'package.json');
             const mainPackageJson = await fs.readJson(mainPackageJsonPath);
 
-            // Get all dependencies from main project
-            const allDeps = {
-              ...mainPackageJson.dependencies,
-              ...mainPackageJson.devDependencies
-            };
+            // Skip dev tools the consumer already has from `sv create` (eslint,
+            // prettier, typescript, svelte-check, types, vite — except
+            // @tailwindcss/vite which sailor needs).
+            const skipPattern = (name) =>
+              name.includes('eslint') ||
+              name.includes('prettier') ||
+              name.includes('typescript') ||
+              name.includes('svelte-check') ||
+              name.includes('@sveltejs/') ||
+              name.includes('@types/') ||
+              (name !== '@tailwindcss/vite' && name.includes('vite'));
 
-            // Filter to only include dependencies that are actually used by the CMS
-            const cmsDeps = Object.entries(allDeps).filter(([name, _version]) => {
-              // Exclude dev tools and SvelteKit core dependencies
-              return (
-                !name.includes('eslint') &&
-                !name.includes('prettier') &&
-                !name.includes('typescript') &&
-                !name.includes('svelte-check') &&
-                !name.includes('@sveltejs/') &&
-                !name.includes('@types/') &&
-                // Allow @tailwindcss/vite but exclude other vite packages
-                (name === '@tailwindcss/vite' || !name.includes('vite'))
-              );
-            });
-
-            // Separate dev dependencies
-            const devDeps = [
-              ['drizzle-kit', mainPackageJson.devDependencies?.['drizzle-kit'] || 'latest']
-            ];
+            // Mirror sailor's classification: runtime deps go to consumer's
+            // `dependencies`, devDeps go to consumer's `devDependencies`. (The
+            // pre-fix code merged them and put everything in `dependencies`,
+            // wrongly placing things like tailwindcss/tslib/terser/drizzle-kit
+            // in runtime deps.)
+            const cmsDeps = Object.entries(mainPackageJson.dependencies || {}).filter(
+              ([name]) => !skipPattern(name)
+            );
+            const cmsDevDeps = Object.entries(mainPackageJson.devDependencies || {}).filter(
+              ([name]) => !skipPattern(name)
+            );
 
             // Check existing dependencies
             const existingDeps = Object.keys(packageJson.dependencies || {});
@@ -98,7 +96,7 @@ export function registerCoreInit(program) {
               return !existingDeps.includes(dep) && !existingDevDeps.includes(dep);
             });
 
-            const missingDevDeps = devDeps.filter(([dep, _version]) => {
+            const missingDevDeps = cmsDevDeps.filter(([dep, _version]) => {
               return !existingDeps.includes(dep) && !existingDevDeps.includes(dep);
             });
 
@@ -113,10 +111,12 @@ export function registerCoreInit(program) {
 
               missingDeps.forEach(([packageName, version]) => {
                 packageJson.dependencies[packageName] = version;
+                delete packageJson.devDependencies[packageName]; // dedupe defensively
               });
 
               missingDevDeps.forEach(([packageName, version]) => {
                 packageJson.devDependencies[packageName] = version;
+                delete packageJson.dependencies[packageName]; // dedupe defensively
               });
 
               await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
