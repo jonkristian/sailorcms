@@ -766,7 +766,7 @@
   "seo_og_image_label": "Open Graph Image",
   "seo_og_image_description": "Image for social media sharing (1200x630px recommended)",
   "seo_canonical_url_label": "Canonical URL",
-  "seo_canonical_url_description": "Override the canonical URL. Leave empty to use the default (site URL + collection basePath + slug).",
+  "seo_canonical_url_description": "Set the canonical URL for this page. Leave empty to omit the canonical tag.",
   "seo_canonical_url_placeholder": "https://yoursite.com/page-slug",
   "seo_noindex_label": "Discourage Search Engine Indexing",
   "seo_noindex_description": "Request that search engines do not index this page (not guaranteed)",

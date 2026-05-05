@@ -766,7 +766,7 @@
   "seo_og_image_label": "Open Graph-bilde",
   "seo_og_image_description": "Bilde for deling på sosiale medier (1200×630 px anbefalt)",
   "seo_canonical_url_label": "Kanonisk URL",
-  "seo_canonical_url_description": "Overstyr den kanoniske URL-en. La stå tom for å bruke standard (nettsted-URL + samlingens basePath + slug).",
+  "seo_canonical_url_description": "Sett den kanoniske URL-en for denne siden. La stå tom for å utelate canonical-taggen.",
   "seo_canonical_url_placeholder": "https://nettsted.no/side-slug",
   "seo_noindex_label": "Frarå indeksering av søkemotorer",
   "seo_noindex_description": "Be søkemotorer om å ikke indeksere denne siden (ikke garantert)",

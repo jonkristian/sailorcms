@@ -4,6 +4,16 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.2] - 5 May 2026
+
+### Changed
+
+- **Postgres consumers now use the same `migrate()` flow as SQLite/libsql** instead of shelling out to `drizzle-kit push`. The new `runPostgresMigrations()` mirrors the libsql bootstrap (if `public.users` exists but `drizzle.__drizzle_migrations` is empty, seed it with the latest journal entry so migrate() doesn't re-apply migration 0000 against existing tables) using Postgres syntax (`to_regclass`, `SERIAL`, `BIGINT`, the `drizzle` schema). No SQLite-rebuild patcher (Postgres doesn't have that bug) and no drift-detection check yet — that path in `db-repair.js` is SQLite-specific; the Postgres equivalent is a queued follow-up.
+
+- **Internal: `setupSailorFiles` and `updateSailorCoreFiles` collapsed into a single `mirrorSailorIntoConsumer({ targetDir, mode, force })` helper.** The two functions had ~30 lines of identical file-copy + prune logic with mode-specific differences (init copies app.html/css/d.ts + hooks.server.ts/hooks.client.ts + templates conditionally + sets up routes/configs; update preserves generated/i18n/messages, seeds i18n/messages once, runs cleanDir on subdirs that need it, calls updateRoutes). One implementation, two thin wrappers preserve the public exports. Pure organizational refactor — no consumer-visible behavior change.
+
+- **`extractSEO()` no longer auto-generates `canonical` from baseUrl + slug.** Previously, leaving the `canonical_url` field empty caused sailor to synthesize a self-canonical from the page's own URL. That's the wrong default for sites with multiple domains, staging environments, or any duplicate-content situation where canonical needs explicit thought. Now `seoData.canonical` is only emitted if the consumer explicitly fills the `canonical_url` field in the CMS. The `baseUrl` and `basePath` options on `extractSEO()` are removed (they were only used for auto-canonical generation), and the canonical-field description in the admin UI updated to match. **Behavior change**: existing sites that relied on auto-canonical lose those tags from their `<head>` until they fill the field per page.
+
 ## [0.6.1] - 5 May 2026
 
 ### Changed

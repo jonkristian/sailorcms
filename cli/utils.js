@@ -105,98 +105,146 @@ async function cleanDir(srcDir, tgtDir, skip = [], relPath = '') {
   }
 }
 
-export async function setupSailorFiles(targetDir, force = false) {
+/**
+ * Mirror sailor's source files into the consumer's tree. Single
+ * implementation backing both `core:init` and `core:update` — the two flows
+ * share most operations (copy sailor lib, prune package-exported subdirs,
+ * copy components with the same filter, copy lib/hooks) and differ in a few
+ * specific places that are mode-branched here:
+ *
+ *   - **init** copies app.html / app.d.ts / app.css, hooks.server.ts /
+ *     hooks.client.ts (interactively, --force-aware), the templates dir
+ *     (only if missing), then sets up routes and patches the consumer's
+ *     vite.config / svelte.config / package.json (`setupConfigFiles`).
+ *   - **update** preserves the consumer's templates / generated /
+ *     i18n/messages / i18n/paraglide via the copy filter, seeds
+ *     i18n/messages on first run if the consumer pre-dates i18n, runs
+ *     `cleanDir` to drop files removed from sailor's source, and calls
+ *     `updateRoutes` (which itself calls `cleanDir` on routes/sailor).
+ *
+ * `setupSailorFiles` and `updateSailorCoreFiles` are kept as thin wrappers
+ * for backwards compatibility with cms-init.js / cms-update.js.
+ */
+async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
   const mainProjectDir = path.join(__dirname, '..');
   const targetSrcDir = path.join(targetDir, 'src');
   await fs.ensureDir(targetSrcDir);
+  const isInit = mode === 'init';
 
-  // Copy app files - handle app.css carefully to preserve user customizations
-  const alwaysSafeFiles = ['app.html', 'app.d.ts'];
-  const conditionalFiles = ['app.css'];
-
-  // Always copy safe files
-  for (const file of alwaysSafeFiles) {
-    const sourceFile = path.join(mainProjectDir, 'src', file);
-    const targetFile = path.join(targetSrcDir, file);
-    if (await fs.pathExists(sourceFile)) {
-      await fs.copy(sourceFile, targetFile, { overwrite: true });
+  if (isInit) {
+    // App files — `app.html` / `app.d.ts` always overwrite, `app.css`
+    // preserved unless --force (consumer may have customized).
+    for (const file of ['app.html', 'app.d.ts']) {
+      const src = path.join(mainProjectDir, 'src', file);
+      const tgt = path.join(targetSrcDir, file);
+      if (await fs.pathExists(src)) {
+        await fs.copy(src, tgt, { overwrite: true });
+      }
     }
-  }
-
-  // Handle app.css carefully to preserve user customizations
-  for (const file of conditionalFiles) {
-    const sourceFile = path.join(mainProjectDir, 'src', file);
-    const targetFile = path.join(targetSrcDir, file);
-    if (await fs.pathExists(sourceFile)) {
-      if ((await fs.pathExists(targetFile)) && !force) {
-        console.log(`⚠️ ${file} exists - manually update or use --force to overwrite`);
+    const appCssSrc = path.join(mainProjectDir, 'src', 'app.css');
+    const appCssTgt = path.join(targetSrcDir, 'app.css');
+    if (await fs.pathExists(appCssSrc)) {
+      if ((await fs.pathExists(appCssTgt)) && !force) {
+        console.log('⚠️ app.css exists - manually update or use --force to overwrite');
       } else {
-        await fs.copy(sourceFile, targetFile, { overwrite: true });
+        await fs.copy(appCssSrc, appCssTgt, { overwrite: true });
+      }
+    }
+
+    // hooks.server.ts / hooks.client.ts — preserved unless --force (consumer
+    // typically wires their own auth / app-level hooks here).
+    for (const f of ['hooks.server.ts', 'hooks.client.ts']) {
+      const src = path.join(mainProjectDir, 'src', f);
+      const tgt = path.join(targetSrcDir, f);
+      if (await fs.pathExists(src)) {
+        if ((await fs.pathExists(tgt)) && !force) {
+          console.log(`⚠️ ${f} exists - manually add auth or use --force`);
+        } else {
+          await fs.copy(src, tgt, { overwrite: true });
+        }
       }
     }
   }
-  // Handle hooks.server.ts carefully
-  const hooksServerSource = path.join(mainProjectDir, 'src', 'hooks.server.ts');
-  const hooksServerTarget = path.join(targetSrcDir, 'hooks.server.ts');
 
-  if (await fs.pathExists(hooksServerSource)) {
-    if ((await fs.pathExists(hooksServerTarget)) && !force) {
-      console.log('⚠️ hooks.server.ts exists - manually add auth or use --force');
-    } else {
-      await fs.copy(hooksServerSource, hooksServerTarget, { overwrite: true });
-    }
-  }
-
-  // Handle hooks.client.ts carefully
-  const hooksClientSource = path.join(mainProjectDir, 'src', 'hooks.client.ts');
-  const hooksClientTarget = path.join(targetSrcDir, 'hooks.client.ts');
-
-  if (await fs.pathExists(hooksClientSource)) {
-    if ((await fs.pathExists(hooksClientTarget)) && !force) {
-      console.log('⚠️ hooks.client.ts exists - manually add auth or use --force');
-    } else {
-      await fs.copy(hooksClientSource, hooksClientTarget, { overwrite: true });
-    }
-  }
-
-  // Copy Sailor CMS directory (excluding templates to preserve user customizations)
+  // Sailor lib — common shape, mode-specific skip-list. Init only excludes
+  // templates (they're copied separately, only if absent). Update excludes
+  // anything that's per-consumer or generated.
   const mainSailorDir = path.join(mainProjectDir, 'src', 'lib', 'sailor');
   const targetLibDir = path.join(targetSrcDir, 'lib');
   const targetSailorDir = path.join(targetLibDir, 'sailor');
-  const mainTemplatesDir = path.join(mainSailorDir, 'templates');
-  const targetTemplatesDir = path.join(targetSailorDir, 'templates');
 
-  // 1. Copy the sailor directory, always skipping templates and any subdirs
-  //    that have migrated to package-resolved imports.
   if (await fs.pathExists(mainSailorDir)) {
+    const skipPaths = isInit
+      ? [path.join('sailor', 'templates')]
+      : [
+          path.join('sailor', 'templates'),
+          path.join('sailor', 'generated'),
+          path.join('sailor', 'i18n', 'messages')
+        ];
     const sailorPkgFilter = packageExportedSailorDirsFilter(mainSailorDir);
     await fs.copy(mainSailorDir, targetSailorDir, {
       overwrite: true,
       filter: (src) => {
-        if (src.includes(path.join('sailor', 'templates'))) return false;
+        for (const skip of skipPaths) {
+          if (src.includes(skip)) return false;
+        }
         return sailorPkgFilter(src);
       }
     });
     await pruneStalePackageExportedSailorDirs(targetSailorDir);
-  }
 
-  // 2. Copy templates if needed
-  if (await fs.pathExists(mainTemplatesDir)) {
-    const templatesExist = await fs.pathExists(targetTemplatesDir);
-    if (!templatesExist || force) {
-      await fs.copy(mainTemplatesDir, targetTemplatesDir, { overwrite: true });
-      if (force && templatesExist) {
-        console.log('⚠️ Overwrote existing templates directory due to --force flag.');
-      } else {
-        console.log('✅ Copied templates directory.');
+    if (!isInit) {
+      console.log('📝 Updated sailor core files');
+
+      // First-time seed for `i18n/messages` if the consumer doesn't have it yet
+      // (e.g. project init'd before i18n landed). After this, the dir is
+      // preserved across updates so user translation refinements stick.
+      const mainMessagesDir = path.join(mainSailorDir, 'i18n', 'messages');
+      const targetMessagesDir = path.join(targetSailorDir, 'i18n', 'messages');
+      if (await fs.pathExists(mainMessagesDir)) {
+        const exists = await fs.pathExists(targetMessagesDir);
+        const isEmpty = exists ? (await fs.readdir(targetMessagesDir)).length === 0 : false;
+        if (!exists || isEmpty) {
+          await fs.copy(mainMessagesDir, targetMessagesDir, { overwrite: true });
+          console.log('📝 Seeded i18n/messages (first-time, preserved on future updates)');
+        }
       }
-    } else {
-      console.log(
-        '⚠️ Templates directory already exists in target. Skipping to preserve user customizations. Use --force to overwrite.'
-      );
+
+      // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
+      await cleanDir(mainSailorDir, targetSailorDir, [
+        'templates',
+        'generated',
+        'i18n/messages',
+        'i18n/paraglide'
+      ]);
     }
   }
 
+  if (isInit) {
+    // Templates: copy only if absent (or --force). After init, the consumer
+    // owns this directory.
+    const mainTemplatesDir = path.join(mainSailorDir, 'templates');
+    const targetTemplatesDir = path.join(targetSailorDir, 'templates');
+    if (await fs.pathExists(mainTemplatesDir)) {
+      const templatesExist = await fs.pathExists(targetTemplatesDir);
+      if (!templatesExist || force) {
+        await fs.copy(mainTemplatesDir, targetTemplatesDir, { overwrite: true });
+        if (force && templatesExist) {
+          console.log('⚠️ Overwrote existing templates directory due to --force flag.');
+        } else {
+          console.log('✅ Copied templates directory.');
+        }
+      } else {
+        console.log(
+          '⚠️ Templates directory already exists in target. Skipping to preserve user customizations. Use --force to overwrite.'
+        );
+      }
+    }
+  }
+
+  // Components — CMS-managed subfolders (ui/ and sailor/) get cleaned on
+  // update so files removed from the reference are also removed locally.
+  // Any other user subfolders under components/ are left alone.
   const mainComponentsDir = path.join(mainProjectDir, 'src', 'lib', 'components');
   const targetComponentsDir = path.join(targetLibDir, 'components');
   if (await fs.pathExists(mainComponentsDir)) {
@@ -205,93 +253,36 @@ export async function setupSailorFiles(targetDir, force = false) {
       filter: packageExportedComponentsFilter(mainComponentsDir)
     });
     await pruneStalePackageExportedComponents(targetComponentsDir);
+    if (!isInit) {
+      for (const sub of ['ui', 'sailor']) {
+        await cleanDir(path.join(mainComponentsDir, sub), path.join(targetComponentsDir, sub));
+      }
+    }
   }
 
+  // lib/hooks — same in both modes.
   const mainHooksDir = path.join(mainProjectDir, 'src', 'lib', 'hooks');
   const targetHooksDir = path.join(targetLibDir, 'hooks');
   if (await fs.pathExists(mainHooksDir)) {
     await fs.copy(mainHooksDir, targetHooksDir, { overwrite: true });
   }
 
-  await setupRoutes(targetDir);
-  const cfgResult = await setupConfigFiles(targetDir, force);
-  return { manual: cfgResult?.manual || [] };
-}
-
-export async function updateSailorCoreFiles(targetDir) {
-  const mainProjectDir = path.join(__dirname, '..');
-  const targetSrcDir = path.join(targetDir, 'src');
-  await fs.ensureDir(targetSrcDir);
-
-  // Only update Sailor CMS core files, not user templates
-  const mainSailorDir = path.join(mainProjectDir, 'src', 'lib', 'sailor');
-  const targetLibDir = path.join(targetSrcDir, 'lib');
-  const targetSailorDir = path.join(targetLibDir, 'sailor');
-  // Template directories defined but currently not used in copy operation
-  // const mainTemplatesDir = path.join(mainSailorDir, 'templates');
-  // const targetTemplatesDir = path.join(targetSailorDir, 'templates');
-
-  // Copy entire sailor directory but exclude templates to preserve user customizations
-  if (await fs.pathExists(mainSailorDir)) {
-    const sailorPkgFilter = packageExportedSailorDirsFilter(mainSailorDir);
-    await fs.copy(mainSailorDir, targetSailorDir, {
-      overwrite: true,
-      filter: (src) => {
-        if (src.includes(path.join('sailor', 'templates'))) return false;
-        if (src.includes(path.join('sailor', 'generated'))) return false;
-        if (src.includes(path.join('sailor', 'i18n', 'messages'))) return false;
-        return sailorPkgFilter(src);
-      }
-    });
-    await pruneStalePackageExportedSailorDirs(targetSailorDir);
-    console.log('📝 Updated sailor core files');
-
-    // First-time seed for `i18n/messages` if the consumer doesn't have it yet
-    // (e.g. project init'd before i18n landed). After this, the dir is
-    // preserved across updates so user translation refinements stick.
-    const mainMessagesDir = path.join(mainSailorDir, 'i18n', 'messages');
-    const targetMessagesDir = path.join(targetSailorDir, 'i18n', 'messages');
-    if (await fs.pathExists(mainMessagesDir)) {
-      const exists = await fs.pathExists(targetMessagesDir);
-      const isEmpty = exists ? (await fs.readdir(targetMessagesDir)).length === 0 : false;
-      if (!exists || isEmpty) {
-        await fs.copy(mainMessagesDir, targetMessagesDir, { overwrite: true });
-        console.log('📝 Seeded i18n/messages (first-time, preserved on future updates)');
-      }
-    }
-
-    // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
-    await cleanDir(mainSailorDir, targetSailorDir, [
-      'templates',
-      'generated',
-      'i18n/messages',
-      'i18n/paraglide'
-    ]);
-  }
-
-  // Update components — CMS-managed subfolders (ui/ and sailor/) get cleaned so
-  // files removed from the reference are also removed on update. Any other user
-  // subfolders under components/ are left alone.
-  const mainComponentsDir = path.join(mainProjectDir, 'src', 'lib', 'components');
-  const targetComponentsDir = path.join(targetLibDir, 'components');
-  if (await fs.pathExists(mainComponentsDir)) {
-    await fs.copy(mainComponentsDir, targetComponentsDir, {
-      overwrite: true,
-      filter: packageExportedComponentsFilter(mainComponentsDir)
-    });
-    await pruneStalePackageExportedComponents(targetComponentsDir);
-    for (const sub of ['ui', 'sailor']) {
-      await cleanDir(path.join(mainComponentsDir, sub), path.join(targetComponentsDir, sub));
-    }
-  }
-
-  const mainHooksDir = path.join(mainProjectDir, 'src', 'lib', 'hooks');
-  const targetHooksDir = path.join(targetLibDir, 'hooks');
-  if (await fs.pathExists(mainHooksDir)) {
-    await fs.copy(mainHooksDir, targetHooksDir, { overwrite: true });
+  if (isInit) {
+    await setupRoutes(targetDir);
+    const cfgResult = await setupConfigFiles(targetDir, force);
+    return { manual: cfgResult?.manual || [] };
   }
 
   await updateRoutes(targetDir);
+  return { manual: [] };
+}
+
+export async function setupSailorFiles(targetDir, force = false) {
+  return await mirrorSailorIntoConsumer({ targetDir, mode: 'init', force });
+}
+
+export async function updateSailorCoreFiles(targetDir) {
+  await mirrorSailorIntoConsumer({ targetDir, mode: 'update' });
 }
 
 export async function setupRoutes(targetDir) {
@@ -1253,22 +1244,16 @@ export async function createCliDbOrFail(targetDir) {
  * and if found with an empty `__drizzle_migrations`, seed one row marking the
  * latest journal entry as applied. Future migrations apply normally on top.
  *
- * Postgres doesn't have the SQLite rebuild trap, so we keep `drizzle-kit push`
- * for it until/unless we add a Postgres bootstrap path.
+ * Postgres uses the same migrate flow with a Postgres-syntax bootstrap, but
+ * skips the SQLite rebuild patcher (no rebuild trap on Postgres) and the
+ * drift-detection check (drift detection is SQLite-specific in db-repair.js;
+ * a Postgres equivalent isn't wired up yet).
  */
 export async function runMigrations(targetDir) {
   await loadConsumerEnv(targetDir);
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     throw new Error('DATABASE_URL is not set.');
-  }
-
-  if (dbUrl.startsWith('postgres')) {
-    execSync('npx drizzle-kit push --config=drizzle.config.ts', {
-      cwd: targetDir,
-      stdio: 'inherit'
-    });
-    return;
   }
 
   const journalPath = path.join(targetDir, 'drizzle', 'meta', '_journal.json');
@@ -1278,6 +1263,11 @@ export async function runMigrations(targetDir) {
   }
   const journal = await fs.readJson(journalPath);
   if (!journal.entries?.length) {
+    return;
+  }
+
+  if (dbUrl.startsWith('postgres')) {
+    await runPostgresMigrations(targetDir, dbUrl, journal);
     return;
   }
 
@@ -1391,6 +1381,71 @@ export async function runMigrations(targetDir) {
     await migrate(db, { migrationsFolder: path.join(targetDir, 'drizzle') });
   } finally {
     client.close?.();
+  }
+}
+
+/**
+ * Postgres migrate path. Mirrors the libsql bootstrap (so a DB previously
+ * kept in sync via `drizzle-kit push` doesn't get its existing schema
+ * re-applied from migration 0000), but with Postgres syntax:
+ *   - `to_regclass('public.users')` instead of `sqlite_master`
+ *   - `drizzle.__drizzle_migrations` (in the `drizzle` schema) instead of
+ *     the default-schema `__drizzle_migrations`
+ *   - `SERIAL`/`BIGINT` instead of `INTEGER`/`numeric`
+ * No SQLite-rebuild patch (Postgres has no rebuild trap), no drift detection
+ * (db-repair.js's check is SQLite-specific — Postgres equivalent is a queued
+ * follow-up).
+ */
+async function runPostgresMigrations(targetDir, dbUrl, journal) {
+  const { Pool } = await import('pg');
+  const { drizzle } = await import('drizzle-orm/node-postgres');
+  const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+
+  const pool = new Pool({ connectionString: dbUrl });
+
+  try {
+    // Bootstrap for dev DBs previously kept in sync via push: if `users`
+    // exists but the migrations table is empty, seed it with the latest
+    // journal entry as already-applied so migrate() doesn't try to re-run
+    // 0000 against existing tables.
+    const usersExistsResult = await pool.query("SELECT to_regclass('public.users') AS reg");
+    const usersExists = usersExistsResult.rows[0]?.reg !== null;
+
+    if (usersExists) {
+      await pool.query('CREATE SCHEMA IF NOT EXISTS "drizzle"');
+      await pool.query(`CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
+        id SERIAL PRIMARY KEY,
+        hash TEXT NOT NULL,
+        created_at BIGINT
+      )`);
+
+      const countResult = await pool.query(
+        'SELECT COUNT(*)::int AS count FROM "drizzle"."__drizzle_migrations"'
+      );
+      const count = Number(countResult.rows[0].count);
+
+      if (count === 0) {
+        const latest = journal.entries[journal.entries.length - 1];
+        const sqlPath = path.join(targetDir, 'drizzle', `${latest.tag}.sql`);
+        const cryptoModule = await import('node:crypto');
+        const hash = cryptoModule
+          .createHash('sha256')
+          .update(await fs.readFile(sqlPath, 'utf-8'))
+          .digest('hex');
+        await pool.query(
+          'INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)',
+          [hash, latest.when]
+        );
+        console.log(
+          `📋 Adopted ${journal.entries.length} pre-existing migration(s) into __drizzle_migrations (last: ${latest.tag}).`
+        );
+      }
+    }
+
+    const db = drizzle(pool);
+    await migrate(db, { migrationsFolder: path.join(targetDir, 'drizzle') });
+  } finally {
+    await pool.end();
   }
 }
 

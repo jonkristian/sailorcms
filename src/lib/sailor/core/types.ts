@@ -307,7 +307,7 @@ export type CollectionDefinition = {
     titleField?: string; // Field to use as title for display
     seo?: boolean; // Automatically add SEO fields to this collection
     blocks?: boolean; // Enable/disable blocks functionality for this collection
-    basePath?: string; // Base URL path for preview links and canonical URLs (e.g., '/articles/')
+    basePath?: string; // Base URL path for preview links and getCollections().url (e.g., '/articles/')
     sortable?: boolean; // Enable/disable drag-and-drop reordering
     nestable?: boolean; // Enable/disable hierarchical parent-child relationships
     searchable?: boolean; // Include in frontend search() utility

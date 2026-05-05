@@ -31,7 +31,7 @@ export function generateTitle(pageTitle: string, siteName?: string, separator = 
  * @example
  * ```typescript
  * const post = await getCollection('posts', { slug: 'my-post' });
- * const seo = await extractSEO(post, { siteName: 'My Blog', basePath: '/articles/' });
+ * const seo = await extractSEO(post, { siteName: 'My Blog' });
  * ```
  */
 
@@ -57,9 +57,9 @@ type SEOItemInput = Partial<{
 
 export async function extractSEO(
   item: SEOItemInput,
-  options: { siteName?: string; baseUrl?: string; basePath?: string } = {}
+  options: { siteName?: string } = {}
 ): Promise<SEOData> {
-  const { siteName, baseUrl, basePath } = options;
+  const { siteName } = options;
 
   // Title with fallbacks: meta_title > title
   let title = item.meta_title || item.title || 'Untitled';
@@ -114,16 +114,11 @@ export async function extractSEO(
     (await getFileUrl(item.featured_image)) ||
     (await getFileUrl(item.image));
 
-  // Canonical URL: custom canonical_url or generate from slug and basePath
-  let canonical = item.canonical_url;
-  if (!canonical && item.slug && baseUrl) {
-    // Use basePath if provided, otherwise fallback to just slug
-    if (basePath) {
-      canonical = `${baseUrl.replace(/\/$/, '')}${basePath}${item.slug}`;
-    } else {
-      canonical = `${baseUrl.replace(/\/$/, '')}/${item.slug}`;
-    }
-  }
+  // Canonical URL: only emit if the consumer explicitly filled the
+  // `canonical_url` field. Auto-generation from slug + baseUrl was removed
+  // because cross-domain or duplicate-content sites don't want a
+  // self-canonical baked in by default.
+  const canonical = item.canonical_url;
 
   return {
     title,

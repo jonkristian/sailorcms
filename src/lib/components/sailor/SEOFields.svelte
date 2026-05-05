@@ -21,8 +21,8 @@
   let isOpen = $state(false);
 
   // Fields that mirror page content when left empty. canonical_url is intentionally
-  // excluded — it's an override-only field; the runtime resolves the default from
-  // slug + basePath in `seo.ts`, keeping a single source of truth.
+  // excluded — it's a fully optional opt-in field; if empty, no canonical tag
+  // is emitted at all.
   function getEffectiveValue(fieldKey: string) {
     const pageTitle = formData.title || titleValue || '';
 

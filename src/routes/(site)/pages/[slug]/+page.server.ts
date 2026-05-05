@@ -1,11 +1,10 @@
 import { getCollections, getSiteSettings } from 'sailorcms/utils/index';
 import { extractSEO, generateMetaTags } from 'sailorcms/utils/content/seo';
 import type { CollectionsSingleResult } from 'sailorcms/utils/types';
-import { getCollectionOptions } from 'sailorcms/core/utils/db.server';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, url }) => {
+export const load: PageServerLoad = async ({ params }) => {
   // Get single page by slug using new clean API
   const page = (await getCollections('pages', {
     itemSlug: params.slug,
@@ -20,15 +19,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
   // Get site configuration for proper site name
   const siteConfig = await getSiteSettings();
 
-  // Generate SEO data using basePath from database
-  const baseUrl = url.origin;
-  const collectionOptions = await getCollectionOptions('pages');
-  const basePath = collectionOptions?.basePath || '/';
-
   const seoData = await extractSEO(page, {
-    siteName: siteConfig.siteName || 'Sailor CMS',
-    baseUrl,
-    basePath
+    siteName: siteConfig.siteName || 'Sailor CMS'
   });
 
   // Generate HTML meta tags for the head
