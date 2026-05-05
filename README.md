@@ -95,19 +95,24 @@ npx sailor core:update                    # Update core CMS files
 
 # Database Management
 npx sailor db:update             # Update database schema from template changes
-npx sailor db:generate           # Generate schema and migrations
+npx sailor db:generate           # Regenerate generated/schema.ts + types.ts (no migration)
+npx sailor db:seed               # Seed roles, blocks, collections, globals from templates
 npx sailor db:backup             # Backup database to S3/local
 npx sailor db:restore            # Restore database from backup
 npx sailor db:repair             # Apply missing columns to a drifted DB (--dry-run supported)
 npx sailor db:repair-timestamps  # Fix ms-leaked timestamps to seconds (--dry-run supported)
 
-# File Management
-npx sailor files:repair  # Fix S3/cloud storage URLs
+# Search
+npx sailor search:reindex  # Rebuild the search_index table
 
 # User Management
 npx sailor users:list    # List all users
 npx sailor users:role    # Change user role
 npx sailor users:verify  # Verify user account
+
+# Diagnostics
+npx sailor doctor        # Healthcheck consumer setup (run if upgrade or build acts up)
+npx sailor doctor --fix  # Auto-fix any fixable issues
 ```
 
 ## Deployment
