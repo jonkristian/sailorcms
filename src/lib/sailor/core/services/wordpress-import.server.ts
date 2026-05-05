@@ -1,4 +1,4 @@
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { sql, eq } from 'drizzle-orm';
 import { uploadFile } from '../../utils/files/server';
 import { TagService } from './tag.server';

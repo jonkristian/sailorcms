@@ -1,16 +1,16 @@
 // SvelteKit remote functions for individual collection items
 import { command, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
-import { log } from '$sailor/core/utils/logger';
+import { db } from 'sailorcms/core/db/index.server';
+import { log } from 'sailorcms/core/utils/logger';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { generateUUID, slugify } from '$lib/sailor/core/utils/common';
-import { ensureUniqueSlug } from '$sailor/core/utils/slug';
-import { TagService } from '$sailor/core/services/tag.server';
-import { SearchIndexService } from '$sailor/core/services/search-index.server';
-import { RevisionsService, resolveRevisionsKeep } from '$sailor/core/services/revisions.server';
-import { toSnakeCase } from '$sailor/core/utils/string';
-import { getCurrentTimestampSeconds } from '$sailor/core/utils/date';
+import { generateUUID, slugify } from 'sailorcms/core/utils/common';
+import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
+import { RevisionsService, resolveRevisionsKeep } from 'sailorcms/core/services/revisions.server';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { getCurrentTimestampSeconds } from 'sailorcms/core/utils/date';
 
 /**
  * Save collection item (create or update)
@@ -34,8 +34,8 @@ export const saveCollectionItem = command(
 
     try {
       // Import server-side functions
-      const { saveNestedArrayFields } = await import('$sailor/core/content/blocks.server');
-      const { sanitizeId } = await import('$lib/sailor/core/utils/common');
+      const { saveNestedArrayFields } = await import('sailorcms/core/content/blocks.server');
+      const { sanitizeId } = await import('sailorcms/core/utils/common');
 
       // Get collection type and schema
       const collectionType = await db.query.collectionTypes.findFirst({
@@ -52,7 +52,7 @@ export const saveCollectionItem = command(
 
       // Add SEO fields if SEO is enabled
       if (collectionOptions.seo) {
-        const { SEO_FIELDS } = await import('$sailor/core/types');
+        const { SEO_FIELDS } = await import('sailorcms/core/types');
         collectionFields = {
           ...collectionFields,
           ...SEO_FIELDS

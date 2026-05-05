@@ -9,7 +9,8 @@ import {
   setupSailorFiles,
   trackInstalledDependencies,
   printManualActionBanner,
-  dedupeNestedSvelteDeps
+  dedupeNestedSvelteDeps,
+  dedupeNestedSailorcmsDeps
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -137,10 +138,13 @@ export function registerCoreInit(program) {
               }
 
               // Bun's `file:` install nests a duplicate acorn under
-              // node_modules/svelte/node_modules — strip it. See
-              // dedupeNestedSvelteDeps() docstring for the full story.
+              // node_modules/svelte/node_modules and the entire sailor
+              // devDeps tree under node_modules/sailorcms/node_modules —
+              // strip both. See the dedupe function docstrings for the
+              // full story.
               if (packageManager === 'bun') {
                 await dedupeNestedSvelteDeps(targetDir);
+                await dedupeNestedSailorcmsDeps(targetDir);
               }
 
               // Track installed dependencies for future cleanup

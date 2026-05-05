@@ -1,13 +1,13 @@
 import { redirect, fail, error } from '@sveltejs/kit';
-import { log } from '$sailor/core/utils/logger';
-import { db } from '$sailor/core/db/index.server';
+import { log } from 'sailorcms/core/utils/logger';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, ne, and } from 'drizzle-orm';
 import { users, accounts, sessions } from '$sailor/generated/schema';
 import {
   adoptUserContent,
   deleteUserContent,
   getUserContentSummary
-} from '$sailor/core/services/user-adoption.server';
+} from 'sailorcms/core/services/user-adoption.server';
 import type { User } from '$sailor/generated/types';
 // Database type removed - using any for flexibility
 import type { Actions, PageServerLoad } from './$types';
@@ -135,7 +135,7 @@ export const actions: Actions = {
       }
 
       // Use better-auth admin plugin to create user
-      const { auth } = await import('$sailor/core/auth.server');
+      const { auth } = await import('sailorcms/core/auth.server');
 
       const newUser = await auth.api.createUser({
         body: {
@@ -258,7 +258,7 @@ export const actions: Actions = {
 
         // Update password using better-auth admin plugin if provided
         if (password) {
-          const { auth } = await import('$sailor/core/auth.server');
+          const { auth } = await import('sailorcms/core/auth.server');
 
           await auth.api.setUserPassword({
             body: {

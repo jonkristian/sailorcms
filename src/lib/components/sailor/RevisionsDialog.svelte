@@ -3,11 +3,11 @@
   import { Button } from '$lib/components/ui/button';
   import { History, RotateCcw, ChevronLeft, ChevronRight } from '@lucide/svelte';
   import { diffLines } from 'diff';
-  import { formatRelativeTime, formatTimestamp } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatRelativeTime, formatTimestamp } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { m } from '$sailor/i18n';
-  import { highlightJsonSync } from '$sailor/core/ui/syntax-highlighting';
-  import { toast } from '$sailor/core/ui/toast';
+  import { highlightJsonSync } from 'sailorcms/core/ui/syntax-highlighting';
+  import { toast } from 'sailorcms/core/ui/toast';
 
   type Revision = {
     id: string;

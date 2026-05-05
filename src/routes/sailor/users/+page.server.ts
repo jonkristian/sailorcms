@@ -1,6 +1,6 @@
 import { redirect, error } from '@sveltejs/kit';
-import { db } from '$sailor/core/db/index.server';
-import { log } from '$sailor/core/utils/logger';
+import { db } from 'sailorcms/core/db/index.server';
+import { log } from 'sailorcms/core/utils/logger';
 import { users } from '$sailor/generated/schema';
 import { or, like, desc } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';

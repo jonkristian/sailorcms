@@ -1,11 +1,11 @@
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { error, redirect, fail } from '@sveltejs/kit';
 import { eq, asc } from 'drizzle-orm';
 import crypto from 'crypto';
-import { getCurrentTimestamp } from '$sailor/core/utils/date';
-import { normalizeRelationId } from '$sailor/core/utils/common';
-import { log } from '$sailor/core/utils/logger';
+import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
+import { normalizeRelationId } from 'sailorcms/core/utils/common';
+import { log } from 'sailorcms/core/utils/logger';
 
 export const load = async ({ params, locals }) => {
   // Authentication and authorization handled by hooks

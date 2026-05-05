@@ -8,8 +8,8 @@
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { useBulkDelete } from '$lib/sailor/composables/useBulkDelete.svelte';
-  import { formatTableDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatTableDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { m } from '$sailor/i18n';
 
   const {

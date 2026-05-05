@@ -4,7 +4,7 @@
   import * as Command from '$lib/components/ui/command';
   import * as Popover from '$lib/components/ui/popover';
   import { Check, ChevronDown, X, Plus } from '@lucide/svelte';
-  import { debounce } from '$sailor/core/utils/debounce';
+  import { debounce } from 'sailorcms/core/utils/debounce';
   import { m } from '$sailor/i18n';
 
   // Props

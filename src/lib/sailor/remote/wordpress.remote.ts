@@ -2,7 +2,7 @@ import { command, getRequestEvent } from '$app/server';
 import {
   WordPressImportService,
   type WordPressAPIConfig
-} from '$sailor/core/services/wordpress-import.server';
+} from 'sailorcms/core/services/wordpress-import.server';
 
 /**
  * Preview WordPress API to test connection and fetch sample posts

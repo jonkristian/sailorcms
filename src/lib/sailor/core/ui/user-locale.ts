@@ -7,7 +7,7 @@
 import { page } from '$app/state';
 import { browser } from '$app/environment';
 import { getLocale } from '$sailor/i18n';
-import { resolvePreferences, type UserPreferences } from '$sailor/core/utils/user-preferences';
+import { resolvePreferences, type UserPreferences } from 'sailorcms/core/utils/user-preferences';
 
 export function getUserLocale(): string {
   // Tolerate both wire shapes — some routes pre-parse `preferences` into an

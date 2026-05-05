@@ -13,7 +13,8 @@ import {
   updateViteConfig,
   stripLegacyDbScripts,
   printManualActionBanner,
-  dedupeNestedSvelteDeps
+  dedupeNestedSvelteDeps,
+  dedupeNestedSailorcmsDeps
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -163,10 +164,13 @@ export function registerCoreUpdate(program) {
           }
 
           // Bun's `file:` install nests a duplicate acorn under
-          // node_modules/svelte/node_modules — strip it before anything else
-          // touches node_modules. See dedupeNestedSvelteDeps() docstring.
+          // node_modules/svelte/node_modules and the entire sailor devDeps
+          // tree under node_modules/sailorcms/node_modules — strip both
+          // before anything else touches node_modules. See the dedupe
+          // function docstrings for the full story.
           if (packageManager === 'bun') {
             await dedupeNestedSvelteDeps(targetDir);
+            await dedupeNestedSailorcmsDeps(targetDir);
           }
 
           // Compare old vs new CMS dependencies to show what's no longer needed

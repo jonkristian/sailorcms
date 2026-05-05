@@ -1,4 +1,4 @@
-import { getSettings } from '$sailor/core/settings';
+import { getSettings } from 'sailorcms/core/settings/index';
 import { m } from '$sailor/i18n';
 import type { PageServerLoad } from './$types';
 

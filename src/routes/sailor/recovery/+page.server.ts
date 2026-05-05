@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { isNotNull, count } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { log } from '$sailor/core/utils/logger';
+import { log } from 'sailorcms/core/utils/logger';
 import type { PageServerLoad } from './$types';
 
 type TypeEntry = {

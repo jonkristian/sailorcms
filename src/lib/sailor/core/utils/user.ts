@@ -1,4 +1,4 @@
-import { toast } from '$sailor/core/ui/toast';
+import { toast } from 'sailorcms/core/ui/toast';
 
 /**
  * Get the appropriate color classes for a user role badge

@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, basename, extname } from 'path';
-import { getSettings } from '$sailor/core/settings';
+import { getSettings } from 'sailorcms/core/settings/index';
 import { StorageProviderFactory, type StorageProvider } from './storage-provider.server';
 import sharp from 'sharp';
 

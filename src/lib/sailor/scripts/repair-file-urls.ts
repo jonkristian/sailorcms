@@ -8,11 +8,11 @@
  * Usage: bun run src/lib/sailor/scripts/repair-file-urls.ts [--dry-run] [--provider=local|s3]
  */
 
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { files } from '$sailor/generated/schema';
 import { eq, isNull, or } from 'drizzle-orm';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
-import { getSettings } from '$sailor/core/settings';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { getSettings } from 'sailorcms/core/settings/index';
 
 interface RepairStats {
   total: number;

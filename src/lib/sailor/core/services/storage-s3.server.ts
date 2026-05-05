@@ -7,10 +7,10 @@ import {
   ListObjectsV2Command
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { generateFileName } from '$sailor/core/files/file.server';
-import { getSettings } from '$sailor/core/settings';
-import type { S3StorageConfig } from '$sailor/core/settings/types';
-import { log } from '$sailor/core/utils/logger';
+import { generateFileName } from 'sailorcms/core/files/file.server';
+import { getSettings } from 'sailorcms/core/settings/index';
+import type { S3StorageConfig } from 'sailorcms/core/settings/types';
+import { log } from 'sailorcms/core/utils/logger';
 
 export class S3StorageService {
   // Local helper to avoid cross-package private property type mismatch while keeping strong external types

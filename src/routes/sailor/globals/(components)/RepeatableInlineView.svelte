@@ -1,14 +1,14 @@
 <script lang="ts">
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
-  import { toast, requirePermission } from '$sailor/core/ui/toast';
+  import { toast, requirePermission } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
-  import { generateUUID } from '$sailor/core/utils/common';
+  import { generateUUID } from 'sailorcms/core/utils/common';
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
-  import { getDisplayTitle } from '$lib/sailor/core/content/display';
-  import { getCurrentTimestamp } from '$sailor/core/utils/date';
+  import { getDisplayTitle } from 'sailorcms/core/content/display';
+  import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { Button } from '$lib/components/ui/button';
   import { SvelteSet } from 'svelte/reactivity';

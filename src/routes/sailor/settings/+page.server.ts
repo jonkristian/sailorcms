@@ -1,6 +1,6 @@
 import { fail, error } from '@sveltejs/kit';
-import { SystemSettingsService } from '$sailor/core/services/settings.server';
-import { log } from '$sailor/core/utils/logger';
+import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
+import { log } from 'sailorcms/core/utils/logger';
 import { m } from '$sailor/i18n';
 import type { PageServerLoad, Actions } from './$types';
 

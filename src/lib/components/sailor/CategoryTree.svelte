@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ChevronRight, ChevronDown } from '@lucide/svelte';
-  import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
+  import { formatJson } from 'sailorcms/core/ui/syntax-highlighting';
 
   let {
     data,

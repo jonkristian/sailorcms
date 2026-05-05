@@ -3,7 +3,7 @@
   import { Label } from '$lib/components/ui/label';
   import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
-  import { toast, toastResult, requirePermission } from '$sailor/core/ui/toast';
+  import { toast, toastResult, requirePermission } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import { updateFlatGlobal } from '../data.remote.js';

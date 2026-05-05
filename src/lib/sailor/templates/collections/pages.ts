@@ -1,4 +1,4 @@
-import type { CollectionDefinition } from '$sailor/core/types';
+import type { CollectionDefinition } from 'sailorcms/core/types';
 
 export const pagesCollection: CollectionDefinition = {
   name: {

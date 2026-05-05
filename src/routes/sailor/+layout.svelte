@@ -12,8 +12,8 @@
   import ThemeToggle from 'sailorcms/components/sailor/ThemeToggle.svelte';
   import LocaleSwitcher from 'sailorcms/components/sailor/LocaleSwitcher.svelte';
   import { page } from '$app/state';
-  import { getPageTitle } from '$sailor/core/ui/page-title';
-  import { toast } from '$sailor/core/ui/toast';
+  import { getPageTitle } from 'sailorcms/core/ui/page-title';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { afterNavigate, goto } from '$app/navigation';
   import 'sailorcms/styles/sailor.css';
 

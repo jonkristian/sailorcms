@@ -1,8 +1,8 @@
 <script lang="ts">
   import { FileText } from '@lucide/svelte';
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
-  import { getImage, type FileType } from '$sailor/core/files/file';
-  import type { Tag } from '$sailor/core/types/tag';
+  import { getImage, type FileType } from 'sailorcms/core/files/file';
+  import type { Tag } from 'sailorcms/core/types/tag';
   import { m } from '$sailor/i18n';
 
   // Type for the file data with tags (matches server response)

@@ -1,8 +1,8 @@
 import { command, query } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { asc, desc, eq } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { ensureUniqueSlug } from '$sailor/core/utils/slug';
+import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
 
 /**
  * Find a non-colliding slug for a given collection/global table.

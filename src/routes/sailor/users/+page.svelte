@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { generateUUID } from '$sailor/core/utils/common';
+  import { generateUUID } from 'sailorcms/core/utils/common';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
@@ -9,8 +9,8 @@
   import { Button } from '$lib/components/ui/button';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { page } from '$app/state';
-  import { formatTableDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatTableDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import type { PageData } from './$types';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { m } from '$sailor/i18n';

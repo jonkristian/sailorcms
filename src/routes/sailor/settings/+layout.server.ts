@@ -1,5 +1,5 @@
-import { SystemSettingsService } from '$sailor/core/services/settings.server';
-import { tryParseJson } from '$sailor/core/utils/common';
+import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
+import { tryParseJson } from 'sailorcms/core/utils/common';
 
 export const load = async () => {
   // Get raw settings data for payload preview - shared across all settings pages

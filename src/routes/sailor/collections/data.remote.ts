@@ -1,12 +1,12 @@
 // SvelteKit remote functions
 import { command, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
-import { log } from '$sailor/core/utils/logger';
+import { db } from 'sailorcms/core/db/index.server';
+import { log } from 'sailorcms/core/utils/logger';
 import { eq, and, or, sql, asc, ne } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { generateUUID } from '$lib/sailor/core/utils/common';
-import { TagService } from '$sailor/core/services/tag.server';
-import { SearchIndexService } from '$sailor/core/services/search-index.server';
+import { generateUUID } from 'sailorcms/core/utils/common';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 
 /**
  * Clone collection items

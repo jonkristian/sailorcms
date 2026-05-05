@@ -5,10 +5,10 @@
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
   import { Textarea } from '$lib/components/ui/textarea';
-  import { type FileType } from '$sailor/core/files/file';
+  import { type FileType } from 'sailorcms/core/files/file';
   import { Save, Copy, ExternalLink } from '@lucide/svelte';
   import TagsInput from 'sailorcms/components/sailor/fields/TagsInput.svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { getFileTags, updateFile } from '$sailor/remote/files.remote.js';
 

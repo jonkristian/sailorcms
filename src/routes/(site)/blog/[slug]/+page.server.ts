@@ -1,7 +1,7 @@
 import { getCollections, getSiteSettings } from '$sailor/utils/index';
 import { extractSEO, generateMetaTags } from '$sailor/utils/content/seo';
 import type { CollectionsSingleResult, CollectionsMultipleResult } from '$sailor/utils/types';
-import { getCollectionOptions } from '$sailor/core/utils/db.server';
+import { getCollectionOptions } from 'sailorcms/core/utils/db.server';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 

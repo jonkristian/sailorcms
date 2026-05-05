@@ -1,6 +1,6 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from '$env/dynamic/private';
-import { log } from '$sailor/core/utils/logger';
+import { log } from 'sailorcms/core/utils/logger';
 
 export type MailMessage = {
   to: string | string[];

@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import type { PageData } from './$types';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
@@ -11,13 +11,13 @@
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import { m } from '$sailor/i18n';
-  import { generateUUID } from '$sailor/core/utils/common';
+  import { generateUUID } from 'sailorcms/core/utils/common';
   import { invalidateAll } from '$app/navigation';
   import FileText from '@lucide/svelte/icons/file-text';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
-  import { formatTableDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatTableDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import * as Select from '$lib/components/ui/select/index.js';
   import SelectDialog from 'sailorcms/components/sailor/dialogs/SelectDialog.svelte';
   import {

@@ -5,7 +5,7 @@
  * configured via environment variables. Only override what you need to customize.
  */
 
-import type { CMSSettings } from '$sailor/core/settings/types';
+import type { CMSSettings } from 'sailorcms/core/settings/types';
 
 export const settings: Partial<CMSSettings> = {
   // ✅ Storage settings (most important - override as needed)

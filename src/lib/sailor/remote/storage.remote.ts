@@ -1,6 +1,6 @@
 import { command } from '$app/server';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
-import { getSettings } from '$sailor/core/settings';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { getSettings } from 'sailorcms/core/settings/index';
 
 /**
  * Test storage connection and get configuration

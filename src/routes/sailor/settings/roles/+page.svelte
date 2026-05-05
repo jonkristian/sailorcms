@@ -11,7 +11,7 @@
   import { Check, X, Shield, User, Users, ChevronDown } from '@lucide/svelte';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
-  import type { BetterAuthResource, BetterAuthAction } from '$lib/sailor/core/settings/types';
+  import type { BetterAuthResource, BetterAuthAction } from 'sailorcms/core/settings/types';
 
   const { data } = $props();
   let roleSettings = $derived(data.roleSettings);

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { Badge } from '$lib/components/ui/badge';
   import { Copy, FileText, Trash2 } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { formatFileSize, type FileType } from '$sailor/core/files/file';
+  import { formatFileSize, type FileType } from 'sailorcms/core/files/file';
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
-  import { formatTableDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatTableDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
-  import type { Tag } from '$sailor/core/types/tag';
+  import type { Tag } from 'sailorcms/core/types/tag';
 
   // Type for the file data with tags (matches server response)
   type FileWithTags = FileType & {

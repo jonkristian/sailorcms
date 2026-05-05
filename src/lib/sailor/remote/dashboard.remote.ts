@@ -1,10 +1,10 @@
 // SvelteKit remote functions for dashboard data
 import { query, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { desc, count, eq } from 'drizzle-orm';
-import { SystemSettingsService } from '$sailor/core/services/settings.server';
-import { getDashboardActivityLink } from '$sailor/core/utils/routing';
+import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
+import { getDashboardActivityLink } from 'sailorcms/core/utils/routing';
 
 interface DashboardStats {
   collections: number;

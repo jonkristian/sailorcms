@@ -6,7 +6,12 @@ const config = {
   kit: {
     adapter: adapter(),
     alias: {
-      $sailor: 'src/lib/sailor'
+      $sailor: 'src/lib/sailor',
+      'sailorcms/components/sailor/*': 'src/lib/components/sailor/*',
+      'sailorcms/core/*': 'src/lib/sailor/core/*',
+      'sailorcms/remote/*': 'src/lib/sailor/remote/*',
+      'sailorcms/utils/*': 'src/lib/sailor/utils/*',
+      'sailorcms/styles/*': 'src/lib/sailor/styles/*'
     },
     experimental: {
       remoteFunctions: true

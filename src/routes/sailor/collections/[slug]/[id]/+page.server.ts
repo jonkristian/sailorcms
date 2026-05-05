@@ -1,16 +1,16 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { sql, eq, and, desc } from 'drizzle-orm';
-import { getCurrentTimestamp } from '$sailor/core/utils/date';
-import { collectionTypes } from '$sailor/core/db/index.server';
-import { TagService } from '$sailor/core/services/tag.server';
-import { loadBlockFields } from '$sailor/core/content/blocks.server';
-import { loadFileFields } from '$sailor/core/data/loaders/file-loader';
-import { SystemSettingsService } from '$sailor/core/services/settings.server';
-import { resolveRevisionsKeep } from '$sailor/core/services/revisions.server';
+import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
+import { collectionTypes } from 'sailorcms/core/db/index.server';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { loadBlockFields } from 'sailorcms/core/content/blocks.server';
+import { loadFileFields } from 'sailorcms/core/data/loaders/file-loader';
+import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
+import { resolveRevisionsKeep } from 'sailorcms/core/services/revisions.server';
 import type { PageServerLoad } from './$types';
-import { log } from '$sailor/core/utils/logger';
+import { log } from 'sailorcms/core/utils/logger';
 import { m } from '$sailor/i18n';
 import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';
 
@@ -103,7 +103,7 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
 
     // Initialize SEO fields if SEO is enabled
     if (collectionDefinition.options.seo) {
-      const { SEO_FIELDS } = await import('$sailor/core/types');
+      const { SEO_FIELDS } = await import('sailorcms/core/types');
       Object.keys(SEO_FIELDS).forEach((seoField) => {
         page[seoField] = '';
       });

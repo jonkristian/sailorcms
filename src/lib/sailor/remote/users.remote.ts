@@ -1,12 +1,12 @@
 import { command, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { asc, sql, eq } from 'drizzle-orm';
 import {
   parsePreferences,
   mergePreferences,
   type UserPreferences
-} from '$sailor/core/utils/user-preferences';
+} from 'sailorcms/core/utils/user-preferences';
 
 /**
  * Get users for selection/search

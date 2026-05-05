@@ -1,9 +1,9 @@
 // SvelteKit remote functions for user management
 import { command, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { log } from '$sailor/core/utils/logger';
+import { log } from 'sailorcms/core/utils/logger';
 
 /**
  * Bulk delete users with optional content adoption

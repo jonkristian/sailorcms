@@ -6,7 +6,7 @@
   import { Label } from '$lib/components/ui/label';
   import { Badge } from '$lib/components/ui/badge';
   import { FileText, CheckCircle, XCircle, Loader2, AlertCircle } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import * as Select from '$lib/components/ui/select';
   import { Progress } from '$lib/components/ui/progress';

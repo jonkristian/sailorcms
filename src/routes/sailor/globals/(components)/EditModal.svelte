@@ -3,7 +3,7 @@
   import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import {

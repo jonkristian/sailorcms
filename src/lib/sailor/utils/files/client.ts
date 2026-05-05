@@ -1,4 +1,7 @@
-import { getFileUrl as getFileUrlFromCore, type FileTransformOptions } from '$sailor/core/files';
+import {
+  getFileUrl as getFileUrlFromCore,
+  type FileTransformOptions
+} from 'sailorcms/core/files/file';
 import type { ResponsiveImageData } from '../types';
 
 // Default responsive breakpoints - can be overridden with setDefaultBreakpoints()

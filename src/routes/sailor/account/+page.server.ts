@@ -1,5 +1,5 @@
 import { fail, error, redirect } from '@sveltejs/kit';
-import { db, users, accounts } from '$sailor/core/db/index.server';
+import { db, users, accounts } from 'sailorcms/core/db/index.server';
 import { eq, and } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import {
@@ -7,7 +7,7 @@ import {
   mergePreferences,
   resolvePreferences,
   type UserPreferences
-} from '$sailor/core/utils/user-preferences';
+} from 'sailorcms/core/utils/user-preferences';
 
 export const load = async ({ locals }: { locals: App.Locals }) => {
   // Authentication handled by hooks

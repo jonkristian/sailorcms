@@ -29,8 +29,8 @@
   import * as InputGroup from '$lib/components/ui/input-group';
   import { Label } from '$lib/components/ui/label';
   import { RefreshCw } from '@lucide/svelte';
-  import { slugify } from '$sailor/core/utils/common';
-  import { toast } from '$sailor/core/ui/toast';
+  import { slugify } from 'sailorcms/core/utils/common';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { getUniqueSlug } from '$sailor/remote/collections.remote.js';
   import ArrayField from './ArrayField.svelte';
@@ -43,8 +43,8 @@
   import RelationField from './RelationField.svelte';
   import FileField from './FileField.svelte';
   import TagsInput from './TagsInput.svelte';
-  import { formatDetailedDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatDetailedDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
 
   const wysiwygModule = $derived(field.type === 'wysiwyg' ? import('./WysiwygField.svelte') : null);
 

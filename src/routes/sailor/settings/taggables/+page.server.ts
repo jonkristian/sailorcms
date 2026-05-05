@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
-import { TagService } from '$sailor/core/services/tag.server';
-import { log } from '$sailor/core/utils/logger';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { log } from 'sailorcms/core/utils/logger';
 
 export const load: PageServerLoad = async () => {
   try {

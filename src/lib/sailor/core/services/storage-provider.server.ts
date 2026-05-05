@@ -1,6 +1,6 @@
-import { saveFile } from '$sailor/core/files/file.server';
+import { saveFile } from 'sailorcms/core/files/file.server';
 import { S3StorageService } from './storage-s3.server';
-import { getSettings } from '$sailor/core/settings';
+import { getSettings } from 'sailorcms/core/settings/index';
 
 export interface StorageProvider {
   uploadFile(file: File): Promise<{ filename: string; path: string; url: string }>;

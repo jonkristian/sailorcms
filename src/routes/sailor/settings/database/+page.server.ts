@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { db, collectionTypes, blockTypes, globalTypes } from '$sailor/core/db/index.server';
+import { db, collectionTypes, blockTypes, globalTypes } from 'sailorcms/core/db/index.server';
 import { sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 

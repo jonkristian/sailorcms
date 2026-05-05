@@ -3,14 +3,14 @@
   import { Button } from '$lib/components/ui/button';
   import ArrayField from 'sailorcms/components/sailor/fields/ArrayField.svelte';
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import { Save, Pencil } from '@lucide/svelte';
   import { Separator } from '$lib/components/ui/separator';
-  import { formatDetailedDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
-  import { useUnsavedChanges } from '$sailor/core/hooks/unsaved-changes.svelte';
+  import { formatDetailedDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
+  import { useUnsavedChanges } from 'sailorcms/core/hooks/unsaved-changes.svelte';
   import {
     updateFlatGlobal,
     updateRepeatableGlobal,

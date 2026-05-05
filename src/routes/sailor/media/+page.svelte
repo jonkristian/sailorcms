@@ -4,8 +4,8 @@
   import { page } from '$app/state';
   import { Button } from '$lib/components/ui/button';
   import { LayoutGrid, List } from '@lucide/svelte';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
-  import { type FileType } from '$sailor/core/files/file';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
+  import { type FileType } from 'sailorcms/core/files/file';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import MediaEditModal from 'sailorcms/components/sailor/MediaEditModal.svelte';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
@@ -16,14 +16,14 @@
   import { useTableFilters } from '$lib/sailor/composables/useTableFilters.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
-  import type { Tag } from '$sailor/core/types/tag';
+  import type { Tag } from 'sailorcms/core/types/tag';
   import MediaGrid from './(components)/MediaGrid.svelte';
   import MediaTable from './(components)/MediaTable.svelte';
   import {
     deleteFiles as deleteMediaFiles,
     updateFilesTags as updateMediaFilesTags
   } from '$sailor/remote/files.remote.js';
-  import { uploadFiles, type UploadOptions } from '$sailor/core/files/upload';
+  import { uploadFiles, type UploadOptions } from 'sailorcms/core/files/upload';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
   import TagsInput from 'sailorcms/components/sailor/fields/TagsInput.svelte';

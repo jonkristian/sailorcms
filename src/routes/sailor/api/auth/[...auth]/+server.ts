@@ -1,4 +1,4 @@
-import { auth } from '$sailor/core/auth.server';
+import { auth } from 'sailorcms/core/auth.server';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {

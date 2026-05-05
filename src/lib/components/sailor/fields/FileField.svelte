@@ -2,11 +2,11 @@
   import FilePicker from 'sailorcms/components/sailor/files/file-picker.svelte';
   import { Button } from '$lib/components/ui/button';
   import { Trash2, Plus } from '@lucide/svelte';
-  import { getImage } from '$sailor/core/files/file';
+  import { getImage } from 'sailorcms/core/files/file';
   import Grid from 'sailorcms/components/sailor/dnd/Grid.svelte';
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import { getFiles, restoreFile } from '$sailor/remote/files.remote.js';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
 

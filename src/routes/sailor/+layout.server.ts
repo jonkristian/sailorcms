@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from './$types';
 import type { User } from '$sailor/generated/types';
-import { db, users } from '$sailor/core/db/index.server';
+import { db, users } from 'sailorcms/core/db/index.server';
 import { eq } from 'drizzle-orm';
 
 export const load: LayoutServerLoad = async (event) => {

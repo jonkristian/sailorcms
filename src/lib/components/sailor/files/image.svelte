@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getFileUrl, type FileTransformOptions } from '$sailor/core/files/file';
+  import { getFileUrl, type FileTransformOptions } from 'sailorcms/core/files/file';
 
   const {
     src,

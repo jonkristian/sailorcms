@@ -3,7 +3,7 @@
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import { useBulkSelection } from '$lib/sailor/composables/useBulkSelection.svelte';
-  import { formatTableDate } from '$sailor/core/utils/date';
+  import { formatTableDate } from 'sailorcms/core/utils/date';
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
   import { m } from '$sailor/i18n';

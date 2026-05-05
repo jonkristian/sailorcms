@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, desc, asc, count, and, or, sql, inArray } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import type { Pagination } from '$sailor/core/types';
-import { liveOnly } from '$sailor/core/db/soft-delete';
+import type { Pagination } from 'sailorcms/core/types';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
 
 export const load = async ({ params, locals, url }) => {
   // Check permission to view content

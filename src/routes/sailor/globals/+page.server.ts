@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { db, globalTypes } from '$sailor/core/db/index.server';
+import { db, globalTypes } from 'sailorcms/core/db/index.server';
 
 export const load: PageServerLoad = async () => {
   const globalTypesData = await db.select().from(globalTypes).all();

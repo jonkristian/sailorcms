@@ -2,7 +2,7 @@
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
   import { FileText, Download } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import * as Tabs from '$lib/components/ui/tabs';
   import * as Select from '$lib/components/ui/select';

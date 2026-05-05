@@ -12,8 +12,8 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { MoreVertical, GripVertical } from '@lucide/svelte';
   import { goto } from '$app/navigation';
-  import { formatTableDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatTableDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import FileText from '@lucide/svelte/icons/file-text';
   import { m } from '$sailor/i18n';
 

@@ -2,7 +2,7 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
-import { getSettings } from '$sailor/core/settings';
+import { getSettings } from 'sailorcms/core/settings/index';
 
 // Re-export client-safe utilities
 export * from './file';

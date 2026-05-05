@@ -7,7 +7,7 @@
   import Link from '@tiptap/extension-link';
   import TextAlign from '@tiptap/extension-text-align';
   import Underline from '@tiptap/extension-underline';
-  import { CustomImageExtension } from '$sailor/core/editor/extensions/CustomImageExtension';
+  import { CustomImageExtension } from 'sailorcms/core/editor/extensions/CustomImageExtension';
   import { getFiles } from '$sailor/remote/files.remote.js';
   import * as Tooltip from '$lib/components/ui/tooltip';
   import TooltipButton from 'sailorcms/components/sailor/TooltipButton.svelte';
@@ -37,11 +37,7 @@
     ImageIcon
   } from '@lucide/svelte';
   import { cn } from '$lib/sailor/utils';
-  import {
-    formatHTML,
-    cleanFormattedHTML,
-    tiptapJsonToHtml
-  } from '$lib/sailor/core/content/content';
+  import { formatHTML, cleanFormattedHTML, tiptapJsonToHtml } from 'sailorcms/core/content/content';
   import FilePicker from 'sailorcms/components/sailor/files/file-picker.svelte';
   import { m } from '$sailor/i18n';
 

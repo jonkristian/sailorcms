@@ -1,11 +1,11 @@
 import { error } from '@sveltejs/kit';
-import { log } from '$sailor/core/utils/logger';
-import { db } from '$sailor/core/db/index.server';
+import { log } from 'sailorcms/core/utils/logger';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, asc, desc, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { TagService } from '$sailor/core/services/tag.server';
-import { toSnakeCase } from '$sailor/core/utils/string';
-import { liveOnly } from '$sailor/core/db/soft-delete';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
 
 export const load = async ({ params, locals }) => {
   // Check permission to view content

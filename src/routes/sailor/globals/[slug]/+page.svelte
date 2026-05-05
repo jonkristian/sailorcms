@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
   import { goto } from '$app/navigation';
   import { invalidateAll } from '$app/navigation';
   import { FlatView, TableView, RepeatableNestedView, RepeatableInlineView } from '../(components)';
   import Header from 'sailorcms/components/sailor/Header.svelte';
-  import { generateUUID } from '$sailor/core/utils/common';
+  import { generateUUID } from 'sailorcms/core/utils/common';
   import { deleteGlobalItem, reorderGlobalItems } from '../data.remote.js';
   import OverlayLoader from 'sailorcms/components/sailor/OverlayLoader.svelte';
 

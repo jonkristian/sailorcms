@@ -1,7 +1,7 @@
 import { afterNavigate, goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { page } from '$app/state';
-import { debounce } from '$sailor/core/utils/debounce';
+import { debounce } from 'sailorcms/core/utils/debounce';
 
 interface SortOption {
   label: string;

@@ -3,8 +3,8 @@
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar/index.js';
   import { Users, ExternalLink, UserPlus } from '@lucide/svelte';
-  import { formatRelativeTime } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatRelativeTime } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import type { User } from '$sailor/generated/types';
   import { m } from '$sailor/i18n';
 

@@ -2,7 +2,7 @@
   import { Button } from '$lib/components/ui/button';
   import * as Card from '$lib/components/ui/card';
   import { Badge } from '$lib/components/ui/badge';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
   import { Cloud, HardDrive, FileText, Wrench, Loader2, Download } from '@lucide/svelte';

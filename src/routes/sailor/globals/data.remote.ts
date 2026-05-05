@@ -1,15 +1,15 @@
 // SvelteKit remote functions for global management
 import { command, getRequestEvent } from '$app/server';
-import { TagService } from '$sailor/core/services/tag.server';
-import { db } from '$sailor/core/db/index.server';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, sql, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { getCurrentTimestamp, getCurrentTimestampSeconds } from '$sailor/core/utils/date';
-import { generateUUID, normalizeRelationId, slugify } from '$sailor/core/utils/common';
-import { ensureUniqueSlug } from '$sailor/core/utils/slug';
-import { toSnakeCase } from '$sailor/core/utils/string';
-import { log } from '$sailor/core/utils/logger';
-import { SearchIndexService } from '$sailor/core/services/search-index.server';
+import { getCurrentTimestamp, getCurrentTimestampSeconds } from 'sailorcms/core/utils/date';
+import { generateUUID, normalizeRelationId, slugify } from 'sailorcms/core/utils/common';
+import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { log } from 'sailorcms/core/utils/logger';
+import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 
 /**
  * Reorder array items with drag & drop support

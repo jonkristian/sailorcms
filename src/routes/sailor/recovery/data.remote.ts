@@ -3,14 +3,14 @@
 // this file owns the destructive purge path.
 
 import { command, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, isNotNull, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { files as filesTable } from '$sailor/generated/schema';
-import { log } from '$sailor/core/utils/logger';
-import { SearchIndexService } from '$sailor/core/services/search-index.server';
-import { RevisionsService } from '$sailor/core/services/revisions.server';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
+import { log } from 'sailorcms/core/utils/logger';
+import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
+import { RevisionsService } from 'sailorcms/core/services/revisions.server';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
 
 export const purgeCollectionItem = command(
   'unchecked',

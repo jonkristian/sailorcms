@@ -1,6 +1,6 @@
 // SvelteKit remote functions for settings management
 import { command, getRequestEvent } from '$app/server';
-import { SystemSettingsService } from '$sailor/core/services/settings.server';
+import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
 
 /**
  * Update site settings

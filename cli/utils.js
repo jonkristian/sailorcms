@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
  * Append to this list as more component subtrees migrate from the
  * copy-and-paste distribution model to package-resolved imports.
  */
-const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
+export const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
 
 /**
  * Subdirectories under `src/lib/sailor/` that are resolved from the package's
@@ -32,7 +32,7 @@ const COMPONENT_DIRS_RESOLVED_VIA_PACKAGE = ['sailor'];
  * each subtree migrates from copy-and-paste distribution to package-resolved
  * imports.
  */
-const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = ['styles'];
+export const SAILOR_DIRS_RESOLVED_VIA_PACKAGE = ['styles', 'core'];
 
 async function pruneStalePackageExportedComponents(targetComponentsDir) {
   for (const dir of COMPONENT_DIRS_RESOLVED_VIA_PACKAGE) {
@@ -393,7 +393,7 @@ async function mergeViteConfig(targetDir, mainProjectDir, force = false) {
  * Returns { content, applied, manual } so callers can log what changed and
  * what needs the user's attention.
  */
-function patchViteConfig(content) {
+export function patchViteConfig(content) {
   let updated = content;
   const applied = [];
   const manual = [];
@@ -448,6 +448,59 @@ function patchViteConfig(content) {
     if (!manual.find((m) => m.name === 'paraglideVitePlugin')) applied.push('Paraglide i18n');
   }
 
+  // 3. resolve.dedupe — force a single instance of @sveltejs/kit and svelte
+  //    across the consumer's app code and sailor's admin code (resolved from
+  //    node_modules/sailorcms). Vite externalizes node_modules for SSR by
+  //    default, so without this each side evaluates the framework separately;
+  //    `throw redirect()` from a sailor hook then fails the consumer-side
+  //    `instanceof Redirect` check (different class identity from a different
+  //    module evaluation) and 500s with a stringified-redirect body instead
+  //    of 302'ing.
+  const REQUIRED_DEDUPE = ['@sveltejs/kit', 'svelte'];
+  const dedupeMatch = updated.match(/dedupe\s*:\s*\[([^\]]*)\]/);
+  if (dedupeMatch) {
+    const inner = dedupeMatch[1];
+    const missing = REQUIRED_DEDUPE.filter(
+      (m) => !inner.includes(`'${m}'`) && !inner.includes(`"${m}"`)
+    );
+    if (missing.length > 0) {
+      const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
+      const additions = missing.map((m) => `'${m}'`).join(', ');
+      const newInner = trimmed.trim() ? `${trimmed}, ${additions}` : additions;
+      updated = updated.replace(dedupeMatch[0], `dedupe: [${newInner}]`);
+      applied.push('resolve.dedupe');
+    }
+  } else if (/\bresolve\s*:\s*\{/.test(updated)) {
+    // resolve block exists but no dedupe — splice in
+    const before = updated;
+    updated = updated.replace(
+      /(\bresolve\s*:\s*\{)/,
+      `$1\n    dedupe: ['${REQUIRED_DEDUPE.join("', '")}'],`
+    );
+    if (updated !== before) applied.push('resolve.dedupe');
+    else {
+      manual.push({
+        name: 'resolve.dedupe',
+        hint: `Add \`dedupe: ['@sveltejs/kit', 'svelte']\` inside your existing \`resolve\` block in vite.config.ts. Required so sailor's admin code (resolved from node_modules/sailorcms) and your app code share a single SvelteKit / svelte instance — without this, redirects from sailor hooks 500 instead of 302 because Vite evaluates the framework twice.`
+      });
+    }
+  } else {
+    // No resolve block at all — insert one after the plugins array.
+    const before = updated;
+    updated = updated.replace(
+      /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
+      `$1,\n  resolve: {\n    dedupe: ['${REQUIRED_DEDUPE.join("', '")}']\n  },`
+    );
+    if (updated === before) {
+      manual.push({
+        name: 'resolve.dedupe',
+        hint: `Add \`resolve: { dedupe: ['@sveltejs/kit', 'svelte'] }\` to your defineConfig in vite.config.ts. Required so sailor's admin code (resolved from node_modules/sailorcms) and your app code share a single SvelteKit / svelte instance — without this, redirects from sailor hooks 500 instead of 302 because Vite evaluates the framework twice.`
+      });
+    } else {
+      applied.push('resolve.dedupe');
+    }
+  }
+
   return { content: updated, applied, manual };
 }
 
@@ -481,7 +534,7 @@ export async function updateSvelteConfig(targetDir) {
  *
  * Returns { content, applied, manual } so the caller can log changes.
  */
-function patchSvelteConfig(content) {
+export function patchSvelteConfig(content) {
   let updated = content;
   const applied = [];
   const manual = [];
@@ -708,6 +761,46 @@ export async function dedupeNestedSvelteDeps(targetDir) {
   await fs.remove(nested);
   console.log(
     'ℹ️  Removed nested node_modules/svelte/node_modules (bun non-registry-install dedup workaround).'
+  );
+  return true;
+}
+
+/**
+ * Strip the nested `node_modules` tree under `node_modules/sailorcms/`.
+ *
+ * Same root cause as `dedupeNestedSvelteDeps`, different blast radius. When
+ * sailor is installed via `file:` or `github:` (i.e. anything other than a
+ * proper npm registry install), bun copies the package's full installed
+ * state — including its devDependencies tree — into
+ * `node_modules/sailorcms/node_modules/`. Once admin code is resolved from
+ * the package (`sailorcms/core/...`) rather than copied into the consumer's
+ * tree, that nested tree becomes load-bearing in the bad way: imports from
+ * sailor's package code walk up looking for `node_modules/<dep>` and find
+ * the nested copies first.
+ *
+ * The most painful manifestation: nested `@sveltejs/kit` means sailor's
+ * hooks throw `redirect()` instances of the nested kit's `Redirect` class.
+ * The consumer's outer kit catches them but `instanceof Redirect` fails
+ * (different class identity from a different module instance), so the
+ * redirect falls through to `coalesce_to_error` and surfaces as a 500 with
+ * a stringified-redirect message instead of an actual 302. Same shape with
+ * `svelte` (two svelte runtimes), `vite`, `@sveltejs/vite-plugin-svelte`.
+ *
+ * Removing the entire nested tree is safe because sailor's runtime imports
+ * resolve up to the consumer's top-level `node_modules` after this — which
+ * is what we want for single framework instances. Recreated on every
+ * `bun install`, so we strip after every CLI-driven install.
+ *
+ * Same CI/PaaS caveat as `dedupeNestedSvelteDeps`: only fires from sailor's
+ * CLI, so deploy pipelines that just run `bun install` need to either run
+ * `npx sailor doctor --fix` post-install or switch to `npm install`.
+ */
+export async function dedupeNestedSailorcmsDeps(targetDir) {
+  const nested = path.join(targetDir, 'node_modules', 'sailorcms', 'node_modules');
+  if (!(await fs.pathExists(nested))) return false;
+  await fs.remove(nested);
+  console.log(
+    'ℹ️  Removed nested node_modules/sailorcms/node_modules (bun non-registry-install dedup workaround).'
   );
   return true;
 }

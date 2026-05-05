@@ -2,8 +2,8 @@
   import * as Card from '$lib/components/ui/card/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { FileImage, FileText, Video, Music, File, ExternalLink } from '@lucide/svelte';
-  import { formatRelativeTime } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatRelativeTime } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { formatFileSize } from '$sailor/utils/files';
   import type { File as FileType } from '$sailor/utils/types';
   import { m } from '$sailor/i18n';

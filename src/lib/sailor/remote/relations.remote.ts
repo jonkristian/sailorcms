@@ -1,5 +1,5 @@
 import { command } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
 import { sql } from 'drizzle-orm';
 

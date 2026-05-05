@@ -4,7 +4,7 @@
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { Button } from '$lib/components/ui/button';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import { restoreGlobalItem } from '../../../globals/data.remote.js';
   import { purgeGlobalItem } from '../../data.remote.js';

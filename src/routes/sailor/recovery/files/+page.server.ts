@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { eq, isNotNull, desc, count } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
-import { log } from '$sailor/core/utils/logger';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
+import { log } from 'sailorcms/core/utils/logger';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {

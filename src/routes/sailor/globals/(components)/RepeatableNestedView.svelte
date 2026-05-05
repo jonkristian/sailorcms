@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import { Plus } from '@lucide/svelte';
-  import { toast, toastResult } from '$sailor/core/ui/toast';
+  import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
@@ -9,7 +9,7 @@
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
-  import { generateUUID } from '$sailor/core/utils/common';
+  import { generateUUID } from 'sailorcms/core/utils/common';
   import { reorderGlobalItems, deleteGlobalItem } from '../data.remote.js';
 
   let {

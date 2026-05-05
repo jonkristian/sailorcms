@@ -2,7 +2,7 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Button } from '$lib/components/ui/button';
   import { Trash2 } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { invalidateAll } from '$app/navigation';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import { deleteTag } from '$sailor/remote/tags.remote.js';

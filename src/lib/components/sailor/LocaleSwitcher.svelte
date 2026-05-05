@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { locales, m, setLocale, type Locale } from '$sailor/i18n';
   import { updateMyPreferences } from '$sailor/remote/users.remote.js';
-  import { resolvePreferences } from '$sailor/core/utils/user-preferences';
+  import { resolvePreferences } from 'sailorcms/core/utils/user-preferences';
 
   const items = $derived([
     { value: 'auto', label: m.account_field_language_auto(), short: 'Auto' },

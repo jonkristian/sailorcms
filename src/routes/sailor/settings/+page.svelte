@@ -4,7 +4,7 @@
   import { Input } from '$lib/components/ui/input';
   import { Textarea } from '$lib/components/ui/textarea';
   import { Save, RotateCcw } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';

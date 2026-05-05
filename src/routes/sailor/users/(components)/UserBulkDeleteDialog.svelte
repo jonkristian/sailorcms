@@ -6,7 +6,7 @@
   import { Trash2 } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
   import { pluralize } from '$sailor/utils/ui/text';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import type { User } from '$sailor/generated/types';
   import { bulkDeleteUsers } from '../data.remote.js';
 

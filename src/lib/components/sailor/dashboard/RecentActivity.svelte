@@ -13,8 +13,8 @@
     ExternalLink
   } from '@lucide/svelte';
   import { goto } from '$app/navigation';
-  import { formatRelativeTime } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatRelativeTime } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { m } from '$sailor/i18n';
 
   function getActionLabel(action: string): string {

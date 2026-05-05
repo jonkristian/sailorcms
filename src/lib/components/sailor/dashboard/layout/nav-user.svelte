@@ -3,7 +3,7 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
   import * as Sidebar from '$lib/components/ui/sidebar/index.js';
   import { useSidebar } from '$lib/components/ui/sidebar/index.js';
-  import { authClient } from '$sailor/core/auth';
+  import { authClient } from 'sailorcms/core/auth';
   import { goto } from '$app/navigation';
   import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
   import LogOutIcon from '@lucide/svelte/icons/log-out';

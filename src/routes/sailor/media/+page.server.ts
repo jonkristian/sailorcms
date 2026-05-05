@@ -1,12 +1,12 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { files as filesTable, users } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
-import { log } from '$sailor/core/utils/logger';
-import { TagService } from '$sailor/core/services/tag.server';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
-import { liveOnly } from '$sailor/core/db/soft-delete';
-import type { Pagination } from '$sailor/core/types';
+import { log } from 'sailorcms/core/utils/logger';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
+import type { Pagination } from 'sailorcms/core/types';
 
 export const load = async ({
   url,

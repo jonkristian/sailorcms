@@ -4,9 +4,9 @@
 
 import { redirect, error, type RequestEvent, type ResolveOptions } from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { auth } from '$sailor/core/auth.server';
-import { handleSailorLogging, log } from '$sailor/core/utils/logger';
-import { initializeDatabase } from '$sailor/core/db/index.server';
+import { auth } from 'sailorcms/core/auth.server';
+import { handleSailorLogging, log } from 'sailorcms/core/utils/logger';
+import { initializeDatabase } from 'sailorcms/core/db/index.server';
 import {
   baseLocale,
   cookieName as paraglideCookieName,
@@ -15,7 +15,7 @@ import {
   overwriteGetLocale,
   type Locale
 } from '$sailor/i18n/paraglide/runtime';
-import { resolvePreferences } from '$sailor/core/utils/user-preferences';
+import { resolvePreferences } from 'sailorcms/core/utils/user-preferences';
 
 // Per-request locale via the official Paraglide pattern: we own a single
 // AsyncLocalStorage, override `getLocale()` once at module load to read from

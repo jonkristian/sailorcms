@@ -1,4 +1,4 @@
-import { getSettings } from '$lib/sailor/core/settings';
+import { getSettings } from 'sailorcms/core/settings/index';
 import { m } from '$sailor/i18n';
 
 export const load = async ({ parent }) => {

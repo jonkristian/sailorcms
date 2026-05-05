@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
   import { History } from '@lucide/svelte';
-  import { headerRevisions } from '$sailor/core/ui/header-revisions.svelte';
+  import { headerRevisions } from 'sailorcms/core/ui/header-revisions.svelte';
   import { m } from '$sailor/i18n';
 </script>
 

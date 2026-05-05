@@ -1,14 +1,14 @@
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { files as filesTable } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, and, count } from 'drizzle-orm';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
-import { TagService } from '$sailor/core/services/tag.server';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { TagService } from 'sailorcms/core/services/tag.server';
 import {
   getFileUrl as getFileUrlFromClient,
   type FileTransformOptions,
   validateFile as validateFileUtil
-} from '$sailor/core/files/file.server';
-import { getSettings, parseFileSize } from '$sailor/core/settings';
+} from 'sailorcms/core/files/file.server';
+import { getSettings, parseFileSize } from 'sailorcms/core/settings/index';
 import { createHash } from 'crypto';
 import crypto from 'crypto';
 import type { File as FileType, Tag } from '$sailor/generated/types';

@@ -1,17 +1,17 @@
 // SvelteKit remote functions for file management (cross-cutting)
 import { command, query, getRequestEvent } from '$app/server';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 import { files as filesTable, users as usersTable } from '$sailor/generated/schema';
 import { eq, like, desc, inArray, sql, and, count } from 'drizzle-orm';
-import { TagService } from '$sailor/core/services/tag.server';
-import { liveOnly } from '$sailor/core/db/soft-delete';
-import { detectImageFormatFromBytes } from '$sailor/core/files/file.server';
-import { StorageProviderFactory } from '$sailor/core/services/storage-provider.server';
-import { validateFile as validateFileUtil } from '$sailor/core/files/file';
-import { type FileType } from '$sailor/core/files/file.server';
-import { getSettings, parseFileSize } from '$sailor/core/settings';
+import { TagService } from 'sailorcms/core/services/tag.server';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
+import { detectImageFormatFromBytes } from 'sailorcms/core/files/file.server';
+import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { validateFile as validateFileUtil } from 'sailorcms/core/files/file';
+import { type FileType } from 'sailorcms/core/files/file.server';
+import { getSettings, parseFileSize } from 'sailorcms/core/settings/index';
 import { repairFileURLs } from '$sailor/scripts/repair-file-urls';
-import { generateUUID } from '$sailor/core/utils/common';
+import { generateUUID } from 'sailorcms/core/utils/common';
 
 /**
  * Delete files

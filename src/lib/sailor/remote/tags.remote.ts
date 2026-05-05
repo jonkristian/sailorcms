@@ -1,6 +1,6 @@
 // Global remote functions for tag management across different contexts
 import { command, getRequestEvent } from '$app/server';
-import { TagService } from '$sailor/core/services/tag.server';
+import { TagService } from 'sailorcms/core/services/tag.server';
 
 /**
  * Add tags to an entity (file, collection item, etc.)

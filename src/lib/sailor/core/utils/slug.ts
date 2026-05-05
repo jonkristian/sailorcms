@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { db } from '$sailor/core/db/index.server';
+import { db } from 'sailorcms/core/db/index.server';
 
 type SlugTable = { id: any; slug: any };
 type Executor = { select: typeof db.select };

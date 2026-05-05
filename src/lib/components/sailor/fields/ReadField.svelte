@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { formatDetailedDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
+  import { formatDetailedDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { m } from '$sailor/i18n';
 
   const {

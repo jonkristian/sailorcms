@@ -4,14 +4,13 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* Tailwind v4 doesn't scan `node_modules` by default. As Path B migrates
-   admin code (components, styles, eventually core/utils/remote) into the
-   `sailorcms` package, their class usages live in `node_modules/sailorcms/src/lib/`,
-   invisible to Tailwind's default scan. Since this CSS file is itself
-   resolved from `sailorcms/styles/sailor.css` in consumers, `../..` from
-   `<pkg>/src/lib/sailor/styles/` lands on `<pkg>/src/lib/` — which covers
-   every migrated subtree. The same path also resolves correctly in sailor's
-   own dev (`<repo>/src/lib`). */
+/* Tailwind v4 doesn't scan `node_modules` by default. Sailor's admin code
+   (components, styles, core, etc.) lives in `node_modules/sailorcms/src/lib/`
+   when consumers resolve it from the package, so its class usages are
+   invisible to the default scan. This file is itself resolved from
+   `sailorcms/styles/sailor.css`, so `../..` from `<pkg>/src/lib/sailor/styles/`
+   lands on `<pkg>/src/lib/` — covering every package-resolved subtree. The
+   same path resolves correctly in sailor's own dev (`<repo>/src/lib`). */
 @source '../..';
 
 /* Highlight.js themes for code syntax highlighting */

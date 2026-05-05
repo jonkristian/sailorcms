@@ -16,7 +16,7 @@
   } from '$lib/components/ui/table';
   import * as Collapsible from '$lib/components/ui/collapsible/index';
   import { onMount } from 'svelte';
-  import { formatJson } from '$sailor/core/ui/syntax-highlighting';
+  import { formatJson } from 'sailorcms/core/ui/syntax-highlighting';
   import { Database, FileJson, Table as TableIcon, ChevronDown, Globe } from '@lucide/svelte';
   import { Badge } from '$lib/components/ui/badge';
   import Header from 'sailorcms/components/sailor/Header.svelte';

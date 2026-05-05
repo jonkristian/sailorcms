@@ -10,11 +10,11 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Save, Trash2, Shield, Copy, User as UserIcon, AlertTriangle } from '@lucide/svelte';
   import * as Dialog from '$lib/components/ui/dialog';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { formatDate } from '$sailor/core/utils/date';
-  import { getUserLocale } from '$sailor/core/ui/user-locale';
-  import { getRoleColor, copyUserId, shortenUserId } from '$lib/sailor/core/utils/user';
+  import { formatDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
+  import { getRoleColor, copyUserId, shortenUserId } from 'sailorcms/core/utils/user';
   import type { PageData, ActionData } from './$types';
   import Header from 'sailorcms/components/sailor/Header.svelte';
 

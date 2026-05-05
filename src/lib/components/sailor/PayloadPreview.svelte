@@ -2,10 +2,10 @@
   import { Sheet, SheetContent, SheetHeader, SheetTrigger } from '$lib/components/ui/sheet';
   import { Button } from '$lib/components/ui/button';
   import { Code, Copy } from '@lucide/svelte';
-  import { toast } from '$sailor/core/ui/toast';
+  import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { htmlToTiptapJson } from '$lib/sailor/core/content/content';
-  import { formatJson } from '$lib/sailor/core/ui/syntax-highlighting';
+  import { htmlToTiptapJson } from 'sailorcms/core/content/content';
+  import { formatJson } from 'sailorcms/core/ui/syntax-highlighting';
   import CategoryTree from './CategoryTree.svelte';
 
   let {

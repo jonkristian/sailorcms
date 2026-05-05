@@ -1,4 +1,4 @@
-import type { GlobalDefinition } from '$sailor/core/types';
+import type { GlobalDefinition } from 'sailorcms/core/types';
 
 export const submissionsGlobal: GlobalDefinition = {
   name: {
