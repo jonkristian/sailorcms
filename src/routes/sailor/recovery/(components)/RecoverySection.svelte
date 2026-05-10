@@ -4,6 +4,7 @@
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
   import { m } from '$sailor/i18n';
@@ -125,7 +126,7 @@
       {:else if column.key === 'title'}
         <span class="font-medium">{item.title || item.id}</span>
       {:else if column.key === 'deleted_at'}
-        {formatTableDate(item.deleted_at)}
+        {formatTableDate(item.deleted_at, getUserLocale())}
       {:else if column.key === 'deleted_by_name'}
         {item.deleted_by_name || '—'}
       {:else if column.key === 'actions'}

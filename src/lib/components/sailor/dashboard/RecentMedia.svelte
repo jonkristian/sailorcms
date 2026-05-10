@@ -80,7 +80,9 @@
             tabindex="0"
           >
             <!-- Visual Preview -->
-            <div class="bg-muted relative flex aspect-square items-center justify-center">
+            <div
+              class="bg-muted relative flex aspect-square items-center justify-center dark:bg-zinc-100"
+            >
               {#if file.mime_type.startsWith('image/')}
                 <!-- Image thumbnail -->
                 <img

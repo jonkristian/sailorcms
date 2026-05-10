@@ -10,7 +10,7 @@
 
 import { db } from 'sailorcms/core/db/index.server';
 import { files } from '$sailor/generated/schema';
-import { eq, isNull, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 
@@ -36,41 +36,27 @@ export async function repairFileURLs(
     const currentProvider = provider === 'auto' ? settings.storage.provider || 'local' : provider;
     const storageProvider = await StorageProviderFactory.getProvider();
 
+    // Active public-URL prefix for the current provider — used to detect
+    // host drift, e.g. a rotated R2 bucket where DB rows still point at the
+    // old `pub-OLDHOST.r2.dev` while `S3_PUBLIC_URL` in .env now resolves to
+    // a new host.
+    const expectedPrefix =
+      currentProvider === 's3'
+        ? settings.storage?.providers?.s3?.publicUrl || ''
+        : settings.storage?.providers?.local?.publicUrl || '/uploads';
+
     console.log(`Using storage provider: ${currentProvider}`);
+    if (expectedPrefix) console.log(`Expected URL prefix: ${expectedPrefix}`);
     console.log('');
 
-    // Find files with empty or problematic URLs
-    const brokenFiles = await db
-      .select()
-      .from(files)
-      .where(
-        or(
-          eq(files.url, ''),
-          isNull(files.url),
-          // Find files that might have incorrect local URLs for S3 files
-          currentProvider === 's3'
-            ? // For S3, look for files with /uploads/ URLs but paths that look like S3 keys
-              eq(files.url, '') // We'll check this manually below
-            : eq(files.url, '') // For local, just empty URLs
-        )
-      );
+    // Pull every file row — we need to inspect URLs in JS to detect host drift,
+    // which can't be expressed cleanly in SQL across SQLite/Postgres.
+    const allFiles = await db.select().from(files);
 
-    stats.total = brokenFiles.length;
-    console.log(`Found ${stats.total} files that need URL repair`);
+    stats.total = allFiles.length;
 
-    if (stats.total === 0) {
-      console.log('✅ No files need repair!');
-      return stats;
-    }
-
-    console.log('');
-
-    for (const file of brokenFiles) {
+    for (const file of allFiles) {
       try {
-        console.log(`Processing: ${file.name} (${file.id})`);
-        console.log(`  Current URL: "${file.url}"`);
-        console.log(`  Path: "${file.path}"`);
-
         // Check if this file actually needs repair
         let needsRepair = false;
         let newUrl = '';
@@ -82,6 +68,14 @@ export async function repairFileURLs(
           // S3 file with local URL - needs repair
           needsRepair = true;
         } else if (
+          currentProvider === 's3' &&
+          expectedPrefix &&
+          !file.url.startsWith(expectedPrefix + '/')
+        ) {
+          // S3 file whose stored URL host doesn't match the currently-active
+          // S3_PUBLIC_URL — typically a rotated bucket / changed CDN host.
+          needsRepair = true;
+        } else if (
           currentProvider === 'local' &&
           !file.url.startsWith('/uploads/') &&
           !file.url.startsWith('http')
@@ -91,10 +85,13 @@ export async function repairFileURLs(
         }
 
         if (!needsRepair) {
-          console.log(`  ⏭️  Skipping - URL looks correct`);
           stats.skipped++;
           continue;
         }
+
+        console.log(`Processing: ${file.name} (${file.id})`);
+        console.log(`  Current URL: "${file.url}"`);
+        console.log(`  Path: "${file.path}"`);
 
         // Generate new URL using current storage provider
         newUrl = await storageProvider.getPublicUrl(file.path);
@@ -105,7 +102,7 @@ export async function repairFileURLs(
             .update(files)
             .set({
               url: newUrl,
-              updated_at: new Date().toISOString()
+              updated_at: new Date()
             })
             .where(eq(files.id, file.id));
 

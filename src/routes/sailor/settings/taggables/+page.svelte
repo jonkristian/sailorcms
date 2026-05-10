@@ -5,6 +5,9 @@
   import { toast } from 'sailorcms/core/ui/toast';
   import { invalidateAll } from '$app/navigation';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
+  import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
+  import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
+  import { useTableFilters } from 'sailorcms/composables/useTableFilters.svelte';
   import { deleteTag } from 'sailorcms/remote/tags.remote.js';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { m } from '$sailor/i18n';
@@ -16,26 +19,9 @@
   let deleteDialogLoading = $state(false);
   let pendingDeleteTag: { id: string; name: string } | null = $state(null);
 
-  // Group tags by entity type
-  let tagsByEntityType = $derived(() => {
-    const grouped: { [key: string]: typeof data.tags } = {};
-
-    data.tags.forEach((tag) => {
-      tag.usage.forEach((usage) => {
-        if (!grouped[usage.entity_type]) {
-          grouped[usage.entity_type] = [];
-        }
-        const existingTag = grouped[usage.entity_type].find((t) => t.id === tag.id);
-        if (!existingTag) {
-          grouped[usage.entity_type].push({
-            ...tag,
-            usage: [usage]
-          });
-        }
-      });
-    });
-
-    return grouped;
+  const tableFilters = useTableFilters({
+    baseUrl: '/sailor/settings/taggables',
+    config: { search: true }
   });
 
   function handleDeleteTag(tag: { id: string; name: string }) {
@@ -64,17 +50,6 @@
       deleteDialogLoading = false;
     }
   }
-
-  function getEntityTypeLabel(entityType: string): string {
-    switch (entityType) {
-      case 'file':
-        return m.settings_taggables_entity_files();
-      case 'collection':
-        return m.settings_taggables_entity_collections();
-      default:
-        return entityType.charAt(0).toUpperCase() + entityType.slice(1);
-    }
-  }
 </script>
 
 <svelte:head>
@@ -91,19 +66,15 @@
   <div class="mt-6 space-y-4">
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <div class="rounded-lg border p-4">
-        <div class="text-2xl font-bold">{data.tags.length}</div>
+        <div class="text-2xl font-bold">{data.stats.total}</div>
         <p class="text-muted-foreground text-sm">{m.settings_taggables_total()}</p>
       </div>
       <div class="rounded-lg border p-4">
-        <div class="text-2xl font-bold">
-          {data.tags.filter((tag) => tag.usage.length > 0).length}
-        </div>
+        <div class="text-2xl font-bold">{data.stats.inUse}</div>
         <p class="text-muted-foreground text-sm">{m.settings_taggables_in_use()}</p>
       </div>
       <div class="rounded-lg border p-4">
-        <div class="text-2xl font-bold">
-          {data.tags.filter((tag) => tag.usage.length === 0).length}
-        </div>
+        <div class="text-2xl font-bold">{data.stats.unused}</div>
         <p class="text-muted-foreground text-sm">{m.settings_taggables_unused()}</p>
       </div>
     </div>
@@ -112,6 +83,9 @@
   <!-- All Available Tags -->
   <div class="mt-8 space-y-3">
     <h2 class="text-lg font-medium">{m.settings_taggables_all_heading()}</h2>
+
+    <FilterBar config={{ search: true }} {tableFilters} />
+
     <div class="rounded-lg border">
       <div class="divide-y">
         {#each data.tags as tag (tag.id)}
@@ -148,45 +122,21 @@
         {/each}
       </div>
     </div>
-  </div>
 
-  <!-- Tags by Entity Type -->
-  {#each Object.entries(tagsByEntityType) as [entityType, tags] (entityType)}
-    <div class="mt-8 space-y-3">
-      <h2 class="text-lg font-medium">
-        {m.settings_taggables_usage_heading({ label: getEntityTypeLabel(entityType) })}
-      </h2>
-      <div class="rounded-lg border">
-        <div class="divide-y">
-          {#each tags as tag (tag.id)}
-            <div class="flex items-center justify-between p-4">
-              <div class="flex items-center gap-3">
-                <Badge variant="outline">{tag.name}</Badge>
-                <span class="text-muted-foreground text-sm">
-                  {m.settings_taggables_used_count({
-                    count: tag.usage[0].usage_count,
-                    times: pluralize(
-                      tag.usage[0].usage_count,
-                      m.common_time_singular(),
-                      m.common_time_plural()
-                    )
-                  })}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                class="text-muted-foreground hover:text-red-600"
-                onclick={() => handleDeleteTag({ id: tag.id, name: tag.name })}
-              >
-                <Trash2 class="h-4 w-4" />
-              </Button>
-            </div>
-          {/each}
-        </div>
-      </div>
-    </div>
-  {/each}
+    {#if data.pagination}
+      <Pagination
+        page={data.pagination.page}
+        pageSize={data.pagination.pageSize}
+        totalItems={data.pagination.totalItems}
+        totalPages={data.pagination.totalPages}
+        hasNextPage={data.pagination.hasNextPage}
+        hasPreviousPage={data.pagination.hasPreviousPage}
+        useUrlNavigation={true}
+        showTotalItems={true}
+        showPageSizeSelector={true}
+      />
+    {/if}
+  </div>
 
   <!-- No tags at all -->
   {#if data.tags.length === 0}

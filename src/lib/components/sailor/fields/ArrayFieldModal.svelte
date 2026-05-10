@@ -49,7 +49,7 @@
 </script>
 
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
-  <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+  <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
     <Dialog.Header>
       <Dialog.Title>
         {m.array_modal_title({ index: itemIndex + 1 })}

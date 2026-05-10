@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
 
@@ -324,9 +325,23 @@ export async function setupConfigFiles(targetDir, force = false) {
   // Create .env.sailor example file with Sailor CMS specific variables
   const envSource = path.join(mainProjectDir, '.env.example');
   const envSailorTarget = path.join(targetDir, '.env.sailor');
+  const envTarget = path.join(targetDir, '.env');
   if (await fs.pathExists(envSource)) {
     await fs.copy(envSource, envSailorTarget);
     console.log('📝 Created .env.sailor - copy variables to your .env file');
+
+    // Bootstrap a real .env if the consumer doesn't have one yet, with a freshly
+    // generated BETTER_AUTH_SECRET so they can boot the admin without manual setup.
+    if (!(await fs.pathExists(envTarget))) {
+      const secret = crypto.randomBytes(32).toString('base64');
+      const sailorContent = await fs.readFile(envSailorTarget, 'utf8');
+      const seeded = sailorContent.replace(
+        /^BETTER_AUTH_SECRET=.*$/m,
+        `BETTER_AUTH_SECRET=${secret}`
+      );
+      await fs.writeFile(envTarget, seeded);
+      console.log('🔐 Created .env with a generated BETTER_AUTH_SECRET');
+    }
   }
 
   const svelteResult = await updateSvelteConfig(targetDir);
@@ -754,6 +769,11 @@ export function patchSvelteConfig(content) {
   }
 
   // 3. compilerOptions: { runes: true, experimental: { async: true } }
+  // `experimental.async` is required by SvelteKit's remote functions —
+  // `query()` / `command()` use `hydratable(...)` internally, which throws
+  // `experimental_async_required` at runtime if the flag is off. So even
+  // though sailor's own components don't use top-level `await`, we still
+  // need the flag for the framework's RPC plumbing to work.
   if (!/\bcompilerOptions\s*:/.test(updated)) {
     const compilerBlock = `compilerOptions: {\n    runes: true,\n    experimental: {\n      async: true\n    }\n  }`;
     const before = updated;
@@ -775,23 +795,69 @@ export function patchSvelteConfig(content) {
         name: 'compilerOptions',
         hint: 'Add `compilerOptions: { runes: true, experimental: { async: true } }` to your config object.'
       });
-  } else if (!/\brunes\s*:\s*true\b/.test(updated)) {
-    // compilerOptions exists but runes isn't flat `true`. The current `sv create`
-    // scaffold writes a function form that excludes `node_modules` from runes
-    // mode — but shipped Svelte 5 packages like @lucide/svelte and bits-ui use
-    // runes (`$props()`) in their .svelte source, so compiling them in legacy
-    // mode breaks SSR with `<thing> is not defined` errors. Force flat `true`.
-    const before = updated;
-    updated = updated.replace(
-      /^(\s*)runes\s*:\s*[^\n]+?$/m,
-      (_m, indent) => `${indent}runes: true,`
-    );
-    if (updated !== before) applied.push('compilerOptions.runes (forced flat true)');
-    else
-      manual.push({
-        name: 'compilerOptions.runes',
-        hint: 'Change `compilerOptions.runes` to a flat `true` (sv create writes a function form that excludes node_modules — sailor needs runes mode for shipped Svelte 5 packages like @lucide/svelte).'
-      });
+  } else {
+    if (!/\brunes\s*:\s*true\b/.test(updated)) {
+      // compilerOptions exists but runes isn't flat `true`. The current `sv create`
+      // scaffold writes a function form that excludes `node_modules` from runes
+      // mode — but shipped Svelte 5 packages like @lucide/svelte and bits-ui use
+      // runes (`$props()`) in their .svelte source, so compiling them in legacy
+      // mode breaks SSR with `<thing> is not defined` errors. Force flat `true`.
+      const before = updated;
+      updated = updated.replace(
+        /^(\s*)runes\s*:\s*[^\n]+?$/m,
+        (_m, indent) => `${indent}runes: true,`
+      );
+      if (updated !== before) applied.push('compilerOptions.runes (forced flat true)');
+      else
+        manual.push({
+          name: 'compilerOptions.runes',
+          hint: 'Change `compilerOptions.runes` to a flat `true` (sv create writes a function form that excludes node_modules — sailor needs runes mode for shipped Svelte 5 packages like @lucide/svelte).'
+        });
+    }
+
+    // Ensure compilerOptions.experimental.async is true. SvelteKit's remote
+    // functions use `hydratable(...)` internally and throw `experimental_async_required`
+    // at runtime if the flag is off — and the previous branches don't add it
+    // when `compilerOptions` already exists (e.g. `sv create` wrote `{ runes: ... }`).
+    if (!/\basync\s*:\s*true\b/.test(updated)) {
+      const before = updated;
+      // Match the compilerOptions block specifically (not kit.experimental).
+      const coMatch = /\bcompilerOptions\s*:\s*\{/.exec(updated);
+      if (coMatch) {
+        const coStart = coMatch.index + coMatch[0].length;
+        let depth = 1;
+        let i = coStart;
+        while (i < updated.length && depth > 0) {
+          const c = updated[i];
+          if (c === '{') depth++;
+          else if (c === '}') depth--;
+          if (depth === 0) break;
+          i++;
+        }
+        if (depth === 0) {
+          const coContent = updated.slice(coStart, i);
+          const expMatch = /\bexperimental\s*:\s*\{([\s\S]*?)\}/.exec(coContent);
+          if (expMatch) {
+            const expGlobalStart = coStart + expMatch.index;
+            const expGlobalEnd = expGlobalStart + expMatch[0].length;
+            const innerTrimmed = expMatch[1].trim().replace(/,$/, '');
+            const replacement = `experimental: { async: true${innerTrimmed ? `, ${innerTrimmed}` : ''} }`;
+            updated = updated.slice(0, expGlobalStart) + replacement + updated.slice(expGlobalEnd);
+          } else {
+            const tail = updated.slice(0, i).trimEnd();
+            const needsComma = tail[tail.length - 1] !== ',' && tail[tail.length - 1] !== '{';
+            const block = `${needsComma ? ',' : ''}\n    experimental: {\n      async: true\n    }\n  `;
+            updated = updated.slice(0, i) + block + updated.slice(i);
+          }
+        }
+      }
+      if (updated !== before) applied.push('compilerOptions.experimental.async');
+      else
+        manual.push({
+          name: 'compilerOptions.experimental.async',
+          hint: 'Add `experimental: { async: true }` inside the `compilerOptions:` block. SvelteKit remote functions (`query`, `command`) use `hydratable()` internally which requires this flag.'
+        });
+    }
   }
 
   // 4. kit.experimental.remoteFunctions: true

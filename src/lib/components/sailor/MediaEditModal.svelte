@@ -174,7 +174,7 @@
         <!-- Large Preview for Images -->
         {#if file.mime_type?.startsWith('image/')}
           <div
-            class="bg-muted/40 flex max-h-96 items-center justify-center overflow-hidden rounded-lg border"
+            class="bg-muted/40 flex max-h-96 items-center justify-center overflow-hidden rounded-lg border dark:bg-zinc-100"
           >
             <img
               src={file.url}

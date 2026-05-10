@@ -3,6 +3,7 @@
   import { generateUUID } from 'sailorcms/core/utils/common';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
+  import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
   import UserBulkDeleteDialog from './(components)/UserBulkDeleteDialog.svelte';
   import { Badge } from 'sailorcms/components/ui/badge/index.js';
@@ -145,12 +146,26 @@
             {item.role}
           </Badge>
         {:else if column.key === 'created_at'}
-          {formatTableDate(item.created_at)}
+          {formatDate(item.created_at)}
         {:else}
           {item[column.key] || '-'}
         {/if}
       {/snippet}
     </DataTable>
+
+    {#if data.pagination}
+      <Pagination
+        page={data.pagination.page}
+        pageSize={data.pagination.pageSize}
+        totalItems={data.pagination.totalItems}
+        totalPages={data.pagination.totalPages}
+        hasNextPage={data.pagination.hasNextPage}
+        hasPreviousPage={data.pagination.hasPreviousPage}
+        useUrlNavigation={true}
+        showTotalItems={true}
+        showPageSizeSelector={true}
+      />
+    {/if}
   </div>
 </div>
 

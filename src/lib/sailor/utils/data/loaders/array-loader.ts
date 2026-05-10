@@ -2,6 +2,7 @@ import { db } from 'sailorcms/core/db/index.server';
 import { sql } from 'drizzle-orm';
 import { log } from 'sailorcms/core/utils/logger';
 import { loadFileFields } from './file-loader';
+import { loadOneToXRelations } from './relation-loader';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 
 /**
@@ -53,6 +54,14 @@ export async function loadArrayFields(
                   arrayItem,
                   typedFieldDef.items.properties,
                   arrayTableName,
+                  loadFullFileObjects
+                );
+
+                // One-to-X only: the generator doesn't create junction tables
+                // for relations declared inside an array's items.properties.
+                await loadOneToXRelations(
+                  arrayItem,
+                  typedFieldDef.items.properties,
                   loadFullFileObjects
                 );
               }

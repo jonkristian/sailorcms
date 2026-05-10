@@ -6,6 +6,8 @@
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
+  import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
+  import type { Pagination as PaginationData } from 'sailorcms/core/types';
   import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
   import { useBulkDelete } from 'sailorcms/composables/useBulkDelete.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
@@ -19,7 +21,8 @@
     onDelete,
     onBulkDelete,
     sortable = false,
-    onReorder
+    onReorder,
+    pagination
   }: {
     global: any;
     items: any[];
@@ -28,6 +31,7 @@
     onBulkDelete?: (itemIds: string[]) => void;
     sortable?: boolean;
     onReorder?: (items: any[]) => void;
+    pagination?: PaginationData | null;
   } = $props();
 
   // Use composables for selection and delete functionality. SvelteKit
@@ -209,6 +213,20 @@
         </div>
       {/snippet}
     </DataTable>
+
+    {#if pagination}
+      <Pagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        hasNextPage={pagination.hasNextPage}
+        hasPreviousPage={pagination.hasPreviousPage}
+        useUrlNavigation={true}
+        showTotalItems={true}
+        showPageSizeSelector={true}
+      />
+    {/if}
   {/if}
 </div>
 

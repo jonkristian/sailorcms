@@ -104,7 +104,7 @@
 </script>
 
 <div
-  class="group bg-muted/40 relative {aspectRatio} overflow-hidden rounded border {className}"
+  class="group bg-muted/40 relative dark:bg-zinc-100 {aspectRatio} overflow-hidden rounded border {className}"
   {...restProps}
 >
   {#if isMissingFile}

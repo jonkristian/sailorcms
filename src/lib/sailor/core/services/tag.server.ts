@@ -1,6 +1,6 @@
 import { db } from '../db/index.server';
 import { tags, taggables } from '$sailor/generated/schema';
-import { eq, and, like, desc, sql, inArray } from 'drizzle-orm';
+import { eq, and, like, desc, sql, inArray, count } from 'drizzle-orm';
 import { slugify } from '../utils/common';
 
 export interface Tag {
@@ -113,6 +113,64 @@ export class TagService {
     }
 
     return tagsWithUsage;
+  }
+
+  /**
+   * Aggregate tag counts across the whole table — site-wide `total`, `inUse`
+   * (tags with at least one taggable row), and `unused`. Used by the admin
+   * tag manager so the stat cards stay accurate independent of pagination.
+   */
+  static async getTagStats(): Promise<{ total: number; inUse: number; unused: number }> {
+    const [totalRow, inUseRow] = await Promise.all([
+      db.select({ total: count() }).from(tags),
+      db
+        .select({ total: sql<number>`count(distinct ${taggables.tag_id})`.as('total') })
+        .from(taggables)
+    ]);
+    const total = Number(totalRow[0]?.total || 0);
+    const inUse = Number(inUseRow[0]?.total || 0);
+    return { total, inUse, unused: Math.max(0, total - inUse) };
+  }
+
+  /**
+   * Paginated variant of {@link getAllTagsWithUsage}. Same N+1 usage-lookup
+   * pattern, but bounded — for the admin tag manager where the full set can
+   * grow large on content-heavy sites. `searchQuery` does a case-insensitive
+   * `LIKE` against the tag name.
+   */
+  static async getAllTagsWithUsagePaginated(
+    page: number,
+    pageSize: number,
+    searchQuery?: string
+  ): Promise<{ tags: TagWithUsage[]; totalItems: number }> {
+    const where = searchQuery?.trim() ? like(tags.name, `%${searchQuery.trim()}%`) : undefined;
+
+    const [countResult, pagedTags] = await Promise.all([
+      db.select({ total: count() }).from(tags).where(where),
+      db.query.tags.findMany({
+        where,
+        orderBy: [tags.name],
+        limit: pageSize,
+        offset: (page - 1) * pageSize
+      })
+    ]);
+
+    const tagsWithUsage: TagWithUsage[] = [];
+
+    for (const tag of pagedTags) {
+      const usageResult = await db
+        .select({
+          entity_type: taggables.taggable_type,
+          usage_count: sql<number>`count(*)`.as('usage_count')
+        })
+        .from(taggables)
+        .where(eq(taggables.tag_id, tag.id))
+        .groupBy(taggables.taggable_type);
+
+      tagsWithUsage.push({ ...tag, usage: usageResult });
+    }
+
+    return { tags: tagsWithUsage, totalItems: Number(countResult[0]?.total || 0) };
   }
 
   /**
@@ -315,33 +373,5 @@ export class TagService {
       .update(tags)
       .set({ deleted_at: new Date(), deleted_by: deletedBy ?? null, updated_at: new Date() })
       .where(eq(tags.id, id));
-  }
-
-  /**
-   * Get tag usage statistics
-   */
-  static async getTagStats() {
-    const totalTags = await db.select({ count: sql<number>`count(*)`.as('count') }).from(tags);
-
-    const totalUsages = await db
-      .select({ count: sql<number>`count(*)`.as('count') })
-      .from(taggables);
-
-    const mostUsedTags = await db
-      .select({
-        name: tags.name,
-        usage_count: sql<number>`count(${taggables.id})`.as('usage_count')
-      })
-      .from(tags)
-      .leftJoin(taggables, eq(tags.id, taggables.tag_id))
-      .groupBy(tags.id)
-      .orderBy(desc(sql`count(${taggables.id})`))
-      .limit(10);
-
-    return {
-      total_tags: totalTags[0].count,
-      total_usages: totalUsages[0].count,
-      most_used_tags: mostUsedTags
-    };
   }
 }

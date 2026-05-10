@@ -475,7 +475,7 @@ function generateTypes(
   // Generate union types
   typeDefinitions.push('// Union Types');
   const collectionTypes = Object.entries(fieldConfigs.collections)
-    .map(([slug, config]) => config.name.singular.replace(/\s+/g, ''))
+    .map(([slug, config]) => toValidIdentifier(config.name.singular))
     .join(' | ');
   if (collectionTypes) {
     typeDefinitions.push(`export type CollectionTypes = ${collectionTypes};`);
@@ -483,7 +483,7 @@ function generateTypes(
   }
 
   const globalTypes = Object.entries(fieldConfigs.globals)
-    .map(([slug, config]) => config.name.singular.replace(/\s+/g, ''))
+    .map(([slug, config]) => toValidIdentifier(config.name.singular))
     .join(' | ');
   if (globalTypes) {
     typeDefinitions.push(`export type GlobalTypes = ${globalTypes};`);
@@ -491,7 +491,7 @@ function generateTypes(
   }
 
   const blockTypes = Object.entries(fieldConfigs.blocks)
-    .map(([slug, config]) => config.name.replace(/\s+/g, ''))
+    .map(([slug, config]) => toValidIdentifier(config.name))
     .join(' | ');
   if (blockTypes) {
     typeDefinitions.push(`export type BlockTypes = ${blockTypes};`);

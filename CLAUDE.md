@@ -51,7 +51,7 @@ For UI-facing changes, run the dev server and exercise the feature — there's n
 
 - **Schema workflow:** edit `templates/` → run `npx sailor db:update` → commit both the template change and the regenerated `generated/` files plus any new migration under `drizzle/`. Do **not** write Drizzle schema or migrations by hand.
 - **Remote functions** have non-trivial call-context rules (`.run()` vs awaiting directly differs between server load, universal load, components, and event handlers). Check `src/lib/sailor/remote/*.remote.ts` for established patterns before adding one.
-- **Experimental features are intentionally on** (`svelte.config.js`): `kit.experimental.remoteFunctions` and `compilerOptions.experimental.async`. Don't "fix" them off.
+- **Experimental features are intentionally on** (`svelte.config.js`): `kit.experimental.remoteFunctions` and `compilerOptions.experimental.async` (the latter is required because SvelteKit remote functions use `hydratable()` internally — turning it off makes `query()` / `command()` throw `experimental_async_required` at runtime). Don't "fix" them off.
 - **Env vars:** anything needed on the client must use the `PUBLIC_` prefix and be read from `$env/dynamic/public`. Server-only secrets come from `$env/dynamic/private` (which excludes `PUBLIC_*`).
 - **Hands off:**
   - `src/lib/sailor/generated/` (regenerate instead)

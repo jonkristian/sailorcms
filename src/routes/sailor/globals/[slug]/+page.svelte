@@ -21,25 +21,13 @@
   let inlineSaveFunction: (() => Promise<void>) | null = $state(null);
   let inlineExpandCollapseFunction: ((expand: boolean) => void) | null = $state(null);
 
-  // Create form data for singleton globals
-  let formData: Record<string, any> = $state({});
+  function buildInitialFormData(): Record<string, any> {
+    return data.global.dataType === 'flat' && data.existingData ? { ...data.existingData } : {};
+  }
+  let formData: Record<string, any> = $state(buildInitialFormData());
   let submitting = $state(false);
 
-  // Use permissions from layout
   let canCreate = $derived(data.permissions.globals.create);
-
-  // Initialize form data for flat globals
-  if (
-    // svelte-ignore state_referenced_locally
-    data.global.dataType === 'flat' &&
-    // svelte-ignore state_referenced_locally
-    data.existingData
-  ) {
-    formData = {
-      // svelte-ignore state_referenced_locally
-      ...data.existingData
-    };
-  }
 
   // Handle delete item
   async function handleDelete(itemId: string) {
@@ -194,6 +182,7 @@
           onBulkDelete={handleBulkDelete}
           sortable={!!data.global.options?.sortable}
           onReorder={handleReorder}
+          pagination={data.pagination}
         />
       {:else if data.global.dataType === 'relational'}
         <!-- TableView: Relational Global with separate edit pages (like Menus) -->
@@ -205,6 +194,7 @@
           onBulkDelete={handleBulkDelete}
           sortable={!!data.global.options?.sortable}
           onReorder={handleReorder}
+          pagination={data.pagination}
         />
       {:else}
         <!-- Fallback for unknown dataType -->

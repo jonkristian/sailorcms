@@ -11,6 +11,13 @@ import { DEFAULT_PREFERENCES } from './user-preferences';
 
 export const DEFAULT_LOCALE = DEFAULT_PREFERENCES.date_format ?? 'en-US';
 
+// `'auto'` is a sentinel meaning "use the host environment's default" — it's
+// not a valid BCP-47 tag, so passing it to Intl.* throws RangeError. Convert
+// to `undefined`, which Intl interprets as "use the default locale".
+function intlLocale(locale: string | undefined): string | undefined {
+  return !locale || locale === 'auto' ? undefined : locale;
+}
+
 /**
  * Format a date string or Date object to a readable format.
  * @param date - ISO string, Date object, or null/undefined
@@ -36,7 +43,7 @@ export function formatDate(
       return '-';
     }
 
-    return dateObj.toLocaleDateString(locale, options);
+    return dateObj.toLocaleDateString(intlLocale(locale), options);
   } catch (error) {
     console.warn('Error formatting date:', error);
     return '-';
@@ -78,7 +85,7 @@ export function formatTimestamp(
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return '-';
-    return dateObj.toLocaleString(locale);
+    return dateObj.toLocaleString(intlLocale(locale));
   } catch (error) {
     console.warn('Error formatting timestamp:', error);
     return '-';
@@ -101,7 +108,7 @@ export function formatRelativeTime(
     if (isNaN(dateObj.getTime())) return '-';
 
     const diffInSeconds = Math.floor((Date.now() - dateObj.getTime()) / 1000);
-    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(intlLocale(locale), { numeric: 'auto' });
 
     if (diffInSeconds < 60) return rtf.format(0, 'second');
     if (diffInSeconds < 3600) return rtf.format(-Math.floor(diffInSeconds / 60), 'minute');

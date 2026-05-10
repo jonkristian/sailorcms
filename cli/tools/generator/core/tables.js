@@ -201,7 +201,14 @@ export class TableGenerator {
       for (const [key, fieldDef] of Object.entries(field.items.properties)) {
         // Skip nested arrays and files (they get their own tables)
         if (fieldDef.type === 'array' || fieldDef.type === 'file') continue;
-        fields[key] = this.getTextField();
+
+        if (fieldDef.type === 'number') {
+          fields[key] = this.getIntegerField();
+        } else if (fieldDef.type === 'boolean') {
+          fields[key] = this.getIntegerField({ mode: 'boolean' });
+        } else {
+          fields[key] = this.getTextField();
+        }
       }
     }
 

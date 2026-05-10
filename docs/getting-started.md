@@ -10,32 +10,22 @@ Get Sailor running in your SvelteKit project in minutes.
 
 ## Installation
 
+If you don't have a SvelteKit project yet, scaffold one first (pick the `adapter-node` option when prompted):
+
 ```bash
-cd your-sveltekit-project
+npx sv create your-app
+cd your-app
+```
+
+Then install Sailor:
+
+```bash
 npm install github:jonkristian/sailorcms
 npx sailor core:init # Initializes the cms by copying required files into your project.
 npx sailor db:update # Regenerate files from your templates & updates your database.
 ```
 
-## SvelteKit Configuration
-
-Sailor CMS requires specific SvelteKit features. Add these to your `svelte.config.js`:
-
-```javascript
-export default {
-  kit: {
-    experimental: {
-      remoteFunctions: true
-    }
-  },
-  compilerOptions: {
-    runes: true,
-    experimental: {
-      async: true
-    }
-  }
-};
-```
+`core:init` patches your `svelte.config.js` automatically (adds `kit.experimental.remoteFunctions`, ensures `compilerOptions.runes: true` and `compilerOptions.experimental.async: true`, and wires up `vitePreprocess({ script: true })`). If anything was skipped because your config didn't match the expected shape, run `npx sailor doctor --fix` to apply the missing pieces.
 
 > **⚠️ Important**: If you have already installed Lucia, Drizzle, or Tailwind , you might have to do some manual setup. Sailor provides its own authentication, database layer, and styling. If you do install these packages, additional manual configuration will be required to avoid conflicts.
 
@@ -49,14 +39,16 @@ The installer will:
 
 ## Environment Setup
 
-See [Environment Variables](environment-variables.md) for complete configuration details.
+`core:init` creates a `.env` for you (when one didn't already exist) with a freshly generated `BETTER_AUTH_SECRET` and `DATABASE_URL=file:./sailor.sqlite`. The full annotated reference lives in `.env.sailor` — copy any extras you need (Turso/Postgres URL, S3 storage, SMTP, OAuth) into `.env`.
 
-**Quick start**: Create a `.env` file with at minimum:
+If you already had a `.env`, the installer leaves it alone. In that case make sure it has at minimum:
 
 ```bash
-BETTER_AUTH_SECRET=your-32-character-secret-key # https://auth-secret-gen.vercel.app/
+BETTER_AUTH_SECRET=your-32-character-secret-key # generate with: openssl rand -base64 32
 DATABASE_URL=file:./sailor.sqlite
 ```
+
+See [Environment Variables](environment-variables.md) for complete configuration details.
 
 ## Start Development
 
@@ -129,6 +121,8 @@ Ready to deploy your Sailor CMS to production? See the complete **[Deployment Gu
 - **[Utilities](reference/utilities.md)** - Frontend helper functions
 
 ## Troubleshooting
+
+**First stop:** `npx sailor doctor` runs a read-only healthcheck across config, deps, schema, and routes. `npx sailor doctor --fix` auto-applies anything fixable. Run it before digging into the specific cases below.
 
 **CMS admin not loading?**
 

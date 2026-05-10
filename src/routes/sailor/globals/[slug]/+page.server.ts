@@ -1,13 +1,14 @@
 import { error } from '@sveltejs/kit';
 import { log } from 'sailorcms/core/utils/logger';
 import { db } from 'sailorcms/core/db/index.server';
-import { eq, asc, desc, and } from 'drizzle-orm';
+import { eq, asc, desc, and, count } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
+import type { Pagination } from 'sailorcms/core/types';
 
-export const load = async ({ params, locals }) => {
+export const load = async ({ params, locals, url }) => {
   // Check permission to view content
   if (!(await locals.security.hasPermission('read', 'content'))) {
     throw error(403, 'Access denied: You do not have permission to view content');
@@ -40,9 +41,20 @@ export const load = async ({ params, locals }) => {
 
   let items: any[] = [];
   let existingData: any = {};
+  let pagination: Pagination | null = null;
 
   // Check if this is a flat global
   const isFlat = globalDefinition.dataType === 'flat';
+
+  // Nestable and inline repeatable views render the entire set on the page
+  // (tree expansion / inline editing) so they intentionally bypass pagination.
+  // Regular repeatable + relational types go through TableView and paginate.
+  const usesTableView =
+    !isFlat &&
+    !(
+      globalDefinition.dataType === 'repeatable' &&
+      (globalDefinition.options?.nestable || globalDefinition.options?.inline)
+    );
 
   if (isFlat) {
     // For flat globals, get the specific item using globalSlug as ID
@@ -106,16 +118,50 @@ export const load = async ({ params, locals }) => {
       }
     }
   } else {
-    // For non-flat globals, get all items
+    // For non-flat globals, get all items (paginated for TableView paths)
     const globalTable = schema[`global_${slug}` as keyof typeof schema];
     if (globalTable) {
       try {
-        const result = await db
-          .select()
-          .from(globalTable)
-          .where(liveOnly(globalTable))
-          .orderBy(asc((globalTable as any).sort), desc((globalTable as any).created_at));
-        items = result || [];
+        if (usesTableView) {
+          const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+          const pageSize = Math.max(
+            1,
+            Math.min(100, parseInt(url.searchParams.get('pageSize') || '20'))
+          );
+
+          const [countResult, result] = await Promise.all([
+            db.select({ total: count() }).from(globalTable).where(liveOnly(globalTable)),
+            db
+              .select()
+              .from(globalTable)
+              .where(liveOnly(globalTable))
+              .orderBy(asc((globalTable as any).sort), desc((globalTable as any).created_at))
+              .limit(pageSize)
+              .offset((page - 1) * pageSize)
+          ]);
+
+          const totalItems = Number(countResult[0]?.total || 0);
+          const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+          const validPage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+
+          items = result || [];
+          pagination = {
+            page: validPage,
+            pageSize,
+            totalItems,
+            totalPages,
+            hasNextPage: validPage < totalPages,
+            hasPreviousPage: validPage > 1
+          };
+        } else {
+          // Nestable / inline repeatable: load the full set
+          const result = await db
+            .select()
+            .from(globalTable)
+            .where(liveOnly(globalTable))
+            .orderBy(asc((globalTable as any).sort), desc((globalTable as any).created_at));
+          items = result || [];
+        }
       } catch (err) {
         log.warn(`Could not load items for ${slug}`, { slug, error: err });
         items = [];
@@ -283,6 +329,7 @@ export const load = async ({ params, locals }) => {
     global: globalDefinition,
     items,
     existingData: isFlat ? existingData : null,
+    pagination,
     permissions
   };
 };

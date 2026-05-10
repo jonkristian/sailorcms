@@ -429,7 +429,7 @@
                     >
                       <div class="relative min-w-0 flex-1">
                         <div
-                          class="border-input bg-background w-full overflow-hidden rounded-md border shadow-sm"
+                          class="border-input bg-background w-full overflow-hidden rounded-md border shadow-sm dark:bg-zinc-100"
                         >
                           {#if selectedFile.mime_type?.includes('image')}
                             <div class="relative aspect-square">
