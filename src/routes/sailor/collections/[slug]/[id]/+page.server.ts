@@ -7,6 +7,8 @@ import { collectionTypes } from 'sailorcms/core/db/index.server';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { loadBlockFields } from 'sailorcms/core/content/blocks.server';
 import { loadFileFields } from 'sailorcms/core/data/loaders/file-loader';
+import { loadFileFields as loadNestedFileFields } from 'sailorcms/utils/data/loaders/file-loader';
+import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
 import { resolveRevisionsKeep } from 'sailorcms/core/services/revisions.server';
 import type { PageServerLoad } from './$types';
@@ -230,6 +232,32 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
 
     // Load file fields for collection
     await loadFileFields(page, collectionDefinition.fields, `collection_${slug}`);
+
+    // Files nested inside array items: loadFileFields above only walks top-level
+    // collectionDefinition.fields. Recurse into each array's items.properties per row.
+    // Clear any stale column-style file values so the loader re-fetches from the
+    // file-relation table (canonical source post-generator fix).
+    for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
+      if ((fieldDef as any).type !== 'array') continue;
+      const itemsProperties = (fieldDef as any).items?.properties;
+      if (!itemsProperties) continue;
+
+      const fileKeys: Array<[string, string]> = Object.entries(itemsProperties)
+        .filter(([, def]) => (def as any).type === 'file')
+        .map(([key]) => [key, toSnakeCase(key)]);
+
+      if (fileKeys.length === 0) continue;
+
+      const arrayTableName = `collection_${slug}_${toSnakeCase(fieldName)}`;
+      const rows = (page[fieldName] as any[]) || [];
+      for (const row of rows) {
+        for (const [k, snakeK] of fileKeys) {
+          delete row[k];
+          if (snakeK !== k) delete row[snakeK];
+        }
+        await loadNestedFileFields(row, itemsProperties, arrayTableName, false);
+      }
+    }
 
     // Get raw blocks data for each block type using dynamic schemas
     for (const [blockSlug, blockDef] of Object.entries(availableBlocks)) {

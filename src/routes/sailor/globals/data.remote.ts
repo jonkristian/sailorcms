@@ -10,6 +10,10 @@ import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { log } from 'sailorcms/core/utils/logger';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
+import {
+  syncArrayRowFiles,
+  clearArrayRowFiles
+} from 'sailorcms/core/data/persisters/array-row-files.server';
 
 /**
  * Reorder array items with drag & drop support
@@ -411,8 +415,14 @@ export const updateFlatGlobal = command(
           // Find items to delete (exist in DB but not in new array)
           const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
 
-          // Delete removed items
+          // Delete removed items + their nested file relation rows
           for (const item of itemsToDelete) {
+            await clearArrayRowFiles(
+              tx,
+              relationTableName,
+              (item as any).id,
+              fieldDef.items.properties
+            );
             await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
           }
 
@@ -420,6 +430,7 @@ export const updateFlatGlobal = command(
           for (let i = 0; i < arrayItems.length; i++) {
             const item = arrayItems[i];
             const existingItem = existingItemsMap.get(item.id);
+            const arrayItemId = item.id || generateUUID();
 
             if (existingItem) {
               // Update existing item with new sort order and any changed data
@@ -428,8 +439,9 @@ export const updateFlatGlobal = command(
                 updated_at: getCurrentTimestamp()
               };
 
-              // Add field properties that might have changed
-              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+              // Add field properties that might have changed (skip file types — handled separately)
+              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                if ((propDef as any).type === 'file') return;
                 updateData[propKey] = item[propKey] || null;
               });
 
@@ -440,20 +452,30 @@ export const updateFlatGlobal = command(
             } else {
               // Insert new item
               const insertData: Record<string, any> = {
-                id: item.id || generateUUID(),
+                id: arrayItemId,
                 global_id: itemId,
                 sort: i,
                 created_at: getCurrentTimestamp(),
                 updated_at: getCurrentTimestamp()
               };
 
-              // Add field properties
-              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+              // Add field properties (skip file types — handled separately)
+              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                if ((propDef as any).type === 'file') return;
                 insertData[propKey] = item[propKey] || null;
               });
 
               await tx.insert(relationTable).values(insertData);
             }
+
+            await syncArrayRowFiles(
+              tx,
+              relationTableName,
+              arrayItemId,
+              fieldDef.items.properties,
+              item,
+              'global'
+            );
           }
         }
       });
@@ -715,8 +737,14 @@ export const updateRepeatableGlobal = command(
           // Find items to delete (exist in DB but not in new array)
           const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
 
-          // Delete removed items
+          // Delete removed items + their nested file relation rows
           for (const item of itemsToDelete) {
+            await clearArrayRowFiles(
+              tx,
+              relationTableName,
+              (item as any).id,
+              fieldDef.items.properties
+            );
             await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
           }
 
@@ -724,6 +752,7 @@ export const updateRepeatableGlobal = command(
           for (let i = 0; i < arrayItems.length; i++) {
             const item = arrayItems[i];
             const existingItem = existingItemsMap.get(item.id);
+            const arrayItemId = item.id || generateUUID();
 
             if (existingItem) {
               // Update existing item with new sort order and any changed data
@@ -732,8 +761,9 @@ export const updateRepeatableGlobal = command(
                 updated_at: getCurrentTimestamp()
               };
 
-              // Add field properties that might have changed
-              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+              // Add field properties that might have changed (skip file types — handled separately)
+              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                if ((propDef as any).type === 'file') return;
                 updateData[propKey] = item[propKey] || null;
               });
 
@@ -744,20 +774,30 @@ export const updateRepeatableGlobal = command(
             } else {
               // Insert new item
               const insertData: Record<string, any> = {
-                id: item.id || generateUUID(),
+                id: arrayItemId,
                 global_id: finalItemId,
                 sort: i,
                 created_at: getCurrentTimestamp(),
                 updated_at: getCurrentTimestamp()
               };
 
-              // Add field properties
-              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+              // Add field properties (skip file types — handled separately)
+              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                if ((propDef as any).type === 'file') return;
                 insertData[propKey] = item[propKey] || null;
               });
 
               await tx.insert(relationTable).values(insertData);
             }
+
+            await syncArrayRowFiles(
+              tx,
+              relationTableName,
+              arrayItemId,
+              fieldDef.items.properties,
+              item,
+              'global'
+            );
           }
         }
       });
@@ -1066,8 +1106,14 @@ export const updateRelationalGlobal = command(
           // Find items to delete (exist in DB but not in new array)
           const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
 
-          // Delete removed items
+          // Delete removed items + their nested file relation rows
           for (const item of itemsToDelete) {
+            await clearArrayRowFiles(
+              tx,
+              relationTableName,
+              (item as any).id,
+              fieldDef.items.properties
+            );
             await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
           }
 
@@ -1075,6 +1121,7 @@ export const updateRelationalGlobal = command(
           for (let i = 0; i < arrayItems.length; i++) {
             const item = arrayItems[i];
             const existingItem = existingItemsMap.get(item.id);
+            const arrayItemId = item.id || generateUUID();
 
             if (existingItem) {
               // Update existing item with new sort order and any changed data
@@ -1083,8 +1130,9 @@ export const updateRelationalGlobal = command(
                 updated_at: getCurrentTimestamp()
               };
 
-              // Add field properties that might have changed
-              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+              // Add field properties that might have changed (skip file types — handled separately)
+              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                if ((propDef as any).type === 'file') return;
                 updateData[propKey] = item[propKey] || null;
               });
 
@@ -1103,15 +1151,16 @@ export const updateRelationalGlobal = command(
             } else {
               // Insert new item
               const insertData: Record<string, any> = {
-                id: item.id || generateUUID(),
+                id: arrayItemId,
                 global_id: finalItemId,
                 sort: item.sort !== undefined ? item.sort : i,
                 created_at: getCurrentTimestamp(),
                 updated_at: getCurrentTimestamp()
               };
 
-              // Add field properties
-              Object.keys(fieldDef.items.properties).forEach((propKey) => {
+              // Add field properties (skip file types — handled separately)
+              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                if ((propDef as any).type === 'file') return;
                 insertData[propKey] = item[propKey] || null;
               });
 
@@ -1125,6 +1174,15 @@ export const updateRelationalGlobal = command(
 
               await tx.insert(relationTable).values(insertData);
             }
+
+            await syncArrayRowFiles(
+              tx,
+              relationTableName,
+              arrayItemId,
+              fieldDef.items.properties,
+              item,
+              'global'
+            );
           }
         }
       });

@@ -2,6 +2,7 @@ import * as schema from '$sailor/generated/schema';
 import { sql, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getCurrentTimestampSeconds } from '../utils/date';
+import { syncArrayRowFiles } from '../data/persisters/array-row-files.server';
 
 // Re-export block field loading for admin UI - uses core loaders, not utils
 export { loadBlockFields } from '../data/loaders/blocks';
@@ -102,41 +103,15 @@ export async function saveNestedArrayFields(
           )})`);
       }
 
-      // Handle file fields for this item
-      for (const [fieldName, fieldValue] of Object.entries(fileFields)) {
-        const fileTableName = `${relationTableName}_${fieldName}`;
-        const fileTable = schema[fileTableName as keyof typeof schema];
-        if (!fileTable) continue;
-
-        // Clear existing file relations for this item/field
-        await tx.run(sql`
-          DELETE FROM ${sql.identifier(fileTableName)}
-          WHERE parent_id = ${itemId} AND parent_type = 'block'
-        `);
-
-        if (!fieldValue) continue;
-
-        const fileIds: string[] = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
-
-        for (let i = 0; i < fileIds.length; i++) {
-          const fileId = fileIds[i];
-          if (!fileId) continue;
-          await tx.run(sql`
-            INSERT INTO ${sql.identifier(fileTableName)}
-            (${sql.join(
-              ['id', 'parent_id', 'parent_type', 'file_id', 'sort', 'created_at'].map((key) =>
-                sql.identifier(key)
-              ),
-              sql`, `
-            )})
-            VALUES (${sql.join(
-              [randomUUID(), itemId, 'block', fileId, i, getCurrentTimestampSeconds()].map(
-                (val) => sql`${val}`
-              ),
-              sql`, `
-            )})`);
-        }
-      }
+      // Sync file fields for this item via the shared persister
+      await syncArrayRowFiles(
+        tx,
+        relationTableName,
+        itemId,
+        arrayFieldDef.items.properties,
+        fileFields,
+        'block'
+      );
 
       // Handle nested arrays recursively
       if (Object.keys(nestedArrayFields).length > 0) {

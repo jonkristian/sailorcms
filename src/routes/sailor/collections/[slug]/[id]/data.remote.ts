@@ -11,6 +11,10 @@ import { SearchIndexService } from 'sailorcms/core/services/search-index.server'
 import { RevisionsService, resolveRevisionsKeep } from 'sailorcms/core/services/revisions.server';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { getCurrentTimestampSeconds } from 'sailorcms/core/utils/date';
+import {
+  syncArrayRowFiles,
+  clearArrayRowFilesByParent
+} from 'sailorcms/core/data/persisters/array-row-files.server';
 
 /**
  * Save collection item (create or update)
@@ -285,13 +289,22 @@ export const saveCollectionItem = command(
 
         // Handle array fields if any
         if (Object.keys(arrayFields).length > 0) {
-          // Clear existing array data for this item
+          // Clear existing array data for this item (and orphaned file relations from
+          // file fields nested in items.properties — done before array delete so the
+          // subquery still resolves).
           for (const arrayFieldName of Object.keys(arrayFields)) {
             const fieldDef = collectionFields[arrayFieldName];
             if (fieldDef?.type === 'array' && fieldDef.items?.type === 'object') {
               const relationTableName = `collection_${collectionSlug}_${arrayFieldName}`;
               const relationTable = schema[relationTableName as keyof typeof schema];
               if (relationTable) {
+                await clearArrayRowFilesByParent(
+                  tx,
+                  relationTableName,
+                  itemId,
+                  'collection_id',
+                  fieldDef.items.properties
+                );
                 await tx.run(sql`
                   DELETE FROM ${sql.identifier(relationTableName)}
                   WHERE collection_id = ${itemId}
@@ -308,14 +321,16 @@ export const saveCollectionItem = command(
 
               for (let index = 0; index < arrayItems.length; index++) {
                 const item = arrayItems[index];
+                const arrayItemId = item.id || generateUUID();
 
                 // Build columns/values explicitly to avoid inserting unknown keys
                 const columns = ['id', 'collection_id', 'sort', 'created_at', 'updated_at'];
                 const nowSec = getCurrentTimestampSeconds();
-                const values = [item.id || generateUUID(), itemId, index, nowSec, nowSec];
+                const values = [arrayItemId, itemId, index, nowSec, nowSec];
 
-                // Add schema-defined properties from array item
-                Object.keys(fieldDef.items.properties).forEach((propKey) => {
+                // Add schema-defined properties from array item (skip file types — handled separately)
+                Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
+                  if ((propDef as any).type === 'file') return;
                   columns.push(propKey);
                   values.push((item as any)[propKey] ?? null);
                 });
@@ -330,7 +345,7 @@ export const saveCollectionItem = command(
                 ) {
                   const rawParentId = (item as any).parent_id;
                   const safeParentId =
-                    rawParentId && rawParentId === (values[0] as any) ? null : rawParentId;
+                    rawParentId && rawParentId === arrayItemId ? null : rawParentId;
                   columns.push('parent_id');
                   values.push(safeParentId);
                 }
@@ -347,6 +362,15 @@ export const saveCollectionItem = command(
                       values.map((v) => sql`${v}`),
                       sql`, `
                     )})`);
+
+                  await syncArrayRowFiles(
+                    tx,
+                    relationTableName,
+                    arrayItemId,
+                    fieldDef.items.properties,
+                    item,
+                    'collection'
+                  );
                 }
               }
             }

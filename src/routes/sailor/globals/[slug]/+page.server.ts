@@ -6,6 +6,7 @@ import * as schema from '$sailor/generated/schema';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
+import { loadFileFields } from 'sailorcms/utils/data/loaders/file-loader';
 import type { Pagination } from 'sailorcms/core/types';
 
 export const load = async ({ params, locals, url }) => {
@@ -217,6 +218,41 @@ export const load = async ({ params, locals, url }) => {
             item[fieldName] = [];
           });
         }
+      }
+    }
+  }
+
+  // Files nested inside array items: the top-level file loop below only walks
+  // globalDefinition.fields, so file fields declared inside array items.properties
+  // need a separate pass per row. Form expects IDs, so loadFullFileObjects=false.
+  // Stale column values (from schemas generated before file fields were excluded
+  // from buildArrayItemFields) are cleared so the loader always re-fetches from
+  // the file-relation table, which is the canonical source.
+  for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {
+    if ((fieldDef as any).type !== 'array') continue;
+    const itemsProperties = (fieldDef as any).items?.properties;
+    if (!itemsProperties) continue;
+
+    const snakeCaseFieldName = toSnakeCase(fieldName);
+    const arrayTableName = `global_${slug}_${snakeCaseFieldName}`;
+
+    const fileKeys: Array<[string, string]> = Object.entries(itemsProperties)
+      .filter(([, def]) => (def as any).type === 'file')
+      .map(([key]) => [key, toSnakeCase(key)]);
+
+    if (fileKeys.length === 0) continue;
+
+    const rowSets: any[][] = isFlat
+      ? [(existingData[fieldName] as any[]) || []]
+      : items.map((it: any) => (it[fieldName] as any[]) || []);
+
+    for (const rows of rowSets) {
+      for (const row of rows) {
+        for (const [k, snakeK] of fileKeys) {
+          delete row[k];
+          if (snakeK !== k) delete row[snakeK];
+        }
+        await loadFileFields(row, itemsProperties, arrayTableName, false);
       }
     }
   }

@@ -4,6 +4,16 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.4] - 10 May 2026
+
+### Changed
+
+- **Array-row file persistence consolidated into `core/data/persisters/array-row-files.server.ts`.** `syncArrayRowFiles` / `clearArrayRowFiles` / `clearArrayRowFilesByParent` are now shared by globals' three save sites, collections, and blocks — replacing four near-identical inline copies. Prevents the same drift (the bug below exposed) from recurring the next time the contract changes.
+
+### Fixed
+
+- **Files nested inside array items round-trip through the admin form** (globals + collections). Three-layer asymmetry across entity types: globals + blocks generators emitted `${arrayTable}_${propKey}` relation tables for nested files, **collections didn't** (missing `else if (file)` branch in `createArrayTables`); admin save tried to write file values as columns on the array table (silently no-op'd once the column was removed); admin load only iterated top-level `fields` for `type: 'file'`. Generator now symmetric across globals/collections/blocks; save splits file props out and writes them to the relation table with `parent_id = arrayItemId` (cascade-clears on row delete); load recurses per row, clearing any stale legacy column values to canonicalize on the relation table.
+
 ## [0.6.3] - 7 May 2026
 
 ### Changed

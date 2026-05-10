@@ -95,6 +95,10 @@ export class CollectionGenerator {
               depth + 1
             )
           );
+        } else if (itemFieldDef.type === 'file') {
+          tables.push(
+            this.createFileTable(arrayTableName, itemFieldName, itemFieldDef, entityInfo)
+          );
         }
       }
     }
