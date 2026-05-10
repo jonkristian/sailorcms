@@ -9,6 +9,11 @@ export const submissionsGlobal: GlobalDefinition = {
   description: 'Form submissions from the contact page',
   icon: 'Mail',
   dataType: 'repeatable',
+  // Submissions hold PII (name, email, phone, message). Gate the public read
+  // utilities so a stray `getGlobals('submissions')` from a `(site)/...` route
+  // throws AccessDeniedError instead of leaking data. Admin (`/sailor/*`) is
+  // unaffected — it doesn't go through these utilities.
+  access: { roles: ['admin', 'editor'] },
   options: {
     defaultView: 'read'
   },

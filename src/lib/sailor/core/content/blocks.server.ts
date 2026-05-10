@@ -74,6 +74,16 @@ export async function saveNestedArrayFields(
           nestedArrayFields[key] = value as any[];
         } else if (fieldDef?.type === 'file') {
           fileFields[key] = value;
+        } else if (fieldDef?.type === 'relation') {
+          // Read side hydrates one-to-X relations from UUID → full object
+          // (utils/data/loaders/relation-loader.ts). On save, unwrap back to
+          // the ID before persisting to the FK column — otherwise JS coerces
+          // the object to '[object Object]' in the SQL params.
+          // Many-to-many on array rows is a separate gap (see ignored/TODO.md).
+          regularFields[key] =
+            value && typeof value === 'object' && !Array.isArray(value) && 'id' in (value as any)
+              ? (value as any).id
+              : value;
         } else {
           regularFields[key] = value;
         }

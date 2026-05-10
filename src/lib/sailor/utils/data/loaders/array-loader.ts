@@ -2,7 +2,7 @@ import { db } from 'sailorcms/core/db/index.server';
 import { sql } from 'drizzle-orm';
 import { log } from 'sailorcms/core/utils/logger';
 import { loadFileFields } from './file-loader';
-import { loadOneToXRelations } from './relation-loader';
+import { loadOneToXRelations, type RelationStatus } from './relation-loader';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 
 /**
@@ -12,13 +12,16 @@ import { toSnakeCase } from 'sailorcms/core/utils/string';
  * @param arrayTablePrefix - Table prefix for arrays (e.g., 'block_hero', 'global_categories')
  * @param foreignKeyField - The foreign key field name (e.g., 'block_id', 'global_id', 'collection_id')
  * @param loadFullFileObjects - Whether to load full file objects in nested items
+ * @param status - Status filter applied when resolving relation targets nested
+ *   inside array items. Defaults to 'published' (use 'all' for admin previews).
  */
 export async function loadArrayFields(
   item: any,
   itemProperties: Record<string, any>,
   arrayTablePrefix: string,
   foreignKeyField: string,
-  loadFullFileObjects: boolean = true
+  loadFullFileObjects: boolean = true,
+  status: RelationStatus = 'published'
 ): Promise<void> {
   for (const [fieldName, fieldDef] of Object.entries(itemProperties)) {
     const typedFieldDef = fieldDef as any;
@@ -46,7 +49,8 @@ export async function loadArrayFields(
                   typedFieldDef.items.properties,
                   arrayTableName,
                   'parent_id', // Nested arrays use parent_id
-                  loadFullFileObjects
+                  loadFullFileObjects,
+                  status
                 );
 
                 // Load file fields for this array item
@@ -62,7 +66,8 @@ export async function loadArrayFields(
                 await loadOneToXRelations(
                   arrayItem,
                   typedFieldDef.items.properties,
-                  loadFullFileObjects
+                  loadFullFileObjects,
+                  status
                 );
               }
 

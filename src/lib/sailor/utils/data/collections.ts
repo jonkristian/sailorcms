@@ -11,7 +11,12 @@ import * as schema from '$sailor/generated/schema';
 import { getGlobals } from './globals';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
-import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
+import {
+  loadOneToXRelations,
+  loadManyToManyRelations,
+  type RelationStatus
+} from './loaders/relation-loader';
+import { assertAccess, AccessDeniedError } from './access';
 import { TagService } from 'sailorcms/core/services/tag.server';
 
 /**
@@ -22,7 +27,8 @@ async function loadCollectionFields(
   collection: any,
   collectionSlug: string,
   collectionSchema: Record<string, any>,
-  loadFullFileObjects: boolean = false
+  loadFullFileObjects: boolean = false,
+  status: RelationStatus = 'published'
 ): Promise<void> {
   const tablePrefix = `collection_${collectionSlug}`;
 
@@ -35,11 +41,12 @@ async function loadCollectionFields(
     collectionSchema,
     tablePrefix,
     'collection_id',
-    loadFullFileObjects
+    loadFullFileObjects,
+    status
   );
 
   // Load one-to-one and one-to-many relations
-  await loadOneToXRelations(collection, collectionSchema, loadFullFileObjects);
+  await loadOneToXRelations(collection, collectionSchema, loadFullFileObjects, status);
 
   // Load many-to-many relations
   await loadManyToManyRelations(
@@ -47,7 +54,8 @@ async function loadCollectionFields(
     collectionSchema,
     collectionSlug,
     'collection_id',
-    loadFullFileObjects
+    loadFullFileObjects,
+    status
   );
 
   // Load tags for every `type: 'tags'` field on the collection item. Tags
@@ -231,6 +239,16 @@ export async function getCollections<T extends CollectionTypes = CollectionTypes
       return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
     }
 
+    // Enforce type-level access before any DB work. Throws AccessDeniedError
+    // on miss — never returns silently. Default rule is 'public' so untouched
+    // templates keep their current behavior.
+    const collectionDef = await getCollectionType(collectionSlug);
+    assertAccess(
+      (collectionDef?.options as { access?: any })?.access,
+      user,
+      `Collection '${collectionSlug}'`
+    );
+
     // Handle single item queries
     if (isSingleQuery) {
       return await handleSingleCollectionItem<T>(table, collectionSlug, {
@@ -264,6 +282,10 @@ export async function getCollections<T extends CollectionTypes = CollectionTypes
       user
     });
   } catch (err) {
+    // Access failures must propagate — otherwise they become a silent empty
+    // result, which is the exact failure mode the type-level gate exists to
+    // prevent.
+    if (err instanceof AccessDeniedError) throw err;
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error(`Failed to load collections '${collectionSlug}':`, errorMessage);
     return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
@@ -312,7 +334,8 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
   const item = await enrichCollectionItem(result[0], collectionSlug, {
     includeBlocks,
     includeBreadcrumbs,
-    includeAuthors
+    includeAuthors,
+    status: status as RelationStatus
   });
 
   return item as CollectionsSingleResult<T>;
@@ -468,7 +491,8 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
       enrichCollectionItem(item, collectionSlug, {
         includeBlocks,
         includeBreadcrumbs,
-        includeAuthors
+        includeAuthors,
+        status: status as RelationStatus
       })
     )
   );
@@ -512,9 +536,10 @@ async function enrichCollectionItem(
     includeBlocks: boolean;
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
+    status?: RelationStatus;
   }
 ): Promise<CollectionItem> {
-  const { includeBlocks, includeBreadcrumbs, includeAuthors } = options;
+  const { includeBlocks, includeBreadcrumbs, includeAuthors, status = 'published' } = options;
 
   const enrichedItem = { ...item } as CollectionItem;
 
@@ -523,7 +548,7 @@ async function enrichCollectionItem(
     const collectionDef = await getCollectionType(collectionSlug);
     const collectionSchema = collectionDef ? collectionDef.fields || {} : {};
     if (Object.keys(collectionSchema).length > 0) {
-      await loadCollectionFields(enrichedItem, collectionSlug, collectionSchema, false);
+      await loadCollectionFields(enrichedItem, collectionSlug, collectionSchema, false, status);
     }
   } catch (err) {
     console.warn(
@@ -534,7 +559,7 @@ async function enrichCollectionItem(
 
   // Load blocks if requested
   if (includeBlocks) {
-    enrichedItem.blocks = await loadBlocksForCollection(enrichedItem.id);
+    enrichedItem.blocks = await loadBlocksForCollection(enrichedItem.id, { status });
   }
 
   // Populate user references if requested

@@ -23,6 +23,10 @@ export {
 // Block utilities
 export { loadBlocksForCollection, type BlockWithRelations } from './blocks';
 
+// Access control — exported so consumers can `instanceof`-check the error
+// in their +page.server.ts and render a 403 instead of a 500.
+export { AccessDeniedError } from './access';
+
 // Site utilities
 export { getSiteSettings } from './site';
 

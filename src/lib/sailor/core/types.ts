@@ -293,6 +293,26 @@ export const SEO_FIELDS = {
   }
 } as const;
 
+/**
+ * Access control for a collection or global as a whole. Gates the public
+ * read utilities (`getCollections` / `getGlobals`); admin (`/sailor/*`)
+ * bypasses naturally because admin routes don't go through these utilities.
+ *
+ * Object form is the extension point — each key is an independent restriction
+ * axis, ANDed together. The string shortcuts cover the common cases.
+ *
+ * @example
+ *   access: 'public'                     // (default) anyone, no user required
+ *   access: 'authenticated'              // any logged-in user
+ *   access: { roles: ['admin', 'editor'] } // user.role must be in the list
+ */
+export type AccessRule = 'public' | 'authenticated' | AccessObject;
+
+export type AccessObject = {
+  /** user.role must be one of these — implies authenticated */
+  roles?: string[];
+};
+
 // Collection definition type
 export type CollectionDefinition = {
   name: {
@@ -302,6 +322,11 @@ export type CollectionDefinition = {
   slug: string;
   description: string;
   icon?: string; // Optional icon identifier for the collection
+  /**
+   * Access control for the public read utilities. Defaults to 'public'.
+   * See {@link AccessRule}.
+   */
+  access?: AccessRule;
   fields: Record<string, FieldDefinition>;
   options?: {
     titleField?: string; // Field to use as title for display
@@ -340,6 +365,11 @@ export type GlobalDefinition = {
   fields: Record<string, FieldDefinition>;
   icon?: string; // Optional icon identifier for the global
   dataType: GlobalDataType; // 'flat' for single records, 'repeatable' for multiple flat records, 'relational' for complex relations
+  /**
+   * Access control for the public read utilities. Defaults to 'public'.
+   * See {@link AccessRule}.
+   */
+  access?: AccessRule;
   // Data behavior options
   options?: {
     sortable?: boolean; // enable manual sorting in UI

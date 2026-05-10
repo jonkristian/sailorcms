@@ -1,10 +1,23 @@
 import { db } from 'sailorcms/core/db/index.server';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import { log } from 'sailorcms/core/utils/logger';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { loadFileFields } from './file-loader';
 import { loadArrayFields } from './array-loader';
+
+export type RelationStatus = 'published' | 'draft' | 'all';
+
+/**
+ * Returns an `eq(table.status, status)` condition, or a no-op for tables
+ * without a `status` column or when `status === 'all'`.
+ */
+function statusOnly(table: any, status: RelationStatus): SQL {
+  if (status === 'all') return sql`1 = 1`;
+  if (table?.status === undefined) return sql`1 = 1`;
+  return eq(table.status, status);
+}
 
 /**
  * Callback type for loading nested content data
@@ -26,7 +39,8 @@ async function loadNestedContent(
   targetSlug: string,
   targetSchema: Record<string, any>,
   loadFullFileObjects: boolean,
-  contentType: 'block' | 'global' | 'collection'
+  contentType: 'block' | 'global' | 'collection',
+  status: RelationStatus
 ): Promise<void> {
   const tablePrefix = `${contentType}_${targetSlug}`;
   const foreignKeyField =
@@ -40,10 +54,17 @@ async function loadNestedContent(
   await loadFileFields(item, targetSchema, tablePrefix, loadFullFileObjects);
 
   // Load array fields
-  await loadArrayFields(item, targetSchema, tablePrefix, foreignKeyField, loadFullFileObjects);
+  await loadArrayFields(
+    item,
+    targetSchema,
+    tablePrefix,
+    foreignKeyField,
+    loadFullFileObjects,
+    status
+  );
 
   // Load one-to-one and one-to-many relations (recursively with correct content type)
-  await loadOneToXRelations(item, targetSchema, loadFullFileObjects);
+  await loadOneToXRelations(item, targetSchema, loadFullFileObjects, status);
 
   // Load many-to-many relations (recursively with correct content type)
   await loadManyToManyRelations(
@@ -51,7 +72,8 @@ async function loadNestedContent(
     targetSchema,
     targetSlug,
     foreignKeyField,
-    loadFullFileObjects
+    loadFullFileObjects,
+    status
   );
 }
 
@@ -61,7 +83,8 @@ async function loadNestedContent(
 export async function loadOneToXRelations(
   item: any,
   itemProperties: Record<string, any>,
-  loadFullFileObjects: boolean = true
+  loadFullFileObjects: boolean = true,
+  status: RelationStatus = 'published'
 ): Promise<void> {
   for (const [fieldName, fieldDef] of Object.entries(itemProperties)) {
     const typedFieldDef = fieldDef as any;
@@ -99,11 +122,20 @@ export async function loadOneToXRelations(
             continue;
           }
 
-          // Load the related object
+          // Load the related object — skip soft-deleted targets, and (for
+          // tables that have a status column) only return rows matching the
+          // requested status. Defaults to 'published' so public site loads
+          // never pick up drafts via a relation.
           const relatedResult = await db
             .select()
             .from(targetTable)
-            .where(eq((targetTable as any).id, relationValue))
+            .where(
+              and(
+                eq((targetTable as any).id, relationValue),
+                liveOnly(targetTable),
+                statusOnly(targetTable, status)
+              )
+            )
             .limit(1);
 
           if (relatedResult.length > 0) {
@@ -143,7 +175,8 @@ export async function loadOneToXRelations(
                   targetSlug,
                   targetSchema,
                   loadFullFileObjects,
-                  targetContentType
+                  targetContentType,
+                  status
                 );
               }
             } catch (schemaError) {
@@ -156,7 +189,7 @@ export async function loadOneToXRelations(
             // Replace the ID with the full object
             item[fieldName] = relatedObject;
           } else {
-            // Related object not found, set to null
+            // Related object not found (or filtered out by liveOnly/status)
             item[fieldName] = null;
           }
         } catch (err) {
@@ -180,7 +213,8 @@ export async function loadManyToManyRelations(
   itemProperties: Record<string, any>,
   junctionTablePrefix: string,
   foreignKeyField: string,
-  loadFullFileObjects: boolean = true
+  loadFullFileObjects: boolean = true,
+  status: RelationStatus = 'published'
 ): Promise<void> {
   for (const [fieldName, fieldDef] of Object.entries(itemProperties)) {
     const typedFieldDef = fieldDef as any;
@@ -224,12 +258,21 @@ export async function loadManyToManyRelations(
           continue;
         }
 
-        // Join junction table with target table to get full objects
+        // Join junction table with target table to get full objects.
+        // Filter target rows by liveOnly + status so soft-deleted or unpublished
+        // entries don't leak through a relation. Junction rows themselves don't
+        // carry deleted_at/status, so the filters apply to the target table.
         const relationResult = await db
           .select()
           .from(targetTable)
           .innerJoin(junctionTable, eq((targetTable as any).id, (junctionTable as any).target_id))
-          .where(eq((junctionTable as any)[foreignKeyField], item.id));
+          .where(
+            and(
+              eq((junctionTable as any)[foreignKeyField], item.id),
+              liveOnly(targetTable),
+              statusOnly(targetTable, status)
+            )
+          );
 
         // Extract the target objects and recursively load their nested data
         const relatedObjects = await Promise.all(
@@ -271,7 +314,8 @@ export async function loadManyToManyRelations(
                   targetSlug,
                   targetSchema,
                   loadFullFileObjects,
-                  targetContentType
+                  targetContentType,
+                  status
                 );
               }
             } catch (schemaError) {

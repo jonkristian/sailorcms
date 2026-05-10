@@ -10,7 +10,12 @@ import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { log } from 'sailorcms/core/utils/logger';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
-import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
+import {
+  loadOneToXRelations,
+  loadManyToManyRelations,
+  type RelationStatus
+} from './loaders/relation-loader';
+import { assertAccess, AccessDeniedError } from './access';
 
 /**
  * Load all fields (files, arrays, relations) for a global
@@ -20,7 +25,8 @@ async function loadGlobalFields(
   global: any,
   globalSlug: string,
   globalSchema: Record<string, any>,
-  loadFullFileObjects: boolean = false
+  loadFullFileObjects: boolean = false,
+  status: RelationStatus = 'published'
 ): Promise<void> {
   const tablePrefix = `global_${globalSlug}`;
 
@@ -28,13 +34,27 @@ async function loadGlobalFields(
   await loadFileFields(global, globalSchema, tablePrefix, loadFullFileObjects);
 
   // Load array fields
-  await loadArrayFields(global, globalSchema, tablePrefix, 'global_id', loadFullFileObjects);
+  await loadArrayFields(
+    global,
+    globalSchema,
+    tablePrefix,
+    'global_id',
+    loadFullFileObjects,
+    status
+  );
 
   // Load one-to-one and one-to-many relations
-  await loadOneToXRelations(global, globalSchema, loadFullFileObjects);
+  await loadOneToXRelations(global, globalSchema, loadFullFileObjects, status);
 
   // Load many-to-many relations
-  await loadManyToManyRelations(global, globalSchema, globalSlug, 'global_id', loadFullFileObjects);
+  await loadManyToManyRelations(
+    global,
+    globalSchema,
+    globalSlug,
+    'global_id',
+    loadFullFileObjects,
+    status
+  );
 }
 
 type User = {
@@ -70,6 +90,10 @@ export interface GlobalsOptions {
   withRelations?: boolean; // Include items relation for relational globals (default: true)
   withTags?: boolean; // Include tags for the global (default: false)
   loadFullFileObjects?: boolean; // Load full file objects vs just IDs (default: false)
+  // Status to apply when resolving relation targets (e.g. a global's relation
+  // field pointing at a collection). Defaults to 'published' so the public
+  // site never picks up drafts via a relation. Pass 'all' for admin previews.
+  status?: RelationStatus;
 
   // Filtering and ordering
   groupBy?: string;
@@ -155,6 +179,7 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
     withRelations = true,
     withTags = false,
     loadFullFileObjects = false,
+    status = 'published',
     groupBy,
     orderBy = 'sort',
     order = 'asc',
@@ -179,6 +204,12 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
       return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
     }
 
+    // Enforce type-level access before any DB work. Throws AccessDeniedError
+    // on miss — never returns silently. Default rule is 'public' so untouched
+    // templates keep their current behavior.
+    const persistedOptions = globalType.options ? JSON.parse(globalType.options) : {};
+    assertAccess(persistedOptions.access, _user, `Global '${globalSlug}'`);
+
     const isFlat = globalType.data_type === 'flat';
 
     // Handle singleton globals
@@ -186,7 +217,8 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
       return await handleSingletonGlobal<T>(globalSlug, globalType, {
         withRelations,
         withTags,
-        loadFullFileObjects
+        loadFullFileObjects,
+        status
       });
     }
 
@@ -201,6 +233,7 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
       withRelations,
       withTags,
       loadFullFileObjects,
+      status,
       groupBy,
       orderBy,
       order,
@@ -211,6 +244,10 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
       user: _user
     });
   } catch (err) {
+    // Access failures must propagate — otherwise they become a silent empty
+    // result, which is the exact failure mode the type-level gate exists to
+    // prevent.
+    if (err instanceof AccessDeniedError) throw err;
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error(`Failed to load globals '${globalSlug}':`, errorMessage);
     return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
@@ -227,9 +264,10 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    status: RelationStatus;
   }
 ): Promise<GlobalsSingleResult<T>> {
-  const { withRelations, withTags, loadFullFileObjects } = options;
+  const { withRelations, withTags, loadFullFileObjects, status } = options;
 
   const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
   if (!globalTable) {
@@ -252,7 +290,8 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
   const enrichedGlobal = await enrichGlobalItem<T>(globalData, globalSlug, globalType, {
     withRelations,
     withTags,
-    loadFullFileObjects
+    loadFullFileObjects,
+    status
   });
 
   return enrichedGlobal;
@@ -274,6 +313,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    status: RelationStatus;
     groupBy?: string;
     orderBy: string;
     order: 'asc' | 'desc';
@@ -294,6 +334,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations,
     withTags,
     loadFullFileObjects,
+    status,
     groupBy,
     orderBy,
     order,
@@ -371,7 +412,8 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     const item = await enrichGlobalItem<T>(results[0], globalSlug, globalType, {
       withRelations,
       withTags,
-      loadFullFileObjects
+      loadFullFileObjects,
+      status
     });
     return item;
   }
@@ -390,7 +432,8 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
       enrichGlobalItem<T>(item, globalSlug, globalType, {
         withRelations,
         withTags,
-        loadFullFileObjects
+        loadFullFileObjects,
+        status
       })
     )
   );
@@ -433,9 +476,10 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    status: RelationStatus;
   }
 ): Promise<T> {
-  const { withRelations, withTags, loadFullFileObjects } = options;
+  const { withRelations, withTags, loadFullFileObjects, status } = options;
 
   // Parse dates properly
   const parseDate = (dateValue: any): Date => {
@@ -501,7 +545,7 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
       const globalFields = JSON.parse(globalType.schema);
       const preservedItems = enrichedItem.items;
 
-      await loadGlobalFields(enrichedItem, globalSlug, globalFields, loadFullFileObjects);
+      await loadGlobalFields(enrichedItem, globalSlug, globalFields, loadFullFileObjects, status);
 
       enrichedItem.items = preservedItems;
     } catch (err) {

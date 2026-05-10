@@ -4,6 +4,17 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.5] - 10 May 2026
+
+### Added
+
+- **Type-level access control on globals + collections.** New `access?: AccessRule` on `GlobalDefinition` / `CollectionDefinition` — `'public'` (default) | `'authenticated'` | `{ roles: string[] }`. `getGlobals` / `getCollections` throw `AccessDeniedError` (exported from `sailorcms/utils/data`) when the rule isn't met instead of silently returning `[]`. The `submissions` global is gated to `{ roles: ['admin', 'editor'] }` as the dogfood. Admin (`/sailor/*`) is unaffected — those routes don't go through the public read utilities. Object form is the extension point: per-row ownership / custom predicate / field-level redaction are queued in `ignored/TODO.md` and slot in as new keys on `AccessObject` without breaking existing templates.
+
+### Fixed
+
+- **Soft-deleted and unpublished targets no longer leak through relation fields.** `loadOneToXRelations` and `loadManyToManyRelations` resolved relation targets by pure ID lookup, ignoring `deleted_at` and `status` — a soft-deleted item attached as a relation kept rendering on the public site, and an unpublished/draft target would have leaked the same way. Both loaders now apply `liveOnly(targetTable)` unconditionally and a column-aware status filter; status threads from `getCollections` / `getGlobals` / `getBlocks` (default `'published'`, the admin block loader at `core/data/loaders/blocks.ts` passes `'all'` so previews still see drafts).
+- **One-to-X relations on array-row fields round-trip through the admin form.** `saveNestedArrayFields` in `core/content/blocks.server.ts` partitioned array-row fields into array/file/regular but had no `relation` branch — read-side hydration of `studyLink: '<uuid>'` → `{ id, title, ... }` (added in 0.6.3) meant the full object went straight into the SQL params on save and JS coerced it to `'[object Object]'` in the FK column. New branch unwraps `{ id }` back to the scalar before persisting. Many-to-many on array rows remains unsupported (no junction tables for `items.properties`); tracked in `ignored/TODO.md`.
+
 ## [0.6.4] - 10 May 2026
 
 ### Changed

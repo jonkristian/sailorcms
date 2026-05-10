@@ -248,7 +248,12 @@ export async function seedRegistry() {
       for (const [slug, definition] of Object.entries(collectionDefinitions)) {
         const mergedFields = mergeWithCoreFields(definition.fields || {});
         const fields = JSON.stringify(mergedFields);
-        const options = JSON.stringify(definition.options || {});
+        // `access` rides the options blob — a single column already wired
+        // through getCollectionType. Reader: JSON.parse(row.options).access.
+        const options = JSON.stringify({
+          ...(definition.options || {}),
+          ...(definition.access !== undefined ? { access: definition.access } : {})
+        });
         const now = new Date();
         await tx
           .insert(collectionTypes)
@@ -295,7 +300,12 @@ export async function seedRegistry() {
         const isFlat = definition.dataType === 'flat';
         const mergedFields = mergeWithCoreFields(definition.fields || {}, skipCoreFields);
         const fields = JSON.stringify(mergedFields);
-        const options = JSON.stringify(definition.options || {});
+        // `access` rides the options blob — a single column already wired
+        // through getGlobalType. Reader: JSON.parse(row.options).access.
+        const options = JSON.stringify({
+          ...(definition.options || {}),
+          ...(definition.access !== undefined ? { access: definition.access } : {})
+        });
         const now = new Date();
         await tx
           .insert(globalTypes)

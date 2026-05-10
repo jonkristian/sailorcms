@@ -7,7 +7,11 @@ import { log } from 'sailorcms/core/utils/logger';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
-import { loadOneToXRelations, loadManyToManyRelations } from './loaders/relation-loader';
+import {
+  loadOneToXRelations,
+  loadManyToManyRelations,
+  type RelationStatus
+} from './loaders/relation-loader';
 
 export interface BlockWithRelations {
   id: string;
@@ -26,6 +30,10 @@ export interface LoadBlocksOptions {
   includeArrayRelations?: boolean;
   orderBy?: 'sort' | 'created_at' | 'updated_at';
   order?: 'asc' | 'desc';
+  // Status to apply when resolving relation targets inside the block
+  // (e.g. a block's relation field pointing at a collection). Defaults to
+  // 'published' so the public site never picks up drafts via a block relation.
+  status?: RelationStatus;
 }
 
 export interface BlocksOptions {
@@ -38,6 +46,9 @@ export interface BlocksOptions {
   // Loading options
   withRelations?: boolean; // Include file/array/many-to-many relations (default: true)
   loadFullFileObjects?: boolean; // Load full file objects vs just IDs (default: false)
+  // Status to apply when resolving relation targets inside the block. Defaults
+  // to 'published' so the public site never picks up drafts via a relation.
+  status?: RelationStatus;
 
   // Filtering and ordering
   orderBy?: 'sort' | 'created_at' | 'updated_at'; // Default: 'sort'
@@ -67,7 +78,8 @@ export async function loadBlockFields(
   block: any,
   blockSlug: string,
   blockSchema: Record<string, any>,
-  loadFullFileObjects: boolean = false
+  loadFullFileObjects: boolean = false,
+  status: RelationStatus = 'published'
 ): Promise<void> {
   const tablePrefix = `block_${blockSlug}`;
 
@@ -75,13 +87,20 @@ export async function loadBlockFields(
   await loadFileFields(block, blockSchema, tablePrefix, loadFullFileObjects);
 
   // Load array fields
-  await loadArrayFields(block, blockSchema, tablePrefix, 'block_id', loadFullFileObjects);
+  await loadArrayFields(block, blockSchema, tablePrefix, 'block_id', loadFullFileObjects, status);
 
   // Load one-to-one and one-to-many relations
-  await loadOneToXRelations(block, blockSchema, loadFullFileObjects);
+  await loadOneToXRelations(block, blockSchema, loadFullFileObjects, status);
 
   // Load many-to-many relations
-  await loadManyToManyRelations(block, blockSchema, blockSlug, 'block_id', loadFullFileObjects);
+  await loadManyToManyRelations(
+    block,
+    blockSchema,
+    blockSlug,
+    'block_id',
+    loadFullFileObjects,
+    status
+  );
 
   // Load tags for every `type: 'tags'` field on the block. Tags live in
   // `taggables` under `taggable_type = 'block_<slug>'`, so a single query
@@ -147,7 +166,8 @@ export async function loadBlocks(options: LoadBlocksOptions = {}): Promise<Block
     includeFileRelations = true,
     includeArrayRelations = true,
     orderBy = 'sort',
-    order = 'asc'
+    order = 'asc',
+    status = 'published'
   } = options;
 
   // Get available block types from registry
@@ -205,7 +225,8 @@ export async function loadBlocks(options: LoadBlocksOptions = {}): Promise<Block
               enrichedBlock,
               blockType.slug,
               blockSchema,
-              false // loadFullFileObjects = false for better performance
+              false, // loadFullFileObjects = false for better performance
+              status
             );
           }
 
@@ -263,7 +284,8 @@ export async function loadBlocks(options: LoadBlocksOptions = {}): Promise<Block
  */
 export async function loadBlockById(
   blockId: string,
-  blockType: string
+  blockType: string,
+  status: RelationStatus = 'published'
 ): Promise<BlockWithRelations | null> {
   try {
     // Get the specific block
@@ -300,7 +322,8 @@ export async function loadBlockById(
         enrichedBlock,
         blockType,
         blockSchema,
-        true // loadFullFileObjects = true for single block queries
+        true, // loadFullFileObjects = true for single block queries
+        status
       );
     }
 
@@ -341,6 +364,7 @@ export async function getBlocks(
     collectionId,
     withRelations = true,
     loadFullFileObjects = false,
+    status = 'published',
     orderBy = 'sort',
     order = 'asc',
     limit,
@@ -382,7 +406,8 @@ export async function getBlocks(
 
       const block = await enrichBlock(blockResult[0], blockType, blockTypeDef, {
         withRelations,
-        loadFullFileObjects
+        loadFullFileObjects,
+        status
       });
 
       return block;
@@ -421,7 +446,8 @@ export async function getBlocks(
       blocks.map((block: Record<string, any>) =>
         enrichBlock(block, blockType, blockTypeDef, {
           withRelations,
-          loadFullFileObjects
+          loadFullFileObjects,
+          status
         })
       )
     );
@@ -447,9 +473,10 @@ async function enrichBlock(
   options: {
     withRelations: boolean;
     loadFullFileObjects: boolean;
+    status?: RelationStatus;
   }
 ): Promise<BlockWithRelations> {
-  const { withRelations, loadFullFileObjects } = options;
+  const { withRelations, loadFullFileObjects, status = 'published' } = options;
 
   const enrichedBlock: BlockWithRelations = {
     ...block,
@@ -464,7 +491,7 @@ async function enrichBlock(
   // Load relations if requested
   if (withRelations) {
     const blockSchema = JSON.parse(blockTypeDef.schema);
-    await loadBlockFields(enrichedBlock, blockType, blockSchema, loadFullFileObjects);
+    await loadBlockFields(enrichedBlock, blockType, blockSchema, loadFullFileObjects, status);
   }
 
   return enrichedBlock;
