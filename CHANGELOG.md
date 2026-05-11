@@ -4,6 +4,8 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.8] - 11 May 2026
+
 ### Fixed
 
 - **Status badges translated + distinct colors on the globals list too** — same `getStatusBadge` helper as collections.
