@@ -174,10 +174,16 @@
     isNewItem = true;
     editingItem = { id: generateUUID() };
 
-    // Initialize form data with defaults
-    Object.keys(global.fields).forEach((key) => {
-      if (key === 'status') {
-        formData[key] = 'active';
+    // Initialize form data with each field's declared `default` first (so a
+    // template overriding the enum — e.g. `categories` with `active|inactive`
+    // and `default: 'active'` — gets its intended value); fall back to
+    // `'draft'` only for the core status field that has no explicit default,
+    // and `''` for everything else. Mirrors RepeatableInlineView's pattern.
+    Object.entries(global.fields).forEach(([key, field]: [string, any]) => {
+      if (field?.default !== undefined) {
+        formData[key] = field.default;
+      } else if (key === 'status') {
+        formData[key] = 'draft';
       } else {
         formData[key] = '';
       }

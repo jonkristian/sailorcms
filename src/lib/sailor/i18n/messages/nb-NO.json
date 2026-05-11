@@ -356,6 +356,7 @@
   "status_draft": "Utkast",
   "status_archived": "Arkivert",
   "status_private": "Privat",
+  "status_active": "Aktiv",
 
   "file_type_image": "Bilde",
   "file_type_video": "Video",

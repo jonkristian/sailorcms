@@ -95,13 +95,16 @@ export const load = async ({ params, locals }) => {
       .limit(1);
 
     if (existingItems.length === 0) {
-      // This is a new item - create default data
+      // This is a new item - create default data. Honor the template's
+      // declared `status.default` (e.g. categories override to `'active'`);
+      // fall back to `'draft'` (the CORE_FIELDS status convention).
       isNewItem = true;
       const defaultTitle = `New ${globalDefinition.name.singular}`;
+      const statusDefault = (globalDefinition.fields as any)?.status?.default ?? 'draft';
       item = {
         id: id,
         title: defaultTitle,
-        status: 'active',
+        status: statusDefault,
         created_at: getCurrentTimestamp(),
         updated_at: getCurrentTimestamp()
       };

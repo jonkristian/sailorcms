@@ -12,6 +12,7 @@
   import { useBulkDelete } from 'sailorcms/composables/useBulkDelete.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
+  import { getStatusBadge } from 'sailorcms/core/ui/status-badge';
   import { m } from '$sailor/i18n';
 
   const {
@@ -152,6 +153,9 @@
           >
             {label}
           </button>
+        {:else if column.key === 'status'}
+          {@const badge = getStatusBadge(item[column.key])}
+          <Badge class={badge.classes}>{badge.label}</Badge>
         {:else if fieldType === 'select'}
           <Badge
             variant={item[column.key] === 'new'

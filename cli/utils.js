@@ -547,12 +547,26 @@ export function patchViteConfig(content) {
   // 5. optimizeDeps — exclude sailorcms (so its source goes through Vite's
   //    dev module pipeline instead of esbuild prebundle, which doesn't know
   //    about Vite aliases or how to handle TS in `.svelte.ts` rune-state
-  //    files). Include the highlight.js subpaths sailor uses so Vite picks
-  //    up their ESM exports condition for proper named-export interop.
+  //    files). Then explicitly include known transitives that need
+  //    pre-bundling for ESM interop: highlight.js subpaths sailor uses, and
+  //    CJS-only deps that slip through unbundled because we excluded
+  //    sailorcms (notably `style-to-object` via svelte-sonner / bits-ui).
+  //
+  //    `REQUIRED_OPTIMIZE_INCLUDES` is the running list; new entries get
+  //    spliced into existing `include` arrays on re-run, so consumers who
+  //    were patched on older sailor versions pick up additions on the next
+  //    `core:update`.
+  const REQUIRED_OPTIMIZE_INCLUDES = [
+    'highlight.js/lib/core',
+    'highlight.js/lib/languages/json',
+    'style-to-object'
+  ];
+  const includesLiteral = REQUIRED_OPTIMIZE_INCLUDES.map((m) => `'${m}'`).join(', ');
+
+  // 5a. Ensure `optimizeDeps.exclude` contains 'sailorcms'
   if (!/optimizeDeps\s*:\s*\{[^}]*exclude[^}]*['"]sailorcms['"]/.test(updated)) {
     const optMatch = updated.match(/optimizeDeps\s*:\s*\{([\s\S]*?)\}/);
     if (optMatch && /\bexclude\s*:\s*\[/.test(optMatch[1])) {
-      // optimizeDeps.exclude exists but doesn't include 'sailorcms' — splice in
       const before = updated;
       updated = updated.replace(
         /(optimizeDeps\s*:\s*\{[\s\S]*?\bexclude\s*:\s*\[)([^\]]*)(\])/,
@@ -564,28 +578,64 @@ export function patchViteConfig(content) {
       );
       if (updated !== before) applied.push('optimizeDeps.exclude');
     } else if (/\boptimizeDeps\s*:\s*\{/.test(updated)) {
-      // optimizeDeps exists without exclude — inject
       const before = updated;
       updated = updated.replace(
         /(\boptimizeDeps\s*:\s*\{)/,
-        `$1\n    exclude: ['sailorcms'],\n    include: ['highlight.js/lib/core', 'highlight.js/lib/languages/json'],`
+        `$1\n    exclude: ['sailorcms'],\n    include: [${includesLiteral}],`
       );
       if (updated !== before) applied.push('optimizeDeps.exclude');
     } else {
-      // No optimizeDeps block — add one
       const before = updated;
       updated = updated.replace(
         /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
-        `$1,\n  optimizeDeps: {\n    exclude: ['sailorcms'],\n    include: ['highlight.js/lib/core', 'highlight.js/lib/languages/json']\n  },`
+        `$1,\n  optimizeDeps: {\n    exclude: ['sailorcms'],\n    include: [${includesLiteral}]\n  },`
       );
       if (updated === before) {
         manual.push({
           name: 'optimizeDeps',
-          hint: `Add \`optimizeDeps: { exclude: ['sailorcms'], include: ['highlight.js/lib/core', 'highlight.js/lib/languages/json'] }\` to your defineConfig in vite.config.ts. Required so esbuild prebundle skips sailor's source (which uses Vite-only features like \`$sailor\` aliases and \`.svelte.ts\` rune state files) and Vite picks up highlight.js's ESM exports condition.`
+          hint: `Add \`optimizeDeps: { exclude: ['sailorcms'], include: [${includesLiteral}] }\` to your defineConfig in vite.config.ts. Required so esbuild prebundle skips sailor's source (which uses Vite-only features like \`$sailor\` aliases and \`.svelte.ts\` rune state files), Vite picks up highlight.js's ESM exports condition, and CJS-only transitives like style-to-object get pre-bundled.`
         });
       } else {
         applied.push('optimizeDeps.exclude');
       }
+    }
+  }
+
+  // 5b. Ensure `optimizeDeps.include` contains every entry in
+  //     REQUIRED_OPTIMIZE_INCLUDES. Runs independently of 5a so existing
+  //     consumers gain new required transitives without rewriting the block.
+  const optMatch2 = updated.match(/optimizeDeps\s*:\s*\{([\s\S]*?)\}/);
+  if (optMatch2) {
+    const includeMatch = optMatch2[1].match(/\binclude\s*:\s*\[([^\]]*)\]/);
+    if (includeMatch) {
+      const existing = new Set(
+        includeMatch[1]
+          .split(',')
+          .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
+          .filter(Boolean)
+      );
+      const missing = REQUIRED_OPTIMIZE_INCLUDES.filter((m) => !existing.has(m));
+      if (missing.length > 0) {
+        const additions = missing.map((m) => `'${m}'`).join(', ');
+        const before = updated;
+        updated = updated.replace(
+          /(optimizeDeps\s*:\s*\{[\s\S]*?\binclude\s*:\s*\[)([^\]]*)(\])/,
+          (_m, open, inner, close) => {
+            const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
+            const newInner = trimmed.trim() ? `${trimmed}, ${additions}` : additions;
+            return `${open}${newInner}${close}`;
+          }
+        );
+        if (updated !== before) applied.push('optimizeDeps.include');
+      }
+    } else if (/\boptimizeDeps\s*:\s*\{/.test(updated)) {
+      // optimizeDeps exists without include — inject
+      const before = updated;
+      updated = updated.replace(
+        /(\boptimizeDeps\s*:\s*\{)/,
+        `$1\n    include: [${includesLiteral}],`
+      );
+      if (updated !== before) applied.push('optimizeDeps.include');
     }
   }
 
