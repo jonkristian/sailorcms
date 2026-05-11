@@ -4,6 +4,8 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.7] - 11 May 2026
+
 ### Added
 
 - **Templates can now use any Lucide icon — with zero bundle bloat.** The sidebar's icon resolver was previously a hardcoded 14-entry map duplicated across `nav-collections.svelte` and `nav-globals.svelte` (`FileText, Layout, FolderTree, HelpCircle, Menu, Settings, Image, Users, Calendar, Tag, Database, Globe, ShoppingCart, BarChart`); anything else silently fell back to the default icon. Now `npx sailor db:update` walks all `globalDefinitions` / `collectionDefinitions` / `blockDefinitions`, collects every literal `icon: 'Name'` declaration, and emits `generated/icons.ts` with explicit named imports. `getLucideIcon(name)` (new in `sailorcms/core/ui/lucide-icon.ts`) reads from that map. Tree-shaking keeps only what's actually used — typical consumers will see 5-15 icons in the admin bundle instead of the full ~1700-icon Lucide barrel (~120KB gzipped savings vs a wildcard approach). Re-run `db:update` after adding new icons to templates. Caught a latent bug along the way: `templates/globals/submissions.ts` used `icon: 'Mail'` which wasn't in the old hardcoded list — it had been quietly falling back to the default icon and now resolves correctly.
