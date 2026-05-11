@@ -117,11 +117,11 @@ async function cleanDir(srcDir, tgtDir, skip = [], relPath = '') {
  *     hooks.client.ts (interactively, --force-aware), the templates dir
  *     (only if missing), then sets up routes and patches the consumer's
  *     vite.config / svelte.config / package.json (`setupConfigFiles`).
- *   - **update** preserves the consumer's templates / generated /
- *     i18n/messages / i18n/paraglide via the copy filter, seeds
- *     i18n/messages on first run if the consumer pre-dates i18n, runs
- *     `cleanDir` to drop files removed from sailor's source, and calls
- *     `updateRoutes` (which itself calls `cleanDir` on routes/sailor).
+ *   - **update** preserves the consumer's templates / generated via the
+ *     copy filter, overwrites `i18n/messages` (sailor-authored admin
+ *     strings, shipped per-release), runs `cleanDir` to drop files
+ *     removed from sailor's source, and calls `updateRoutes` (which
+ *     itself calls `cleanDir` on routes/sailor).
  *
  * `setupSailorFiles` and `updateSailorCoreFiles` are kept as thin wrappers
  * for backwards compatibility with cms-init.js / cms-update.js.
@@ -175,13 +175,13 @@ async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
   const targetSailorDir = path.join(targetLibDir, 'sailor');
 
   if (await fs.pathExists(mainSailorDir)) {
+    // `i18n/messages` is sailor-authored (admin strings only — toasts, sidebar,
+    // dashboard labels) and ships per-release, same model as `core/` or `utils/`.
+    // Always overwrite so new keys reach consumers without a manual merge.
+    // `i18n/paraglide` is compiled output — regenerated on next dev/build start.
     const skipPaths = isInit
       ? [path.join('sailor', 'templates')]
-      : [
-          path.join('sailor', 'templates'),
-          path.join('sailor', 'generated'),
-          path.join('sailor', 'i18n', 'messages')
-        ];
+      : [path.join('sailor', 'templates'), path.join('sailor', 'generated')];
     const sailorPkgFilter = packageExportedSailorDirsFilter(mainSailorDir);
     await fs.copy(mainSailorDir, targetSailorDir, {
       overwrite: true,
@@ -197,27 +197,8 @@ async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
     if (!isInit) {
       console.log('📝 Updated sailor core files');
 
-      // First-time seed for `i18n/messages` if the consumer doesn't have it yet
-      // (e.g. project init'd before i18n landed). After this, the dir is
-      // preserved across updates so user translation refinements stick.
-      const mainMessagesDir = path.join(mainSailorDir, 'i18n', 'messages');
-      const targetMessagesDir = path.join(targetSailorDir, 'i18n', 'messages');
-      if (await fs.pathExists(mainMessagesDir)) {
-        const exists = await fs.pathExists(targetMessagesDir);
-        const isEmpty = exists ? (await fs.readdir(targetMessagesDir)).length === 0 : false;
-        if (!exists || isEmpty) {
-          await fs.copy(mainMessagesDir, targetMessagesDir, { overwrite: true });
-          console.log('📝 Seeded i18n/messages (first-time, preserved on future updates)');
-        }
-      }
-
       // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
-      await cleanDir(mainSailorDir, targetSailorDir, [
-        'templates',
-        'generated',
-        'i18n/messages',
-        'i18n/paraglide'
-      ]);
+      await cleanDir(mainSailorDir, targetSailorDir, ['templates', 'generated']);
     }
   }
 

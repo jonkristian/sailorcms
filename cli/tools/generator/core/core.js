@@ -56,6 +56,7 @@ export class CoreGenerator {
   icon: ${this.adapter.getTextFieldDefinition('icon')},
   schema: ${this.adapter.getTextFieldDefinition('schema', { notNull: true })},
   options: ${this.adapter.getTextFieldDefinition('options')},
+  sort: ${this.adapter.getIntegerFieldDefinition('sort', { notNull: true, default: 0 })},
   created_at: ${this.adapter.getTimestampDefinition('created_at')},
   updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
 });`,
@@ -82,6 +83,7 @@ export class CoreGenerator {
   data_type: ${this.adapter.getTextFieldDefinition('data_type', { notNull: true })},
   schema: ${this.adapter.getTextFieldDefinition('schema', { notNull: true })},
   options: ${this.adapter.getTextFieldDefinition('options')},
+  sort: ${this.adapter.getIntegerFieldDefinition('sort', { notNull: true, default: 0 })},
   created_at: ${this.adapter.getTimestampDefinition('created_at')},
   updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
 });`,

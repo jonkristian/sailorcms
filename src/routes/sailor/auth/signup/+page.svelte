@@ -9,6 +9,7 @@
   import { AlertCircle } from '@lucide/svelte';
   import emblemSvg from 'sailorcms/assets/emblem.svg?raw';
   import PasswordStrength from 'sailorcms/components/sailor/PasswordStrength.svelte';
+  import Turnstile from 'sailorcms/utils/turnstile/Turnstile.svelte';
   import { m } from '$sailor/i18n';
 
   let { data }: { data: { hasGitHubOAuth: boolean } } = $props();
@@ -16,6 +17,7 @@
   let name = $state('');
   let password = $state('');
   let confirmPassword = $state('');
+  let turnstileToken = $state('');
   let error = $state('');
   let loading = $state(false);
 
@@ -44,11 +46,12 @@
     }
 
     try {
-      const result = await authClient.signUp.email({
-        email,
-        name,
-        password
-      });
+      const result = await authClient.signUp.email(
+        { email, name, password },
+        {
+          headers: turnstileToken ? { 'x-captcha-response': turnstileToken } : undefined
+        }
+      );
 
       const successUrl = `/sailor/auth/login?message=${encodeURIComponent(m.auth_signup_account_created())}`;
       if (result && result.data && 'user' in result.data) {
@@ -181,6 +184,7 @@
               <p class="text-xs text-red-500">{m.toast_passwords_no_match()}</p>
             {/if}
           </div>
+          <Turnstile bind:token={turnstileToken} />
           <div class="flex justify-between pt-4">
             <Button type="submit" class="w-full" disabled={loading}>
               {loading ? m.auth_signup_creating() : m.auth_signup_button()}

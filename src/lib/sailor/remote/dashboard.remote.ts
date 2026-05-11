@@ -128,6 +128,7 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
       db
         .select({
           id: schema.collectionTypes.id,
+          name_singular: schema.collectionTypes.name_singular,
           name_plural: schema.collectionTypes.name_plural,
           slug: schema.collectionTypes.slug
         })
@@ -221,18 +222,19 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
             const isCreated =
               new Date(item.created_at).getTime() === new Date(item.updated_at).getTime();
             const action = isCreated ? ('created' as const) : ('updated' as const);
-            const description = isCreated
-              ? `Created ${collection.name_plural.slice(0, -1).toLowerCase()}`
+            const descriptionKey = isCreated
+              ? ('created' as const)
               : item.last_modified_by
-                ? `Edited ${collection.name_plural.slice(0, -1).toLowerCase()}`
-                : `Updated ${collection.name_plural.slice(0, -1).toLowerCase()}`;
+                ? ('edited' as const)
+                : ('updated' as const);
 
             recentActivity.push({
               id: `${collection.slug}-${item.id}`,
               type: 'content' as const,
               action,
               title: item.title || 'Untitled',
-              description,
+              descriptionKey,
+              entity: collection.name_singular.toLowerCase(),
               timestamp: new Date(item.updated_at),
               contentType: collection.name_plural.toLowerCase(),
               link: getDashboardActivityLink('collection', { slug: collection.slug }, item.id),
@@ -291,18 +293,19 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
               const isCreated =
                 new Date(item.created_at).getTime() === new Date(item.updated_at).getTime();
               const action = isCreated ? ('created' as const) : ('updated' as const);
-              const description = isCreated
-                ? `Created ${global.name_singular.toLowerCase()}`
+              const descriptionKey = isCreated
+                ? ('created' as const)
                 : item.last_modified_by
-                  ? `Edited ${global.name_singular.toLowerCase()}`
-                  : `Updated ${global.name_singular.toLowerCase()}`;
+                  ? ('edited' as const)
+                  : ('updated' as const);
 
               recentActivity.push({
                 id: `${global.slug}-flat`,
                 type: 'content' as const,
                 action,
                 title: global.name_singular, // Use global name for flat globals
-                description,
+                descriptionKey,
+                entity: global.name_singular.toLowerCase(),
                 timestamp: new Date(item.updated_at),
                 contentType: global.name_singular.toLowerCase(),
                 link: getDashboardActivityLink('global', { slug: global.slug, data_type: 'flat' }),
@@ -353,18 +356,19 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
               const isCreated =
                 new Date(item.created_at).getTime() === new Date(item.updated_at).getTime();
               const action = isCreated ? ('created' as const) : ('updated' as const);
-              const description = isCreated
-                ? `Created ${global.name_plural.slice(0, -1).toLowerCase()}`
+              const descriptionKey = isCreated
+                ? ('created' as const)
                 : item.last_modified_by
-                  ? `Edited ${global.name_plural.slice(0, -1).toLowerCase()}`
-                  : `Updated ${global.name_plural.slice(0, -1).toLowerCase()}`;
+                  ? ('edited' as const)
+                  : ('updated' as const);
 
               recentActivity.push({
                 id: `${global.slug}-${item.id}`,
                 type: 'content' as const,
                 action,
                 title: item.title || 'Untitled',
-                description,
+                descriptionKey,
+                entity: global.name_singular.toLowerCase(),
                 timestamp: new Date(item.updated_at),
                 contentType: global.name_plural.toLowerCase(),
                 link: getDashboardActivityLink('global', {

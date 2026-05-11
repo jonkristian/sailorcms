@@ -11,7 +11,7 @@ export const settings: Partial<CMSSettings> = {
   // ✅ Storage settings (most important - override as needed)
   storage: {
     // Paths to exclude from storage scanning (file import/sync operations)
-    excludePaths: ['cache/', 'backup/', '.tmp/', '.git/'],
+    excludePaths: ['cache/', 'backup/', 'backups/', '.tmp/', '.git/'],
 
     // Image processing configuration
     images: {

@@ -7,6 +7,7 @@
   import FileWithControls from 'sailorcms/components/sailor/FileWithControls.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
+  import { getFileTypeBadge } from 'sailorcms/core/ui/file-type-badge';
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import type { Tag } from 'sailorcms/core/types/tag';
 
@@ -42,20 +43,6 @@
     { key: 'tags', label: m.media_col_tags() },
     { key: 'created_at', label: m.media_col_created(), width: 120 }
   ]);
-
-  function getFileTypeColor(type: string) {
-    switch (type) {
-      case 'image':
-        return 'bg-blue-100 text-blue-800';
-      case 'video':
-        return 'bg-purple-100 text-purple-800';
-      case 'document':
-      case 'application':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  }
 </script>
 
 <!-- DataTable with custom cell rendering -->
@@ -76,7 +63,7 @@
         />
       </div>
     {:else if column.key === 'name'}
-      <div class="max-w-xs min-w-0 space-y-1">
+      <div class="min-w-0 space-y-1">
         <div class="truncate font-medium" title={item.name}>
           {item.name}
         </div>
@@ -105,10 +92,8 @@
         </div>
       </div>
     {:else if column.key === 'type'}
-      {@const type = item.mime_type?.split('/')[0] || 'other'}
-      <Badge class={getFileTypeColor(type)}>
-        {type === 'application' ? 'document' : type}
-      </Badge>
+      {@const badge = getFileTypeBadge(item.mime_type)}
+      <Badge class={badge.classes}>{badge.label}</Badge>
     {:else if column.key === 'size'}
       <span class="text-sm">{formatFileSize(item.size)}</span>
     {:else if column.key === 'author'}

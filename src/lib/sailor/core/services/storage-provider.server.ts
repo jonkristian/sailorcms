@@ -48,6 +48,7 @@ export class LocalStorageProvider implements StorageProvider {
       const excludePaths = settings.storage?.excludePaths || [
         'cache/',
         'backup/',
+        'backups/',
         '.tmp/',
         '.git/'
       ];

@@ -18,6 +18,7 @@
   import { useTableFilters } from 'sailorcms/composables/useTableFilters.svelte';
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
+  import { getStatusBadge } from 'sailorcms/core/ui/status-badge';
   import * as Select from 'sailorcms/components/ui/select/index.js';
   import SelectDialog from 'sailorcms/components/sailor/dialogs/SelectDialog.svelte';
   import {
@@ -323,16 +324,15 @@
         {#snippet cellRenderer(item: any, column: any)}
           {#if column.key === 'title'}
             <button
-              class="cursor-pointer text-left font-medium hover:underline"
-              title={item.slug ? `Slug: ${item.slug}` : undefined}
+              class="block w-full cursor-pointer truncate text-left font-medium hover:underline"
+              title={item.title || item.name || item.id}
               onclick={() => handleEdit(item.id)}
             >
               {item.title || item.name || item.id}
             </button>
           {:else if column.key === 'status'}
-            <Badge variant={item.status === 'published' ? 'default' : 'secondary'}>
-              {item.status}
-            </Badge>
+            {@const badge = getStatusBadge(item.status)}
+            <Badge class={badge.classes}>{badge.label}</Badge>
           {:else if column.key === 'author'}
             {item.author_name || item.author_email || m.common_unknown()}
           {:else if column.key === 'updated_at' || column.key === 'created_at'}

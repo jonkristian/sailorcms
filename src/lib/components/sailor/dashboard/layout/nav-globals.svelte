@@ -3,37 +3,8 @@
   import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
   import { Skeleton } from 'sailorcms/components/ui/skeleton/index.js';
   import { m } from '$sailor/i18n';
-  import FileText from '@lucide/svelte/icons/file-text';
-  import Layout from '@lucide/svelte/icons/layout';
-  import FolderTree from '@lucide/svelte/icons/folder-tree';
-  import HelpCircle from '@lucide/svelte/icons/help-circle';
-  import Menu from '@lucide/svelte/icons/menu';
   import Settings from '@lucide/svelte/icons/settings';
-  import Image from '@lucide/svelte/icons/image';
-  import Users from '@lucide/svelte/icons/users';
-  import Calendar from '@lucide/svelte/icons/calendar';
-  import Tag from '@lucide/svelte/icons/tag';
-  import Database from '@lucide/svelte/icons/database';
-  import Globe from '@lucide/svelte/icons/globe';
-  import ShoppingCart from '@lucide/svelte/icons/shopping-cart';
-  import BarChart from '@lucide/svelte/icons/bar-chart-3';
-
-  const iconMap: Record<string, any> = {
-    FileText,
-    Layout,
-    FolderTree,
-    HelpCircle,
-    Menu,
-    Settings,
-    Image,
-    Users,
-    Calendar,
-    Tag,
-    Database,
-    Globe,
-    ShoppingCart,
-    BarChart
-  };
+  import { getLucideIcon } from 'sailorcms/core/ui/lucide-icon';
 
   type Global = {
     id: string;
@@ -82,13 +53,9 @@
             <Sidebar.MenuItem>
               <Sidebar.MenuButton tooltipContent={item.name} isActive={isActive(item.url)}>
                 {#snippet child({ props })}
+                  {@const IconComponent = getLucideIcon(item.icon) ?? Settings}
                   <a href={item.url} {...props}>
-                    {#if item.icon && iconMap[item.icon]}
-                      {@const IconComponent = iconMap[item.icon]}
-                      <IconComponent class="h-4 w-4" />
-                    {:else}
-                      <Settings class="h-4 w-4" />
-                    {/if}
+                    <IconComponent class="h-4 w-4" />
                     <span>{item.name}</span>
                   </a>
                 {/snippet}

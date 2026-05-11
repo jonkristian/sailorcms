@@ -223,6 +223,7 @@ export class S3StorageService {
       const excludePaths = settings.storage?.excludePaths || [
         'cache/',
         'backup/',
+        'backups/',
         '.tmp/',
         '.git/'
       ];
