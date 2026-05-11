@@ -61,6 +61,17 @@ SMTP_FROM="Sailor CMS <noreply@example.com>"
 EMAIL_VERIFICATION=false
 ```
 
+## Cloudflare Turnstile (Auto-detected)
+
+Captcha protection on admin sign-in / sign-up / password-reset activates when **both** keys are set. With only one half configured, captcha stays inactive (login keeps working) — by design, so a partial setup can't brick auth.
+
+```env
+PUBLIC_TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
+```
+
+The same `<Turnstile bind:token />` component and `verifyTurnstileToken(token, remoteIp?)` helper are exported from `sailorcms/utils/turnstile/...` for use on your own public-facing forms.
+
 ## File Storage
 
 ### Local Storage (Default)

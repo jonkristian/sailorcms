@@ -583,7 +583,7 @@
                       {/if}
 
                       <!-- Content -->
-                      <div class="min-w-0 flex-1">
+                      <div class="min-w-0 flex-1 truncate">
                         {#if cellRenderer}
                           {@render cellRenderer(item, column)}
                         {:else}

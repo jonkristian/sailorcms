@@ -33,11 +33,6 @@ export function useBulkDelete(options: BulkDeleteOptions) {
     }
   }
 
-  function cancelDelete() {
-    deleteDialogOpen = false;
-    pendingDeleteItems = { ids: [], count: 0 };
-  }
-
   return {
     get deleteDialogOpen() {
       return deleteDialogOpen;
@@ -52,7 +47,6 @@ export function useBulkDelete(options: BulkDeleteOptions) {
       return pendingDeleteItems;
     },
     initiateBulkDelete,
-    executeBulkDelete,
-    cancelDelete
+    executeBulkDelete
   };
 }

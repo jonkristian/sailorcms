@@ -57,13 +57,17 @@
     await onConfirm();
   }
 
+  // Close the dialog. `onCancel` is fired by `onOpenChange` once the
+  // primitive transitions to closed — same path as X / ESC / outside-click,
+  // so callers can rely on a single notification regardless of how the
+  // dialog was dismissed.
   function handleCancel() {
     if (isLoading) return;
-    onCancel();
+    open = false;
   }
 </script>
 
-<Dialog.Root bind:open onOpenChange={(newOpen) => !newOpen && handleCancel()}>
+<Dialog.Root bind:open onOpenChange={(newOpen) => !newOpen && !isLoading && onCancel()}>
   <Dialog.Content>
     <Dialog.Header>
       <div class="flex items-center gap-3">

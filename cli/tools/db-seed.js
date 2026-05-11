@@ -244,7 +244,12 @@ export async function seedRegistry() {
         .from(collectionTypes);
       const existingCollectionSlugs = new Set(existingCollectionTypes.map((ct) => ct.slug));
 
-      // Seed collection types
+      // Seed collection types — `sort` reflects template insertion order from
+      // the consumer's templates/collections/index.ts so sidebar order is
+      // author-controlled and stable across re-seeds (an explicit `order` on
+      // the template definition overrides). Without this, sidebar order would
+      // chase `updated_at` and shuffle on every seed.
+      let collectionIndex = 0;
       for (const [slug, definition] of Object.entries(collectionDefinitions)) {
         const mergedFields = mergeWithCoreFields(definition.fields || {});
         const fields = JSON.stringify(mergedFields);
@@ -254,6 +259,7 @@ export async function seedRegistry() {
           ...(definition.options || {}),
           ...(definition.access !== undefined ? { access: definition.access } : {})
         });
+        const sort = typeof definition.order === 'number' ? definition.order : collectionIndex;
         const now = new Date();
         await tx
           .insert(collectionTypes)
@@ -266,6 +272,7 @@ export async function seedRegistry() {
             icon: definition.icon || null,
             schema: fields,
             options,
+            sort,
             created_at: now,
             updated_at: now
           })
@@ -278,9 +285,11 @@ export async function seedRegistry() {
               icon: definition.icon || null,
               schema: fields,
               options,
+              sort,
               updated_at: now
             }
           });
+        collectionIndex++;
       }
 
       // Remove collection types that no longer exist
@@ -294,7 +303,8 @@ export async function seedRegistry() {
       const existingGlobalTypes = await tx.select({ slug: globalTypes.slug }).from(globalTypes);
       const existingGlobalSlugs = new Set(existingGlobalTypes.map((gt) => gt.slug));
 
-      // Seed global types
+      // Seed global types — same `sort` rule as collections (above).
+      let globalIndex = 0;
       for (const [slug, definition] of Object.entries(globalDefinitions)) {
         const skipCoreFields = definition.dataType === 'flat';
         const isFlat = definition.dataType === 'flat';
@@ -306,6 +316,7 @@ export async function seedRegistry() {
           ...(definition.options || {}),
           ...(definition.access !== undefined ? { access: definition.access } : {})
         });
+        const sort = typeof definition.order === 'number' ? definition.order : globalIndex;
         const now = new Date();
         await tx
           .insert(globalTypes)
@@ -319,6 +330,7 @@ export async function seedRegistry() {
             data_type: definition.dataType,
             schema: fields,
             options,
+            sort,
             created_at: now,
             updated_at: now
           })
@@ -331,9 +343,11 @@ export async function seedRegistry() {
               icon: definition.icon || null,
               schema: fields,
               options,
+              sort,
               updated_at: now
             }
           });
+        globalIndex++;
       }
 
       // Remove global types that no longer exist

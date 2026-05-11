@@ -24,11 +24,18 @@ export const load: LayoutServerLoad = async (event) => {
       canViewUsers,
       canViewFiles
     ] = await Promise.all([
+      // `sort` is seeded from template insertion order (with an optional
+      // `order` override on the definition), so sidebar order is stable and
+      // author-controlled — see cli/tools/db-seed.js. Slug is a deterministic
+      // tiebreaker for ties.
       db.query.collectionTypes.findMany({
-        orderBy: (collectionTypes: any, { desc }: any) => [desc(collectionTypes.updated_at)]
+        orderBy: (collectionTypes: any, { asc }: any) => [
+          asc(collectionTypes.sort),
+          asc(collectionTypes.slug)
+        ]
       }),
       db.query.globalTypes.findMany({
-        orderBy: (globalTypes: any, { desc }: any) => [desc(globalTypes.updated_at)]
+        orderBy: (globalTypes: any, { asc }: any) => [asc(globalTypes.sort), asc(globalTypes.slug)]
       }),
       locals.security.hasPermission('read', 'content'),
       locals.security.hasPermission('read', 'settings'),

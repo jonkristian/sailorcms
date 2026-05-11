@@ -135,11 +135,13 @@
     >
       {#snippet cellRenderer(item: any, column: any)}
         {#if column.key === 'title'}
+          {@const label = item.name || item.email || item.id}
           <button
-            class="cursor-pointer text-left font-medium hover:underline"
+            class="block w-full cursor-pointer truncate text-left font-medium hover:underline"
+            title={label}
             onclick={() => goto(`/sailor/users/${item.id}`)}
           >
-            {item.name || item.email || item.id}
+            {label}
           </button>
         {:else if column.key === 'role'}
           <Badge variant="secondary">

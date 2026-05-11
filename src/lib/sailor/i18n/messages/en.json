@@ -348,6 +348,20 @@
   "dashboard_action_deleted": "deleted",
   "dashboard_action_published": "published",
   "dashboard_action_viewed": "viewed",
+  "dashboard_activity_desc_created": "Created {entity}",
+  "dashboard_activity_desc_edited": "Edited {entity}",
+  "dashboard_activity_desc_updated": "Updated {entity}",
+
+  "status_published": "Published",
+  "status_draft": "Draft",
+  "status_archived": "Archived",
+  "status_private": "Private",
+
+  "file_type_image": "Image",
+  "file_type_video": "Video",
+  "file_type_audio": "Audio",
+  "file_type_document": "Document",
+  "file_type_other": "Other",
 
   "dashboard_media_title": "Recent Media",
   "dashboard_media_description": "Latest uploaded files",

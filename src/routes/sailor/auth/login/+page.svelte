@@ -8,11 +8,13 @@
   import { Alert, AlertDescription } from 'sailorcms/components/ui/alert/index.js';
   import { AlertCircle } from '@lucide/svelte';
   import emblemSvg from 'sailorcms/assets/emblem.svg?raw';
+  import Turnstile from 'sailorcms/utils/turnstile/Turnstile.svelte';
   import { m } from '$sailor/i18n';
 
   let { data } = $props();
   let email = $state('');
   let password = $state('');
+  let turnstileToken = $state('');
   let error = $state('');
   let loading = $state(false);
 
@@ -57,10 +59,12 @@
     }
 
     try {
-      const result = await authClient.signIn.email({
-        email,
-        password
-      });
+      const result = await authClient.signIn.email(
+        { email, password },
+        {
+          headers: turnstileToken ? { 'x-captcha-response': turnstileToken } : undefined
+        }
+      );
 
       if (result && result.data && 'user' in result.data) {
         // Force a page reload to ensure session is established
@@ -163,6 +167,7 @@
               bind:value={password}
             />
           </div>
+          <Turnstile bind:token={turnstileToken} />
           <div class="flex justify-between pt-4">
             <Button type="submit" class="w-full" disabled={loading}>
               {loading ? m.auth_login_signing_in() : m.auth_login_button()}

@@ -39,7 +39,8 @@
     type: 'content' | 'user' | 'settings';
     action: 'created' | 'updated' | 'deleted' | 'published' | 'viewed';
     title: string;
-    description?: string;
+    descriptionKey?: 'created' | 'edited' | 'updated';
+    entity?: string;
     user: {
       name: string;
       email: string;
@@ -51,6 +52,23 @@
     collectionSlug?: string;
     globalSlug?: string;
     itemId?: string;
+  }
+
+  const TITLE_MAX = 60;
+  function truncateTitle(title: string): string {
+    return title.length > TITLE_MAX ? title.slice(0, TITLE_MAX).trimEnd() + '…' : title;
+  }
+
+  function getDescription(activity: ActivityItem): string | undefined {
+    if (!activity.descriptionKey || !activity.entity) return undefined;
+    switch (activity.descriptionKey) {
+      case 'created':
+        return m.dashboard_activity_desc_created({ entity: activity.entity });
+      case 'edited':
+        return m.dashboard_activity_desc_edited({ entity: activity.entity });
+      case 'updated':
+        return m.dashboard_activity_desc_updated({ entity: activity.entity });
+    }
   }
 
   interface Props {
@@ -116,6 +134,7 @@
       <!-- Scrollable container - shows ~5 items initially -->
       <div class="max-h-[400px] space-y-0 overflow-y-auto px-4">
         {#each limitedData as activity, index (activity.id || index)}
+          {@const description = getDescription(activity)}
           <div
             class="hover:bg-muted/50 flex items-center gap-3 rounded-lg p-2 transition-colors {activity.link
               ? 'cursor-pointer'
@@ -165,16 +184,17 @@
                   class="truncate text-sm leading-tight font-medium {activity.link
                     ? 'hover:text-primary'
                     : ''}"
+                  title={activity.title}
                 >
-                  {activity.title}
+                  {truncateTitle(activity.title)}
                 </h4>
                 {#if activity.link}
                   <ExternalLink class="text-muted-foreground h-3 w-3" />
                 {/if}
               </div>
-              {#if activity.description}
+              {#if description}
                 <p class="text-muted-foreground mt-1 truncate text-xs">
-                  {activity.description}
+                  {description}
                 </p>
               {/if}
             </div>

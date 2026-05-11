@@ -348,6 +348,20 @@
   "dashboard_action_deleted": "slettet",
   "dashboard_action_published": "publisert",
   "dashboard_action_viewed": "vist",
+  "dashboard_activity_desc_created": "Opprettet {entity}",
+  "dashboard_activity_desc_edited": "Redigerte {entity}",
+  "dashboard_activity_desc_updated": "Oppdaterte {entity}",
+
+  "status_published": "Publisert",
+  "status_draft": "Utkast",
+  "status_archived": "Arkivert",
+  "status_private": "Privat",
+
+  "file_type_image": "Bilde",
+  "file_type_video": "Video",
+  "file_type_audio": "Lyd",
+  "file_type_document": "Dokument",
+  "file_type_other": "Annet",
 
   "dashboard_media_title": "Nylige medier",
   "dashboard_media_description": "Siste opplastede filer",

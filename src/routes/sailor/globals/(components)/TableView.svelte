@@ -144,11 +144,13 @@
         {@const fieldType = field?.type}
 
         {#if column.key === firstColumnKey}
+          {@const label = item[column.key] || item.title || item.name || item.id}
           <button
-            class="cursor-pointer text-left font-medium hover:underline"
+            class="block w-full cursor-pointer truncate text-left font-medium hover:underline"
+            title={label}
             onclick={() => handleEditItem(item.id)}
           >
-            {item[column.key] || item.title || item.name || item.id}
+            {label}
           </button>
         {:else if fieldType === 'select'}
           <Badge

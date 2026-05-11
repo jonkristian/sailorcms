@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
-import { admin } from 'better-auth/plugins';
+import { admin, captcha } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import { defaultStatements } from 'better-auth/plugins/admin/access';
 import { getRequestEvent } from '$app/server';
@@ -160,7 +160,18 @@ export const auth = betterAuth({
     admin({
       ...getAuthSettings(),
       ...createAccessControlConfig()
-    })
+    }),
+    // Only register when both halves are configured. If `TURNSTILE_SECRET_KEY`
+    // were set without `PUBLIC_TURNSTILE_SITE_KEY`, the server would require a
+    // token but the client widget wouldn't render to produce one — bricking login.
+    ...(env.TURNSTILE_SECRET_KEY && publicEnv.PUBLIC_TURNSTILE_SITE_KEY
+      ? [
+          captcha({
+            provider: 'cloudflare-turnstile',
+            secretKey: env.TURNSTILE_SECRET_KEY
+          })
+        ]
+      : [])
   ],
   hooks: {
     user: {
