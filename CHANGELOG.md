@@ -8,6 +8,10 @@ All notable changes to SailorCMS are documented here.
 
 - **`bun check` / `npm check` now compiles Paraglide first** so newly added i18n keys are visible to `svelte-check` without manually bouncing the dev server. The Vite plugin only runs on `dev` / `build`; check was running against a stale `messages/_index.js` barrel.
 
+### Added
+
+- **`core:init` scaffolds a `nixpacks.toml`** that includes `sqlite` in the build image — fixes `db:backup` falling back to a less-reliable file-copy method on Coolify / Railway / Render. Only written when absent; harmless on non-nixpacks hosts (Vercel / Netlify / plain Node ignore the file). Existing projects can add the file manually or set `NIXPACKS_PKGS=sqlite` as a build-time env var.
+
 ### Fixed
 
 - **`db:repair` now sees tables with index callbacks** — schema parser's regex only matched 2-arg `sqliteTable()`, silently skipping `users` / `files` / `tags` / `taggables` / `searchIndex` / `revisions` (the 3-arg index form). Their drift was never reported, leaving columns like `files.deleted_at` and `users.preferences` missing after upgrades. Re-run `npx sailor db:repair` to pick up the previously-missed columns.

@@ -188,6 +188,27 @@ backup/
             console.log('ℹ️  Sailor CMS patterns already in .gitignore');
           }
 
+          // Scaffold a nixpacks.toml so Coolify/Railway/Render builds have the
+          // `sqlite3` binary `db:backup` needs (file-copy fallback is less
+          // reliable). Harmless on non-nixpacks hosts (Vercel/Netlify/etc.
+          // ignore the file). Only write when absent so consumers who've
+          // customized aren't clobbered.
+          const nixpacksPath = path.join(targetDir, 'nixpacks.toml');
+          if (!(await fs.pathExists(nixpacksPath))) {
+            await fs.writeFile(
+              nixpacksPath,
+              `# Nixpacks build config — ensures the sqlite3 binary is available\n` +
+                `# in the runtime image so \`db:backup\` and similar tools work on\n` +
+                `# Coolify / Railway / Render. Safe to delete if not deploying via\n` +
+                `# nixpacks (Vercel / Netlify / plain Node hosts ignore this file).\n` +
+                `[phases.setup]\n` +
+                `nixPkgs = ['...', 'sqlite']\n`
+            );
+            console.log('✅ Scaffolded nixpacks.toml (sqlite available for db:backup)');
+          } else {
+            console.log('ℹ️  nixpacks.toml already exists, leaving alone');
+          }
+
           console.log('\n🎉 Sailor CMS files installed successfully!');
           console.log('\n🚀 Next steps:');
           console.log(
