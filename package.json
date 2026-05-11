@@ -160,6 +160,7 @@
     "nodemailer": "^8.0.7",
     "paneforge": "^1.0.2",
     "pg": "^8.20.0",
+    "pluralize": "^8.0.0",
     "sharp": "^0.34.5",
     "svelte-sonner": "^1.1.1",
     "sveltekit-superforms": "^2.30.1",

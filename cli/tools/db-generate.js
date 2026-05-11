@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
+import pluralize from 'pluralize';
 
 export function registerDbGenerate(program) {
   program
@@ -392,6 +393,7 @@ function generateTypes(
       slug,
       description: definition.description,
       icon: definition.icon,
+      typeName: definition.typeName,
       options: definition.options,
       fields: mergedFields
     };
@@ -413,6 +415,7 @@ function generateTypes(
       slug,
       description: definition.description,
       icon: definition.icon,
+      typeName: definition.typeName,
       dataType: definition.dataType,
       options: definition.options,
       fields: mergedFields
@@ -434,20 +437,52 @@ function generateTypes(
       slug,
       description: definition.description,
       icon: definition.icon,
+      typeName: definition.typeName,
       category: definition.category,
       options: definition.options,
       fields: mergedFields
     };
   }
 
+  // Type-name precedence:
+  //   1. `definition.typeName` (explicit override for edges like `settings`
+  //      collective-noun, FAQ acronyms, or whenever the singularized slug
+  //      reads wrong).
+  //   2. Singularize the slug (collections + globals only — slugs are
+  //      conventionally plural for those, singular type names match TS
+  //      row-type conventions; block slugs are typically already singular).
+  //   3. PascalCase, then suffix globals with `Global` and blocks with `Block`
+  //      to namespace away from cross-kind slug collisions.
+  const collectionTypeName = (config) =>
+    config.typeName || toValidIdentifier(pluralize.singular(config.slug));
+  const globalTypeName = (config) =>
+    config.typeName || toValidIdentifier(pluralize.singular(config.slug)) + 'Global';
+  const blockTypeName = (config) => config.typeName || toValidIdentifier(config.slug) + 'Block';
+
   const typeDefinitions = [];
-  typeDefinitions.push('// Auto-generated types for Sailor CMS');
+  typeDefinitions.push('// Auto-generated types for Sailor CMS — do not edit manually.');
+  typeDefinitions.push('//');
+  typeDefinitions.push('// Naming rule: row types (collection / global) are singular and derived');
+  typeDefinitions.push(
+    '// from the slug — `posts` → `Post`, `categories` → `CategoryGlobal`. Block'
+  );
+  typeDefinitions.push('// types preserve the slug since a block often contains many of the named');
+  typeDefinitions.push(
+    '// thing — `features` → `FeaturesBlock` (one block listing many features).'
+  );
+  typeDefinitions.push('// Globals are suffixed `Global` and blocks `Block` so cross-kind slug');
+  typeDefinitions.push(
+    "// collisions can't happen and sailor's built-in `Settings` stays distinct."
+  );
+  typeDefinitions.push(
+    "// Set `typeName: '…'` on a template definition to override the auto-derived name."
+  );
   typeDefinitions.push('');
 
   // Generate collection types
   typeDefinitions.push('// Collection Types');
   for (const [slug, config] of Object.entries(fieldConfigs.collections)) {
-    const typeName = toValidIdentifier(config.name.singular);
+    const typeName = collectionTypeName(config);
 
     // Start with core database fields that are always present
     const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
@@ -472,7 +507,7 @@ function generateTypes(
   // Generate global types
   typeDefinitions.push('// Global Types');
   for (const [slug, config] of Object.entries(fieldConfigs.globals)) {
-    const typeName = toValidIdentifier(config.name.singular);
+    const typeName = globalTypeName(config);
 
     // Start with core database fields that are always present
     const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
@@ -497,7 +532,7 @@ function generateTypes(
   // Generate block types
   typeDefinitions.push('// Block Types');
   for (const [slug, config] of Object.entries(fieldConfigs.blocks)) {
-    const typeName = toValidIdentifier(config.name);
+    const typeName = blockTypeName(config);
 
     // Start with core database fields that are always present
     const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
@@ -521,24 +556,24 @@ function generateTypes(
 
   // Generate union types
   typeDefinitions.push('// Union Types');
-  const collectionTypes = Object.entries(fieldConfigs.collections)
-    .map(([slug, config]) => toValidIdentifier(config.name.singular))
+  const collectionTypes = Object.values(fieldConfigs.collections)
+    .map((config) => collectionTypeName(config))
     .join(' | ');
   if (collectionTypes) {
     typeDefinitions.push(`export type CollectionTypes = ${collectionTypes};`);
     typeDefinitions.push('');
   }
 
-  const globalTypes = Object.entries(fieldConfigs.globals)
-    .map(([slug, config]) => toValidIdentifier(config.name.singular))
+  const globalTypes = Object.values(fieldConfigs.globals)
+    .map((config) => globalTypeName(config))
     .join(' | ');
   if (globalTypes) {
     typeDefinitions.push(`export type GlobalTypes = ${globalTypes};`);
     typeDefinitions.push('');
   }
 
-  const blockTypes = Object.entries(fieldConfigs.blocks)
-    .map(([slug, config]) => toValidIdentifier(config.name))
+  const blockTypes = Object.values(fieldConfigs.blocks)
+    .map((config) => blockTypeName(config))
     .join(' | ');
   if (blockTypes) {
     typeDefinitions.push(`export type BlockTypes = ${blockTypes};`);
@@ -613,6 +648,10 @@ function generateTypes(
   typeDefinitions.push('  description?: string;');
   typeDefinitions.push('  icon?: string;');
   typeDefinitions.push('  order?: number;');
+  typeDefinitions.push(
+    '  /** Override the generated TS interface name (defaults to `singular(slug)` PascalCased). */'
+  );
+  typeDefinitions.push('  typeName?: string;');
   typeDefinitions.push('  fields: Record<string, any>;');
   typeDefinitions.push('  options?: Record<string, any>;');
   typeDefinitions.push('}');
@@ -624,6 +663,10 @@ function generateTypes(
   typeDefinitions.push('  description?: string;');
   typeDefinitions.push('  icon?: string;');
   typeDefinitions.push('  order?: number;');
+  typeDefinitions.push(
+    '  /** Override the generated TS interface name (defaults to `singular(slug)` PascalCased + `Global` suffix). */'
+  );
+  typeDefinitions.push('  typeName?: string;');
   typeDefinitions.push('  data_type?: string;');
   typeDefinitions.push('  fields: Record<string, any>;');
   typeDefinitions.push('  options?: Record<string, any>;');
