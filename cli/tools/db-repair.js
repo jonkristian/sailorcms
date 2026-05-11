@@ -71,12 +71,12 @@ export function registerDbRepair(program) {
           ).rows.map((r) => r.name)
         );
 
-        const missingTables = [];
+        const missingTables = []; // { name, columns, indexes }
         const alters = []; // { table, column, sql }
 
-        for (const [tableName, columns] of expected) {
+        for (const [tableName, { columns, indexes }] of expected) {
           if (!dbTables.has(tableName)) {
-            missingTables.push(tableName);
+            missingTables.push({ name: tableName, columns, indexes });
             continue;
           }
           const actualCols = new Set(
@@ -96,23 +96,34 @@ export function registerDbRepair(program) {
         if (missingTables.length === 0 && alters.length === 0) {
           console.log('✅ No drift detected — DB schema matches schema.ts.');
         } else {
+          if (missingTables.length > 0) {
+            console.log(`\nMissing tables (${missingTables.length}):`);
+            for (const t of missingTables) console.log(`  ${t.name} (${t.indexes.length} indexes)`);
+          }
           if (alters.length > 0) {
             console.log(`\nMissing columns (${alters.length}):`);
             for (const a of alters) console.log(`  ${a.table}.${a.column}`);
           }
-          if (missingTables.length > 0) {
-            console.log(`\n⚠️  Missing tables (${missingTables.length}):`);
-            for (const t of missingTables) console.log(`  ${t}`);
-            console.log(
-              '   Tables cannot be auto-created safely — they likely need fresh migrations or seed data. Run `npx sailor db:update` after addressing these.'
-            );
-          }
 
-          if (!options.dryRun && alters.length > 0) {
-            console.log('\nApplying ALTER TABLE statements…');
-            for (const a of alters) {
-              await client.execute(a.sql);
-              console.log(`  ✓ ${a.table}.${a.column}`);
+          if (!options.dryRun) {
+            // Create missing tables first — column-add ALTERs may target tables
+            // that didn't exist a moment ago (rare, but defensive).
+            if (missingTables.length > 0) {
+              console.log('\nCreating missing tables…');
+              for (const t of missingTables) {
+                await client.execute(buildCreateTable(t.name, t.columns));
+                for (const idx of t.indexes) {
+                  await client.execute(buildCreateIndex(t.name, idx));
+                }
+                console.log(`  ✓ ${t.name} (${t.indexes.length} indexes)`);
+              }
+            }
+            if (alters.length > 0) {
+              console.log('\nApplying ALTER TABLE statements…');
+              for (const a of alters) {
+                await client.execute(a.sql);
+                console.log(`  ✓ ${a.table}.${a.column}`);
+              }
             }
           }
         }
@@ -182,7 +193,7 @@ export async function detectSchemaDrift(client, schemaPath) {
   );
   const missingTables = [];
   const missingColumns = [];
-  for (const [tableName, columns] of expected) {
+  for (const [tableName, { columns }] of expected) {
     if (!dbTables.has(tableName)) {
       missingTables.push(tableName);
       continue;
@@ -198,27 +209,60 @@ export async function detectSchemaDrift(client, schemaPath) {
 }
 
 /**
- * Parse a generated schema.ts file. Returns Map<sqliteTableName, Column[]> where
- * Column = { name, type, mode?, default?, notNull, unique }.
+ * Parse a generated schema.ts file. Returns
+ *   Map<sqliteTableName, { columns: Column[], indexes: Index[] }>
+ * where Column = { name, type, mode?, default?, notNull, unique, primaryKey }
+ * and Index = { name, columns: string[], unique: boolean }.
  *
  * Relies on the predictable shape produced by our schema generator — one column
- * per line, `<prop>: text('<col>')…` or `<prop>: integer('<col>'[, …])…`.
+ * per line, `<prop>: text('<col>')…` or `<prop>: integer('<col>'[, …])…`, and
+ * an optional 3rd-arg index callback `(table) => [index('…').on(table.col), …]`.
  */
 function parseSchemaFile(text) {
   const result = new Map();
-  // Match: export const X = sqliteTable('Y', { ... });
-  const tableRegex = /export const \w+ = sqliteTable\(['"](\w+)['"]\s*,\s*\{([\s\S]*?)\n\}\)/g;
+  // Match both the 2-arg form `sqliteTable('Y', { … })` and the 3-arg index
+  // form `sqliteTable('Y', { … }, (table) => [ … ])`. Whitespace allowed after
+  // the opening `(` (generator emits the name on its own line for tables with
+  // index callbacks). Group 3 captures the optional index body.
+  const tableRegex =
+    /export const \w+ = sqliteTable\(\s*['"](\w+)['"]\s*,\s*\{([\s\S]*?)\n\s*\}(?:\s*,\s*\(\s*\w+\s*\)\s*=>\s*\[([\s\S]*?)\n\s*\])?\s*\)/g;
   let tm;
   while ((tm = tableRegex.exec(text))) {
-    const [, sqlTableName, body] = tm;
+    const [, sqlTableName, body, indexBody] = tm;
     const cols = [];
     for (const line of body.split('\n')) {
       const col = parseColumnLine(line);
       if (col) cols.push(col);
     }
-    result.set(sqlTableName, cols);
+    const indexes = indexBody ? parseIndexes(indexBody) : [];
+    result.set(sqlTableName, { columns: cols, indexes });
   }
   return result;
+}
+
+/**
+ * Parse the 3rd-arg index callback body of a sqliteTable definition. Matches
+ * entries like `index('name').on(table.col1, table.col2)` and
+ * `uniqueIndex('name').on(...)`. Returns Index[] with name, columns, unique.
+ */
+function parseIndexes(indexBody) {
+  const indexes = [];
+  const entryRegex = /(uniqueIndex|index)\(['"](\w+)['"]\)\.on\(([^)]+)\)/g;
+  let m;
+  while ((m = entryRegex.exec(indexBody))) {
+    const [, kind, name, onArgs] = m;
+    const columns = onArgs
+      .split(',')
+      .map((s) =>
+        s
+          .trim()
+          .replace(/^table\./, '')
+          .replace(/[`'"]/g, '')
+      )
+      .filter(Boolean);
+    indexes.push({ name, columns, unique: kind === 'uniqueIndex' });
+  }
+  return indexes;
 }
 
 function parseColumnLine(line) {
@@ -246,8 +290,9 @@ function parseColumnLine(line) {
 
   const notNull = /\.notNull\(\)/.test(line);
   const unique = /\.unique\(\)/.test(line);
+  const primaryKey = /\.primaryKey\(\)/.test(line);
 
-  return { name, type, mode, default: defaultValue, notNull, unique };
+  return { name, type, mode, default: defaultValue, notNull, unique, primaryKey };
 }
 
 function buildAlterAddColumn(tableName, col) {
@@ -262,4 +307,35 @@ function buildAlterAddColumn(tableName, col) {
   // NOT NULL ADD COLUMN, and adding NOT NULL after the fact on possibly-existing
   // rows is risky. The application layer will handle null tolerance.
   return stmt;
+}
+
+/**
+ * Emit a CREATE TABLE statement for a parsed table definition. Honors
+ * primaryKey / notNull / unique / default per column. Skips `$defaultFn` — the
+ * application layer (drizzle) supplies those at insert time.
+ */
+function buildCreateTable(tableName, columns) {
+  const lines = columns.map((col) => {
+    const sqlType = col.type === 'integer' ? 'INTEGER' : 'TEXT';
+    let s = `  "${col.name}" ${sqlType}`;
+    if (col.primaryKey) s += ' PRIMARY KEY';
+    if (col.notNull && !col.primaryKey) s += ' NOT NULL';
+    if (col.unique && !col.primaryKey) s += ' UNIQUE';
+    if (col.default !== undefined) {
+      const literal =
+        typeof col.default === 'string' ? `'${col.default.replace(/'/g, "''")}'` : col.default;
+      s += ` DEFAULT ${literal}`;
+    }
+    return s;
+  });
+  return `CREATE TABLE "${tableName}" (\n${lines.join(',\n')}\n)`;
+}
+
+/**
+ * Emit a CREATE [UNIQUE] INDEX statement for a parsed index definition.
+ */
+function buildCreateIndex(tableName, idx) {
+  const unique = idx.unique ? 'UNIQUE ' : '';
+  const cols = idx.columns.map((c) => `"${c}"`).join(', ');
+  return `CREATE ${unique}INDEX "${idx.name}" ON "${tableName}"(${cols})`;
 }

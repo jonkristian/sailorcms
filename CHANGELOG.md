@@ -4,6 +4,15 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **`bun check` / `npm check` now compiles Paraglide first** so newly added i18n keys are visible to `svelte-check` without manually bouncing the dev server. The Vite plugin only runs on `dev` / `build`; check was running against a stale `messages/_index.js` barrel.
+
+### Fixed
+
+- **`db:repair` now sees tables with index callbacks** — schema parser's regex only matched 2-arg `sqliteTable()`, silently skipping `users` / `files` / `tags` / `taggables` / `searchIndex` / `revisions` (the 3-arg index form). Their drift was never reported, leaving columns like `files.deleted_at` and `users.preferences` missing after upgrades. Re-run `npx sailor db:repair` to pick up the previously-missed columns.
+- **`db:repair` now CREATEs missing tables** (in addition to ALTERing columns) — previously it refused with "tables cannot be auto-created safely" and dumped recovery on the user. Parses the index callback for each missing table and emits CREATE TABLE + CREATE INDEX from `schema.ts`. Unblocks consumers whose `__drizzle_migrations` was bootstrap-ahead-of-actual-state.
+
 ## [0.6.8] - 11 May 2026
 
 ### Fixed

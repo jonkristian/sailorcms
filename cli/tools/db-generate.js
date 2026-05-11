@@ -593,6 +593,8 @@ function generateTypes(
   typeDefinitions.push('  email_verified: boolean;');
   typeDefinitions.push('  status: string;');
   typeDefinitions.push('  last_login?: Date;');
+  typeDefinitions.push('  // JSON-stringified preferences blob (date_format, locale, etc.).');
+  typeDefinitions.push('  // Written by sailor-hooks; consumers read via JSON.parse.');
   typeDefinitions.push('  preferences?: string | null;');
   typeDefinitions.push('  created_at: Date;');
   typeDefinitions.push('  updated_at: Date;');
