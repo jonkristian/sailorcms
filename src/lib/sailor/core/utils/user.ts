@@ -1,4 +1,5 @@
 import { toast } from 'sailorcms/core/ui/toast';
+import { m } from '$sailor/i18n';
 
 /**
  * Get the appropriate color classes for a user role badge
@@ -23,9 +24,9 @@ export async function copyUserId(userId: string) {
   if (userId) {
     try {
       await navigator.clipboard.writeText(userId);
-      toast.success('User ID copied to clipboard');
+      toast.success(m.toast_user_id_copied());
     } catch {
-      toast.error('Failed to copy User ID');
+      toast.error(m.toast_user_id_copy_failed());
     }
   }
 }

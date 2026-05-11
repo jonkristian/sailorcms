@@ -55,8 +55,6 @@
 
   const bulkDelete = useBulkDelete({
     customDeleteHandler: handleCustomDelete,
-    // svelte-ignore state_referenced_locally
-    itemType: global.name.singular.toLowerCase(),
     onSuccess: () => {
       selection.clearSelection();
     }

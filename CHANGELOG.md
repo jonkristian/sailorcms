@@ -4,6 +4,18 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.6] - 11 May 2026
+
+### Fixed
+
+- **Bulk-delete toasts: no more duplicate firing in mixed languages.** Two issues converged on the globals bulk-delete flow: (1) `useBulkDelete.executeBulkDelete` showed a hardcoded English `toast.success` _and_ the parent page showed its own i18n'd one — duplicate toast in two languages, with broken pluralization on non-English singulars (`"5 innsendings deleted successfully"`); (2) five remote endpoints (`bulkDeleteCollectionItems`, `bulkDeleteUsers`, `deleteFiles`, `deleteSetting`, `deleteTag`) returned hardcoded English `result.message` strings that `toastResult` / `result.message || …` consumers preferred over their i18n fallbacks. Composable no longer toasts (caller owns it); servers now return signal-only `{ success, deletedCount? }` and clients render the existing i18n keys.
+
+### Changed
+
+- **`useBulkDelete` trimmed to its actual surface** (87 → 56 lines): the unused `endpoint` mode, `itemType` / `onError` options, the "either-or" guard, and the English-only `toast.error` fallback are gone. `customDeleteHandler` is required; errors propagate to the caller.
+- **Media single-file delete uses the same `DeleteDialog` as the bulk path** instead of the browser's native `confirm()`. `deleteFiles` is now pure side-effect (no UX gate, no `skipConfirmation` flag); a small `requestDelete(ids)` opens the dialog for both row-level and bulk-bar entries. Removes the last hardcoded English `confirm()` text in the admin.
+- **User-ID clipboard toasts translated** — `core/utils/user.ts` now uses new `toast_user_id_copied` / `toast_user_id_copy_failed` keys instead of hardcoded English.
+
 ## [0.6.5] - 10 May 2026
 
 ### Added

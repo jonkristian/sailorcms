@@ -101,11 +101,7 @@ export const bulkDeleteUsers = command(
         await tx.run(sql`DELETE FROM users WHERE id IN ${ids}`);
       });
 
-      const message = adoptingUserId
-        ? `${ids.length} user${ids.length === 1 ? '' : 's'} deleted and content transferred successfully`
-        : `${ids.length} user${ids.length === 1 ? '' : 's'} deleted successfully`;
-
-      return { success: true, message, deletedCount: ids.length };
+      return { success: true, deletedCount: ids.length };
     } catch (error) {
       log.error('Failed to delete users', { error });
       return { success: false, error: 'Failed to delete users' };

@@ -80,16 +80,10 @@ export const deleteFiles = command('unchecked', async ({ ids }: { ids: string[] 
       }
     }
 
-    // Return appropriate message based on results
     if (errorCount === 0) {
-      const message =
-        successCount === 1
-          ? 'File deleted successfully'
-          : `${successCount} files deleted successfully`;
-      return { success: true, message, deletedCount: successCount };
+      return { success: true, deletedCount: successCount };
     } else if (successCount > 0) {
-      const message = `${successCount} files deleted, ${errorCount} failed: ${errorMessages[0]}`;
-      return { success: true, message, deletedCount: successCount };
+      return { success: true, deletedCount: successCount };
     } else {
       return { success: false, error: errorMessages[0] || 'Failed to delete files' };
     }

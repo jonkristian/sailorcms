@@ -46,11 +46,10 @@
 
       if (result.success) {
         toast.success(
-          result.message ||
-            m.toast_items_deleted_count({
-              count: userIds.length,
-              items: pluralize(userIds.length, m.common_user_singular(), m.common_user_plural())
-            })
+          m.toast_items_deleted_count({
+            count: userIds.length,
+            items: pluralize(userIds.length, m.common_user_singular(), m.common_user_plural())
+          })
         );
         open = false;
         onSuccess();

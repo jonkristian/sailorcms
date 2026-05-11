@@ -211,19 +211,9 @@
     await goto(url.pathname + url.search);
   }
 
-  async function deleteFiles(ids: string | string[], skipConfirmation = false) {
-    const idArray = Array.isArray(ids) ? ids : [ids];
-
-    if (!skipConfirmation) {
-      const message =
-        idArray.length > 1
-          ? `Are you sure you want to delete ${idArray.length} files?`
-          : 'Are you sure you want to delete this file?';
-      if (!confirm(message)) return;
-    }
-
+  async function deleteFiles(ids: string[]) {
     try {
-      const result = await deleteMediaFiles({ ids: idArray });
+      const result = await deleteMediaFiles({ ids });
 
       if (toastResult(result, m.toast_files_deleted, m.toast_files_delete_failed)) {
         await invalidateAll();
@@ -231,6 +221,13 @@
     } catch (error) {
       toast.error(m.toast_files_delete_failed());
     }
+  }
+
+  function requestDelete(ids: string | string[]) {
+    const idArray = Array.isArray(ids) ? ids : [ids];
+    if (idArray.length === 0) return;
+    pendingDeleteItems = { ids: idArray, count: idArray.length };
+    deleteDialogOpen = true;
   }
 
   function openEditModal(file: FileWithTags) {
@@ -251,21 +248,12 @@
     editModalOpen = true;
   }
 
-  // Handle bulk delete
-  function handleBulkDelete() {
-    if (selection.selectedItems.length === 0) return;
-    pendingDeleteItems = { ids: selection.selectedItems, count: selection.selectedItems.length };
-    deleteDialogOpen = true;
-  }
-
-  async function executeBulkDelete() {
+  async function executeDelete() {
     deleteDialogLoading = true;
     try {
-      await deleteFiles(pendingDeleteItems.ids, true);
+      await deleteFiles(pendingDeleteItems.ids);
       selection.clearSelection();
       deleteDialogOpen = false;
-    } catch (error) {
-      console.error('Bulk delete failed:', error);
     } finally {
       deleteDialogLoading = false;
     }
@@ -329,7 +317,7 @@
             {
               label: m.globals_table_delete_count({ count: selection.selectedCount }),
               variant: 'destructive',
-              onClick: handleBulkDelete
+              onClick: () => requestDelete(selection.selectedItems)
             }
           ]
         : []}
@@ -423,7 +411,7 @@
       onSelect={(id) => selection.handleSelect(id, !selection.selectedItems.includes(id))}
       onSelectAll={selection.handleSelectAll}
       onEdit={openEditModal}
-      onDelete={deleteFiles}
+      onDelete={requestDelete}
     />
   {:else}
     <MediaGrid
@@ -431,7 +419,7 @@
       selectedItems={selection.selectedItems}
       onSelect={(id) => selection.handleSelect(id, !selection.selectedItems.includes(id))}
       onEdit={openEditModal}
-      onRemove={deleteFiles}
+      onRemove={requestDelete}
       onCopy={copyFilename}
     />
   {/if}
@@ -466,7 +454,7 @@
   bind:open={deleteDialogOpen}
   itemCount={pendingDeleteItems.count}
   labels={{ singular: m.common_file_singular(), plural: m.common_file_plural() }}
-  onConfirm={executeBulkDelete}
+  onConfirm={executeDelete}
   isLoading={deleteDialogLoading}
 />
 
