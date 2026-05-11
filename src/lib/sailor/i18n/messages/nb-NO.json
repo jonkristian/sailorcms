@@ -102,6 +102,8 @@
   "toast_file_update_failed": "Kunne ikke oppdatere filen",
   "toast_filename_copied": "Filnavn kopiert til utklippstavlen",
   "toast_filename_copy_failed": "Kunne ikke kopiere filnavn",
+  "toast_user_id_copied": "Bruker-ID kopiert til utklippstavlen",
+  "toast_user_id_copy_failed": "Kunne ikke kopiere bruker-ID",
   "toast_files_deleted": "Filer ble slettet",
   "toast_files_delete_failed": "Kunne ikke slette filer",
   "toast_tags_updated": "Tagger ble oppdatert",

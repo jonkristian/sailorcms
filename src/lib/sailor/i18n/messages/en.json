@@ -102,6 +102,8 @@
   "toast_file_update_failed": "Failed to update file",
   "toast_filename_copied": "Filename copied to clipboard",
   "toast_filename_copy_failed": "Failed to copy filename",
+  "toast_user_id_copied": "User ID copied to clipboard",
+  "toast_user_id_copy_failed": "Failed to copy User ID",
   "toast_files_deleted": "Files deleted successfully",
   "toast_files_delete_failed": "Failed to delete files",
   "toast_tags_updated": "Tags updated successfully",

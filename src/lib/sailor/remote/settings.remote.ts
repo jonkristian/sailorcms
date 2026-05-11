@@ -129,10 +129,7 @@ export const deleteSetting = command('unchecked', async ({ key }: { key: string 
   try {
     await SystemSettingsService.deleteSetting(key);
 
-    return {
-      success: true,
-      message: 'Setting deleted successfully'
-    };
+    return { success: true };
   } catch (error) {
     console.error('Failed to delete setting:', error);
     return { success: false, error: 'Failed to delete setting' };
