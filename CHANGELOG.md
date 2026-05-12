@@ -22,6 +22,7 @@ All notable changes to SailorCMS are documented here.
 
 - **Account-linking with mismatched emails now actually works** — added `trustedProviders: ['github', 'google']` to `accountLinking`. `allowDifferentEmails: true` alone didn't bypass the verified-email check at the link callback (`unable_to_link_account`).
 - **`Dialog.Content` width needs the `sm:` prefix** — bundled `sm:max-w-md` was beating consumer-passed `max-w-4xl` at the `sm` breakpoint, so dialogs ignored their max-w override on real screens.
+- **`/sailor/settings/mail` is admin-only** — page load + save/test/retry actions now check `hasPermission('read'/'update', 'settings')` (was any-authenticated-user). Mail event payloads carry PII (reset/verification URLs) and the retry action could replay stored emails to their original recipients.
 
 ## [0.6.9] - 12 May 2026
 

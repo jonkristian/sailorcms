@@ -490,7 +490,9 @@ if (!(await isMailConfigured())) {
 }
 ```
 
-`sendMail()` returns `Promise<SendResult>` — `{ ok: true }` on success or `{ ok: false, error: string }` otherwise (missing config, refused by remote, etc.). Drivers parse their backend's actual error message (e.g. Google's `error.message` JSON field) so the string is meaningful — surface it directly in admin UI toasts.
+`sendMail()` returns `Promise<SendResult>` — `{ ok: true, messageId?: string }` on success or `{ ok: false, error: string }` otherwise (missing config, refused by remote, etc.). On success the `messageId` carries the provider's identifier (nodemailer envelope ID for SMTP, Gmail API `response.id` for Gmail) — useful for cross-referencing with the SMTP server's logs or the Gmail API. Drivers parse their backend's actual error message (e.g. Google's `error.message` JSON field) so the error string is meaningful — surface it directly in admin UI toasts.
+
+**Mail outbox.** Every `sendMail()` call is recorded to the `mail_events` table — recipient, subject, body, driver, status, error (if any), provider message-id, attempt count. Admins inspect the recent activity panel at `/sailor/settings/mail` (rendered HTML preview, syntax-highlighted source, copy-to-clipboard message-id) and can retry failed sends in place — retries update the same row (status flips, `attempts` increments) so the failed-count badge reflects current state rather than carrying forever-stale rows.
 
 **Drivers:**
 

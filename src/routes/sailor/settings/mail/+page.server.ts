@@ -20,6 +20,13 @@ import {
 
 export const load = async ({ locals, url }: { locals: App.Locals; url: URL }) => {
   if (!locals.user) throw error(401, 'Unauthorized');
+  // Mail event payloads carry PII (password-reset URLs, verification links,
+  // form submissions), and the driver/sender config is system-wide — gate
+  // viewing on the same `settings` permission the other settings pages use,
+  // i.e. admin role by default.
+  if (!(await locals.security.hasPermission('read', 'settings'))) {
+    throw error(403, 'Access denied');
+  }
 
   const activeDriver =
     (await SystemSettingsService.getSetting('mail.driver').catch(() => null)) ?? 'smtp';
@@ -87,6 +94,9 @@ export const load = async ({ locals, url }: { locals: App.Locals; url: URL }) =>
 export const actions = {
   save: async ({ request, locals }: { request: Request; locals: App.Locals }) => {
     if (!locals.user) throw error(401, 'Unauthorized');
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      throw error(403, 'Access denied');
+    }
 
     const formData = await request.formData();
     const driver = String(formData.get('driver') ?? '').toLowerCase();
@@ -118,6 +128,9 @@ export const actions = {
 
   test: async ({ locals }: { locals: App.Locals }) => {
     if (!locals.user) throw error(401, 'Unauthorized');
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      throw error(403, 'Access denied');
+    }
     const result = await sendMail(
       { to: locals.user.email, ...testEmailTemplate() },
       { actorUserId: locals.user.id }
@@ -128,6 +141,11 @@ export const actions = {
 
   retry: async ({ request, locals }: { request: Request; locals: App.Locals }) => {
     if (!locals.user) throw error(401, 'Unauthorized');
+    // Retry replays the stored body to its original recipient — same impact
+    // surface as the test action, gate identically.
+    if (!(await locals.security.hasPermission('update', 'settings'))) {
+      throw error(403, 'Access denied');
+    }
 
     const formData = await request.formData();
     const id = String(formData.get('id') ?? '');

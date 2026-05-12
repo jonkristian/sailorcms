@@ -62,6 +62,11 @@ Sailor CMS uses a **template-driven approach**:
 - **File Management** - Upload, organize, and transform images with S3 support
 - **Relations & Tags** - Connect content with tagging and relations
 
+### Outbound Mail
+
+- **Driver-Pluggable** - SMTP and Gmail API (OAuth), picked at `/sailor/settings/mail`. Future drivers self-register via the `MailDriver` interface
+- **Audit + Retry** - Every send recorded to `mail_events`, inspectable in-place with rendered HTML preview and syntax-highlighted source; failed sends retriable from the same view
+
 ### Developer Experience
 
 - **TypeScript First** - Full type safety with auto-generated types
