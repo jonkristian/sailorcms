@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { Database, Cloud, Upload, Settings, Users, Tags } from '@lucide/svelte';
+  import { Database, Cloud, Upload, Settings, Users, Tags, Mail } from '@lucide/svelte';
   import { m } from '$sailor/i18n';
 
   const { children } = $props();
@@ -31,6 +31,12 @@
       href: '/sailor/settings/storage',
       icon: Cloud,
       description: m.settings_nav_storage_description()
+    },
+    {
+      label: m.settings_nav_mail_label(),
+      href: '/sailor/settings/mail',
+      icon: Mail,
+      description: m.settings_nav_mail_description()
     },
     {
       label: m.settings_nav_taggables_label(),

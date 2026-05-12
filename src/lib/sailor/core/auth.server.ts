@@ -13,6 +13,10 @@ import { getSettings } from './settings';
 import { building } from '$app/environment';
 import { SystemSettingsService } from './services/settings.server';
 import { sendMail } from 'sailorcms/utils/mail/server';
+import {
+  passwordResetTemplate,
+  emailVerificationTemplate
+} from 'sailorcms/utils/mail/templates/auth';
 import { eq } from 'drizzle-orm';
 
 // Create access control configuration based on settings
@@ -102,6 +106,14 @@ export const auth = betterAuth({
       scope: 'scope',
       createdAt: 'created_at',
       updatedAt: 'updated_at'
+    },
+    // Permits linking a social account whose email differs from the
+    // signed-in user's email. Required for the "Connect Gmail for sending"
+    // flow — the Gmail mailbox you want to send from is often a different
+    // address than your CMS login email.
+    accountLinking: {
+      enabled: true,
+      allowDifferentEmails: true
     }
   },
   session: {
@@ -126,24 +138,14 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: env.EMAIL_VERIFICATION === 'true',
     sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-      await sendMail({
-        to: user.email,
-        subject: 'Reset your password',
-        text: `Reset your password: ${url}`,
-        html: `<p>Reset your password: <a href="${url}">${url}</a></p>`
-      });
+      await sendMail({ to: user.email, ...passwordResetTemplate({ url }) });
     }
   },
   emailVerification: {
     sendOnSignUp: env.EMAIL_VERIFICATION === 'true',
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-      await sendMail({
-        to: user.email,
-        subject: 'Verify your email',
-        text: `Verify your email: ${url}`,
-        html: `<p>Verify your email: <a href="${url}">${url}</a></p>`
-      });
+      await sendMail({ to: user.email, ...emailVerificationTemplate({ url }) });
     }
   },
   socialProviders: {
@@ -152,6 +154,18 @@ export const auth = betterAuth({
         github: {
           clientId: env.GITHUB_CLIENT_ID,
           clientSecret: env.GITHUB_CLIENT_SECRET
+        }
+      }),
+    // accessType + prompt are required for Google to mint a refresh_token —
+    // without them, access_tokens expire after ~1h with no refresh path, so
+    // anything using the stored token (e.g. the Gmail mail driver) would die.
+    ...(env.GOOGLE_CLIENT_ID &&
+      env.GOOGLE_CLIENT_SECRET && {
+        google: {
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          accessType: 'offline',
+          prompt: 'select_account consent'
         }
       })
   },

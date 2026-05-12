@@ -465,27 +465,49 @@ const config = await getSiteSettings();
 
 ## Email
 
+Sailor's outbound mail is driver-pluggable. The active driver is chosen in `/sailor/settings/mail` (SMTP or Gmail API); consumer code calls `sendMail()` without caring which driver is active.
+
 ```typescript
 import { sendMail, isMailConfigured } from 'sailorcms/utils/mail/server';
+import { emailLayout, emailButton } from 'sailorcms/utils/mail/templates/layout';
 
-// Send an email — server-only (e.g. from a +server.ts handler)
-const sent = await sendMail({
+const result = await sendMail({
   to: 'someone@example.com',
   subject: 'New contact form submission',
   text: 'Plain-text body',
-  html: '<p>HTML body</p>',
-  replyTo: 'visitor@example.com' // optional
+  html: emailLayout({
+    body: `<h1>New submission</h1><p>HTML body</p>${emailButton('Open in dashboard', 'https://…')}`
+  }),
+  replyTo: 'visitor@example.com'
 });
 
-// Check whether SMTP is configured before relying on it
-if (!isMailConfigured()) {
+if (!result.ok) {
+  console.error(result.error); // real backend error from the active driver
+}
+
+if (!(await isMailConfigured())) {
   // Fall back, queue for later, etc.
 }
 ```
 
-`sendMail()` returns `Promise<boolean>` — `false` (with a warn) when SMTP env vars are missing, `false` (with an error log) on transport failure, `true` on a successful send. Configure via `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` env vars (see [Environment Variables](../environment-variables.md)). When unset, the helper is a graceful no-op so dev keeps working without an SMTP server.
+`sendMail()` returns `Promise<SendResult>` — `{ ok: true }` on success or `{ ok: false, error: string }` otherwise (missing config, refused by remote, etc.). Drivers parse their backend's actual error message (e.g. Google's `error.message` JSON field) so the string is meaningful — surface it directly in admin UI toasts.
 
-Sailor's own password-reset and email-verification flows use this helper internally. Setting `EMAIL_VERIFICATION=true` gates new signups behind a verification email.
+**Drivers:**
+
+- `smtp` — uses `SMTP_*` env vars (see [Environment Variables](../environment-variables.md)).
+- `gmail` — uses an OAuth-linked Google account with the `gmail.send` scope. Admin connects via `/sailor/account` → **Connect Google**, picks the active sender in `/sailor/settings/mail`.
+
+**Templates:** `sailorcms/utils/mail/templates/` ships a generic HTML email layout (Inter font, dark-mode-aware) with helpers — `emailLayout`, `emailButton`, `infoBox`, `infoRow`, `sectionHeading` — plus ready-made templates returning `{ subject, html, text }`:
+
+```typescript
+import { passwordResetTemplate } from 'sailorcms/utils/mail/templates/auth';
+import { testEmailTemplate } from 'sailorcms/utils/mail/templates/system';
+
+await sendMail({ to: user.email, ...passwordResetTemplate({ url }) });
+await sendMail({ to: admin.email, ...testEmailTemplate() });
+```
+
+Sailor's own password-reset, email-verification and admin test-email flows use these helpers. Setting `EMAIL_VERIFICATION=true` gates new signups behind a verification email.
 
 ## SEO
 

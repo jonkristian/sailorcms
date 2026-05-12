@@ -11,8 +11,20 @@
   } from 'sailorcms/components/ui/card/index.js';
   import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { toast } from 'sailorcms/core/ui/toast';
-  import { User, Key, Shield, Globe, CheckCircle, XCircle, Copy } from '@lucide/svelte';
+  import {
+    User,
+    Key,
+    Shield,
+    Globe,
+    CheckCircle,
+    XCircle,
+    Copy,
+    Plus,
+    ChevronRight
+  } from '@lucide/svelte';
+  import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
   import GithubIcon from 'sailorcms/components/sailor/icons/GithubIcon.svelte';
+  import { authClient } from 'sailorcms/core/auth';
   import { formatDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { invalidateAll } from '$app/navigation';
@@ -99,10 +111,30 @@
     switch (provider) {
       case 'github':
         return 'GitHub';
+      case 'google':
+        return 'Google';
       default:
         return provider.charAt(0).toUpperCase() + provider.slice(1);
     }
   };
+
+  let connecting = $state(false);
+  let selectedAccount = $state<any>(null);
+
+  async function handleConnect(providerId: string, scope: string) {
+    connecting = true;
+    try {
+      await authClient.linkSocial({
+        provider: providerId,
+        scopes: [scope],
+        callbackURL: '/sailor/account'
+      });
+    } catch (e) {
+      console.error('OAuth connect error:', e);
+      toast.error(m.account_mail_connect_error());
+      connecting = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -187,7 +219,7 @@
             </div>
 
             <!-- Password Change Section -->
-            {#if !data.oauthAccounts || data.oauthAccounts.length === 0}
+            {#if data.hasCredentialAccount}
               <div class="mt-8 border-t pt-6">
                 <h3 class="text-md mb-6 flex items-center gap-2 font-medium">
                   <Key class="h-5 w-5" />
@@ -359,35 +391,59 @@
             </div>
           </div>
 
-          <!-- OAuth Connections -->
-          {#if data.oauthAccounts && data.oauthAccounts.length > 0}
+          <!-- Connected accounts (OAuth) -->
+          {#if data.oauthAccounts.length > 0 || data.mailConnectCtas.length > 0}
             <div>
               <h3 class="flex items-center gap-2 text-lg font-semibold">
                 <Globe class="h-5 w-5" />
-                {m.account_auth_methods_title()}
+                {m.account_connected_accounts_title()}
               </h3>
               <p class="text-muted-foreground mt-1 mb-4 text-sm">
-                {m.account_auth_methods_description()}
+                {m.account_connected_accounts_description()}
               </p>
 
-              <div class="space-y-3">
+              <div class="space-y-2">
                 {#each data.oauthAccounts as account (account.id)}
                   {@const ProviderIcon = getProviderIcon(account.provider_id)}
-                  <div class="flex items-center gap-3 rounded-lg border p-3">
-                    <div class="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
+                  <button
+                    type="button"
+                    onclick={() => (selectedAccount = account)}
+                    class="hover:bg-muted/50 flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
+                  >
+                    <div
+                      class="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                    >
                       <ProviderIcon class="h-4 w-4" />
                     </div>
-                    <div class="flex-1">
-                      <p class="text-sm font-medium">{getProviderName(account.provider_id)}</p>
-                      <p class="text-muted-foreground text-xs">
-                        {account.created_at
-                          ? m.account_oauth_connected({
-                              date: formatDate(account.created_at, getUserLocale())
-                            })
-                          : m.account_oauth_connected_recently()}
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium">
+                        {getProviderName(account.provider_id)}
+                      </p>
+                      <p class="text-muted-foreground truncate text-xs">
+                        {account.providerEmail ??
+                          (account.created_at
+                            ? m.account_oauth_connected({
+                                date: formatDate(account.created_at, getUserLocale())
+                              })
+                            : m.account_oauth_connected_recently())}
                       </p>
                     </div>
-                  </div>
+                    <ChevronRight class="text-muted-foreground h-4 w-4 shrink-0" />
+                  </button>
+                {/each}
+
+                {#each data.mailConnectCtas as cta (cta.providerId + cta.scope)}
+                  <Button
+                    variant="outline"
+                    class="w-full justify-start"
+                    onclick={() => handleConnect(cta.providerId, cta.scope)}
+                    disabled={connecting}
+                  >
+                    <Plus class="mr-2 h-4 w-4" />
+                    {m.account_mail_connect_cta({
+                      provider: getProviderName(cta.providerId)
+                    })}
+                  </Button>
                 {/each}
               </div>
             </div>
@@ -397,3 +453,68 @@
     </div>
   </div>
 </div>
+
+<Dialog.Root
+  open={selectedAccount !== null}
+  onOpenChange={(o) => {
+    if (!o) selectedAccount = null;
+  }}
+>
+  <Dialog.Content>
+    {#if selectedAccount}
+      {@const acc = selectedAccount}
+      {@const AccIcon = getProviderIcon(acc.provider_id)}
+      <Dialog.Header>
+        <Dialog.Title class="flex items-center gap-2">
+          <AccIcon class="h-5 w-5" />
+          {acc.providerEmail ?? getProviderName(acc.provider_id)}
+        </Dialog.Title>
+        <Dialog.Description>
+          {acc.providerEmail ? `${getProviderName(acc.provider_id)} · ` : ''}{acc.created_at
+            ? m.account_oauth_connected({
+                date: formatDate(acc.created_at, getUserLocale())
+              })
+            : m.account_oauth_connected_recently()}
+        </Dialog.Description>
+      </Dialog.Header>
+
+      <div class="space-y-4 py-2">
+        <div class="space-y-2">
+          <p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            {m.account_oauth_purposes_label()}
+          </p>
+          <div class="flex flex-wrap gap-1">
+            {#if acc.purposes.signIn}
+              <Badge variant="secondary">{m.account_oauth_purpose_signin()}</Badge>
+            {/if}
+            {#if acc.purposes.mail}
+              <Badge variant="secondary">{m.account_oauth_purpose_mail()}</Badge>
+            {/if}
+          </div>
+        </div>
+
+        {#if acc.purposes.mail && acc.purposes.mailScope}
+          <div class="space-y-2">
+            <p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              {m.account_oauth_purpose_mail()}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => handleConnect(acc.provider_id, acc.purposes.mailScope)}
+              disabled={connecting}
+            >
+              {m.account_mail_reconnect()}
+            </Button>
+          </div>
+        {/if}
+      </div>
+
+      <Dialog.Footer>
+        <Button variant="outline" onclick={() => (selectedAccount = null)}>
+          {m.common_close()}
+        </Button>
+      </Dialog.Footer>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>

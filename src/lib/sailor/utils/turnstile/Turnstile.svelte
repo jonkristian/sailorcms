@@ -19,7 +19,7 @@
 
     function render() {
       const w = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
-      if (!w || !container) return;
+      if (!w || !container || !siteKey) return;
       widgetId = w.render(container, {
         sitekey: siteKey,
         theme,

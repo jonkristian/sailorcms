@@ -157,7 +157,15 @@
             />
           </div>
           <div class="flex flex-col space-y-1.5">
-            <Label for="password">{m.auth_field_password()}</Label>
+            <div class="flex items-center justify-between">
+              <Label for="password">{m.auth_field_password()}</Label>
+              <a
+                href="/sailor/auth/forgot-password"
+                class="text-muted-foreground hover:text-foreground text-xs hover:underline"
+              >
+                {m.auth_login_forgot_password()}
+              </a>
+            </div>
             <Input
               id="password"
               name="password"

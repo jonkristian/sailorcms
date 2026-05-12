@@ -45,9 +45,18 @@ DATABASE_AUTH_TOKEN=your-auth-token
 DATABASE_URL=postgresql://user:password@localhost:5432/sailor
 ```
 
-## Email (SMTP)
+## Email
 
-Outbound email is disabled until `SMTP_HOST` and `SMTP_FROM` are both set. With SMTP configured, password reset emails are sent automatically; set `EMAIL_VERIFICATION=true` to also require new accounts to verify their address.
+Sailor CMS supports two outbound-mail drivers: **SMTP** (default) and **Gmail API** (OAuth-based, no SMTP credentials). The driver is chosen at `/sailor/settings/mail`; once chosen, that setting overrides `MAIL_DRIVER`. Set `EMAIL_VERIFICATION=true` to require new accounts to verify their address before signing in.
+
+```env
+MAIL_DRIVER=smtp                    # smtp | gmail (used until /sailor/settings/mail saves an override)
+EMAIL_VERIFICATION=false
+```
+
+### SMTP driver
+
+Outbound mail via SMTP is disabled until `SMTP_HOST` and `SMTP_FROM` are both set.
 
 ```env
 SMTP_HOST=smtp.example.com
@@ -56,10 +65,24 @@ SMTP_SECURE=                        # 'true' to force TLS; defaults true on port
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM="Sailor CMS <noreply@example.com>"
-
-# Require new users to verify their email before signing in
-EMAIL_VERIFICATION=false
 ```
+
+### Gmail driver
+
+Sends mail as a Google account that an admin has connected to a Sailor user — no SMTP credentials. Setup:
+
+1. Create a Google OAuth 2.0 client in [Google Cloud Console](https://console.cloud.google.com) (type: Web application). Add redirect URI `{PUBLIC_BASE_URL}/sailor/api/auth/callback/google`.
+2. **Enable the Gmail API** for the same project in the API Library — otherwise sends fail with `403 Gmail API has not been used`.
+3. Move the OAuth consent screen to **In Production** in Google Cloud Console — Testing-mode refresh tokens expire after 7 days.
+4. Set the env vars below, restart, then go to `/sailor/account` and click **Connect Google** to grant the `gmail.send` scope.
+5. In `/sailor/settings/mail`, switch driver to **gmail** and pick the active sender account.
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+> Google issues a refresh token **only on first consent**. If you reconnect and tokens don't refresh, revoke the app at <https://myaccount.google.com/permissions> and reconnect.
 
 ## Cloudflare Turnstile (Auto-detected)
 

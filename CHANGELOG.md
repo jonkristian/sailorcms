@@ -4,13 +4,22 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.6.9] - 12 May 2026
+
 ### Changed
 
 - **`bun check` / `npm check` now compiles Paraglide first** so newly added i18n keys are visible to `svelte-check` without manually bouncing the dev server. The Vite plugin only runs on `dev` / `build`; check was running against a stale `messages/_index.js` barrel.
+- **`sendMail()` returns `SendResult` instead of `boolean`** — `{ ok: true } | { ok: false, error }`. Drivers parse provider error responses (Google's `error.message` extracted from JSON) so admin UI can surface real causes. Existing callers that discard the return still work.
+- **`MailDriver` interface gains optional `oauthRequirement: { providerId, scope }`** — drivers self-describe what they need. New helpers `getAccountPurposes(row)` and `getMailOAuthRequirements()` classify any linked OAuth account by purpose without hardcoded provider names; future Outlook / Zoho drivers just declare their requirement.
 
 ### Added
 
 - **`core:init` scaffolds a `nixpacks.toml`** that includes `sqlite` in the build image — fixes `db:backup` falling back to a less-reliable file-copy method on Coolify / Railway / Render. Only written when absent; harmless on non-nixpacks hosts (Vercel / Netlify / plain Node ignore the file). Existing projects can add the file manually or set `NIXPACKS_PKGS=sqlite` as a build-time env var.
+- **Gmail mail driver wired through Better Auth.** New `MAIL_DRIVER=gmail` (default still `smtp`). Admin connects via `/sailor/account` → **Connect Google**, picks the active sender at new `/sailor/settings/mail`. Zero new deps — uses `nodemailer.MailComposer` + native `fetch` against Google's token + send endpoints. Requires `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and the Gmail API enabled in Google Cloud Console.
+- **Forgot-password + reset-password UI** at `/sailor/auth/forgot-password` and `/sailor/auth/reset-password`, with a "Forgot password?" link on login. The Better Auth backend hook was wired; the UI was missing.
+- **HTML email templates** in `sailorcms/utils/mail/templates/` — generic layout (Inter font, indigo accent, dark mode) + helpers (`emailLayout`, `emailButton`, `infoBox`, `infoRow`, `sectionHeading`), and ready-made templates: `passwordResetTemplate`, `emailVerificationTemplate`, `testEmailTemplate`. Auth flows + admin test-email all go through them.
+- **Connected accounts panel on `/sailor/account`** — clickable rows open a dialog with purpose badges (Sign-in / Mail sending) + per-purpose actions (Reconnect for mail). CTAs at the bottom for unmet mail-driver requirements auto-generate from the driver registry.
+- **`/sailor/settings/mail` admin page** — driver picker + sender-account dropdown (lists every linked account satisfying the driver's `oauthRequirement` system-wide, labelled with the linked user and the actual provider-side email) + "Send test email" button that surfaces the real backend error on failure.
 
 ### Fixed
 
@@ -18,7 +27,8 @@ All notable changes to SailorCMS are documented here.
 - **`db:repair` now CREATEs missing tables** (in addition to ALTERing columns) — previously it refused with "tables cannot be auto-created safely" and dumped recovery on the user. Parses the index callback for each missing table and emits CREATE TABLE + CREATE INDEX from `schema.ts`. Unblocks consumers whose `__drizzle_migrations` was bootstrap-ahead-of-actual-state.
 - **Better Auth `sveltekitCookies` plugin moved to end of plugins array** — was first, so cookies set by later plugins' `hooks.after` weren't forwarded to SvelteKit's cookie store. Silences the startup warning and ensures `Set-Cookie` headers from `admin` / `captcha` make it out.
 - **No more nested `<button>` in `PayloadPreview` / `SEOFields`** — `SheetTrigger` and `CollapsibleTrigger` each wrapped a `<Button>`, producing `<button><button>` (SSR placement warning + hydration mismatch risk). Both now use the bits-ui `child` snippet so the trigger forwards its props onto `Button` instead of rendering its own.
-- **No more double-prompt on dirty record refresh + the soft-nav prompt is translated** — `useUnsavedChanges` was firing both the browser's native `beforeunload` prompt *and* its own `window.confirm` on refresh / tab close (SvelteKit's `beforeNavigate` fires with `type: 'leave'` for those too). Soft nav (`type: 'leave'` filtered out) now uses `m.common_unsaved_changes_prompt()` (en + nb-NO); hard leave is left to the browser's localized native prompt. One prompt per action, both via browser-native modal primitives.
+- **No more double-prompt on dirty record refresh + the soft-nav prompt is translated** — `useUnsavedChanges` was firing both the browser's native `beforeunload` prompt _and_ its own `window.confirm` on refresh / tab close (SvelteKit's `beforeNavigate` fires with `type: 'leave'` for those too). Soft nav (`type: 'leave'` filtered out) now uses `m.common_unsaved_changes_prompt()` (en + nb-NO); hard leave is left to the browser's localized native prompt. One prompt per action, both via browser-native modal primitives.
+- **Password-change section on `/sailor/account` no longer hides when an OAuth account is linked.** Gate now checks `hasCredentialAccount` directly, so credential+OAuth users (e.g. signed in with a password, separately connected Gmail for mail sending) keep their password form.
 
 ## [0.6.8] - 11 May 2026
 

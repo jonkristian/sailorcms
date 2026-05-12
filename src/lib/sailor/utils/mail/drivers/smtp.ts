@@ -1,7 +1,7 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from '$env/dynamic/private';
 import { log } from 'sailorcms/core/utils/logger';
-import type { MailDriver, MailMessage } from '../types';
+import type { MailDriver, MailMessage, SendResult } from '../types';
 
 let transport: Transporter | null = null;
 
@@ -23,9 +23,9 @@ function getTransport(): Transporter | null {
   return transport;
 }
 
-async function send(msg: MailMessage): Promise<boolean> {
+async function send(msg: MailMessage): Promise<SendResult> {
   const t = getTransport();
-  if (!t) return false;
+  if (!t) return { ok: false, error: 'SMTP not configured' };
   try {
     await t.sendMail({
       from: env.SMTP_FROM,
@@ -35,10 +35,11 @@ async function send(msg: MailMessage): Promise<boolean> {
       html: msg.html,
       replyTo: msg.replyTo
     });
-    return true;
+    return { ok: true };
   } catch (err) {
+    const error = (err as Error)?.message ?? String(err);
     log.error('SMTP send failed', { subject: msg.subject }, err as Error);
-    return false;
+    return { ok: false, error };
   }
 }
 
