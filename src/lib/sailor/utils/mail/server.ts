@@ -1,55 +1,37 @@
-import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from '$env/dynamic/private';
 import { log } from 'sailorcms/core/utils/logger';
+import { smtpDriver } from './drivers/smtp';
+import type { MailDriver, MailMessage } from './types';
 
-export type MailMessage = {
-  to: string | string[];
-  subject: string;
-  text?: string;
-  html?: string;
-  replyTo?: string;
-};
+export type { MailMessage } from './types';
 
-let transport: Transporter | null = null;
+let resolved: MailDriver | null | undefined;
 
-export function isMailConfigured(): boolean {
-  return Boolean(env.SMTP_HOST && env.SMTP_FROM);
+function resolveDriver(): MailDriver | null {
+  if (resolved !== undefined) return resolved;
+
+  const name = (env.MAIL_DRIVER ?? 'smtp').toLowerCase();
+  switch (name) {
+    case 'smtp':
+      resolved = smtpDriver;
+      break;
+    default:
+      log.error(`Unknown MAIL_DRIVER: "${name}"`);
+      resolved = null;
+  }
+  return resolved;
 }
 
-function getTransport(): Transporter | null {
-  if (!isMailConfigured()) return null;
-  if (transport) return transport;
-
-  const port = env.SMTP_PORT ? Number(env.SMTP_PORT) : 587;
-  transport = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port,
-    secure: env.SMTP_SECURE ? env.SMTP_SECURE === 'true' : port === 465,
-    auth: env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined
-  });
-  return transport;
+export function isMailConfigured(): boolean {
+  const driver = resolveDriver();
+  return Boolean(driver?.isConfigured());
 }
 
 export async function sendMail(msg: MailMessage): Promise<boolean> {
-  const t = getTransport();
-  if (!t) {
-    log.warn('SMTP not configured — skipping send', {
-      subject: msg.subject
-    });
+  const driver = resolveDriver();
+  if (!driver || !driver.isConfigured()) {
+    log.warn('Mail not configured — skipping send', { subject: msg.subject });
     return false;
   }
-  try {
-    await t.sendMail({
-      from: env.SMTP_FROM,
-      to: msg.to,
-      subject: msg.subject,
-      text: msg.text,
-      html: msg.html,
-      replyTo: msg.replyTo
-    });
-    return true;
-  } catch (err) {
-    log.error('SMTP send failed', { subject: msg.subject }, err as Error);
-    return false;
-  }
+  return driver.send(msg);
 }
