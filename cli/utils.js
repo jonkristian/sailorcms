@@ -1106,6 +1106,26 @@ export async function stripLegacyDbScripts(targetDir) {
  *
  * Returns the list of files restored so the caller can log it.
  */
+/**
+ * Detect whether the CLI is being run from inside the sailorcms package source
+ * (this repo) rather than a consumer install. The repo serves as both library
+ * source AND a working dev instance, so destructive commands written for
+ * consumer-side cleanup (e.g. doctor's --fix, which would delete
+ * `node_modules/sailorcms/node_modules` — i.e. the dev workspace's installed
+ * framework deps) need to refuse here.
+ *
+ * Detection: the `package.json#name` is exactly `sailorcms` only in the
+ * upstream package itself; a consumer's own package.json has a different name.
+ */
+export async function isCorePackage(targetDir) {
+  try {
+    const pkg = await fs.readJson(path.join(targetDir, 'package.json'));
+    return pkg?.name === 'sailorcms';
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureDrizzleScaffold(targetDir) {
   const restored = [];
 

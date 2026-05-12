@@ -149,7 +149,11 @@ async function send(msg: MailMessage): Promise<SendResult> {
         error: extractGoogleError(detail, `Gmail API responded ${res.status}`)
       };
     }
-    return { ok: true };
+    // Gmail's `users.messages.send` returns `{ id, threadId, labelIds }`. The
+    // `id` is what subsequent Gmail API calls (e.g. fetching the sent message)
+    // use, so keep it as our message-id for parity with SMTP's envelope id.
+    const json = (await res.json().catch(() => null)) as { id?: string } | null;
+    return { ok: true, messageId: json?.id };
   } catch (err) {
     const error = (err as Error)?.message ?? String(err);
     log.error('Gmail send failed', { subject: msg.subject }, err as Error);

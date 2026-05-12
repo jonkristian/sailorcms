@@ -37,6 +37,7 @@
     canViewUsers: data.navData?.canViewUsers ?? false,
     canViewFiles: data.navData?.canViewFiles ?? false,
     canViewRecovery: data.navData?.canViewRecovery ?? false,
+    alerts: data.navData?.alerts ?? [],
     loading: false
   });
   let headerActionsState = $derived((page.data.headerActions || []) as HeaderAction[]);

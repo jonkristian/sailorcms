@@ -12,6 +12,7 @@ import {
   dedupeNestedSvelteDeps,
   dedupeNestedSailorcmsDeps,
   stripLegacyDbScripts,
+  isCorePackage,
   SAILOR_DIRS_RESOLVED_VIA_PACKAGE,
   COMPONENT_DIRS_RESOLVED_VIA_PACKAGE
 } from '../utils.js';
@@ -528,6 +529,25 @@ export function registerDoctor(program) {
 
       if (fixable.length === 0) {
         console.log(c.red(`${failing.length} issue(s) found, none auto-fixable.`));
+        process.exit(1);
+      }
+
+      // Block --fix when running inside the sailorcms package itself: fixes
+      // like `dedupeNestedSailorcmsDeps` delete `node_modules/sailorcms/node_modules`,
+      // which in the upstream repo IS the dev workspace's framework installs —
+      // running it here breaks the working tree. Read-only diagnostics above
+      // already ran and are fine to surface.
+      if (await isCorePackage(targetDir)) {
+        console.log(
+          c.yellow(
+            'Detected sailorcms package source — `doctor --fix` is for consumer installs only.'
+          )
+        );
+        console.log(
+          c.dim(
+            '  These fixes would touch this repo`s own node_modules/config. Resolve any drift via git instead.'
+          )
+        );
         process.exit(1);
       }
 

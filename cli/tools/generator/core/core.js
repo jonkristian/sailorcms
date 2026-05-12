@@ -226,6 +226,45 @@ export class CoreGenerator {
   updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
 });`,
 
+      // Mail events: one row per logical email (not per attempt). Retries
+      // update the same row in place — `attempts` increments, `status` flips
+      // back to 'sent' on a successful retry so the outbox badge reflects
+      // current state rather than carrying forever-stale "failed" rows. Audit
+      // signal lives in `attempts` + `updated_at`; if per-attempt history is
+      // ever needed it lands in a child table, not here. `user_id` is the
+      // authenticated actor when triggered from an admin session (e.g. the
+      // "Send test email" button), null for system-initiated sends like
+      // password-reset emails. Pruning of body content is a separate concern
+      // handled by future retention tooling.
+      `export const mailEvents = ${this.adapter.getTableFunction()}(
+  'mail_events',
+  {
+    id: ${this.adapter.getPrimaryKeyDefinition()},
+    created_at: ${this.adapter.getTimestampDefinition('created_at')},
+    // updated_at is nullable so an existing-data ALTER TABLE migration doesn't
+    // trip SQLite's "NOT NULL with NULL default" rule when adding the column.
+    // Application code stamps it on every write, so reads can rely on it.
+    updated_at: ${this.adapter.getNullableTimestampDefinition('updated_at')},
+    driver: ${this.adapter.getTextFieldDefinition('driver', { notNull: true })},
+    to_address: ${this.adapter.getTextFieldDefinition('to_address', { notNull: true })},
+    subject: ${this.adapter.getTextFieldDefinition('subject', { notNull: true })},
+    body_text: ${this.adapter.getTextFieldDefinition('body_text')},
+    body_html: ${this.adapter.getTextFieldDefinition('body_html')},
+    status: ${this.adapter.getTextFieldDefinition('status', { notNull: true })},
+    message_id: ${this.adapter.getTextFieldDefinition('message_id')},
+    error_message: ${this.adapter.getTextFieldDefinition('error_message')},
+    // Nullable + default 1 so backfilling existing rows on ALTER TABLE succeeds.
+    // Reads use attempts ?? 1 since the application always sets it on insert.
+    attempts: ${this.adapter.getIntegerFieldDefinition('attempts', { default: 1 })},
+    user_id: ${this.adapter.getTextFieldDefinition('user_id')}
+  },
+  (table) => [
+    index('mail_events_status_idx').on(table.status, table.created_at),
+    index('mail_events_to_idx').on(table.to_address),
+    index('mail_events_created_at_idx').on(table.created_at)
+  ]
+);`,
+
       // Revisions: polymorphic snapshots of collection items / globals at save time.
       // `entity_type` namespaces by source, e.g. 'collection:pages' / 'global:menu',
       // so collection slugs and global slugs can't collide. `data` is a full JSON

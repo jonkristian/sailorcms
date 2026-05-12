@@ -1,16 +1,36 @@
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
+import xml from 'highlight.js/lib/languages/xml';
 
 // Register only the languages we need
 hljs.registerLanguage('json', json);
+// hljs ships HTML highlighting under the 'xml' grammar (HTML/SVG/XML share the
+// same tokeniser). Registered for the mail-outbox source view.
+hljs.registerLanguage('xml', xml);
 
 // Configure highlight.js for better performance
 hljs.configure({
   // Disable auto-detection for better performance since we know the language
-  languages: ['json'],
+  languages: ['json', 'xml'],
   // Use class-based highlighting for better CSS integration
   classPrefix: 'hljs-'
 });
+
+/**
+ * Synchronous HTML highlighter — returns the inner highlighted markup with
+ * `hljs-*` classes (no <pre><code> wrapper). Caller controls layout/styling.
+ * The mail-outbox source view uses this to colour the stored HTML body.
+ */
+export function highlightHtmlSync(input: string): string {
+  try {
+    return hljs.highlight(input, { language: 'xml' }).value;
+  } catch {
+    return input.replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+    );
+  }
+}
 
 /**
  * Synchronous JSON highlighter — returns the inner highlighted HTML (no <pre><code>

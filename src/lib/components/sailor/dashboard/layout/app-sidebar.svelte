@@ -5,6 +5,8 @@
   import NavCollections from './nav-collections.svelte';
   import NavGlobals from './nav-globals.svelte';
   import NavSecondary from './nav-secondary.svelte';
+  import AdminAlerts from './admin-alerts.svelte';
+  import type { AdminAlert } from 'sailorcms/core/admin/alerts';
   import Settings from '@lucide/svelte/icons/settings';
   import HelpCircle from '@lucide/svelte/icons/help-circle';
   import Sailboat from '@lucide/svelte/icons/sailboat';
@@ -23,6 +25,7 @@
       canViewUsers: false,
       canViewFiles: false,
       canViewRecovery: false,
+      alerts: [],
       loading: true
     },
     user: sessionUser,
@@ -35,6 +38,7 @@
       canViewUsers: boolean;
       canViewFiles: boolean;
       canViewRecovery: boolean;
+      alerts: AdminAlert[];
       loading: boolean;
     };
     user?: any;
@@ -134,7 +138,18 @@
     <NavMain items={mainItems()} />
     <NavCollections collections={navData.collections} loading={navData.loading} />
     <NavGlobals globals={navData.globals} loading={navData.loading} />
-    <NavSecondary items={secondaryItems()} class="mt-auto" />
+    <!--
+      Alerts sit just above NavSecondary so they occupy the empty space above
+      Users/Recovery/Settings. `mt-auto` on the alerts group keeps NavSecondary
+      pinned to the bottom when alerts exist; when there are no alerts,
+      NavSecondary itself carries the `mt-auto`.
+    -->
+    {#if navData.alerts.length > 0}
+      <AdminAlerts alerts={navData.alerts} class="mt-auto" />
+      <NavSecondary items={secondaryItems()} />
+    {:else}
+      <NavSecondary items={secondaryItems()} class="mt-auto" />
+    {/if}
   </Sidebar.Content>
   <Sidebar.Footer>
     {#if user}

@@ -4,6 +4,25 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Mail outbox at `/sailor/settings/mail`** — every `sendMail` writes a row; inspect rendered HTML preview or syntax-highlighted source (highlight.js xml), retry failed sends in place, copy provider message-id. Paginated. New `mail_events` table — re-run `npx sailor db:update`.
+- **Generic admin-alerts sidebar slot** (`core/admin/alerts.{ts,server.ts}` + `admin-alerts.svelte`). First check: `isMailHealthy()` (driver env + sender account both present). Adding new alerts = one literal + one check + one icon mapping.
+- **"Connect account" dropdown on `/sailor/account`** with confirmation dialog naming the purposes (Sign-in / Mail) being granted. Replaces per-provider buttons; surfaces a hint when env credentials are missing for known providers.
+- **Disconnect linked OAuth accounts** from the account-detail dialog. Better Auth's last-account guard prevents lockout.
+- **`doctor --fix` refuses to run inside the sailorcms package source** (`isCorePackage()` helper). Would otherwise have wiped the dev workspace's framework installs via `dedupeNestedSailorcmsDeps`. Read-only diagnostics still run.
+
+### Changed
+
+- **Submissions global**: `status` → `inquiry_status` (avoids colliding with the system status column), explicit `order` so the inbox table reads subject → name → email → phone → status.
+- **Language + date-format pickers on `/sailor/account`** switched from native `<select>` to shadcn `Select` for consistency.
+- **Mail retries update events in place** (attempts++, status flips, error refreshed) instead of inserting a new row, so the failed-count badge reflects current state.
+
+### Fixed
+
+- **Account-linking with mismatched emails now actually works** — added `trustedProviders: ['github', 'google']` to `accountLinking`. `allowDifferentEmails: true` alone didn't bypass the verified-email check at the link callback (`unable_to_link_account`).
+- **`Dialog.Content` width needs the `sm:` prefix** — bundled `sm:max-w-md` was beating consumer-passed `max-w-4xl` at the `sm` breakpoint, so dialogs ignored their max-w override on real screens.
+
 ## [0.6.9] - 12 May 2026
 
 ### Changed
@@ -15,7 +34,7 @@ All notable changes to SailorCMS are documented here.
 ### Added
 
 - **`core:init` scaffolds a `nixpacks.toml`** that includes `sqlite` in the build image — fixes `db:backup` falling back to a less-reliable file-copy method on Coolify / Railway / Render. Only written when absent; harmless on non-nixpacks hosts (Vercel / Netlify / plain Node ignore the file). Existing projects can add the file manually or set `NIXPACKS_PKGS=sqlite` as a build-time env var.
-- **Gmail mail driver wired through Better Auth.** New `MAIL_DRIVER=gmail` (default still `smtp`). Admin connects via `/sailor/account` → **Connect Google**, picks the active sender at new `/sailor/settings/mail`. Zero new deps — uses `nodemailer.MailComposer` + native `fetch` against Google's token + send endpoints. Requires `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and the Gmail API enabled in Google Cloud Console.
+- **Gmail mail driver wired through Better Auth.** Admin connects via `/sailor/account` → **Connect Google**, picks the active sender at new `/sailor/settings/mail` (driver choice is UI-only — the dropdown lists whichever drivers have their env prerequisites met). Zero new deps — uses `nodemailer.MailComposer` + native `fetch` against Google's token + send endpoints. Requires `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and the Gmail API enabled in Google Cloud Console.
 - **Forgot-password + reset-password UI** at `/sailor/auth/forgot-password` and `/sailor/auth/reset-password`, with a "Forgot password?" link on login. The Better Auth backend hook was wired; the UI was missing.
 - **HTML email templates** in `sailorcms/utils/mail/templates/` — generic layout (Inter font, indigo accent, dark mode) + helpers (`emailLayout`, `emailButton`, `infoBox`, `infoRow`, `sectionHeading`), and ready-made templates: `passwordResetTemplate`, `emailVerificationTemplate`, `testEmailTemplate`. Auth flows + admin test-email all go through them.
 - **Connected accounts panel on `/sailor/account`** — clickable rows open a dialog with purpose badges (Sign-in / Mail sending) + per-purpose actions (Reconnect for mail). CTAs at the bottom for unmet mail-driver requirements auto-generate from the driver registry.

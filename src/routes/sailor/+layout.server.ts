@@ -2,6 +2,8 @@ import type { LayoutServerLoad } from './$types';
 import type { User } from '$sailor/generated/types';
 import { db, users } from 'sailorcms/core/db/index.server';
 import { eq } from 'drizzle-orm';
+import { getAdminAlerts } from 'sailorcms/core/admin/alerts.server';
+import type { AdminAlert } from 'sailorcms/core/admin/alerts';
 
 export const load: LayoutServerLoad = async (event) => {
   const { locals } = event;
@@ -12,7 +14,11 @@ export const load: LayoutServerLoad = async (event) => {
     canViewSettings: false,
     canViewUsers: false,
     canViewFiles: false,
-    canViewRecovery: false
+    canViewRecovery: false,
+    // Admin-only sidebar alerts (mail health, future: storage, license, etc.).
+    // Collected by `getAdminAlerts` — empty for users without settings access
+    // since the alerts always link to admin-only pages.
+    alerts: [] as AdminAlert[]
   };
 
   try {
@@ -50,7 +56,8 @@ export const load: LayoutServerLoad = async (event) => {
       canViewUsers,
       canViewFiles,
       // Recovery is gated by content read — same baseline as the lists.
-      canViewRecovery: canReadContent
+      canViewRecovery: canReadContent,
+      alerts: await getAdminAlerts(canViewSettings)
     };
   } catch (error) {
     console.error('Error fetching navigation data:', error);

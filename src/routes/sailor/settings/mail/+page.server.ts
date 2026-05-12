@@ -8,16 +8,28 @@ import {
   getMailDriverNames,
   getMailOAuthRequirementFor,
   isMailConfigured,
+  isMailDriverConfigured,
   sendMail
 } from 'sailorcms/utils/mail/server';
 import { testEmailTemplate } from 'sailorcms/utils/mail/templates/system';
+import {
+  countFailedMailEvents,
+  listMailEvents,
+  replayMailEvent
+} from 'sailorcms/core/services/mail-events.server';
 
-export const load = async ({ locals }: { locals: App.Locals }) => {
+export const load = async ({ locals, url }: { locals: App.Locals; url: URL }) => {
   if (!locals.user) throw error(401, 'Unauthorized');
 
-  const driverNames = getMailDriverNames();
   const activeDriver =
     (await SystemSettingsService.getSetting('mail.driver').catch(() => null)) ?? 'smtp';
+  // Hide drivers whose env prerequisites aren't met (e.g. Gmail without
+  // GOOGLE_CLIENT_ID/SECRET). The currently active driver is always kept in
+  // the list so the admin sees what's set even after env vars get removed —
+  // they can switch away from it but won't be surprised by an empty select.
+  const driverNames = getMailDriverNames().filter(
+    (n) => isMailDriverConfigured(n) || n === activeDriver
+  );
   const senderAccountId =
     (await SystemSettingsService.getSetting('mail.sender_account_id').catch(() => null)) ?? '';
 
@@ -49,12 +61,26 @@ export const load = async ({ locals }: { locals: App.Locals }) => {
     });
   }
 
+  // Paginated event list. `failedCount` is unscoped (every failed row across
+  // the table) so the badge reflects the outbox total even when the failed
+  // rows are off the current page. URL params (`page`, `pageSize`) match the
+  // shared Pagination component's contract — no extra wiring needed.
+  const eventsPage = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+  const eventsPageSize = Math.max(
+    1,
+    Math.min(100, parseInt(url.searchParams.get('pageSize') || '25'))
+  );
+  const events = await listMailEvents({ page: eventsPage, pageSize: eventsPageSize });
+  const failedCount = await countFailedMailEvents();
+
   return {
     driverNames,
     activeDriver,
     senderAccountId,
     candidatesByDriver,
-    mailConfigured: await isMailConfigured()
+    mailConfigured: await isMailConfigured(),
+    events,
+    failedCount
   };
 };
 
@@ -92,8 +118,23 @@ export const actions = {
 
   test: async ({ locals }: { locals: App.Locals }) => {
     if (!locals.user) throw error(401, 'Unauthorized');
-    const result = await sendMail({ to: locals.user.email, ...testEmailTemplate() });
+    const result = await sendMail(
+      { to: locals.user.email, ...testEmailTemplate() },
+      { actorUserId: locals.user.id }
+    );
     if (result.ok) return { success: true };
     return fail(500, { error: result.error });
+  },
+
+  retry: async ({ request, locals }: { request: Request; locals: App.Locals }) => {
+    if (!locals.user) throw error(401, 'Unauthorized');
+
+    const formData = await request.formData();
+    const id = String(formData.get('id') ?? '');
+    if (!id) return fail(400, { error: 'Missing event id' });
+
+    const result = await replayMailEvent(id);
+    if (!result.ok) return fail(500, { error: result.error });
+    return { success: true };
   }
 };

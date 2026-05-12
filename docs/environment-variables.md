@@ -47,10 +47,9 @@ DATABASE_URL=postgresql://user:password@localhost:5432/sailor
 
 ## Email
 
-Sailor CMS supports two outbound-mail drivers: **SMTP** (default) and **Gmail API** (OAuth-based, no SMTP credentials). The driver is chosen at `/sailor/settings/mail`; once chosen, that setting overrides `MAIL_DRIVER`. Set `EMAIL_VERIFICATION=true` to require new accounts to verify their address before signing in.
+Sailor CMS supports two outbound-mail drivers: **SMTP** (default) and **Gmail API** (OAuth-based, no SMTP credentials). The driver is chosen at `/sailor/settings/mail` — the dropdown lists whichever drivers have their env prerequisites met (SMTP host/from set, or Google OAuth client configured), so a fresh install just needs the env vars below; no driver-selection env var. Set `EMAIL_VERIFICATION=true` to require new accounts to verify their address before signing in.
 
 ```env
-MAIL_DRIVER=smtp                    # smtp | gmail (used until /sailor/settings/mail saves an override)
 EMAIL_VERIFICATION=false
 ```
 

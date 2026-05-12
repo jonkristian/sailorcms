@@ -40,6 +40,12 @@
     // Hierarchical props
     nestable?: boolean; // Enable hierarchical display
     onNestChange?: (draggedId: string, newParentId: string | null, newIndex: number) => void;
+    // Optional row click — when set, the whole row becomes clickable. Bubble
+    // handling: native form controls (`button`, `a`, `input`) and elements
+    // marked `data-row-click="ignore"` stop the click from triggering the row
+    // handler. That lets cell renderers keep interactive children without
+    // double-firing.
+    onRowClick?: (item: any) => void;
   }
 
   let {
@@ -58,8 +64,21 @@
     onColumnSort,
     cellRenderer,
     nestable = false,
-    onNestChange
+    onNestChange,
+    onRowClick
   }: Props = $props();
+
+  // Skip row click when the user actually clicked a child button/link/input or
+  // an element explicitly marked `data-row-click="ignore"`. Keeps row-as-button
+  // ergonomic without breaking nested controls (e.g. a "Retry" button cell).
+  function shouldIgnoreRowClick(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    return Boolean(
+      target.closest(
+        'button, a, input, textarea, select, label, [role="button"], [data-row-click="ignore"]'
+      )
+    );
+  }
 
   // Drag and drop state
   let draggedIndex: number = $state(-1);
@@ -529,10 +548,16 @@
           {@const item = hierarchicalItem.item}
           <TableRow
             data-state={selectedItems.includes(item.id) ? 'selected' : ''}
-            class={`${draggedIndex === index ? 'opacity-50' : ''}`}
+            class={`${draggedIndex === index ? 'opacity-50' : ''} ${onRowClick ? 'hover:bg-muted/50 cursor-pointer' : ''}`}
             ondragover={(e) => sortable && handleDragOver(e, index)}
             ondragleave={(e) => sortable && handleDragLeave(e)}
             ondrop={(e) => sortable && handleDrop(e, index)}
+            onclick={onRowClick
+              ? (e) => {
+                  if (shouldIgnoreRowClick(e.target)) return;
+                  onRowClick(item);
+                }
+              : undefined}
           >
             {#each columns as column, columnIndex}
               {#if !column.hidden}

@@ -27,7 +27,7 @@ async function send(msg: MailMessage): Promise<SendResult> {
   const t = getTransport();
   if (!t) return { ok: false, error: 'SMTP not configured' };
   try {
-    await t.sendMail({
+    const info = await t.sendMail({
       from: env.SMTP_FROM,
       to: msg.to,
       subject: msg.subject,
@@ -35,7 +35,9 @@ async function send(msg: MailMessage): Promise<SendResult> {
       html: msg.html,
       replyTo: msg.replyTo
     });
-    return { ok: true };
+    // Nodemailer's `info.messageId` carries the SMTP envelope ID — useful for
+    // cross-referencing with the SMTP server's logs when chasing a delivery.
+    return { ok: true, messageId: info?.messageId };
   } catch (err) {
     const error = (err as Error)?.message ?? String(err);
     log.error('SMTP send failed', { subject: msg.subject }, err as Error);

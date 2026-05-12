@@ -6,7 +6,7 @@ export type MailMessage = {
   replyTo?: string;
 };
 
-export type SendResult = { ok: true } | { ok: false; error: string };
+export type SendResult = { ok: true; messageId?: string } | { ok: false; error: string };
 
 export type MailOAuthRequirement = {
   /** Matches Better Auth's `account.provider_id`. */

@@ -20,9 +20,13 @@
     XCircle,
     Copy,
     Plus,
+    ChevronDown,
     ChevronRight
   } from '@lucide/svelte';
   import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
+  import * as DropdownMenu from 'sailorcms/components/ui/dropdown-menu/index.js';
+  import * as Select from 'sailorcms/components/ui/select/index.js';
+  import { Alert, AlertDescription } from 'sailorcms/components/ui/alert/index.js';
   import GithubIcon from 'sailorcms/components/sailor/icons/GithubIcon.svelte';
   import { authClient } from 'sailorcms/core/auth';
   import { formatDate } from 'sailorcms/core/utils/date';
@@ -120,19 +124,48 @@
 
   let connecting = $state(false);
   let selectedAccount = $state<any>(null);
+  let pendingConnect = $state<(typeof data.connectableProviders)[number] | null>(null);
+  let unlinkConfirming = $state(false);
+  let unlinking = $state(false);
 
   async function handleConnect(providerId: string, scope: string) {
     connecting = true;
     try {
       await authClient.linkSocial({
         provider: providerId,
-        scopes: [scope],
+        // Empty scope = sign-in only (no extra grants). Passing `['']` would
+        // send Better Auth a literal empty scope and break the OAuth URL.
+        scopes: scope ? [scope] : undefined,
         callbackURL: '/sailor/account'
       });
     } catch (e) {
       console.error('OAuth connect error:', e);
       toast.error(m.account_mail_connect_error());
       connecting = false;
+    }
+  }
+
+  async function handleUnlink(providerId: string, accountId: string) {
+    unlinking = true;
+    try {
+      const res = await authClient.unlinkAccount({ providerId, accountId });
+      // Better Auth's unlink-account endpoint refuses to remove the user's
+      // last remaining account (FAILED_TO_UNLINK_LAST_ACCOUNT). Surface that
+      // server-side message rather than a generic error so the admin knows
+      // they need another auth method first.
+      if ((res as any)?.error) {
+        toast.error((res as any).error.message ?? m.account_oauth_unlink_error());
+      } else {
+        toast.success(m.account_oauth_unlink_success({ provider: getProviderName(providerId) }));
+        selectedAccount = null;
+        unlinkConfirming = false;
+        await invalidateAll();
+      }
+    } catch (e) {
+      console.error('OAuth unlink error:', e);
+      toast.error(m.account_oauth_unlink_error());
+    } finally {
+      unlinking = false;
     }
   }
 </script>
@@ -186,16 +219,27 @@
 
             <div class="space-y-3">
               <Label for="language">{m.account_field_language()}</Label>
-              <select
-                id="language"
-                name="language"
-                bind:value={formData.language}
-                class="border-input bg-background ring-offset-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm focus-visible:ring-1 focus-visible:outline-none"
+              <!--
+                Hidden input mirrors the Select value into the FormData built by
+                `new FormData(form)` in handleSubmit — bits-ui's Select doesn't
+                emit a native form control on its own.
+              -->
+              <input type="hidden" name="language" value={formData.language} />
+              <Select.Root
+                type="single"
+                value={formData.language}
+                onValueChange={(v) => (formData.language = v ?? formData.language)}
               >
-                {#each LANGUAGE_OPTIONS as opt (opt.value)}
-                  <option value={opt.value}>{opt.label}</option>
-                {/each}
-              </select>
+                <Select.Trigger id="language" class="w-full">
+                  {LANGUAGE_OPTIONS.find((o) => o.value === formData.language)?.label ??
+                    formData.language}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each LANGUAGE_OPTIONS as opt (opt.value)}
+                    <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
               <p class="text-muted-foreground text-xs">
                 {m.account_field_language_help()}
               </p>
@@ -203,16 +247,22 @@
 
             <div class="space-y-3">
               <Label for="date_format">{m.account_field_date_format()}</Label>
-              <select
-                id="date_format"
-                name="date_format"
-                bind:value={formData.date_format}
-                class="border-input bg-background ring-offset-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm focus-visible:ring-1 focus-visible:outline-none"
+              <input type="hidden" name="date_format" value={formData.date_format} />
+              <Select.Root
+                type="single"
+                value={formData.date_format}
+                onValueChange={(v) => (formData.date_format = v ?? formData.date_format)}
               >
-                {#each DATE_FORMAT_OPTIONS as opt (opt.value)}
-                  <option value={opt.value}>{opt.label}</option>
-                {/each}
-              </select>
+                <Select.Trigger id="date_format" class="w-full">
+                  {DATE_FORMAT_OPTIONS.find((o) => o.value === formData.date_format)?.label ??
+                    formData.date_format}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each DATE_FORMAT_OPTIONS as opt (opt.value)}
+                    <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
               <p class="text-muted-foreground text-xs">
                 {m.account_field_date_format_help()}
               </p>
@@ -392,7 +442,7 @@
           </div>
 
           <!-- Connected accounts (OAuth) -->
-          {#if data.oauthAccounts.length > 0 || data.mailConnectCtas.length > 0}
+          {#if data.oauthAccounts.length > 0 || data.connectableProviders.length > 0 || data.unconfiguredProviders.length > 0}
             <div>
               <h3 class="flex items-center gap-2 text-lg font-semibold">
                 <Globe class="h-5 w-5" />
@@ -432,19 +482,43 @@
                   </button>
                 {/each}
 
-                {#each data.mailConnectCtas as cta (cta.providerId + cta.scope)}
-                  <Button
-                    variant="outline"
-                    class="w-full justify-start"
-                    onclick={() => handleConnect(cta.providerId, cta.scope)}
-                    disabled={connecting}
-                  >
-                    <Plus class="mr-2 h-4 w-4" />
-                    {m.account_mail_connect_cta({
-                      provider: getProviderName(cta.providerId)
-                    })}
-                  </Button>
-                {/each}
+                {#if data.connectableProviders.length > 0}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      {#snippet child({ props })}
+                        <Button {...props} variant="outline" class="w-full justify-start">
+                          <Plus class="mr-2 h-4 w-4" />
+                          <span class="flex-1 text-left">
+                            {m.account_connect_dropdown_trigger()}
+                          </span>
+                          <ChevronDown class="ml-2 h-4 w-4 opacity-60" />
+                        </Button>
+                      {/snippet}
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content class="w-(--bits-dropdown-menu-anchor-width)">
+                      {#each data.connectableProviders as cp (cp.providerId)}
+                        {@const ProviderIcon = getProviderIcon(cp.providerId)}
+                        <DropdownMenu.Item onSelect={() => (pendingConnect = cp)}>
+                          <ProviderIcon class="mr-2 h-4 w-4" />
+                          {m.account_mail_connect_cta({
+                            provider: getProviderName(cp.providerId)
+                          })}
+                        </DropdownMenu.Item>
+                      {/each}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                {/if}
+
+                {#if data.connectableProviders.length === 0 && data.unconfiguredProviders.length > 0}
+                  <Alert>
+                    <Globe class="h-4 w-4" />
+                    <AlertDescription>
+                      {m.account_connect_unconfigured_hint({
+                        providers: data.unconfiguredProviders.map(getProviderName).join(', ')
+                      })}
+                    </AlertDescription>
+                  </Alert>
+                {/if}
               </div>
             </div>
           {/if}
@@ -457,7 +531,10 @@
 <Dialog.Root
   open={selectedAccount !== null}
   onOpenChange={(o) => {
-    if (!o) selectedAccount = null;
+    if (!o) {
+      selectedAccount = null;
+      unlinkConfirming = false;
+    }
   }}
 >
   <Dialog.Content>
@@ -510,9 +587,78 @@
         {/if}
       </div>
 
+      <Dialog.Footer class="gap-2 sm:gap-2">
+        {#if unlinkConfirming}
+          <Button variant="outline" disabled={unlinking} onclick={() => (unlinkConfirming = false)}>
+            {m.common_cancel()}
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={unlinking}
+            onclick={() => handleUnlink(acc.provider_id, acc.account_id)}
+          >
+            {unlinking ? m.account_oauth_unlinking() : m.account_oauth_unlink_confirm()}
+          </Button>
+        {:else}
+          <Button variant="outline" onclick={() => (selectedAccount = null)}>
+            {m.common_close()}
+          </Button>
+          <Button variant="destructive" onclick={() => (unlinkConfirming = true)}>
+            {m.account_oauth_unlink()}
+          </Button>
+        {/if}
+      </Dialog.Footer>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>
+
+<!--
+  Confirmation step before redirecting to the OAuth consent screen. Tells the
+  admin in product terms (sign-in / mail) what this link will grant, rather
+  than leaving Google's scope-language consent screen as the first signal.
+-->
+<Dialog.Root
+  open={pendingConnect !== null}
+  onOpenChange={(o) => {
+    if (!o) pendingConnect = null;
+  }}
+>
+  <Dialog.Content>
+    {#if pendingConnect}
+      {@const cp = pendingConnect}
+      {@const CpIcon = getProviderIcon(cp.providerId)}
+      <Dialog.Header>
+        <Dialog.Title class="flex items-center gap-2">
+          <CpIcon class="h-5 w-5" />
+          {m.account_mail_connect_cta({ provider: getProviderName(cp.providerId) })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {m.account_connect_dialog_description({ provider: getProviderName(cp.providerId) })}
+        </Dialog.Description>
+      </Dialog.Header>
+
+      <div class="space-y-4 py-2">
+        <div class="space-y-2">
+          <p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            {m.account_oauth_purposes_label()}
+          </p>
+          <div class="flex flex-wrap gap-1">
+            {#if cp.purposes.signIn}
+              <Badge variant="secondary">{m.account_oauth_purpose_signin()}</Badge>
+            {/if}
+            {#if cp.purposes.mail}
+              <Badge variant="secondary">{m.account_oauth_purpose_mail()}</Badge>
+            {/if}
+          </div>
+        </div>
+      </div>
+
       <Dialog.Footer>
-        <Button variant="outline" onclick={() => (selectedAccount = null)}>
-          {m.common_close()}
+        <Button variant="outline" onclick={() => (pendingConnect = null)}>
+          {m.common_cancel()}
+        </Button>
+        <Button onclick={() => handleConnect(cp.providerId, cp.scope)} disabled={connecting}>
+          {connecting ? m.common_saving() : m.account_connect_dialog_continue()}
         </Button>
       </Dialog.Footer>
     {/if}

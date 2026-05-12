@@ -111,9 +111,17 @@ export const auth = betterAuth({
     // signed-in user's email. Required for the "Connect Gmail for sending"
     // flow — the Gmail mailbox you want to send from is often a different
     // address than your CMS login email.
+    //
+    // `trustedProviders` is separate from `allowDifferentEmails`: Better Auth's
+    // link callback (api/routes/callback.mjs:104) rejects the link unless the
+    // provider is trusted OR the returned `userInfo.emailVerified` is true.
+    // GitHub's userinfo doesn't reliably surface a verified-email flag, so
+    // without trusting it the link fails with `unable_to_link_account` even
+    // when emails-may-differ is on. Google is included for parity.
     accountLinking: {
       enabled: true,
-      allowDifferentEmails: true
+      allowDifferentEmails: true,
+      trustedProviders: ['github', 'google']
     }
   },
   session: {
@@ -221,3 +229,25 @@ export const auth = betterAuth({
     }
   } as any // Type assertion for hooks
 });
+
+/**
+ * All social providers Sailor knows how to wire up. Used together with
+ * `getConfiguredSocialProviders()` to drive the /sailor/account discoverability
+ * hint ("set GITHUB_CLIENT_ID/SECRET to enable GitHub…") — the diff between
+ * known and configured is exactly the set of providers still gated on env.
+ */
+export const KNOWN_SOCIAL_PROVIDERS = ['github', 'google'] as const;
+
+/**
+ * Social provider IDs that are env-configured for OAuth. Mirrors the
+ * `socialProviders` block above — both check the same env pairs, so adding a
+ * provider there means adding it here AND to `KNOWN_SOCIAL_PROVIDERS`.
+ * Surfaced via /sailor/account so the "Connect…" menu only offers providers
+ * whose link flow can actually complete.
+ */
+export function getConfiguredSocialProviders(): string[] {
+  const providers: string[] = [];
+  if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) providers.push('github');
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) providers.push('google');
+  return providers;
+}
