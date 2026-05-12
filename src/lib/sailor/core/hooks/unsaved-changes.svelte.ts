@@ -15,6 +15,7 @@
 
 import { browser } from '$app/environment';
 import { beforeNavigate } from '$app/navigation';
+import { m } from '$sailor/i18n';
 
 export function useUnsavedChanges(isDirty: () => boolean = () => false) {
   const hasChanges = $derived(isDirty());
@@ -30,9 +31,14 @@ export function useUnsavedChanges(isDirty: () => boolean = () => false) {
     return () => window.removeEventListener('beforeunload', handler);
   });
 
-  beforeNavigate(({ cancel }) => {
+  // Skip `leave` here — those are tab close / refresh / external nav, where
+  // the browser fires its own native localized prompt via `beforeunload`.
+  // Confirming here too would double-prompt. We only handle SvelteKit-internal
+  // nav (link clicks, goto, popstate, form), where `beforeunload` does not fire.
+  beforeNavigate(({ type, cancel }) => {
+    if (type === 'leave') return;
     if (!hasChanges || !browser) return;
-    if (!window.confirm('You have unsaved changes. Leave this page?')) {
+    if (!window.confirm(m.common_unsaved_changes_prompt())) {
       cancel();
     }
   });

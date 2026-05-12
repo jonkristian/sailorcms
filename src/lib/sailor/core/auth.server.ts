@@ -156,7 +156,6 @@ export const auth = betterAuth({
       })
   },
   plugins: [
-    sveltekitCookies(getRequestEvent),
     admin({
       ...getAuthSettings(),
       ...createAccessControlConfig()
@@ -171,7 +170,11 @@ export const auth = betterAuth({
             secretKey: env.TURNSTILE_SECRET_KEY
           })
         ]
-      : [])
+      : []),
+    // Must be last: better-auth requires the cookie integration plugin at the
+    // end of the array so cookies set by earlier plugins' `hooks.after` are
+    // forwarded to SvelteKit's cookie store.
+    sveltekitCookies(getRequestEvent)
   ],
   hooks: {
     user: {

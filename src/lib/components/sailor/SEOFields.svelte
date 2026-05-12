@@ -139,11 +139,18 @@
           <RefreshCw class="mr-1 h-3 w-3" />
           {m.seo_refresh()}
         </Button>
-        <CollapsibleTrigger class="flex items-center justify-center">
-          <Button variant="ghost" size="sm" class="flex h-7 w-7 items-center justify-center p-0">
-            <ChevronDown class="h-3.5 w-3.5" />
-            <span class="sr-only">{m.seo_toggle()}</span>
-          </Button>
+        <CollapsibleTrigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              size="sm"
+              class="flex h-7 w-7 items-center justify-center p-0"
+            >
+              <ChevronDown class="h-3.5 w-3.5" />
+              <span class="sr-only">{m.seo_toggle()}</span>
+            </Button>
+          {/snippet}
         </CollapsibleTrigger>
       </div>
     </div>

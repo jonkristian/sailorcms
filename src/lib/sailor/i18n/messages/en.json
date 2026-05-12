@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_unsaved_changes_prompt": "You have unsaved changes. Leave this page?",
   "common_save": "Save",
   "common_saving": "Saving…",
   "common_create": "Create",

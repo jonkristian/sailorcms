@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_unsaved_changes_prompt": "Du har ulagrede endringer. Vil du forlate siden?",
   "common_save": "Lagre",
   "common_saving": "Lagrer…",
   "common_create": "Opprett",

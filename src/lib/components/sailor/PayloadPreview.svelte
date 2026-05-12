@@ -175,15 +175,18 @@
 </script>
 
 <Sheet {open} onOpenChange={handleOpenChange}>
-  <SheetTrigger type="button" class="h-8 w-8">
-    <Button
-      variant="ghost"
-      size="icon"
-      title={m.payload_preview_show()}
-      class="hover:bg-muted h-8 w-8"
-    >
-      <Code class="h-4 w-4" />
-    </Button>
+  <SheetTrigger>
+    {#snippet child({ props })}
+      <Button
+        {...props}
+        variant="ghost"
+        size="icon"
+        title={m.payload_preview_show()}
+        class="hover:bg-muted h-8 w-8"
+      >
+        <Code class="h-4 w-4" />
+      </Button>
+    {/snippet}
   </SheetTrigger>
   <SheetContent class="!w-[50vw] !max-w-[50vw]">
     <SheetHeader class="flex flex-row items-center justify-between space-y-0 pb-4">
