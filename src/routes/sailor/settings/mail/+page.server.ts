@@ -68,6 +68,23 @@ export const load = async ({ locals, url }: { locals: App.Locals; url: URL }) =>
     });
   }
 
+  // What the deployment provides for mail, sourced from env at startup by
+  // SystemSettingsService.initializeFromEnv(). Surfaced read-only on the
+  // page so the admin doesn't have to open .env to know what's wired.
+  // Only `source: 'env'` rows are picked — DB writes from the UI itself
+  // (mail.driver, mail.sender_account_id) get `source: 'user'` and are
+  // skipped here.
+  const mailCategorySettings = await SystemSettingsService.getSettingsByCategory('mail');
+  const envSettings: Record<string, string | boolean> = {};
+  for (const row of mailCategorySettings) {
+    if (row.source !== 'env') continue;
+    try {
+      envSettings[row.key] = JSON.parse(row.value);
+    } catch {
+      envSettings[row.key] = row.value;
+    }
+  }
+
   // Paginated event list. `failedCount` is unscoped (every failed row across
   // the table) so the badge reflects the outbox total even when the failed
   // rows are off the current page. URL params (`page`, `pageSize`) match the
@@ -86,6 +103,7 @@ export const load = async ({ locals, url }: { locals: App.Locals; url: URL }) =>
     senderAccountId,
     candidatesByDriver,
     mailConfigured: await isMailConfigured(),
+    envSettings,
     events,
     failedCount
   };

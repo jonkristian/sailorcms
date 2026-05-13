@@ -140,7 +140,6 @@
         <Mail class="h-5 w-5" />
         {m.settings_mail_card_title()}
       </CardTitle>
-      <CardDescription>{m.settings_mail_card_description()}</CardDescription>
     </CardHeader>
     <CardContent>
       <form onsubmit={handleSave} class="space-y-6">
@@ -158,9 +157,6 @@
               {/each}
             </Select.Content>
           </Select.Root>
-          <p class="text-muted-foreground text-xs">
-            {m.settings_mail_driver_help()}
-          </p>
         </div>
 
         {#if driverNeedsAccount}
@@ -187,9 +183,6 @@
                   {/each}
                 </Select.Content>
               </Select.Root>
-              <p class="text-muted-foreground text-xs">
-                {m.settings_mail_sender_help()}
-              </p>
             {/if}
           </div>
         {/if}
@@ -211,6 +204,102 @@
       </form>
     </CardContent>
   </Card>
+
+  <!--
+    Environment summary — what `.env` provides, read-only. Shown only when at
+    least one mail env var was synced so a fresh install with nothing wired
+    doesn't get an empty card. SMTP and Gmail blocks render independently
+    based on what's actually present; credentials show as a checkmark, never
+    the value.
+  -->
+  {#if Object.keys(data.envSettings).length > 0}
+    {@const smtpKeys = [
+      ['mail.smtp.host', 'SMTP host'],
+      ['mail.smtp.port', 'SMTP port'],
+      ['mail.smtp.from', 'SMTP from'],
+      ['mail.smtp.secure', 'SMTP TLS forced']
+    ]}
+    {@const gmailKeys = [['mail.gmail.client_id', 'Google OAuth client ID']]}
+    {@const hasSmtp =
+      smtpKeys.some(([k]) => data.envSettings[k]) || data.envSettings['mail.smtp.credentials_set']}
+    {@const hasGmail =
+      data.envSettings['mail.gmail.client_id'] || data.envSettings['mail.gmail.client_secret_set']}
+
+    <Card class="mt-6">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <AlertCircle class="h-5 w-5" />
+          {m.settings_mail_env_title()}
+        </CardTitle>
+        <CardDescription>{m.settings_mail_env_description()}</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <!--
+          2-column grid + label/`<code>`-chip pairs mirror `/sailor/settings/storage`'s
+          "Current configuration" card so env-derived info reads the same way
+          across the admin. `break-all` accommodates the long Gmail client ID;
+          credential rows show a green check rather than the value.
+        -->
+        {#if hasSmtp}
+          <div>
+            <h3 class="mb-3 text-sm font-semibold">SMTP</h3>
+            <div class="grid grid-cols-2 gap-4">
+              {#each smtpKeys as [key, label] (key)}
+                {#if data.envSettings[key]}
+                  <div>
+                    <h4 class="text-muted-foreground mb-1 text-sm font-medium">{label}</h4>
+                    <code class="bg-muted block rounded px-2 py-1 text-sm break-all"
+                      >{data.envSettings[key]}</code
+                    >
+                  </div>
+                {/if}
+              {/each}
+              {#if data.envSettings['mail.smtp.credentials_set']}
+                <div>
+                  <h4 class="text-muted-foreground mb-1 text-sm font-medium">
+                    {m.settings_mail_env_credentials_label()}
+                  </h4>
+                  <code
+                    class="bg-muted inline-block rounded px-2 py-1 text-sm text-emerald-600 dark:text-emerald-400"
+                    >✓ {m.settings_mail_env_configured()}</code
+                  >
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        {#if hasGmail}
+          <div>
+            <h3 class="mb-3 text-sm font-semibold">Gmail</h3>
+            <div class="grid grid-cols-2 gap-4">
+              {#each gmailKeys as [key, label] (key)}
+                {#if data.envSettings[key]}
+                  <div>
+                    <h4 class="text-muted-foreground mb-1 text-sm font-medium">{label}</h4>
+                    <code class="bg-muted block rounded px-2 py-1 text-sm break-all"
+                      >{data.envSettings[key]}</code
+                    >
+                  </div>
+                {/if}
+              {/each}
+              {#if data.envSettings['mail.gmail.client_secret_set']}
+                <div>
+                  <h4 class="text-muted-foreground mb-1 text-sm font-medium">
+                    {m.settings_mail_env_client_secret_label()}
+                  </h4>
+                  <code
+                    class="bg-muted inline-block rounded px-2 py-1 text-sm text-emerald-600 dark:text-emerald-400"
+                    >✓ {m.settings_mail_env_configured()}</code
+                  >
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      </CardContent>
+    </Card>
+  {/if}
 
   <!--
     Send events list. "At-a-glance" framing — status summary in the header so

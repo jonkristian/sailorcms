@@ -309,6 +309,54 @@ export class SystemSettingsService {
       await this.setSetting('cache.maxSize', env.CACHE_MAX_SIZE, 'cache', 'Cache max size', 'env');
     }
 
+    // Mail settings — surface non-sensitive env values so the admin can see
+    // what `/sailor/settings/mail` has to work with without opening `.env`.
+    // Credentials (SMTP_USER/SMTP_PASS, GOOGLE_CLIENT_SECRET) stay env-only;
+    // for those we sync a `*_set` boolean presence flag instead. `source: 'env'`
+    // tags these rows so the UI knows to render them read-only.
+    if (env.SMTP_HOST) {
+      await this.setSetting('mail.smtp.host', env.SMTP_HOST, 'mail', 'SMTP host', 'env');
+    }
+    if (env.SMTP_PORT) {
+      await this.setSetting('mail.smtp.port', env.SMTP_PORT, 'mail', 'SMTP port', 'env');
+    }
+    if (env.SMTP_FROM) {
+      await this.setSetting('mail.smtp.from', env.SMTP_FROM, 'mail', 'SMTP from address', 'env');
+    }
+    if (env.SMTP_SECURE) {
+      await this.setSetting('mail.smtp.secure', env.SMTP_SECURE, 'mail', 'SMTP TLS forced', 'env');
+    }
+    if (env.SMTP_USER && env.SMTP_PASS) {
+      // Presence flag only — never the values themselves.
+      await this.setSetting(
+        'mail.smtp.credentials_set',
+        true,
+        'mail',
+        'SMTP credentials configured',
+        'env'
+      );
+    }
+    if (env.GOOGLE_CLIENT_ID) {
+      // Google OAuth client IDs are public identifiers (visible in any
+      // browser's OAuth redirect URL), so storing the value is fine.
+      await this.setSetting(
+        'mail.gmail.client_id',
+        env.GOOGLE_CLIENT_ID,
+        'mail',
+        'Google OAuth client ID',
+        'env'
+      );
+    }
+    if (env.GOOGLE_CLIENT_SECRET) {
+      await this.setSetting(
+        'mail.gmail.client_secret_set',
+        true,
+        'mail',
+        'Google OAuth client secret configured',
+        'env'
+      );
+    }
+
     // Most system settings now handled directly via environment variables
     // Database settings are only for user-configurable options
   }

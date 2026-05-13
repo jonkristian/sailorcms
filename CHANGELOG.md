@@ -2,7 +2,7 @@
 
 All notable changes to SailorCMS are documented here.
 
-## [Unreleased]
+## [0.7.0] - 13 May 2026
 
 ### Added
 
