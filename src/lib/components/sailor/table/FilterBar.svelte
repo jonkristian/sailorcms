@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, X } from '@lucide/svelte';
+  import { Filter, X } from '@lucide/svelte';
   import { Input } from 'sailorcms/components/ui/input/index.js';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import * as Select from 'sailorcms/components/ui/select/index.js';
@@ -72,13 +72,13 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-2">
-  <!-- Search Input -->
+  <!-- Filter Input -->
   {#if config.search}
     <div class="relative">
-      <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+      <Filter class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
       <Input
         type="text"
-        placeholder={m.filter_search_placeholder()}
+        placeholder={m.filter_placeholder()}
         value={tableFilters?.searchQuery ?? ''}
         class="h-9 w-64 pr-9 pl-9"
         oninput={(e) => {

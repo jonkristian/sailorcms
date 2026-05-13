@@ -43,7 +43,7 @@ async function initializeDatabase() {
 const db = new Proxy({} as any, {
   get(target, prop) {
     if (!dbInstance) {
-      throw new Error('Database not initialized. Call initializeDatabase() first or use getDb().');
+      throw new Error('Database not initialized. Await initializeDatabase() or getDb() first.');
     }
     return dbInstance[prop];
   }
@@ -51,8 +51,14 @@ const db = new Proxy({} as any, {
 
 export { db, initializeDatabase };
 
-// Get database instance (for other uses)
+/**
+ * Returns the `db` proxy after ensuring initialization has run. Safe to call
+ * from anywhere that can `await`. Use this instead of importing `db` directly
+ * if you can't rely on `sailor-hooks.ts` having warmed the instance yet (e.g.
+ * during HMR after `index.server.ts` reloaded but caller's module didn't).
+ */
 export async function getDb() {
+  await initializeDatabase();
   return db;
 }
 

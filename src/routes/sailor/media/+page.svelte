@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll, afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { LayoutGrid, List } from '@lucide/svelte';
@@ -21,7 +20,8 @@
   import MediaTable from './(components)/MediaTable.svelte';
   import {
     deleteFiles as deleteMediaFiles,
-    updateFilesTags as updateMediaFilesTags
+    updateFilesTags as updateMediaFilesTags,
+    getFile as getFileById
   } from 'sailorcms/remote/files.remote.js';
   import { uploadFiles, type UploadOptions } from 'sailorcms/core/files/upload';
   import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
@@ -118,6 +118,32 @@
 
   // Available tags are provided by the server-side load function
   // No need to fetch them client-side
+
+  // Omnibar links into individual files as `/sailor/media?focus=<id>`. On
+  // arrival, resolve the file (current page first, then a one-off fetch for
+  // older items not on this page) and open the edit modal. The param is
+  // stripped so refresh / filter changes don't re-open the dialog.
+  afterNavigate(async () => {
+    const focusId = page.url.searchParams.get('focus');
+    if (!focusId) return;
+    const next = new URL(page.url);
+    next.searchParams.delete('focus');
+    await goto(next.toString(), { replaceState: true, noScroll: true, keepFocus: true });
+
+    const fromList = files.find((f: FileWithTags) => f.id === focusId);
+    if (fromList) {
+      openEditModal(fromList);
+      return;
+    }
+    try {
+      const r = await getFileById({ fileId: focusId });
+      if (r.success && r.file) {
+        openEditModal(r.file as unknown as FileWithTags);
+      }
+    } catch (err) {
+      console.error('focus file fetch failed', err);
+    }
+  });
 
   function triggerFileUpload() {
     const input = document.createElement('input');

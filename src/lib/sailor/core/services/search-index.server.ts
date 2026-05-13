@@ -147,8 +147,11 @@ export class SearchIndexService {
   }
 
   /**
-   * Re-index a single entity item. Removes the index row if the entity is no
-   * longer searchable or the item no longer exists.
+   * Re-index a single entity item. Removes the index row if the entity has
+   * explicitly opted out (`options.searchable: false`) or the item no longer
+   * exists. Everything else is indexed by default — admin search ranges over
+   * the full index; `utils/data/search.ts` filters down to `searchable: true`
+   * entities for public site search.
    */
   static async reindexEntity(
     entityType: EntityType,
@@ -156,7 +159,7 @@ export class SearchIndexService {
     entityId: string
   ): Promise<void> {
     const def = getDefinition(entityType, entityName);
-    if (!def || def.options?.searchable !== true) {
+    if (!def || def.options?.searchable === false) {
       await SearchIndexService.delete({ entityType, entityName, entityId });
       return;
     }
@@ -184,16 +187,16 @@ export class SearchIndexService {
   }
 
   /**
-   * Full rebuild. Walks every searchable entity + every item and upserts them.
-   * Entries for non-searchable or missing items are left as-is; clear the table
-   * first if you want a pristine rebuild (the CLI does this).
+   * Full rebuild. Walks every entity + every item and upserts them. Entities
+   * with `options.searchable: false` are skipped (explicit opt-out for huge or
+   * sensitive collections); everything else is indexed.
    */
   static async reindexAll(): Promise<{ indexed: number; skipped: number }> {
     let indexed = 0;
     let skipped = 0;
 
     for (const [name, def] of Object.entries(collectionDefinitions) as Array<[string, any]>) {
-      if (def?.options?.searchable !== true) continue;
+      if (def?.options?.searchable === false) continue;
       const result = await getCollections(name, {
         status: 'all',
         includeBlocks: def.options?.blocks === true,
@@ -215,7 +218,7 @@ export class SearchIndexService {
     }
 
     for (const [name, def] of Object.entries(globalDefinitions) as Array<[string, any]>) {
-      if (def?.options?.searchable !== true) continue;
+      if (def?.options?.searchable === false) continue;
       const result = await getGlobals(name);
       const items = (result as any).items ?? [];
       for (const item of items) {

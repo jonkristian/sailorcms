@@ -51,10 +51,13 @@ export interface SearchResult {
 }
 
 /**
- * Frontend site search. Queries the `search_index` table, which is maintained
- * by SearchIndexService on save hooks. Only entities with
- * `options.searchable: true` in their template appear in the index (and thus
- * in results).
+ * Frontend site search. Queries the `search_index` table (maintained by
+ * SearchIndexService on save hooks). The index contains every entity that
+ * hasn't explicitly opted out via `options.searchable: false`; this function
+ * narrows results to entities the template marks `options.searchable: true`,
+ * so consumer sites only see content the developer has opted in publicly.
+ *
+ * Admin search lives in a separate path and skips this filter.
  *
  * @example
  * ```typescript
@@ -91,11 +94,20 @@ export async function search(query: string, options: SearchOptions = {}): Promis
   const ftsAvailable = await ensureFtsReady();
   const ftsQuery = ftsAvailable ? toFtsQuery(trimmed) : '';
 
+  // The index holds every entity that hasn't opted out — public search narrows
+  // back down to those with `options.searchable: true` so consumer site
+  // behavior is unchanged from the pre-admin-search world.
+  const publicAllowlist = collectPublicSearchableKeys();
+  if (publicAllowlist.size === 0) {
+    return { items: [], total: 0, totalByEntity: {}, hasMore: false };
+  }
+  const inAllowlist = (m: MatchRow) => publicAllowlist.has(`${m.entity_type}:${m.entity_name}`);
+
   let matches: MatchRow[] = [];
 
   if (ftsQuery) {
     try {
-      matches = await fetchFtsMatches(ftsQuery, status, scope);
+      matches = (await fetchFtsMatches(ftsQuery, status, scope)).filter(inAllowlist);
     } catch (err) {
       console.error('search(): FTS query failed', err);
     }
@@ -106,7 +118,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
   // at least see plausible matches.
   if (matches.length === 0) {
     try {
-      matches = await fetchLikeMatches(table, trimmed, status, scope);
+      matches = (await fetchLikeMatches(table, trimmed, status, scope)).filter(inAllowlist);
     } catch (err) {
       console.error('search(): LIKE query failed', err);
       return { items: [], total: 0, totalByEntity: {}, hasMore: false };
@@ -161,6 +173,17 @@ export async function search(query: string, options: SearchOptions = {}): Promis
 }
 
 // --- internals ---
+
+function collectPublicSearchableKeys(): Set<string> {
+  const keys = new Set<string>();
+  for (const [name, def] of Object.entries(collectionDefinitions)) {
+    if ((def as any)?.options?.searchable === true) keys.add(`collection:${name}`);
+  }
+  for (const [name, def] of Object.entries(globalDefinitions)) {
+    if ((def as any)?.options?.searchable === true) keys.add(`global:${name}`);
+  }
+  return keys;
+}
 
 type MatchRow = {
   entity_type: 'collection' | 'global';

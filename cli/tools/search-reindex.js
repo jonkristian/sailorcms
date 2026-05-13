@@ -179,7 +179,7 @@ async function reindexAll() {
   let skipped = 0;
 
   for (const [name, def] of Object.entries(collectionDefinitions)) {
-    if (def?.options?.searchable !== true) continue;
+    if (def?.options?.searchable === false) continue;
     const table = schema[`collection_${name}`];
     if (!table) {
       console.warn(`⚠ collection_${name} not in schema; skipping`);
@@ -202,7 +202,7 @@ async function reindexAll() {
   }
 
   for (const [name, def] of Object.entries(globalDefinitions)) {
-    if (def?.options?.searchable !== true) continue;
+    if (def?.options?.searchable === false) continue;
     const table = schema[`global_${name}`];
     if (!table) {
       console.warn(`⚠ global_${name} not in schema; skipping`);
@@ -238,7 +238,7 @@ export function registerSearchReindex(program) {
   program
     .command('search:reindex')
     .description(
-      'Rebuild the search_index table from all searchable entities (top-level fields only)'
+      'Rebuild the search_index table from all entities except those with options.searchable=false (top-level fields only)'
     )
     .action(async () => {
       try {

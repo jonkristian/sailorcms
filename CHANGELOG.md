@@ -2,6 +2,23 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Admin command palette** — `⌘K` / `Ctrl-K` anywhere under `/sailor/*` opens a global search over content (FTS, all statuses), files, users, and admin destinations. Locale-aware keyword aliases plus NFD/punctuation normalization mean `epost` finds Mail in EN and `mail` finds E-post in NB-NO. RBAC-gated so nothing surfaces that the user can't access.
+- **`sailorcms/utils/mail` barrel** — re-exports the public surface (`sendMail`, `isMailConfigured`, `isMailHealthy`, all four templates, layout helpers). Consumers stop reaching into subpaths.
+- **`submissionNotificationTemplate({ title, rows, message?, footerNote? })`** — generic contact-form-style notification template. HTML-escapes every input field so raw form values are safe to pass.
+
+### Changed
+
+- **`options.searchable: false` is the opt-out, not `true` the opt-in** — every collection/global is indexed by default. The public `utils/data/search()` keeps consumer behavior unchanged via a query-time allowlist. Run `npx sailor search:reindex` once on upgrade to backfill previously-excluded entities.
+- **In-table "Search" → "Filter"** on `collections/[slug]`, `media`, `users`, `taggables` — icon swap (`Search` → `Filter`), placeholder + i18n key. `useTableFilters` API unchanged.
+
+### Fixed
+
+- **DB-init flag drifted from the db module on HMR** — `sailor-hooks.ts` cached `dbInitialized = true` while Vite reloaded `index.server.ts` and nulled `dbInstance`, causing "Database not initialized" on the next request when the CLI ran against a live dev server. Dropped the local flag; `initializeDatabase()` is already idempotent via its own promise memo, so awaiting it per-request is correct and HMR-safe. `getDb()` now also awaits init so it lives up to the proxy's error-message hint.
+
 ## [0.7.0] - 13 May 2026
 
 ### Added

@@ -2,6 +2,7 @@
   import { Separator } from 'sailorcms/components/ui/separator/index.js';
   import * as Sidebar from 'sailorcms/components/ui/sidebar/index.js';
   import Breadcrumbs from 'sailorcms/components/sailor/Breadcrumbs.svelte';
+  import GlobalSearch from './global-search.svelte';
   import { page } from '$app/state';
 
   let { children } = $props();
@@ -15,6 +16,7 @@
     <Separator orientation="vertical" class="mx-2 data-[orientation=vertical]:h-4" />
     <Breadcrumbs title={page.data.page?.title} />
     <div class="ml-auto flex items-center gap-2">
+      <GlobalSearch />
       <!-- Route-specific actions -->
       {@render children?.()}
     </div>

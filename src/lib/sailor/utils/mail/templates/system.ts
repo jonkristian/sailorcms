@@ -11,7 +11,7 @@ export function testEmailTemplate(): EmailTemplate {
   const body = `
 <h1>Test email</h1>
 <p>If you're reading this, outbound mail from Sailor CMS is working correctly.</p>
-<p style="font-size: 14px; color: #64748b;">No action needed — you can close this.</p>`;
+<p style="font-size: 14px; color: #64748b;">No action needed — you can delete this.</p>`;
   return {
     subject,
     html: emailLayout({ body }),

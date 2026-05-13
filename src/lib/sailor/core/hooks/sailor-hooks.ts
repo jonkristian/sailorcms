@@ -82,13 +82,15 @@ function resolveRequestLocale(
   return baseLocale;
 }
 
-// Initialize database on server startup (avoid top-level await)
-let dbInitialized = false;
+// Initialize database on server startup (avoid top-level await). The local
+// `dbInitialized` flag we used to keep here drifted from index.server.ts on
+// HMR — Vite would reload index.server.ts (nulling dbInstance/dbPromise) while
+// this module stayed cached at `dbInitialized = true`, so the next request
+// early-returned and then hit "Database not initialized" on the proxy.
+// `initializeDatabase()` is already idempotent via its own `dbPromise` memo,
+// so awaiting it unconditionally per request is correct AND HMR-safe.
 async function ensureDatabaseInitialized() {
-  if (!dbInitialized) {
-    await initializeDatabase();
-    dbInitialized = true;
-  }
+  await initializeDatabase();
 }
 
 type User = {

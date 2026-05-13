@@ -259,7 +259,7 @@ export type EmailTemplate = {
 
 function defaultFooter(): string {
   const year = new Date().getFullYear();
-  return `<p style="line-height: 1.625; font-size: 12px !important; color: #64748b !important; text-align: center !important; margin: 0.4em 0 !important;">Sent by Sailor CMS &middot; &copy; ${year}</p>`;
+  return `<p style="line-height: 1.625; font-size: 12px !important; color: #64748b !important; text-align: center !important; margin: 0.4em 0 !important;">Sent via Sailor CMS &middot; &copy; ${year}</p>`;
 }
 
 /** Wraps body HTML in the standard email layout. */
