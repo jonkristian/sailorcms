@@ -4,6 +4,8 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.7.1] - 13 May 2026
+
 ### Added
 
 - **Admin command palette** — `⌘K` / `Ctrl-K` anywhere under `/sailor/*` opens a global search over content (FTS, all statuses), files, users, and admin destinations. Locale-aware keyword aliases plus NFD/punctuation normalization mean `epost` finds Mail in EN and `mail` finds E-post in NB-NO. RBAC-gated so nothing surfaces that the user can't access.
