@@ -4,6 +4,25 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **`site.lang` system setting** — BCP-47 tag for the public-site content language (e.g. `en`, `en-US`, `nb-NO`), set on `/sailor/settings`. Independent of the admin UI locale, since "Norwegian site, English admin" is a valid setup. Surfaced through `getSiteSettings()` as `siteLang` and consumed by `extractSEO()` for `og:locale`. The public site's `<html lang>` is the consumer's call — set it in `app.html`.
+- **SEO meta-tag upgrade** in `utils/content/seo.ts` — `generateMetaTags()` now emits `og:type`, `og:site_name`, `og:locale` (xx_YY from `siteLang`), `<meta name="author">`, plus `article:published_time` / `article:modified_time` / `article:author` / `article:tag` when `og:type === 'article'`. `extractSEO()` accepts `siteLang`, `ogType`, and `authorName` and auto-derives `published_time` / `modified_time` / `tags` from the item. **`authorName` is opt-in by design** — sailor never reads the item's `author` column for it, since that column tracks who last edited the row (which a migration or admin fix can desync from who actually wrote it). Pass it explicitly when you want a byline.
+- **`generateJsonLd(item, options)` in `utils/content/seo.ts`** — emits `<script type="application/ld+json">` blocks for `BlogPosting` (when `type: 'article'`) and `BreadcrumbList` (when `item.breadcrumbs` is populated via `includeBreadcrumbs: true` on `getCollections`). Absolute URLs derive from `siteUrl`; without it, image / `mainEntityOfPage` / breadcrumb item URLs are skipped rather than emitting Google-rejected relative paths. JSON inside the script tag escapes `</` to avoid premature tag close. Dev-site `(site)/blog/[slug]` + `(site)/pages/[slug]` wired up as working examples.
+
+### Changed
+
+- **`core:init` / `core:update` refuse to run inside the sailorcms package source** — same `isCorePackage()` gate as `doctor --fix`. Prevents a newcomer who cloned the repo from accidentally overwriting upstream templates/config with itself.
+- **Generator warns on `many-to-many` relations inside array `items.properties`** — silently dropped before (no junction emitted, save/load discards values). Still unsupported structurally; warning makes the gap visible. Workaround: model the relation at the parent entity level. See `docs/core-concepts/templates.md`.
+
+### Fixed
+
+- **Confirm-password input now stays red while focused** — was using `class="border-red-500"`, which the Input's `focus-visible:border-ring` beat on focus. Switched signup + reset-password to `aria-invalid`, which the component already styles with `aria-invalid:border-destructive` + `aria-invalid:ring-destructive` and survives focus. Live "Passwords do not match" caption below the input removed in favour of the border-only signal; submit-time error toast unchanged.
+- **Login tab order skips the "Forgot password?" link** — `tabindex={-1}` on the inline link so keyboard users tab email → password → submit instead of stopping on the link between the two inputs.
+- **`canonical_url` no longer auto-filled on save** — `+page.svelte` was writing `${siteUrl}/${slug}` whenever the field was blank, baking a self-canonical the author never asked for. Now opt-in only; `extractSEO()` already only emits `<link rel=canonical>` when the field is truthy. Wipe legacy rows: `UPDATE collection_<x> SET canonical_url = NULL WHERE canonical_url IS NOT NULL` for any table that has the column.
+- **`noindex` write path stores a real boolean** — was casting to `'true'`/`'false'` strings under a stale "column is TEXT" comment, but the schema is `integer({ mode: 'boolean' })`. Old rows can drift so the admin toggle reads ON while `extractSEO()` disagrees. Cleanup: `UPDATE collection_<x> SET noindex = 0 WHERE noindex IS NULL OR noindex != 0`.
+- **Admin `<html lang>` now tracks the active paraglide locale** — was hard-stuck at `en` regardless of the admin user's language preference, hurting screen readers + browser translation. Sailor's hook rewrites the admin tree's `<html lang="…">` per request.
+
 ## [0.7.1] - 13 May 2026
 
 ### Added

@@ -161,6 +161,7 @@
               <Label for="password">{m.auth_field_password()}</Label>
               <a
                 href="/sailor/auth/forgot-password"
+                tabindex={-1}
                 class="text-muted-foreground hover:text-foreground text-xs hover:underline"
               >
                 {m.auth_login_forgot_password()}

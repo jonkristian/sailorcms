@@ -17,10 +17,11 @@ export async function getSiteSettings(): Promise<SiteConfig> {
     // Get core site settings from SystemSettingsService
     const { SystemSettingsService } = await import('sailorcms/core/services/settings.server');
 
-    const [siteName, siteUrl, siteDescription, registrationEnabled] = await Promise.all([
+    const [siteName, siteUrl, siteDescription, siteLang, registrationEnabled] = await Promise.all([
       SystemSettingsService.getSetting('site.name'),
       SystemSettingsService.getSetting('site.url'),
       SystemSettingsService.getSetting('site.description'),
+      SystemSettingsService.getSetting('site.lang'),
       SystemSettingsService.isRegistrationEnabled()
     ]);
 
@@ -28,6 +29,7 @@ export async function getSiteSettings(): Promise<SiteConfig> {
       siteName: siteName || undefined,
       siteUrl: siteUrl || undefined,
       siteDescription: siteDescription || undefined,
+      siteLang: siteLang || undefined,
       registrationEnabled: registrationEnabled ?? true // Default to true if undefined
     };
   } catch (error) {
@@ -37,6 +39,7 @@ export async function getSiteSettings(): Promise<SiteConfig> {
       siteName: undefined,
       siteUrl: undefined,
       siteDescription: undefined,
+      siteLang: undefined,
       registrationEnabled: true
     };
   }

@@ -23,6 +23,8 @@
     // svelte-ignore state_referenced_locally
     siteDescription: data.settings.siteDescription,
     // svelte-ignore state_referenced_locally
+    siteLang: data.settings.siteLang,
+    // svelte-ignore state_referenced_locally
     allowRegistration: data.settings.allowRegistration
   });
 
@@ -36,6 +38,7 @@
       form.append('siteName', formData.siteName);
       form.append('siteUrl', formData.siteUrl);
       form.append('siteDescription', formData.siteDescription);
+      form.append('siteLang', formData.siteLang);
       if (formData.allowRegistration) {
         form.append('allowRegistration', 'on');
       }
@@ -132,6 +135,20 @@
           />
           <p class="text-muted-foreground text-xs">
             {m.settings_field_site_description_help()}
+          </p>
+        </div>
+
+        <!-- Site Language -->
+        <div class="space-y-2">
+          <Label for="siteLang">{m.settings_field_site_lang()}</Label>
+          <Input
+            id="siteLang"
+            name="siteLang"
+            bind:value={formData.siteLang}
+            placeholder="en, en-US, nb-NO"
+          />
+          <p class="text-muted-foreground text-xs">
+            {m.settings_field_site_lang_help()}
           </p>
         </div>
 

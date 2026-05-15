@@ -17,6 +17,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
   const siteName = await SystemSettingsService.getSetting('site.name');
   const siteUrl = await SystemSettingsService.getSetting('site.url');
   const siteDescription = await SystemSettingsService.getSetting('site.description');
+  const siteLang = await SystemSettingsService.getSetting('site.lang');
   const allowRegistration = await SystemSettingsService.isRegistrationEnabled();
 
   // Create header actions for payload preview
@@ -37,6 +38,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
       siteName: siteName || 'My Website',
       siteUrl: siteUrl || '',
       siteDescription: siteDescription || '',
+      siteLang: siteLang || '',
       allowRegistration: allowRegistration
     },
     headerActions,
@@ -56,7 +58,13 @@ export const actions: Actions = {
     const siteName = formData.get('siteName') as string;
     const siteUrl = formData.get('siteUrl') as string;
     const siteDescription = formData.get('siteDescription') as string;
+    const siteLang = formData.get('siteLang') as string;
     const allowRegistration = formData.get('allowRegistration') === 'on';
+
+    // BCP-47 sanity: letters, digits, dashes only. Empty string clears.
+    if (siteLang && !/^[A-Za-z0-9-]+$/.test(siteLang.trim())) {
+      return fail(400, { error: 'Site language must be a BCP-47 tag (e.g. en, en-US, nb-NO)' });
+    }
 
     // Basic validation
     if (!siteName || siteName.trim().length === 0) {
@@ -78,6 +86,14 @@ export const actions: Actions = {
               'Site description'
             )
           : SystemSettingsService.deleteSetting('site.description'),
+        siteLang && siteLang.trim()
+          ? SystemSettingsService.setSetting(
+              'site.lang',
+              siteLang.trim(),
+              'site',
+              'Default language of the public site (BCP-47, e.g. en, nb-NO)'
+            )
+          : SystemSettingsService.deleteSetting('site.lang'),
         SystemSettingsService.setRegistrationEnabled(allowRegistration)
       ]);
 

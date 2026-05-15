@@ -265,9 +265,28 @@ async function handleSailorRequest(
     });
   }
 
-  const response = await localeStore.run(locale, () => resolve(event));
+  // Stamp the admin tree's `<html lang>` from the active paraglide locale so
+  // the admin UI's lang attribute tracks the user's language toggle (screen
+  // readers, browser translation). Public-site `<html lang>` is the
+  // consumer's responsibility — set it in `app.html` (static sites) or via
+  // their own transformPageChunk (dynamic per-route language).
+  const isAdminRoute = event.url.pathname.startsWith('/sailor');
+  const response = await localeStore.run(locale, () =>
+    resolve(
+      event,
+      isAdminRoute
+        ? {
+            transformPageChunk: ({ html }) =>
+              html.replace(/<html(\s+[^>]*)?>/, (_match, attrs) => {
+                const cleaned = (attrs ?? '').replace(/\s+lang="[^"]*"/i, '');
+                return `<html lang="${locale}"${cleaned}>`;
+              })
+          }
+        : undefined
+    )
+  );
 
-  if (event.url.pathname.startsWith('/sailor')) {
+  if (isAdminRoute) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
   }
 

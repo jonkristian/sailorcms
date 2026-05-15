@@ -10,6 +10,7 @@
 <svelte:head>
   <!-- SEO Meta Tags - Generated from Sailor CMS SEO utilities -->
   {@html data.metaTags}
+  {@html data.jsonLd}
 </svelte:head>
 
 <article class="page-content">

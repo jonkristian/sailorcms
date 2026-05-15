@@ -14,7 +14,8 @@ import {
   stripLegacyDbScripts,
   printManualActionBanner,
   dedupeNestedSvelteDeps,
-  dedupeNestedSailorcmsDeps
+  dedupeNestedSailorcmsDeps,
+  isCorePackage
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +46,16 @@ export function registerCoreUpdate(program) {
         if (!hasSvelteKit) {
           console.error(
             "❌ This doesn't appear to be a SvelteKit project. Please run this command in a SvelteKit project."
+          );
+          process.exit(1);
+        }
+
+        if (await isCorePackage(targetDir)) {
+          console.error(
+            '❌ Detected sailorcms package source — `core:update` is for consumer installs only.'
+          );
+          console.error(
+            '   This command pulls core files from the package into a consumer; running it here would overwrite the upstream source with itself.'
           );
           process.exit(1);
         }

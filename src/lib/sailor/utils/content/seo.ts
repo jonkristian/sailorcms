@@ -51,15 +51,58 @@ type SEOItemInput = Partial<{
   canonical_url: string;
   slug: string;
   noindex: boolean;
+  // Used by og:type='article' enrichment — all optional. `author` is
+  // intentionally absent: a row's `author` column tracks who last edited
+  // it, not who wrote it, so we don't auto-publish it. Pass `authorName`
+  // explicitly via options if a byline should appear.
+  created_at: unknown;
+  updated_at: unknown;
+  published_at: unknown;
+  tags: unknown;
 }> & {
   [key: string]: any; // Allow any additional fields from collections/globals
 };
 
+function toIsoDate(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return isNaN(value.getTime()) ? undefined : value.toISOString();
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? undefined : d.toISOString();
+  }
+  return undefined;
+}
+
+function extractTagNames(item: SEOItemInput): string[] {
+  const raw = item.tags;
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const t of raw) {
+    if (typeof t === 'string') out.push(t);
+    else if (t && typeof t === 'object') {
+      const v =
+        (t as { name?: string; title?: string; label?: string }).name ??
+        (t as { title?: string }).title ??
+        (t as { label?: string }).label;
+      if (typeof v === 'string' && v) out.push(v);
+    }
+  }
+  return out;
+}
+
 export async function extractSEO(
   item: SEOItemInput,
-  options: { siteName?: string } = {}
+  options: {
+    siteName?: string;
+    /** BCP-47 — pass `siteConfig.lang` from `getSiteSettings()`. Emitted as og:locale (xx_YY). */
+    siteLang?: string;
+    /** og:type — defaults to 'website'. Pass 'article' for blog posts; the helper then auto-derives published_time / modified_time / tags from the item. */
+    ogType?: string;
+    /** Author display name surfaced as `<meta name=author>` and `article:author`. Pass explicitly — sailor never reads the item's `author` column for this, because that column tracks who last edited the row (which a migration or admin fix can desync from who actually wrote it). */
+    authorName?: string;
+  } = {}
 ): Promise<SEOData> {
-  const { siteName } = options;
+  const { siteName, siteLang, ogType = 'website', authorName } = options;
 
   // Title with fallbacks: meta_title > title
   let title = item.meta_title || item.title || 'Untitled';
@@ -75,50 +118,22 @@ export async function extractSEO(
   const ogDescription = item.og_description || item.meta_description || description;
 
   // OG Image with fallbacks: og_image > featured_image > image
-  let ogImage = '';
-
-  // Helper function to extract URL from different file object structures
-  const getFileUrl = async (fileObj: unknown): Promise<string> => {
-    if (!fileObj) return '';
-
-    // Direct URL property (already resolved file object)
-    if (typeof (fileObj as { url?: string }).url === 'string')
-      return (fileObj as { url: string }).url;
-
-    // Array of file objects (take first)
-    if (Array.isArray(fileObj) && fileObj.length > 0) {
-      return getFileUrl(fileObj[0]);
-    }
-
-    // File UUID string (needs resolution)
-    if (typeof fileObj === 'string' && fileObj.match(/^[0-9a-f-]{36}$/i)) {
-      try {
-        return await getFile(fileObj);
-      } catch (error) {
-        console.warn('Failed to resolve file UUID:', fileObj, error);
-        return '';
-      }
-    }
-
-    // Direct URL string
-    if (typeof fileObj === 'string' && fileObj.startsWith('http')) {
-      return fileObj;
-    }
-
-    return '';
-  };
-
-  // Try to get OG image from multiple sources
-  ogImage =
-    (await getFileUrl(item.og_image)) ||
-    (await getFileUrl(item.featured_image)) ||
-    (await getFileUrl(item.image));
+  const ogImage =
+    (await fileToUrl(item.og_image)) ||
+    (await fileToUrl(item.featured_image)) ||
+    (await fileToUrl(item.image));
 
   // Canonical URL: only emit if the consumer explicitly filled the
   // `canonical_url` field. Auto-generation from slug + baseUrl was removed
   // because cross-domain or duplicate-content sites don't want a
   // self-canonical baked in by default.
   const canonical = item.canonical_url;
+
+  // Article-specific enrichment — only meaningful when og:type === 'article'.
+  // Always extracted (cheap) but only the meta-tag emitter gates on ogType.
+  const publishedTime = toIsoDate(item.published_at) ?? toIsoDate(item.created_at);
+  const modifiedTime = toIsoDate(item.updated_at);
+  const tags = extractTagNames(item);
 
   return {
     title,
@@ -128,7 +143,13 @@ export async function extractSEO(
     ogImage,
     canonical,
     noindex: item.noindex === true,
-    siteName
+    siteName,
+    siteLang,
+    ogType,
+    publishedTime,
+    modifiedTime,
+    authorName,
+    tags: tags.length ? tags : undefined
   };
 }
 
@@ -143,7 +164,7 @@ export async function extractSEO(
  * ```
  */
 export function generateMetaTags(seo: SEOData): string {
-  const tags = [];
+  const tags: string[] = [];
 
   // Basic meta tags
   if (seo.title) {
@@ -154,6 +175,10 @@ export function generateMetaTags(seo: SEOData): string {
     tags.push(`<meta name="description" content="${escapeHtml(seo.description)}" />`);
   }
 
+  if (seo.authorName) {
+    tags.push(`<meta name="author" content="${escapeHtml(seo.authorName)}" />`);
+  }
+
   if (seo.canonical) {
     tags.push(`<link rel="canonical" href="${escapeHtml(seo.canonical)}" />`);
   }
@@ -162,7 +187,10 @@ export function generateMetaTags(seo: SEOData): string {
     tags.push(`<meta name="robots" content="noindex, nofollow" />`);
   }
 
-  // Open Graph tags
+  // Open Graph
+  const ogType = seo.ogType || 'website';
+  tags.push(`<meta property="og:type" content="${escapeHtml(ogType)}" />`);
+
   if (seo.ogTitle) {
     tags.push(`<meta property="og:title" content="${escapeHtml(seo.ogTitle)}" />`);
   }
@@ -177,6 +205,39 @@ export function generateMetaTags(seo: SEOData): string {
 
   if (seo.canonical) {
     tags.push(`<meta property="og:url" content="${escapeHtml(seo.canonical)}" />`);
+  }
+
+  if (seo.siteName) {
+    tags.push(`<meta property="og:site_name" content="${escapeHtml(seo.siteName)}" />`);
+  }
+
+  if (seo.siteLang) {
+    // og:locale wants xx_YY format
+    tags.push(
+      `<meta property="og:locale" content="${escapeHtml(seo.siteLang.replace('-', '_'))}" />`
+    );
+  }
+
+  // article:* — only meaningful when og:type === 'article'
+  if (ogType === 'article') {
+    if (seo.publishedTime) {
+      tags.push(
+        `<meta property="article:published_time" content="${escapeHtml(seo.publishedTime)}" />`
+      );
+    }
+    if (seo.modifiedTime) {
+      tags.push(
+        `<meta property="article:modified_time" content="${escapeHtml(seo.modifiedTime)}" />`
+      );
+    }
+    if (seo.authorName) {
+      tags.push(`<meta property="article:author" content="${escapeHtml(seo.authorName)}" />`);
+    }
+    if (seo.tags) {
+      for (const t of seo.tags) {
+        tags.push(`<meta property="article:tag" content="${escapeHtml(t)}" />`);
+      }
+    }
   }
 
   // Twitter Card tags
@@ -195,6 +256,146 @@ export function generateMetaTags(seo: SEOData): string {
   }
 
   return tags.join('\n  ');
+}
+
+/**
+ * Generate JSON-LD structured data for an item.
+ *
+ * Emits one or two `<script type="application/ld+json">` blocks:
+ *   - Article / BlogPosting when `type: 'article'`
+ *   - BreadcrumbList when `item.breadcrumbs` is populated (set
+ *     `includeBreadcrumbs: true` on `getCollections()` to get them).
+ *
+ * Absolute URLs require `siteUrl` (passing `getSiteSettings().siteUrl` is the
+ * canonical wiring). Without it, image / url / breadcrumb fields are skipped
+ * gracefully — Google rejects relative URLs in JSON-LD, so it's safer to
+ * omit than emit broken data.
+ *
+ * @example
+ * ```typescript
+ * const post = await getCollections('posts', { itemSlug, status: 'published', includeBreadcrumbs: true });
+ * const siteConfig = await getSiteSettings();
+ * const jsonLd = await generateJsonLd(post, {
+ *   type: 'article',
+ *   siteName: siteConfig.siteName,
+ *   siteUrl: siteConfig.siteUrl,
+ *   url: siteConfig.siteUrl ? `${siteConfig.siteUrl}${post.url}` : undefined
+ * });
+ * // {@html jsonLd} in <svelte:head>
+ * ```
+ */
+export async function generateJsonLd(
+  item: SEOItemInput & { breadcrumbs?: Array<{ label: string; url: string }>; url?: string },
+  options: {
+    siteName?: string;
+    /** Absolute origin (e.g. 'https://example.com') used to resolve relative paths into absolute URLs. */
+    siteUrl?: string;
+    /** Article schema when 'article'; nothing emitted for the page-level block on 'website'. Breadcrumbs emit regardless. */
+    type?: 'article' | 'website';
+    /** Canonical absolute URL of this page. Falls back to `siteUrl + item.url` when both are available. */
+    url?: string;
+    /** Author display name emitted as the Article's `author.name`. Pass explicitly — sailor doesn't auto-derive from `item.author`, since that column tracks who last edited the row, not who wrote it. */
+    authorName?: string;
+  } = {}
+): Promise<string> {
+  const { siteName, siteUrl, type = 'website', authorName } = options;
+  const blocks: string[] = [];
+
+  const absolutize = (path: string | undefined): string | undefined => {
+    if (!path) return undefined;
+    if (/^https?:\/\//i.test(path)) return path;
+    if (!siteUrl) return undefined;
+    const base = siteUrl.replace(/\/+$/, '');
+    return path.startsWith('/') ? `${base}${path}` : `${base}/${path}`;
+  };
+
+  const pageUrl =
+    options.url ??
+    absolutize(typeof item.canonical_url === 'string' ? item.canonical_url : undefined) ??
+    absolutize(item.url);
+
+  if (type === 'article') {
+    const headline = item.meta_title || item.title || 'Untitled';
+    const description = item.meta_description || item.excerpt || item.description || undefined;
+    const datePublished = toIsoDate(item.published_at) ?? toIsoDate(item.created_at);
+    const dateModified = toIsoDate(item.updated_at);
+    const tags = extractTagNames(item);
+
+    // og_image / featured_image / image — same fallback chain as extractSEO
+    let imageUrl: string | undefined;
+    for (const candidate of [item.og_image, item.featured_image, item.image]) {
+      const url = await fileToUrl(candidate);
+      if (url) {
+        imageUrl = absolutize(url) ?? (/^https?:\/\//i.test(url) ? url : undefined);
+        if (imageUrl) break;
+      }
+    }
+
+    const article: Record<string, unknown> = {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline
+    };
+    if (description) article.description = description;
+    if (imageUrl) article.image = imageUrl;
+    if (datePublished) article.datePublished = datePublished;
+    if (dateModified) article.dateModified = dateModified;
+    if (authorName) article.author = { '@type': 'Person', name: authorName };
+    if (siteName) article.publisher = { '@type': 'Organization', name: siteName };
+    if (pageUrl) article.mainEntityOfPage = { '@type': 'WebPage', '@id': pageUrl };
+    if (tags.length) article.keywords = tags.join(', ');
+
+    blocks.push(renderJsonLdBlock(article));
+  }
+
+  if (Array.isArray(item.breadcrumbs) && item.breadcrumbs.length > 0 && siteUrl) {
+    const itemListElement = item.breadcrumbs.map((crumb, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: crumb.label,
+      item: absolutize(crumb.url)
+    }));
+    // Append the current page as the tail if we have a url + title for it
+    if (pageUrl && (item.title || item.meta_title)) {
+      itemListElement.push({
+        '@type': 'ListItem',
+        position: itemListElement.length + 1,
+        name: item.meta_title || item.title || '',
+        item: pageUrl
+      });
+    }
+    const breadcrumbList = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement
+    };
+    blocks.push(renderJsonLdBlock(breadcrumbList));
+  }
+
+  return blocks.join('\n  ');
+}
+
+function renderJsonLdBlock(data: Record<string, unknown>): string {
+  // JSON inside a <script> needs `</` escaped to avoid prematurely closing the tag.
+  const json = JSON.stringify(data).replace(/<\//g, '<\\/');
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
+/** Same fallback shape as extractSEO's getFileUrl, but factored out so generateJsonLd reuses it. */
+async function fileToUrl(fileObj: unknown): Promise<string> {
+  if (!fileObj) return '';
+  if (typeof (fileObj as { url?: string }).url === 'string')
+    return (fileObj as { url: string }).url;
+  if (Array.isArray(fileObj) && fileObj.length > 0) return fileToUrl(fileObj[0]);
+  if (typeof fileObj === 'string' && fileObj.match(/^[0-9a-f-]{36}$/i)) {
+    try {
+      return await getFile(fileObj);
+    } catch {
+      return '';
+    }
+  }
+  if (typeof fileObj === 'string' && fileObj.startsWith('http')) return fileObj;
+  return '';
 }
 
 /**

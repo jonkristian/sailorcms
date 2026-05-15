@@ -513,25 +513,62 @@ Sailor's own password-reset, email-verification and admin test-email flows use t
 
 ## SEO
 
+Sailor ships three helpers in `sailorcms/utils/content/seo`:
+
+- **`extractSEO(item, options)`** — pulls SEO fields off an item with sensible fallbacks (`meta_title` → `title`, `meta_description` → `excerpt`, OG image walks `og_image` → `featured_image` → `image`). Auto-derives `published_time` / `modified_time` / `tags` for articles. **Author bylines are opt-in only** — pass `authorName` explicitly via options if you want it surfaced; sailor never reads the item's `author` column for this (that column tracks who last edited the row, which a migration or admin fix can desync from who actually wrote it).
+- **`generateMetaTags(seo)`** — renders `<title>`, `<meta name="description">`, `<link rel="canonical">`, full Open Graph block (`og:type`, `og:title`, `og:description`, `og:image`, `og:url`, `og:site_name`, `og:locale`), Twitter Card tags, `<meta name="author">`, and `article:*` properties when `ogType === 'article'`.
+- **`generateJsonLd(item, options)`** — emits `<script type="application/ld+json">` blocks: `BlogPosting` when `type: 'article'`, plus `BreadcrumbList` when `item.breadcrumbs` is populated. Absolute URLs need `siteUrl`; without it, image / mainEntityOfPage / breadcrumb URLs are skipped (Google rejects relative URLs).
+
 ```typescript
-import { extractSEO, generateMetaTags } from 'sailorcms/utils/content/seo';
+import { getCollections, getSiteSettings } from 'sailorcms/utils/index';
+import { extractSEO, generateMetaTags, generateJsonLd } from 'sailorcms/utils/content/seo';
 
 // Get post with SEO fields (automatically included with seo: true)
-const post = await getCollections('posts', { itemSlug: 'my-post' });
+const post = await getCollections('posts', {
+  itemSlug: 'my-post',
+  includeBreadcrumbs: true, // optional — enables BreadcrumbList JSON-LD
+  includeAuthors: true // optional — populates post.author with { id, name, email }
+});
+const siteConfig = await getSiteSettings();
 
-// Extract SEO data with smart fallbacks
+// Author byline is opt-in. For a small personal blog where author === editor
+// this is fine; on a multi-author site you'd want a dedicated `byline` field
+// on the template so it's stable across edits and not tied to user accounts.
+const authorName = post.author && typeof post.author === 'object' ? post.author.name : undefined;
+
 const seo = await extractSEO(post, {
-  siteName: 'My Blog',
-  baseUrl: 'https://myblog.com',
-  basePath: '/articles/' // Use collection's basePath option
+  siteName: siteConfig.siteName,
+  siteLang: siteConfig.siteLang, // BCP-47 tag — emitted as og:locale (xx_YY)
+  ogType: 'article', // → article:* meta tags + BlogPosting JSON-LD
+  authorName
 });
 
-// Generate HTML meta tags
 const metaTags = generateMetaTags(seo);
+const jsonLd = await generateJsonLd(post, {
+  type: 'article',
+  siteName: siteConfig.siteName,
+  siteUrl: siteConfig.siteUrl,
+  authorName
+});
 
-// Use in Svelte
-// <svelte:head>{@html metaTags}</svelte:head>
+// In +page.svelte:
+// <svelte:head>
+//   {@html data.metaTags}
+//   {@html data.jsonLd}
+// </svelte:head>
 ```
+
+### What gets `ogType: 'article'`
+
+Use `'article'` for editorial / blog / news content. Skip it (defaults to `'website'`) for marketing pages, landing pages, product pages, etc. Stamping `BlogPosting` on non-article content gets flagged in Search Console as "structured data with unusable type" — it's not a penalty, but it's noise. Product pages need `Product` schema (write manually); homepages typically need `WebSite` / `Organization` in the root layout (separate from per-page SEO).
+
+### Site language
+
+`getSiteSettings().siteLang` returns the BCP-47 tag set on `/sailor/settings` (e.g. `en`, `nb-NO`). Independent of the admin UI locale, so "Norwegian site, English admin" is a valid setup. Pass it to `extractSEO` for `og:locale`. For `<html lang>` on the public site, set it directly in your `app.html` (`<html lang="nb-NO">`) — for the common case where the site language doesn't vary per route, that's simpler than threading a transform through the hook.
+
+### Canonical URLs
+
+The `canonical_url` field is **opt-in only** — no auto-generation. Leave it blank for the common case (one page, one URL) and search engines figure it out. Fill it explicitly for cross-domain syndication, URL aliases, or localized variants.
 
 ## Image Transformations & Responsive Images
 
@@ -719,23 +756,34 @@ export async function load() {
 ```typescript
 // +page.server.ts
 import { getCollections, getSiteSettings } from 'sailorcms/utils/index';
-import { extractSEO } from 'sailorcms/utils/content/seo';
+import { extractSEO, generateMetaTags, generateJsonLd } from 'sailorcms/utils/content/seo';
 import type { Post } from '$sailor/generated/types';
 
 export async function load({ params }) {
   const post = await getCollections<Post>('posts', {
-    itemSlug: params.slug
+    itemSlug: params.slug,
+    includeBreadcrumbs: true,
+    includeAuthors: true
   });
 
-  const config = await getSiteSettings();
+  const siteConfig = await getSiteSettings();
+  const authorName = post.author && typeof post.author === 'object' ? post.author.name : undefined;
 
   const seo = await extractSEO(post, {
-    siteName: config.siteName,
-    baseUrl: 'https://yoursite.com',
-    basePath: '/articles/'
+    siteName: siteConfig.siteName,
+    siteLang: siteConfig.siteLang,
+    ogType: 'article',
+    authorName
+  });
+  const metaTags = generateMetaTags(seo);
+  const jsonLd = await generateJsonLd(post, {
+    type: 'article',
+    siteName: siteConfig.siteName,
+    siteUrl: siteConfig.siteUrl,
+    authorName
   });
 
-  return { post, seo };
+  return { post, metaTags, jsonLd };
 }
 ```
 

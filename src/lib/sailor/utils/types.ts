@@ -76,6 +76,18 @@ export interface SEOData {
   canonical?: string;
   noindex?: boolean;
   siteName?: string;
+  /** BCP-47 language tag for og:locale (emitted as xx_YY). Pulled from site.lang. */
+  siteLang?: string;
+  /** og:type — defaults to 'website'; pass 'article' for blog posts and similar. */
+  ogType?: string;
+  /** ISO 8601 — emitted as article:published_time when og:type is 'article'. */
+  publishedTime?: string;
+  /** ISO 8601 — emitted as article:modified_time when og:type is 'article'. */
+  modifiedTime?: string;
+  /** Author display name — emitted as <meta name=author> and article:author. */
+  authorName?: string;
+  /** Article tags — emitted as one article:tag per entry when og:type is 'article'. */
+  tags?: string[];
 }
 
 // Settings types
@@ -83,6 +95,8 @@ export interface SiteConfig {
   siteName?: string;
   siteUrl?: string;
   siteDescription?: string;
+  /** BCP-47 language tag for public-site content (e.g. 'en', 'en-US', 'nb-NO'). Independent of the admin UI locale. */
+  siteLang?: string;
   contactEmail?: string;
   socialMedia?: Array<{ title: string; url: string }>;
   registrationEnabled?: boolean;

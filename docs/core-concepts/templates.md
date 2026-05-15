@@ -135,15 +135,15 @@ export const postsCollection: CollectionDefinition = {
 
 ### Collection Options
 
-| Option       | Type                          | Description                                                                                                                     |
-| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `titleField` | `string`                      | Field to display in admin lists and overviews                                                                                   |
-| `seo`        | `boolean`                     | Adds SEO fields (meta_title, meta_description, og_title, og_description, og_image, canonical_url, noindex)                      |
-| `blocks`     | `boolean`                     | Enable/disable blocks functionality (default: `true`)                                                                           |
-| `basePath`   | `string`                      | Base URL path for preview links and SEO canonical URLs                                                                          |
-| `sortable`   | `boolean`                     | Enable drag-and-drop sorting on the collection table                                                                            |
-| `nestable`   | `boolean`                     | Enable parent-child hierarchical relationships                                                                                  |
-| `revisions`  | `boolean \| { keep: number }` | Snapshot a revision on every save. `true` keeps the last 50; pass `{ keep: N }` to override. See [Revisions](#revisions) below. |
+| Option       | Type                          | Description                                                                                                                                                                                                     |
+| ------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `titleField` | `string`                      | Field to display in admin lists and overviews                                                                                                                                                                   |
+| `seo`        | `boolean`                     | Adds SEO fields (meta_title, meta_description, og_title, og_description, og_image, canonical_url, noindex)                                                                                                      |
+| `blocks`     | `boolean`                     | Enable/disable blocks functionality (default: `true`)                                                                                                                                                           |
+| `basePath`   | `string`                      | URL prefix prepended to each item's slug for the admin preview button and the `.url` returned by `getCollections()` (e.g. `/blog/`). Canonical URLs are opt-in and only emitted when an author fills the field. |
+| `sortable`   | `boolean`                     | Enable drag-and-drop sorting on the collection table                                                                                                                                                            |
+| `nestable`   | `boolean`                     | Enable parent-child hierarchical relationships                                                                                                                                                                  |
+| `revisions`  | `boolean \| { keep: number }` | Snapshot a revision on every save. `true` keeps the last 50; pass `{ keep: N }` to override. See [Revisions](#revisions) below.                                                                                 |
 
 ### Registration
 
@@ -390,6 +390,12 @@ Most fields support these common options:
 - `description: string` - Help text below field
 - `hidden: boolean` - Hide field from admin interface
 - `default: any` - Default value for new entries
+
+### Relations inside array rows
+
+`one-to-one` / `many-to-one` / `one-to-many` relations declared inside an array's `items.properties` are supported. **`many-to-many` is not** — no junction table is generated, and the save/load paths silently drop values. `db:update` emits a warning if it sees one.
+
+If you need a many-to-many relationship per array row, declare it at the parent entity level instead and link rows by ID.
 
 ## Settings Configuration
 

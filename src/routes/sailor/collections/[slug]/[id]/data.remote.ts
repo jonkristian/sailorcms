@@ -124,15 +124,10 @@ export const saveCollectionItem = command(
             tagFields[key] = Array.isArray(value) ? value : [];
           }
         } else if (fieldDef?.type === 'boolean') {
-          // Special handling for noindex field - store as string since DB column is TEXT
-          if (key === 'noindex') {
-            // Handle various boolean representations
-            const boolValue =
-              value === true || value === 'true' || value === '1' || value === 1 || value === '1.0';
-            regularFields[key] = boolValue ? 'true' : 'false';
-          } else {
-            regularFields[key] = Boolean(value);
-          }
+          // Hidden-input form values arrive as strings ('true', 'false', '', '1'),
+          // toggles send real booleans. Coerce to boolean once — drizzle stores
+          // the int via { mode: 'boolean' }.
+          regularFields[key] = value === true || value === 'true' || value === '1' || value === 1;
         } else {
           // Apply normalization for core relation field parent_id
           if (key === 'parent_id') {

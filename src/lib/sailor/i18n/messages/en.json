@@ -220,6 +220,8 @@
   "settings_field_site_url_help": "Base URL for your site, used for canonical links and API responses",
   "settings_field_site_description": "Site Description",
   "settings_field_site_description_help": "Default description used in templates and as fallback meta description",
+  "settings_field_site_lang": "Site Language",
+  "settings_field_site_lang_help": "BCP-47 tag for the public site content (e.g. en, en-US, nb-NO). Independent of the admin UI language. Used for og:locale and as a hint for <html lang>. Leave empty to omit.",
   "settings_field_user_registration": "User Registration",
   "settings_user_registration_label": "Allow new user registrations",
   "settings_user_registration_help": "When disabled, only existing users can log in. New users cannot sign up.",

@@ -218,14 +218,14 @@
       // Add SEO fields if SEO is enabled
       if (data.collectionType?.options?.seo) {
         const pageTitle = formData.title || '';
-        const pageSlug = formData.slug || '';
-        const canonicalUrl = data.siteUrl && pageSlug ? `${data.siteUrl}/${pageSlug}` : '';
+        // canonical_url is intentionally absent — opt-in only. A guessed
+        // self-canonical hurts more than it helps (cross-domain, alias paths,
+        // localized variants), so leave it for the author to fill explicitly.
         const autoValues: Record<string, any> = {
           meta_title: pageTitle,
           meta_description: formData.excerpt || '',
           og_title: pageTitle,
           og_description: formData.excerpt || '',
-          canonical_url: canonicalUrl,
           og_image: '',
           noindex: false
         };
@@ -908,14 +908,14 @@
             {#each seoFields as seoField}
               {@const effectiveValue = (() => {
                 const pageTitle = formData.title || '';
-                const pageSlug = formData.slug || '';
-                const canonicalUrl = data.siteUrl && pageSlug ? `${data.siteUrl}/${pageSlug}` : '';
+                // canonical_url is intentionally absent — opt-in only. A guessed
+                // self-canonical hurts more than it helps (cross-domain, alias paths,
+                // localized variants), so leave it for the author to fill explicitly.
                 const autoValues: Record<string, any> = {
                   meta_title: pageTitle,
                   meta_description: formData.excerpt || '',
                   og_title: pageTitle,
                   og_description: formData.excerpt || '',
-                  canonical_url: canonicalUrl,
                   og_image: '',
                   noindex: false
                 };

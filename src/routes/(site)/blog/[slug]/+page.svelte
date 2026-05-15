@@ -9,6 +9,7 @@
 
 <svelte:head>
   {@html data.metaTags}
+  {@html data.jsonLd}
 </svelte:head>
 
 <article class="blog-content">

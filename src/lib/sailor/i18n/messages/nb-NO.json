@@ -220,6 +220,8 @@
   "settings_field_site_url_help": "Grunnadresse for nettstedet, brukt for kanoniske lenker og API-responser",
   "settings_field_site_description": "Beskrivelse",
   "settings_field_site_description_help": "Standardbeskrivelse brukt i maler og som fallback for meta-beskrivelse",
+  "settings_field_site_lang": "Nettstedsspråk",
+  "settings_field_site_lang_help": "BCP-47-kode for innholdsspråket på nettstedet (f.eks. en, en-US, nb-NO). Uavhengig av admin-språket. Brukt til og:locale og som hint til <html lang>. La stå tom for å utelate.",
   "settings_field_user_registration": "Brukerregistrering",
   "settings_user_registration_label": "Tillat nye brukerregistreringer",
   "settings_user_registration_help": "Når deaktivert kan kun eksisterende brukere logge inn. Nye brukere kan ikke registrere seg.",

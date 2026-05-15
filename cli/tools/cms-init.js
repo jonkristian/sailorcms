@@ -10,7 +10,8 @@ import {
   trackInstalledDependencies,
   printManualActionBanner,
   dedupeNestedSvelteDeps,
-  dedupeNestedSailorcmsDeps
+  dedupeNestedSailorcmsDeps,
+  isCorePackage
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -48,6 +49,16 @@ export function registerCoreInit(program) {
           process.exit(1);
         }
         console.log('✅ SvelteKit project detected\n');
+
+        if (await isCorePackage(targetDir)) {
+          console.error(
+            '❌ Detected sailorcms package source — `core:init` is for consumer installs only.'
+          );
+          console.error(
+            '   This command writes templates/config into a consumer project; running it here would overwrite the upstream source.'
+          );
+          process.exit(1);
+        }
 
         // Check if templates already exist
         const sailorTemplatesDir = path.join(targetDir, 'src', 'lib', 'sailor', 'templates');

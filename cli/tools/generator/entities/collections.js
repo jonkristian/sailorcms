@@ -99,6 +99,13 @@ export class CollectionGenerator {
           tables.push(
             this.createFileTable(arrayTableName, itemFieldName, itemFieldDef, entityInfo)
           );
+        } else if (
+          itemFieldDef.type === 'relation' &&
+          itemFieldDef.relation?.type === 'many-to-many'
+        ) {
+          console.warn(
+            `Warning: many-to-many relation '${itemFieldName}' inside array '${fieldName}' on ${entityInfo.type} '${entityInfo.slug}' is unsupported — no junction table is generated and save/load paths will silently drop values. Model the relation at the parent entity level instead.`
+          );
         }
       }
     }

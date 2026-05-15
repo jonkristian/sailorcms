@@ -129,11 +129,8 @@
                 autocomplete="new-password"
                 required
                 bind:value={confirmPassword}
-                class={confirmPassword && password !== confirmPassword ? 'border-red-500' : ''}
+                aria-invalid={!!confirmPassword && password !== confirmPassword}
               />
-              {#if confirmPassword && password !== confirmPassword}
-                <p class="text-xs text-red-500">{m.toast_passwords_no_match()}</p>
-              {/if}
             </div>
             <div class="flex justify-between pt-4">
               <Button type="submit" class="w-full" disabled={loading}>
