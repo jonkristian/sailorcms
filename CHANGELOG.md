@@ -4,6 +4,8 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.7.2] - 15 May 2026
+
 ### Added
 
 - **`site.lang` system setting** — BCP-47 tag for the public-site content language (e.g. `en`, `en-US`, `nb-NO`), set on `/sailor/settings`. Independent of the admin UI locale, since "Norwegian site, English admin" is a valid setup. Surfaced through `getSiteSettings()` as `siteLang` and consumed by `extractSEO()` for `og:locale`. The public site's `<html lang>` is the consumer's call — set it in `app.html`.
