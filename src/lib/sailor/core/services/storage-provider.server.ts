@@ -2,11 +2,20 @@ import { saveFile } from 'sailorcms/core/files/file.server';
 import { S3StorageService } from './storage-s3.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 
+export interface StorageFolderSummary {
+  name: string;
+  excluded: boolean;
+  count: number;
+  size: number;
+  truncated: boolean;
+}
+
 export interface StorageProvider {
   uploadFile(file: File): Promise<{ filename: string; path: string; url: string }>;
   deleteFile(path: string): Promise<boolean>;
   getPublicUrl(path: string): Promise<string>;
   listFiles(): Promise<{ path: string; size?: number }[]>;
+  listTopLevelFolders(): Promise<StorageFolderSummary[]>;
 }
 
 export class LocalStorageProvider implements StorageProvider {
@@ -76,6 +85,78 @@ export class LocalStorageProvider implements StorageProvider {
       return [];
     }
   }
+
+  async listTopLevelFolders(): Promise<StorageFolderSummary[]> {
+    const settings = await getSettings();
+    const uploadDir = settings.storage?.providers?.local?.uploadDir || 'static/uploads';
+    const excludePaths = settings.storage?.excludePaths || [
+      'cache/',
+      'backup/',
+      'backups/',
+      '.tmp/',
+      '.git/'
+    ];
+
+    try {
+      const { readdir, stat } = await import('fs/promises');
+      const { join } = await import('path');
+      const entries = await readdir(uploadDir);
+      const folders: StorageFolderSummary[] = [];
+
+      for (const name of entries) {
+        const top = await stat(join(uploadDir, name));
+        if (!top.isDirectory()) continue;
+
+        // Recursively count files + bytes up to a cap so a runaway folder can't stall the
+        // settings page. 'truncated' tells the UI to render '1000+' rather than a number.
+        const cap = 1000;
+        let count = 0;
+        let size = 0;
+        let truncated = false;
+
+        const walk = async (dir: string): Promise<void> => {
+          if (count >= cap) return;
+          const items = await readdir(dir, { withFileTypes: true });
+          for (const item of items) {
+            if (count >= cap) {
+              truncated = true;
+              return;
+            }
+            const full = join(dir, item.name);
+            if (item.isDirectory()) {
+              await walk(full);
+            } else if (item.isFile()) {
+              count++;
+              try {
+                size += (await stat(full)).size;
+              } catch {
+                // ignore unreadable entries
+              }
+            }
+          }
+        };
+
+        try {
+          await walk(join(uploadDir, name));
+        } catch {
+          // ignore folders we can't traverse
+        }
+
+        folders.push({
+          name,
+          excluded: excludePaths.some((ex) => `${name}/`.startsWith(ex)) || name.startsWith('.'),
+          count,
+          size,
+          truncated
+        });
+      }
+
+      return folders.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      console.warn('Could not list local folders:', error);
+      return [];
+    }
+  }
 }
 
 export class S3StorageProvider implements StorageProvider {
@@ -93,6 +174,10 @@ export class S3StorageProvider implements StorageProvider {
 
   async listFiles(): Promise<{ path: string; size?: number }[]> {
     return await S3StorageService.listFiles();
+  }
+
+  async listTopLevelFolders(): Promise<StorageFolderSummary[]> {
+    return await S3StorageService.listTopLevelFolders();
   }
 }
 

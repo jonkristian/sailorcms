@@ -10,6 +10,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { generateFileName } from 'sailorcms/core/files/file.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 import type { S3StorageConfig } from 'sailorcms/core/settings/types';
+import type { StorageFolderSummary } from './storage-provider.server';
 import { log } from 'sailorcms/core/utils/logger';
 
 export class S3StorageService {
@@ -204,6 +205,70 @@ export class S3StorageService {
     }
 
     return key;
+  }
+
+  // List top-level "folders" (key prefixes) in the bucket with a one-page stat sweep per
+  // folder. Returns every folder, not just importable ones — the `excluded` flag tells the
+  // UI which are skipped by the file-import + listFiles paths so admins can see what's
+  // there without changing import behaviour. `count` / `size` reflect at most one
+  // ListObjectsV2 page (1000 keys) per folder; `truncated` tells the UI to render '1000+'
+  // rather than a misleading exact number for huge folders.
+  static async listTopLevelFolders(): Promise<StorageFolderSummary[]> {
+    const s3Client = await this.getS3Client();
+    const s3Config = await this.getS3Config();
+    const settings = await getSettings();
+
+    const excludePaths = settings.storage?.excludePaths || [
+      'cache/',
+      'backup/',
+      'backups/',
+      '.tmp/',
+      '.git/'
+    ];
+
+    try {
+      const response = await s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: s3Config.bucket,
+          Delimiter: '/'
+        })
+      );
+      const prefixes = (response.CommonPrefixes ?? [])
+        .map((p) => p.Prefix)
+        .filter((p): p is string => Boolean(p))
+        .sort();
+
+      // One ListObjectsV2 per folder. Bounded by S3's MaxKeys (1000) so a folder with
+      // millions of objects still resolves in a single round-trip per folder — accuracy
+      // beyond 1000 keys is sacrificed for predictable page load time.
+      const summaries = await Promise.all(
+        prefixes.map(async (prefix) => {
+          const name = prefix.replace(/\/$/, '');
+          const excluded = excludePaths.some((ex) => prefix.startsWith(ex)) || name.startsWith('.');
+
+          try {
+            const objs = await s3Client.send(
+              new ListObjectsV2Command({
+                Bucket: s3Config.bucket,
+                Prefix: prefix,
+                MaxKeys: 1000
+              })
+            );
+            const count = objs.KeyCount ?? 0;
+            const size = (objs.Contents ?? []).reduce((sum, o) => sum + (o.Size ?? 0), 0);
+            return { name, excluded, count, size, truncated: Boolean(objs.IsTruncated) };
+          } catch (err) {
+            log.warn('S3 folder stats failed', { prefix, error: (err as Error).message });
+            return { name, excluded, count: 0, size: 0, truncated: false };
+          }
+        })
+      );
+
+      return summaries;
+    } catch (error) {
+      log.error('S3 list folders failed', { bucket: s3Config.bucket }, error as Error);
+      return [];
+    }
   }
 
   static async listFiles(): Promise<{ path: string; size?: number }[]> {

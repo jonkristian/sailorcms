@@ -1,4 +1,8 @@
 import { getSettings } from 'sailorcms/core/settings/index';
+import {
+  StorageProviderFactory,
+  type StorageFolderSummary
+} from 'sailorcms/core/services/storage-provider.server';
 import { m } from '$sailor/i18n';
 import type { PageServerLoad } from './$types';
 
@@ -8,6 +12,16 @@ export const load: PageServerLoad = async ({ parent }) => {
 
   // Get complete settings (defaults + template overrides + database overrides)
   const settings = await getSettings();
+
+  // Top-level folder inventory. Tolerant of misconfigured providers so the settings
+  // page still renders if the bucket creds are stale.
+  let folders: StorageFolderSummary[] = [];
+  try {
+    const provider = await StorageProviderFactory.getProvider();
+    folders = await provider.listTopLevelFolders();
+  } catch (err) {
+    console.warn('Storage folder listing failed:', err);
+  }
 
   // Create header actions for payload preview
   const headerActions = [];
@@ -24,6 +38,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
   return {
     storageConfig: settings.storage,
+    folders,
     headerActions,
     // Mask sensitive information for display
     displayConfig: {

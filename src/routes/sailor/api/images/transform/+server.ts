@@ -117,15 +117,25 @@ export const GET: RequestHandler = async ({ url }) => {
       return Response.redirect(fullImagePath, 302);
     }
 
+    // Fast path: if this variant is already cached on the storage provider, 302 the browser
+    // straight to the CDN / static URL so the bytes don't stream through Node. Falls back
+    // to in-process generation only on cache miss.
+    const transformOptions = { width, height, quality, format, resize, position };
+    const cachedUrl = await ImageProcessor.getCacheRedirectUrl(fullImagePath, transformOptions);
+    if (cachedUrl) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: cachedUrl,
+          // Brief redirect cache so out-of-band cache wipes recover within minutes; the
+          // redirect target itself carries long max-age, so repeat visitors stay fast.
+          'Cache-Control': 'public, max-age=300'
+        }
+      });
+    }
+
     // Process image with caching
-    const processed = await ImageProcessor.getProcessedImage(fullImagePath, {
-      width,
-      height,
-      quality,
-      format,
-      resize,
-      position
-    });
+    const processed = await ImageProcessor.getProcessedImage(fullImagePath, transformOptions);
 
     // Return processed image using SvelteKit's Response
     return new Response(processed.buffer as unknown as ArrayBuffer, {

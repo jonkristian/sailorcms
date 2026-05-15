@@ -1,5 +1,7 @@
-import { command } from '$app/server';
+import { command, getRequestEvent } from '$app/server';
+import { error } from '@sveltejs/kit';
 import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { ImageProcessor } from 'sailorcms/core/services/image.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 
 /**
@@ -37,6 +39,29 @@ export const testStorageConnection = command('unchecked', async () => {
     return {
       success: false,
       error: 'Failed to test storage connection'
+    };
+  }
+});
+
+/**
+ * Purge every cached image variant from the configured storage provider and reset
+ * the in-process state. Variants regenerate lazily on the next request for each.
+ */
+export const purgeImageCache = command('unchecked', async () => {
+  const { locals } = getRequestEvent();
+  if (!locals.user) throw error(401, 'Unauthorized');
+  if (!(await locals.security.hasPermission('update', 'settings'))) {
+    throw error(403, 'Forbidden');
+  }
+
+  try {
+    const { removed } = await ImageProcessor.purgeStorageCache();
+    return { success: true as const, removed };
+  } catch (e) {
+    console.error('Image cache purge failed:', e);
+    return {
+      success: false as const,
+      error: e instanceof Error ? e.message : 'Failed to purge image cache'
     };
   }
 });

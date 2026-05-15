@@ -1,8 +1,10 @@
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, readdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, basename, extname } from 'path';
+import { createHash } from 'crypto';
 import { getSettings } from 'sailorcms/core/settings/index';
 import { StorageProviderFactory, type StorageProvider } from './storage-provider.server';
+import { S3StorageService } from './storage-s3.server';
 import sharp from 'sharp';
 
 interface CacheEntry {
@@ -29,6 +31,12 @@ interface ProcessedImage {
 export class ImageProcessor {
   private static memoryCache = new Map<string, CacheEntry>();
   private static defaultTTL = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Positive existence cache for processed variants. Lets the transform endpoint skip
+  // a HEAD-check round-trip on warm requests and 302 straight to the CDN/static URL.
+  // 5-minute TTL bounds staleness if the cache is wiped out-of-band.
+  private static existsCache = new Map<string, number>();
+  private static existsCacheTTL = 5 * 60 * 1000;
 
   // Get cache configuration (provider and path)
   private static async getCacheConfig(): Promise<{
@@ -72,19 +80,16 @@ export class ImageProcessor {
     return path;
   }
 
-  // Generate cache key using predictable naming scheme
+  // Generate cache key. The basename stays in the key for human readability when poking
+  // around storage; the path hash makes the key safe against same-filename collisions
+  // (different uploads with the same filename, file replacement, flat folder structure).
   private static generateCacheKey(imagePath: string, options: ImageTransformOptions): string {
     const { width, height, quality = 80, position } = options;
-
-    // Get the base filename without extension
     const baseName = basename(imagePath, extname(imagePath));
-
-    // Create a simple cache key: filename_resolution_qquality[_position]
+    const pathHash = createHash('sha1').update(imagePath).digest('hex').slice(0, 10);
     const sizeStr = width && height ? `${width}x${height}` : 'auto';
     const positionStr = position ? `_${position.replace(/\s+/g, '-')}` : '';
-    const cacheKey = `${baseName}_${sizeStr}_q${quality}${positionStr}`;
-
-    return cacheKey;
+    return `${baseName}_${pathHash}_${sizeStr}_q${quality}${positionStr}`;
   }
 
   // Generate cache path for storage provider
@@ -172,6 +177,8 @@ export class ImageProcessor {
       // Create a custom upload that goes directly to cache path
       await this.uploadToS3Cache(cachePath, buffer, cacheFile.type);
     }
+
+    this.markCacheExists(cachePath);
   }
 
   // Read from S3 cache folder
@@ -243,6 +250,83 @@ export class ImageProcessor {
     }
   }
 
+  // Mark a cache path as known-to-exist so subsequent requests can skip the HEAD probe.
+  private static markCacheExists(cachePath: string): void {
+    this.existsCache.set(cachePath, Date.now() + this.existsCacheTTL);
+  }
+
+  // HEAD-probe the S3 cache for a given path. Cheap (no body); used by getCacheRedirectUrl.
+  private static async headS3Cache(cachePath: string): Promise<boolean> {
+    try {
+      const settings = await getSettings();
+      const s3Config = settings.storage?.providers?.s3;
+      if (!s3Config) return false;
+
+      const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+      const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+      if (!accessKeyId || !secretAccessKey) return false;
+
+      const { S3Client, HeadObjectCommand } = await import('@aws-sdk/client-s3');
+      const s3Client = new S3Client({
+        region: s3Config.region,
+        credentials: { accessKeyId, secretAccessKey },
+        endpoint: s3Config.endpoint,
+        forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
+      });
+
+      await s3Client.send(new HeadObjectCommand({ Bucket: s3Config.bucket, Key: cachePath }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Resolve the public-facing URL for a cached variant if (and only if) it actually exists.
+  // Returns null on cache miss so the caller falls back to synchronous processing.
+  //
+  // The point is to let the transform endpoint 302-redirect to the CDN / static path on
+  // cache hits, so the browser fetches bytes directly from R2 / S3 / the static handler
+  // instead of streaming them through Node on every request.
+  static async getCacheRedirectUrl(
+    imagePath: string,
+    options: ImageTransformOptions
+  ): Promise<string | null> {
+    const { enabled, provider } = await this.getCacheConfig();
+    if (!enabled) return null;
+
+    const cacheKey = this.generateCacheKey(imagePath, options);
+    const format = options.format || 'webp';
+    const cachePath = this.generateCachePath(cacheKey, format);
+
+    const { LocalStorageProvider } = await import('./storage-provider.server');
+    const isLocal = provider instanceof LocalStorageProvider;
+
+    const cachedHit = this.existsCache.get(cachePath);
+    let exists = cachedHit !== undefined && cachedHit > Date.now();
+    if (!exists) {
+      if (isLocal) {
+        exists = existsSync(await this.getLocalCachePath(cacheKey, format));
+      } else {
+        exists = await this.headS3Cache(cachePath);
+      }
+      if (exists) this.markCacheExists(cachePath);
+    }
+    if (!exists) return null;
+
+    if (isLocal) {
+      // SvelteKit serves files under static/ at the site root, so a cache file at
+      // static/uploads/cache/<key>.<fmt> is reachable at /uploads/cache/<key>.<fmt>.
+      const settings = await getSettings();
+      const uploadDir = settings.storage.providers?.local?.uploadDir || 'static/uploads';
+      const publicPrefix = uploadDir.startsWith('static/')
+        ? '/' + uploadDir.slice('static/'.length)
+        : '/' + uploadDir.replace(/^\/+/, '');
+      return `${publicPrefix}/cache/${cacheKey}.${format}`;
+    }
+
+    return S3StorageService.generatePublicUrl(cachePath);
+  }
+
   // Upload directly to S3 cache folder
   private static async uploadToS3Cache(
     cachePath: string,
@@ -282,9 +366,12 @@ export class ImageProcessor {
 
       const uploadCommand = new PutObjectCommand({
         Bucket: s3Config.bucket,
-        Key: cachePath, // e.g., cache/filename_640x480_q80.webp
+        Key: cachePath, // e.g., cache/filename_<hash>_640x480_q80.webp
         Body: buffer,
         ContentType: mimeType,
+        // Cache key includes a hash of the source path, so a cache entry is content-stable —
+        // the browser can hold onto these forever once the 302 redirect delivers them.
+        CacheControl: 'public, max-age=31536000, immutable',
         ACL: 'public-read'
       });
 
@@ -473,6 +560,81 @@ export class ImageProcessor {
   // Clear all caches
   static clearCache(): void {
     this.memoryCache.clear();
+    this.existsCache.clear();
+  }
+
+  // Purge every cached variant from storage and wipe the in-process state. Returns the
+  // count of objects removed for UI feedback. Cache regenerates lazily on the next request
+  // for each variant (or eagerly via pre-warm when that lands).
+  static async purgeStorageCache(): Promise<{ removed: number }> {
+    const { provider } = await this.getCacheConfig();
+    const { LocalStorageProvider } = await import('./storage-provider.server');
+
+    let removed = 0;
+    if (provider instanceof LocalStorageProvider) {
+      const cacheDir = await this.getCacheDir();
+      if (existsSync(cacheDir)) {
+        for (const name of await readdir(cacheDir)) {
+          try {
+            await unlink(join(cacheDir, name));
+            removed++;
+          } catch {
+            // ignore unlink races / nested dirs
+          }
+        }
+      }
+    } else {
+      removed = await this.purgeS3Cache();
+    }
+
+    this.memoryCache.clear();
+    this.existsCache.clear();
+    return { removed };
+  }
+
+  // List + bulk-delete everything under the cache/ prefix on S3 / R2.
+  private static async purgeS3Cache(): Promise<number> {
+    const settings = await getSettings();
+    const s3Config = settings.storage?.providers?.s3;
+    if (!s3Config) return 0;
+
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+    if (!accessKeyId || !secretAccessKey) return 0;
+
+    const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } =
+      await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      region: s3Config.region,
+      credentials: { accessKeyId, secretAccessKey },
+      endpoint: s3Config.endpoint,
+      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
+    });
+
+    let removed = 0;
+    let continuationToken: string | undefined;
+    do {
+      const list = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: s3Config.bucket,
+          Prefix: 'cache/',
+          ContinuationToken: continuationToken
+        })
+      );
+      const keys = list.Contents?.filter((o) => o.Key).map((o) => ({ Key: o.Key! })) ?? [];
+      if (keys.length) {
+        await s3.send(
+          new DeleteObjectsCommand({
+            Bucket: s3Config.bucket,
+            Delete: { Objects: keys, Quiet: true }
+          })
+        );
+        removed += keys.length;
+      }
+      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return removed;
   }
 
   // Get cache statistics
