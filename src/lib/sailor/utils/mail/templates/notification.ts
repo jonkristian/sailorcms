@@ -1,4 +1,4 @@
-import { emailLayout, infoBox, infoRow, sectionHeading, type EmailTemplate } from './layout';
+import { emailLayout, infoBox, infoRow, type EmailTemplate } from './layout';
 
 export interface SubmissionNotificationInput {
   /** Email subject; also rendered as the H1 in the body. */
@@ -42,7 +42,6 @@ export function submissionNotificationTemplate(input: SubmissionNotificationInpu
     : '';
   const body = `
 <h1>${escapeHtml(title)}</h1>
-${sectionHeading('Submission')}
 ${infoBox(rowsHtml)}
 ${messageHtml}`;
 
@@ -50,7 +49,7 @@ ${messageHtml}`;
     ? `<p style="line-height: 1.625; font-size: 12px !important; color: #64748b !important; text-align: center !important; margin: 0.4em 0 !important;">${escapeHtml(footerNote)}</p>`
     : undefined;
 
-  const html = emailLayout({ body, footerText });
+  const html = emailLayout({ body, subject: title, footerText });
   const textRows = rows.map(({ label, value }) => `${label}: ${value}`).join('\n');
   const text = [
     title,

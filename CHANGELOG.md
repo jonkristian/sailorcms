@@ -4,6 +4,19 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.7.4] - 15 May 2026
+
+### Added
+
+- **Auth + system email templates take overridable strings** — `passwordResetTemplate` / `emailVerificationTemplate` / `testEmailTemplate` accept `subject` / `heading` / `intro` / `cta` / `fallbackLine` with English defaults. CMS-internal callers (Better Auth, settings/mail test action) thread paraglide messages so reset/verify/test emails match the user's locale; new `auth_email_*` and `mail_test_email_*` keys in `en` / `nb-NO`.
+- **`emailLayout` accepts `subject` and `preheader`** — `subject` populates `<title>` (used as inbox preview fallback in some clients), `preheader` injects a hidden span at the top of the body (the snippet shown next to the subject in inbox listings).
+- **`Turnstile.svelte` exposes `reset` as a bindable callback** — `bind:reset` lets the parent call `reset()` after a server-side verify failure instead of wrapping the widget in `{#key}`. Calls `turnstile.reset(widgetId)` so the iframe stays mounted. Component also auto-resets on `expired-callback` and `error-callback`.
+
+### Changed
+
+- **`emailLayout` no longer emits a default "Sent via Sailor CMS" footer** — same layout is reused for recipient-facing notifications where CMS branding would leak. Pass `footerText` explicitly to render one. Auth + test emails get no footer now; `submissionNotificationTemplate` still wires its `footerNote` through.
+- **Email templates drop the Google Fonts `<link>` + `@import url(...)`** — Gmail strips the `@import`, Outlook ignores the `<link>`, either way it was a privacy ping to Google on image load. Font stack is now system-only (`-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif`).
+
 ## [0.7.3] - 15 May 2026
 
 ### Changed
@@ -11,15 +24,12 @@ All notable changes to SailorCMS are documented here.
 - **`/sailor/api/images/transform` 302-redirects to the storage public URL on cache hits** — instead of streaming the cached bytes through Node on every request. Adds `ImageProcessor.getCacheRedirectUrl()` (S3 HEAD probe + in-memory positive cache, 5-min TTL) plus a redirect branch on the endpoint. Cache miss path is unchanged: process synchronously, write to cache, return buffer; the next request for the same variant hits the redirect path. Local-storage consumers redirect to `/uploads/cache/<key>.<fmt>` (served by SvelteKit's static handler); S3/R2 consumers redirect to `${S3_PUBLIC_URL}/cache/<key>.<fmt>` (served by R2/CDN edge). Run `npx sailor core:update` to pick up the consumer-side endpoint change.
 - **Image cache key now includes a path hash** — was filename-stem only (`abc_1600x1200_q88.webp`), so two files sharing a basename could collide and serve each other's cached bytes. Now `abc_<10-char-sha1>_1600x1200_q88.webp` per source path. Existing cache entries become unreachable on next deploy and are effectively orphaned in R2; sweep them with a one-liner if storage cost matters (`aws s3 rm --recursive s3://<bucket>/cache/` regenerates on demand).
 - **R2 / S3 cache PUTs set `Cache-Control: public, max-age=31536000, immutable`** — the cache key is now content-stable per source path, so once the 302 redirect delivers a variant the browser can hold onto it forever. Previously R2 served the bytes with no Cache-Control header at all, relying on browser heuristics.
+- **`/sailor/settings/storage` action cards laid out in a 3-column grid** (Import / Repair / Image Cache) instead of stacked rows. Storage Overview sits above the grid; Current Configuration unchanged.
 
 ### Added
 
 - **Purge image cache button on `/sailor/settings/storage`** — wipes every variant under `cache/` on the configured storage provider (S3 list+batch-delete; local fs unlink) and resets the in-process state. Behind `hasPermission('update', 'settings')`. New `ImageProcessor.purgeStorageCache()` + `purgeImageCache` remote command. Variants regenerate on demand; first paint of each page after a purge is slower until the cache rewarms.
 - **Storage Overview card on `/sailor/settings/storage`** — bordered list with a `/` root row showing aggregate `N folders · M files · X total` on top and child rows per top-level folder (count + size + an "Excluded from import" badge at the far right if matched by `storage.excludePaths`: defaults `cache/`, `backup/`, `backups/`, `.tmp/`, `.git/`). S3/R2 does one `ListObjectsV2` per folder bounded to 1000 keys (renders `1000+` if `IsTruncated` and propagates a `+` suffix into the root total); local provider walks recursively with the same cap. Added `StorageFolderSummary` to the storage provider interface.
-
-### Changed
-
-- **`/sailor/settings/storage` action cards laid out in a 3-column grid** (Import / Repair / Image Cache) instead of stacked rows. Storage Overview sits above the grid; Current Configuration unchanged.
 
 ## [0.7.2] - 15 May 2026
 

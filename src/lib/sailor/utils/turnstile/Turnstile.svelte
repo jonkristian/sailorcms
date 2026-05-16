@@ -4,9 +4,11 @@
 
   let {
     token = $bindable(''),
+    reset = $bindable<() => void>(() => {}),
     theme = 'auto'
   }: {
     token?: string;
+    reset?: () => void;
     theme?: 'auto' | 'light' | 'dark';
   } = $props();
 
@@ -14,22 +16,33 @@
   let container: HTMLDivElement | undefined = $state();
   let widgetId: string | undefined;
 
+  function getApi(): TurnstileApi | undefined {
+    return (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+  }
+
+  function resetWidget() {
+    const w = getApi();
+    if (widgetId && w) w.reset(widgetId);
+    token = '';
+  }
+
   onMount(() => {
     if (!siteKey || !container) return;
 
     function render() {
-      const w = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+      const w = getApi();
       if (!w || !container || !siteKey) return;
       widgetId = w.render(container, {
         sitekey: siteKey,
         theme,
         callback: (t) => (token = t),
-        'expired-callback': () => (token = ''),
-        'error-callback': () => (token = '')
+        'expired-callback': resetWidget,
+        'error-callback': resetWidget
       });
+      reset = resetWidget;
     }
 
-    const existing = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+    const existing = getApi();
     if (existing) {
       render();
     } else {
@@ -43,7 +56,7 @@
     }
 
     return () => {
-      const w = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+      const w = getApi();
       if (widgetId && w) w.remove(widgetId);
     };
   });

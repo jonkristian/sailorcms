@@ -1,15 +1,15 @@
 /**
- * Generic HTML email layout — Inter font, indigo accent, mobile breakpoint
- * and a working `prefers-color-scheme: dark` block. Inline-styled because
- * email clients ignore stylesheets in `<head>` (the embedded `<style>` block
- * is for the clients that DO honor it, e.g. Apple Mail's dark mode).
+ * Generic HTML email layout — indigo accent, mobile breakpoint and a working
+ * `prefers-color-scheme: dark` block. Inline-styled because email clients
+ * ignore stylesheets in `<head>` (the embedded `<style>` block is for the
+ * clients that DO honor it, e.g. Apple Mail's dark mode).
  *
- * Consumers can pass `footerText` to override the default footer markup.
+ * Font stack uses system fonts only — external Google Fonts are blocked or
+ * stripped by most clients (Gmail strips `@import`, Outlook ignores `<link>`)
+ * and loading them is a privacy ping to Google on image fetch.
  */
 
 const STYLES = `
-@import url("https://fonts.googleapis.com/css?family=Inter:400,700&display=swap");
-
 body {
   width: 100% !important;
   height: 100%;
@@ -23,7 +23,7 @@ a img { border: none; }
 td { word-break: break-word; }
 
 body, td, th {
-  font-family: "Inter", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 16px;
 }
 
@@ -247,6 +247,18 @@ a.btn:link, a.btn:visited, a.btn:hover, a.btn:active, a.btn:focus {
 
 export interface EmailLayoutOptions {
   body: string;
+  /** Sets `<title>`, which some clients fall back to for inbox preview text. */
+  subject?: string;
+  /**
+   * Hidden snippet shown by most inbox UIs right after the subject. Visually
+   * collapsed via zero-size + zero-opacity span so it never renders in-body.
+   */
+  preheader?: string;
+  /**
+   * Custom footer HTML. Omit for no footer — the layout no longer adds a
+   * "Sent via Sailor CMS" default, since the same layout is reused for
+   * recipient-facing notifications where CMS branding would leak.
+   */
   footerText?: string;
 }
 
@@ -257,14 +269,19 @@ export type EmailTemplate = {
   text: string;
 };
 
-function defaultFooter(): string {
-  const year = new Date().getFullYear();
-  return `<p style="line-height: 1.625; font-size: 12px !important; color: #64748b !important; text-align: center !important; margin: 0.4em 0 !important;">Sent via Sailor CMS &middot; &copy; ${year}</p>`;
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!
+  );
 }
 
 /** Wraps body HTML in the standard email layout. */
-export function emailLayout({ body, footerText }: EmailLayoutOptions): string {
-  const footer = footerText ?? defaultFooter();
+export function emailLayout({ body, subject, preheader, footerText }: EmailLayoutOptions): string {
+  const titleHtml = subject ? escapeHtml(subject) : '';
+  const preheaderHtml = preheader
+    ? `<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}</span>`
+    : '';
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -274,8 +291,7 @@ export function emailLayout({ body, footerText }: EmailLayoutOptions): string {
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="color-scheme" content="light dark">
   <meta name="supported-color-schemes" content="light dark">
-  <title></title>
-  <link href="https://fonts.googleapis.com/css?family=Inter:400,700&display=swap" rel="stylesheet" type="text/css">
+  <title>${titleHtml}</title>
   <style type="text/css" rel="stylesheet" media="all">${STYLES}</style>
   <!--[if mso]>
   <style type="text/css">
@@ -283,36 +299,40 @@ export function emailLayout({ body, footerText }: EmailLayoutOptions): string {
   </style>
   <![endif]-->
 </head>
-<body style="height: 100%; margin: 0; -webkit-text-size-adjust: none; background-color: #f8fafc; font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 16px; width: 100% !important;">
+<body style="height: 100%; margin: 0; -webkit-text-size-adjust: none; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; width: 100% !important;">
   <table class="email-wrapper" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; margin: 0; padding: 0; background-color: #f8fafc;" bgcolor="#f8fafc">
     <tr>
-      <td align="center" style="word-break: break-word; font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 16px;">
+      <td align="center" style="word-break: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px;">
         <table class="email-content" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; margin: 0; padding: 0;">
           <tr><td style="padding: 15px 0 0 0; font-size: 0; line-height: 0; height: 0;" align="center"></td></tr>
           <tr>
-            <td class="email-body" width="100%" cellpadding="0" cellspacing="0" style="word-break: break-word; font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 16px; width: 100%; margin: 0; padding: 0;">
+            <td class="email-body" width="100%" cellpadding="0" cellspacing="0" style="word-break: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; width: 100%; margin: 0; padding: 0;">
               <table class="email-body_inner" align="center" width="640" cellpadding="0" cellspacing="0" role="presentation" style="width: 640px; margin: 0 auto; background-color: #ffffff;" bgcolor="#ffffff">
                 <tr>
-                  <td class="content-cell" style="word-break: break-word; font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 16px; padding: 30px !important;">
+                  <td class="content-cell" style="word-break: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; padding: 30px !important;">
                     <div class="f-fallback">
-                      ${body}
+                      ${preheaderHtml}${body}
                     </div>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          <tr>
-            <td style="word-break: break-word; font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 16px;">
+          ${
+            footerText
+              ? `<tr>
+            <td style="word-break: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px;">
               <table class="email-footer" align="center" width="640" cellpadding="0" cellspacing="0" role="presentation" style="width: 640px; margin: 0 auto; padding: 0; text-align: center;">
                 <tr>
-                  <td class="content-cell" align="center" style="word-break: break-word; font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 16px; padding: 30px !important;">
-                    ${footer}
+                  <td class="content-cell" align="center" style="word-break: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; padding: 30px !important;">
+                    ${footerText}
                   </td>
                 </tr>
               </table>
             </td>
-          </tr>
+          </tr>`
+              : ''
+          }
         </table>
       </td>
     </tr>
@@ -328,7 +348,7 @@ export function emailButton(text: string, href: string): string {
 <div align="center">
   <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:80%;" arcsize="25%" stroke="f" fillcolor="#4f46e5">
     <w:anchorlock/>
-    <center style="color: #ffffff;font-family:'Inter', Helvetica, Arial, sans-serif;font-size: 16px;font-weight:bold;">${text}</center>
+    <center style="color: #ffffff;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;font-size: 16px;font-weight:bold;">${text}</center>
   </v:roundrect>
 </div>
 <![endif]-->
@@ -348,7 +368,7 @@ export function emailButton(text: string, href: string): string {
 /** A bordered card. Use for receipts, summaries, etc. */
 export function infoBox(content: string): string {
   return `<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 24px;">
-  <tbody><tr><td class="data-cell" style="padding: 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-family: 'Inter', Helvetica, Arial, sans-serif;">${content}</td></tr></tbody>
+  <tbody><tr><td class="data-cell" style="padding: 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">${content}</td></tr></tbody>
 </table>`;
 }
 

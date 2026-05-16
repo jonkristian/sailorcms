@@ -17,6 +17,7 @@ import {
   listMailEvents,
   replayMailEvent
 } from 'sailorcms/core/services/mail-events.server';
+import { m } from '$sailor/i18n';
 
 export const load = async ({ locals, url }: { locals: App.Locals; url: URL }) => {
   if (!locals.user) throw error(401, 'Unauthorized');
@@ -150,7 +151,15 @@ export const actions = {
       throw error(403, 'Access denied');
     }
     const result = await sendMail(
-      { to: locals.user.email, ...testEmailTemplate() },
+      {
+        to: locals.user.email,
+        ...testEmailTemplate({
+          subject: m.mail_test_email_subject(),
+          heading: m.mail_test_email_heading(),
+          body1: m.mail_test_email_body1(),
+          body2: m.mail_test_email_body2()
+        })
+      },
       { actorUserId: locals.user.id }
     );
     if (result.ok) return { success: true };

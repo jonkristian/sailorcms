@@ -17,6 +17,7 @@ import {
   passwordResetTemplate,
   emailVerificationTemplate
 } from 'sailorcms/utils/mail/templates/auth';
+import { m } from '$sailor/i18n';
 import { eq } from 'drizzle-orm';
 
 // Create access control configuration based on settings
@@ -146,14 +147,34 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: env.EMAIL_VERIFICATION === 'true',
     sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-      await sendMail({ to: user.email, ...passwordResetTemplate({ url }) });
+      await sendMail({
+        to: user.email,
+        ...passwordResetTemplate({
+          url,
+          subject: m.auth_email_reset_subject(),
+          heading: m.auth_email_reset_heading(),
+          intro: m.auth_email_reset_intro(),
+          cta: m.auth_email_reset_cta(),
+          fallbackLine: m.auth_email_fallback_line()
+        })
+      });
     }
   },
   emailVerification: {
     sendOnSignUp: env.EMAIL_VERIFICATION === 'true',
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-      await sendMail({ to: user.email, ...emailVerificationTemplate({ url }) });
+      await sendMail({
+        to: user.email,
+        ...emailVerificationTemplate({
+          url,
+          subject: m.auth_email_verify_subject(),
+          heading: m.auth_email_verify_heading(),
+          intro: m.auth_email_verify_intro(),
+          cta: m.auth_email_verify_cta(),
+          fallbackLine: m.auth_email_fallback_line()
+        })
+      });
     }
   },
   socialProviders: {
