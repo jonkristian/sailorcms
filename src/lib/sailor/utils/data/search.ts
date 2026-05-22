@@ -25,7 +25,7 @@ export interface SearchOptions {
   scope?: SearchScope;
   limit?: number; // Default: 20
   offset?: number; // Default: 0
-  status?: 'published' | 'draft' | 'all'; // Applies to collections. Default: 'published'
+  status?: 'published' | 'draft' | 'all'; // Applied to both collections and globals. Default: 'published'
   user?: User | null;
 
   // Pagination URL generation (same shape as getCollections).
@@ -138,7 +138,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
     const hydrated =
       m.entity_type === 'collection'
         ? await getCollections(m.entity_name, { itemId: m.entity_id, status, user })
-        : await getGlobals(m.entity_name, { itemId: m.entity_id, user });
+        : await getGlobals(m.entity_name, { itemId: m.entity_id, status, user });
     if (!hydrated) continue;
     items.push({
       entityType: m.entity_type,

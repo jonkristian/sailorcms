@@ -12,7 +12,11 @@
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { SvelteSet } from 'svelte/reactivity';
-  import { bulkUpdateGlobalItems, deleteGlobalItem } from '../data.remote.js';
+  import {
+    bulkUpdateGlobalItems,
+    deleteGlobalItem,
+    updateGlobalItemStatus
+  } from '../data.remote.js';
 
   let {
     global,
@@ -59,6 +63,47 @@
   };
 
   let formFields = $derived(getFormFields(global));
+
+  // Status toggle metadata for the inline status pill on each row. Only enabled
+  // when the template declares a `status` field with at least two options —
+  // otherwise the pill stays hidden and the row falls back to the form-only
+  // status editor.
+  let statusFieldDef = $derived(global.fields?.status);
+  let statusOptions = $derived(
+    Array.isArray(statusFieldDef?.options) ? statusFieldDef.options : undefined
+  );
+  let statusToggleEnabled = $derived(!!statusOptions && statusOptions.length >= 2);
+
+  async function handleStatusToggle(itemId: string, next: string) {
+    if (!requirePermission(canUpdate, m.toast_perm_save_items)) return;
+    const idx = localItems.findIndex((i) => i.id === itemId);
+    if (idx === -1) return;
+
+    // Optimistic local update so the pill flips instantly. Roll back on error.
+    const previous = localItems[idx].status;
+    localItems = localItems.map((item, i) =>
+      i === idx ? { ...item, status: next, updated_at: getCurrentTimestamp() } : item
+    );
+
+    // `temp-` ids are unsaved client-side rows — they have no DB row yet, so
+    // there's nothing to update server-side. The new status will persist on
+    // the next bulk save.
+    if (String(itemId).startsWith('temp-')) return;
+
+    try {
+      const result = await updateGlobalItemStatus({
+        globalSlug: global.slug,
+        itemId,
+        status: next
+      });
+      if (!result.success) throw new Error(result.error || m.toast_save_items_failed());
+      await invalidateAll();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      localItems = localItems.map((item, i) => (i === idx ? { ...item, status: previous } : item));
+      toast.error(m.toast_save_items_failed());
+    }
+  }
 
   // Expand/collapse all items
   function expandCollapseAll(expand: boolean) {
@@ -145,8 +190,11 @@
         // For slug field, generate from title
         newItem[key] = `new-${global.name.singular.toLowerCase()}-${Date.now()}`;
       } else if (key === 'status') {
-        // Default status
-        newItem[key] = 'draft';
+        // Globals default to 'published' when the template hasn't declared
+        // an explicit `status.default` — taxonomy / list-style content is
+        // usually publishable on creation. Collections keep the
+        // editorial-style 'draft' default in their own form path.
+        newItem[key] = 'published';
       } else {
         newItem[key] = '';
       }
@@ -307,6 +355,11 @@
         {onSelectNode}
         tags={localItems[actualIndex]?.tags || []}
         featured={item.featured || false}
+        status={statusToggleEnabled ? localItems[actualIndex]?.status : undefined}
+        {statusOptions}
+        onStatusToggle={statusToggleEnabled && canUpdate
+          ? (next) => handleStatusToggle(item.id, next)
+          : undefined}
       >
         {#snippet children()}
           {#each formFields as { key, field }}

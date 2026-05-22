@@ -6,6 +6,9 @@ import * as schema from '$sailor/generated/schema';
 import type { GlobalTypes } from '$sailor/generated/types';
 import type { Pagination } from 'sailorcms/core/types';
 import { TagService } from 'sailorcms/core/services/tag.server';
+import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
+import { generateUUID } from 'sailorcms/core/utils/common';
+import { globalDefinitions } from '$sailor/templates/globals';
 import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { log } from 'sailorcms/core/utils/logger';
 import { loadFileFields } from './loaders/file-loader';
@@ -16,6 +19,7 @@ import {
   type RelationStatus
 } from './loaders/relation-loader';
 import { assertAccess, AccessDeniedError } from './access';
+import { parseDate, groupItemsByField } from './internal';
 
 /**
  * Load all fields (files, arrays, relations) for a global
@@ -90,9 +94,11 @@ export interface GlobalsOptions {
   withRelations?: boolean; // Include items relation for relational globals (default: true)
   withTags?: boolean; // Include tags for the global (default: false)
   loadFullFileObjects?: boolean; // Load full file objects vs just IDs (default: false)
-  // Status to apply when resolving relation targets (e.g. a global's relation
-  // field pointing at a collection). Defaults to 'published' so the public
-  // site never picks up drafts via a relation. Pass 'all' for admin previews.
+  // Content visibility filter applied to repeatable globals (the top-level
+  // rows), AND propagated to relation targets (a global field pointing at a
+  // collection). Defaults to 'published' so the public site never picks up
+  // drafts. Pass 'all' for admin previews. Singleton (`dataType: 'flat'`)
+  // globals have no status column and ignore this option.
   status?: RelationStatus;
 
   // Filtering and ordering
@@ -165,10 +171,34 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
   globalSlug: string,
   options?: GlobalsOptions
 ): Promise<GlobalsMultipleResult<T>>;
-// Implementation
+// Implementation — public path, access rule enforced.
 export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
   globalSlug: string,
   options?: GlobalsOptions
+): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
+  return _loadGlobalImpl<T>(globalSlug, options, true);
+}
+
+/**
+ * Framework-internal read for globals. Skips the type-level `access` rule
+ * because the caller is the framework itself (search index rebuild, hooks,
+ * cron jobs) and has no user context to authenticate as. Re-exported from
+ * `core/services/data-read.server.ts` as `readGlobal` — that is the canonical
+ * import path. Consumer code reads via `getGlobals`.
+ *
+ * @internal
+ */
+export async function _loadGlobalUnchecked<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  options?: GlobalsOptions
+): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
+  return _loadGlobalImpl<T>(globalSlug, options, false);
+}
+
+async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  options: GlobalsOptions | undefined,
+  checkAccess: boolean
 ): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
   const {
     itemSlug,
@@ -204,11 +234,13 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
       return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
     }
 
-    // Enforce type-level access before any DB work. Throws AccessDeniedError
-    // on miss — never returns silently. Default rule is 'public' so untouched
-    // templates keep their current behavior.
-    const persistedOptions = globalType.options ? JSON.parse(globalType.options) : {};
-    assertAccess(persistedOptions.access, _user, `Global '${globalSlug}'`);
+    if (checkAccess) {
+      // Enforce type-level access before any DB work. Throws AccessDeniedError
+      // on miss — never returns silently. Default rule is 'public' so untouched
+      // templates keep their current behavior.
+      const persistedOptions = globalType.options ? JSON.parse(globalType.options) : {};
+      assertAccess(persistedOptions.access, _user, `Global '${globalSlug}'`);
+    }
 
     const isFlat = globalType.data_type === 'flat';
 
@@ -354,6 +386,13 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
   let queryBuilder = db.select().from(globalTable);
   const whereConditions = [liveOnly(globalTable)];
 
+  // Content visibility filter — repeatable globals carry a `status` column;
+  // singletons go through `handleSingletonGlobal` and never reach here, so we
+  // can apply unconditionally.
+  if (status !== 'all') {
+    whereConditions.push(eq((globalTable as any).status, status));
+  }
+
   // Handle different query types
   if (itemSlug) {
     whereConditions.push(eq((globalTable as any).slug, itemSlug));
@@ -481,21 +520,6 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
 ): Promise<T> {
   const { withRelations, withTags, loadFullFileObjects, status } = options;
 
-  // Parse dates properly
-  const parseDate = (dateValue: any): Date => {
-    if (!dateValue) return new Date();
-    if (dateValue instanceof Date) return dateValue;
-    if (typeof dateValue === 'string') {
-      const isoDate = new Date(dateValue);
-      if (!isNaN(isoDate.getTime())) return isoDate;
-    }
-    if (typeof dateValue === 'number') {
-      const timestamp = dateValue > 10000000000 ? dateValue : dateValue * 1000;
-      return new Date(timestamp);
-    }
-    return new Date();
-  };
-
   const enrichedItem: any = {
     ...item,
     created_at: parseDate(item.created_at),
@@ -557,43 +581,6 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
 }
 
 /**
- * Group items by a specific field - handles both regular fields and tag arrays
- */
-function groupItemsByField<T>(items: T[], fieldName: string): Record<string, T[]> {
-  return items.reduce(
-    (groups, item) => {
-      const value = (item as any)[fieldName];
-
-      if (value !== undefined && value !== null) {
-        // Handle tag arrays (multiple tags per item)
-        if (Array.isArray(value)) {
-          const tagNames = value.map((tag) =>
-            typeof tag === 'string' ? tag : tag.name || tag.title || String(tag)
-          );
-
-          tagNames.forEach((tagName) => {
-            if (!groups[tagName]) {
-              groups[tagName] = [];
-            }
-            groups[tagName].push(item);
-          });
-        } else {
-          // Handle regular fields
-          const key = typeof value === 'string' ? value : String(value);
-          if (!groups[key]) {
-            groups[key] = [];
-          }
-          groups[key].push(item);
-        }
-      }
-
-      return groups;
-    },
-    {} as Record<string, T[]>
-  );
-}
-
-/**
  * Utility to get all available global types
  *
  * @example
@@ -620,4 +607,83 @@ export async function getAvailableGlobalTypes(): Promise<string[]> {
 export async function globalTypeExists(globalType: string): Promise<boolean> {
   const availableTypes = await getAvailableGlobalTypes();
   return availableTypes.includes(globalType);
+}
+
+export interface CreateGlobalItemOptions {
+  /** Slug of a repeatable global, e.g. `'submissions'`. */
+  slug: string;
+  /** Column values for the new row. Required columns (per the generated schema) must be present. */
+  data: Record<string, unknown>;
+  /** User id stored as `author` + `last_modified_by`. Defaults to `null` (anonymous). */
+  authorId?: string | null;
+  /** Defaults to `'published'`. */
+  status?: string;
+}
+
+export interface CreateGlobalItemResult {
+  id: string;
+}
+
+/**
+ * Insert a single item into a repeatable global. Use this from public-facing
+ * endpoints (contact form, newsletter signup, anything where a visitor writes
+ * to a CMS-managed table) instead of reaching into `core/db` directly.
+ *
+ * What this does beyond a raw `db.insert(...)`:
+ *  - Validates `slug` against `globalDefinitions` and resolves the generated
+ *    drizzle table, so a typo errors out here rather than as a cryptic Drizzle
+ *    column mismatch.
+ *  - Fills `id` (uuid), `status` (`'published'`), and `last_modified_by` /
+ *    `author` defaults; `created_at` + `updated_at` come from the table's
+ *    `$defaultFn`.
+ *  - Calls `SearchIndexService.onSaveSafe('global', slug, id)` after insert so
+ *    the row appears in the admin command palette (⌘K) immediately. Skipping
+ *    this leaves the row out of the FTS index until the next `npx sailor
+ *    search:reindex`.
+ *
+ * Does NOT enforce the global's `access.roles` — this helper is intended for
+ * trusted server contexts that have already validated input (e.g. a
+ * `+server.ts` route after CAPTCHA verification). Singleton globals
+ * (`dataType: 'flat'`) are not supported — those upsert against a known id
+ * and should go through the admin save path.
+ *
+ * @example
+ * ```ts
+ * import { createGlobalItem } from 'sailorcms/utils/data';
+ *
+ * const { id } = await createGlobalItem({
+ *   slug: 'submissions',
+ *   data: { subject, name, email, phone, message, inquiry_status: 'new' }
+ * });
+ * ```
+ */
+export async function createGlobalItem(
+  opts: CreateGlobalItemOptions
+): Promise<CreateGlobalItemResult> {
+  const { slug, data, authorId = null, status = 'published' } = opts;
+
+  const def = (globalDefinitions as Record<string, any>)[slug];
+  if (!def) throw new Error(`Unknown global '${slug}'`);
+  if (def.dataType === 'flat') {
+    throw new Error(
+      `createGlobalItem does not support singleton globals (slug='${slug}'); use the admin save path for these`
+    );
+  }
+
+  const table = (schema as Record<string, any>)[`global_${slug}`];
+  if (!table) throw new Error(`Generated table 'global_${slug}' not found`);
+
+  const id = (data.id as string) || generateUUID();
+  const insertData: Record<string, any> = {
+    status,
+    author: authorId,
+    last_modified_by: authorId,
+    ...data,
+    id
+  };
+
+  await db.insert(table).values(insertData);
+  await SearchIndexService.onSaveSafe('global', slug, id);
+
+  return { id };
 }

@@ -30,6 +30,14 @@ export const submissionsGlobal: GlobalDefinition = {
       hidden: true,
       readonly: true
     },
+    // System status — hidden because the user-facing triage lives on
+    // `inquiry_status` (new / reviewed / replied / archived). Every submission
+    // is real admin data, so we default to 'published' so the default
+    // `getGlobals` filter surfaces them without an explicit override.
+    status: {
+      hidden: true,
+      default: 'published'
+    },
     // Explicit `order` so the table reads as an inbox: subject (clickable
     // first column) → name → email → phone → triage status. Without this,
     // CORE_FIELDS injects the system status column before user fields and

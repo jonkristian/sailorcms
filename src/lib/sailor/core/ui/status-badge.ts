@@ -33,8 +33,8 @@ export function getStatusBadge(status: string | undefined | null): {
         classes: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300'
       };
     case 'active':
-      // Globals default new items to `active` (vs collections' `draft`); same
-      // "live" semantic as published — gets the same emerald hue.
+      // Same "live" semantic as published — gets the same emerald hue. Kept
+      // for templates that model status as active / inactive.
       return {
         label: m.status_active(),
         classes: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'

@@ -5,8 +5,7 @@ import { collectionDefinitions } from '$sailor/templates/collections';
 import { globalDefinitions } from '$sailor/templates/globals';
 import { blockDefinitions } from '$sailor/templates/blocks';
 import type { FieldDefinition } from '../types';
-import { getCollections } from '../../utils/data/collections';
-import { getGlobals } from '../../utils/data/globals';
+import { readGlobal, readCollection } from './data-read.server';
 import { TagService } from './tag.server';
 
 // Resolved lazily so the file typechecks even before `npx sailor db:update`
@@ -166,13 +165,13 @@ export class SearchIndexService {
 
     let item: any = null;
     if (entityType === 'collection') {
-      item = await getCollections(entityName, {
+      item = await readCollection(entityName, {
         itemId: entityId,
         status: 'all',
         includeBlocks: def.options?.blocks === true
       });
     } else {
-      item = await getGlobals(entityName, { itemId: entityId });
+      item = await readGlobal(entityName, { itemId: entityId, status: 'all' });
     }
 
     if (!item) {
@@ -197,7 +196,7 @@ export class SearchIndexService {
 
     for (const [name, def] of Object.entries(collectionDefinitions) as Array<[string, any]>) {
       if (def?.options?.searchable === false) continue;
-      const result = await getCollections(name, {
+      const result = await readCollection(name, {
         status: 'all',
         includeBlocks: def.options?.blocks === true,
         limit: 10_000
@@ -219,7 +218,7 @@ export class SearchIndexService {
 
     for (const [name, def] of Object.entries(globalDefinitions) as Array<[string, any]>) {
       if (def?.options?.searchable === false) continue;
-      const result = await getGlobals(name);
+      const result = await readGlobal(name, { status: 'all', limit: 10_000 });
       const items = (result as any).items ?? [];
       for (const item of items) {
         try {

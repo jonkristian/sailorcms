@@ -17,6 +17,7 @@ import {
   type RelationStatus
 } from './loaders/relation-loader';
 import { assertAccess, AccessDeniedError } from './access';
+import { parseDate, groupItemsByField } from './internal';
 import { TagService } from 'sailorcms/core/services/tag.server';
 
 /**
@@ -202,10 +203,34 @@ export async function getCollections<T extends CollectionTypes = CollectionTypes
   collectionSlug: string,
   options?: CollectionsOptions
 ): Promise<CollectionsMultipleResult<T>>;
-// Implementation
+// Implementation — public path, access rule enforced.
 export async function getCollections<T extends CollectionTypes = CollectionTypes>(
   collectionSlug: string,
   options?: CollectionsOptions
+): Promise<CollectionsSingleResult<T> | CollectionsMultipleResult<T>> {
+  return _loadCollectionImpl<T>(collectionSlug, options, true);
+}
+
+/**
+ * Framework-internal read for collections. Skips the type-level `access` rule
+ * because the caller is the framework itself (search index rebuild, hooks,
+ * cron jobs) and has no user context to authenticate as. Re-exported from
+ * `core/services/data-read.server.ts` as `readCollection` — that is the
+ * canonical import path. Consumer code reads via `getCollections`.
+ *
+ * @internal
+ */
+export async function _loadCollectionUnchecked<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options?: CollectionsOptions
+): Promise<CollectionsSingleResult<T> | CollectionsMultipleResult<T>> {
+  return _loadCollectionImpl<T>(collectionSlug, options, false);
+}
+
+async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: CollectionsOptions | undefined,
+  checkAccess: boolean
 ): Promise<CollectionsSingleResult<T> | CollectionsMultipleResult<T>> {
   const {
     itemSlug,
@@ -239,15 +264,17 @@ export async function getCollections<T extends CollectionTypes = CollectionTypes
       return isSingleQuery ? null : { items: [], total: 0, hasMore: false };
     }
 
-    // Enforce type-level access before any DB work. Throws AccessDeniedError
-    // on miss — never returns silently. Default rule is 'public' so untouched
-    // templates keep their current behavior.
-    const collectionDef = await getCollectionType(collectionSlug);
-    assertAccess(
-      (collectionDef?.options as { access?: any })?.access,
-      user,
-      `Collection '${collectionSlug}'`
-    );
+    if (checkAccess) {
+      // Enforce type-level access before any DB work. Throws AccessDeniedError
+      // on miss — never returns silently. Default rule is 'public' so untouched
+      // templates keep their current behavior.
+      const collectionDef = await getCollectionType(collectionSlug);
+      assertAccess(
+        (collectionDef?.options as { access?: any })?.access,
+        user,
+        `Collection '${collectionSlug}'`
+      );
+    }
 
     // Handle single item queries
     if (isSingleQuery) {
@@ -464,22 +491,6 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
 
   const total = countResult[0]?.count || 0;
 
-  // Fix date handling for all items
-  const parseDate = (dateValue: any): Date => {
-    if (!dateValue) return new Date();
-    if (dateValue instanceof Date) return dateValue;
-    if (typeof dateValue === 'string') {
-      const isoDate = new Date(dateValue);
-      if (!isNaN(isoDate.getTime())) return isoDate;
-    }
-    if (typeof dateValue === 'number') {
-      const timestamp = dateValue > 10000000000 ? dateValue : dateValue * 1000;
-      return new Date(timestamp);
-    }
-    return new Date();
-  };
-
-  // Parse dates for all items
   for (const item of items as any[]) {
     (item as CollectionItem).created_at = parseDate((item as CollectionItem).created_at);
     (item as CollectionItem).updated_at = parseDate((item as CollectionItem).updated_at);
@@ -832,43 +843,6 @@ async function buildRelationshipSubquery(
 
   // Extract just the collection_id values for the IN clause
   return relatedResults.map((row: { collection_id: string }) => row.collection_id);
-}
-
-/**
- * Group items by a specific field - handles both regular fields and tag arrays
- */
-function groupItemsByField<T>(items: T[], fieldName: string): Record<string, T[]> {
-  return items.reduce(
-    (groups, item) => {
-      const value = (item as any)[fieldName];
-
-      if (value !== undefined && value !== null) {
-        // Handle tag arrays (multiple tags per item)
-        if (Array.isArray(value)) {
-          const tagNames = value.map((tag) =>
-            typeof tag === 'string' ? tag : tag.name || tag.title || String(tag)
-          );
-
-          tagNames.forEach((tagName) => {
-            if (!groups[tagName]) {
-              groups[tagName] = [];
-            }
-            groups[tagName].push(item);
-          });
-        } else {
-          // Handle regular fields
-          const key = typeof value === 'string' ? value : String(value);
-          if (!groups[key]) {
-            groups[key] = [];
-          }
-          groups[key].push(item);
-        }
-      }
-
-      return groups;
-    },
-    {} as Record<string, T[]>
-  );
 }
 
 /**

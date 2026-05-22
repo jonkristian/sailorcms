@@ -96,11 +96,12 @@ export const load = async ({ params, locals }) => {
 
     if (existingItems.length === 0) {
       // This is a new item - create default data. Honor the template's
-      // declared `status.default` (e.g. categories override to `'active'`);
-      // fall back to `'draft'` (the CORE_FIELDS status convention).
+      // declared `status.default` first; fall back to `'published'` for
+      // globals — taxonomy / list-style content is usually publishable on
+      // creation. Collection forms keep the editorial-style `'draft'` default.
       isNewItem = true;
       const defaultTitle = `New ${globalDefinition.name.singular}`;
-      const statusDefault = (globalDefinition.fields as any)?.status?.default ?? 'draft';
+      const statusDefault = (globalDefinition.fields as any)?.status?.default ?? 'published';
       item = {
         id: id,
         title: defaultTitle,

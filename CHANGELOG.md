@@ -4,6 +4,23 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.7.5] - 22 May 2026
+
+### Added
+
+- **`createGlobalItem({ slug, data, authorId?, status? })` in `sailorcms/utils/data`** — public helper for inserting into a repeatable global (contact form, newsletter signup, anything where a visitor writes to a CMS-managed table). Validates `slug` against `globalDefinitions`, fills `id` / `status` / `last_modified_by` defaults, and — crucially — calls `SearchIndexService.onSaveSafe('global', slug, id)` so the new row appears in the admin command palette (⌘K) immediately. Raw `db.insert(...)` from `core/db` skips the FTS sync, so direct-insert rows were invisible to admin search until the next `npx sailor search:reindex`. Singletons (`dataType: 'flat'`) are unsupported by design — those upsert and should go through the admin save path.
+- **Inline status toggle on the repeatable-globals list view** — clickable pill next to each row that cycles through the template's `status` options and persists immediately via a new `updateGlobalItemStatus` remote command (single-field write — won't clobber unsaved edits on other fields of the same item). Only renders when the template declares a `status` field with 2+ options; respects `update:content` permission. The whole row header is now also clickable to expand/collapse (drag handle, trash, selection checkbox, and the status pill stop propagation). Applies to every consumer of `DraggableCard` (inline globals, nested globals, array fields, blocks editor).
+
+### Changed
+
+- **`getGlobals` now filters repeatable globals by `status` (default `'published'`)** — previously the option only applied to relation targets, so top-level rows leaked drafts. Pass `status: 'all'` for admin previews. Singletons (`dataType: 'flat'`) have no status column and are unaffected. Internal callers updated: `search-index.server.ts` reindex paths pass `status: 'all'` (else draft submissions silently drop out of FTS); `utils/data/search.ts` propagates the caller's status to globals too (was collections-only).
+- **Shipped global templates declare `status` explicitly** — `faq`, `menus`, `submissions`, `categories` now define a `status` field in the template rather than inheriting silently from `CORE_FIELDS`. All four default to `'published'` (submissions hide the field since the user-facing triage lives on `inquiry_status`); `categories` switched from `active` / `inactive` to `draft` / `published` for filter compatibility. Consumer globals that don't customize status still inherit the `CORE_FIELDS` options (`draft` / `published` / `private` / `archived`).
+- **New-item default status for globals flipped from `'draft'` to `'published'`** — applies to the three places that hardcoded a fallback when the template doesn't declare a `status.default`: inline list (`RepeatableInlineView.addItem`), nested list (`RepeatableNestedView.handleAddNew`), and the dedicated edit page (`globals/[slug]/[id]/+page.server.ts`). Taxonomy / list-style content is usually publishable on creation, so the inverted default matches expectations for status-agnostic globals like `bransjer`. Collection forms keep the editorial-workflow `'draft'` default. Existing rows aren't migrated; backfill once with `UPDATE global_<slug> SET status = 'published' WHERE status != 'published'` for taxonomies / config-style globals.
+
+### Fixed
+
+- **Search reindex skipped protected globals/collections silently** — `SearchIndexService.reindexEntity` / `reindexAll` called `getGlobals` / `getCollections` without a user, so any entity with a non-public `access` rule (e.g. submissions with `access: { roles: ['admin', 'editor'] }`) hit `AccessDeniedError`, which `onSaveSafe` then caught and logged as a warning. Effect: rows were saved but never entered FTS, so `createGlobalItem` for submissions appeared to work but the row never showed up in ⌘K, and `npx sailor search:reindex` silently skipped them too. New `sailorcms/core/services/data-read.server.ts` exports `readGlobal` / `readCollection` — framework-internal reads that bypass the type-level access rule because the caller has no user to authenticate as. `getGlobals` / `getCollections` are unchanged on the public side. Run `npx sailor search:reindex` once after upgrade to backfill the missing rows.
+
 ## [0.7.4] - 15 May 2026
 
 ### Added

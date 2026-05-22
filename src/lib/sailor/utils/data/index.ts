@@ -13,11 +13,14 @@ export {
 // Global utilities
 export {
   getGlobals,
+  createGlobalItem,
   getAvailableGlobalTypes,
   globalTypeExists,
   type GlobalsMultipleResult,
   type GlobalsOptions,
-  type GlobalsSingleResult
+  type GlobalsSingleResult,
+  type CreateGlobalItemOptions,
+  type CreateGlobalItemResult
 } from './globals';
 
 // Block utilities

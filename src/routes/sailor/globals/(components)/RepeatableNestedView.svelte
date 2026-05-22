@@ -174,16 +174,16 @@
     isNewItem = true;
     editingItem = { id: generateUUID() };
 
-    // Initialize form data with each field's declared `default` first (so a
-    // template overriding the enum — e.g. `categories` with `active|inactive`
-    // and `default: 'active'` — gets its intended value); fall back to
-    // `'draft'` only for the core status field that has no explicit default,
-    // and `''` for everything else. Mirrors RepeatableInlineView's pattern.
+    // Initialize form data with each field's declared `default` first so any
+    // template-level override (e.g. a custom select with its own default)
+    // wins. Globals fall back to `'published'` for the core status — taxonomy
+    // / list-style content is usually publishable on creation. Empty string
+    // for any other field without a default.
     Object.entries(global.fields).forEach(([key, field]: [string, any]) => {
       if (field?.default !== undefined) {
         formData[key] = field.default;
       } else if (key === 'status') {
-        formData[key] = 'draft';
+        formData[key] = 'published';
       } else {
         formData[key] = '';
       }

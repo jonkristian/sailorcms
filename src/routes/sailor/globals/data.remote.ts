@@ -227,6 +227,61 @@ export const deleteGlobalItem = command(
 );
 
 /**
+ * Update only the `status` field on a single repeatable-global row. Used by
+ * the inline-list status toggle in the admin UI — surgical write so flipping a
+ * row's status from the list doesn't overwrite unsaved edits on other fields
+ * in the same item.
+ */
+export const updateGlobalItemStatus = command(
+  'unchecked',
+  async ({
+    globalSlug,
+    itemId,
+    status
+  }: {
+    globalSlug: string;
+    itemId: string;
+    status: string;
+  }) => {
+    const { locals } = getRequestEvent();
+
+    if (!locals.user?.id) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!globalSlug || !itemId || !status) {
+      return { success: false, error: 'Global slug, item ID and status are required' };
+    }
+
+    const canUpdate = await locals.security.hasPermission('update', 'content');
+    if (!canUpdate) {
+      return { success: false, error: 'You do not have permission to update content' };
+    }
+
+    const table = (schema as any)[`global_${globalSlug}`];
+    if (!table) {
+      return { success: false, error: `Global table for '${globalSlug}' not found` };
+    }
+
+    try {
+      await db
+        .update(table)
+        .set({
+          status,
+          updated_at: new Date(),
+          last_modified_by: locals.user.id
+        } as any)
+        .where(eq((table as any).id, itemId));
+      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to update global item status', {}, error as Error);
+      return { success: false, error: 'Failed to update status' };
+    }
+  }
+);
+
+/**
  * Reorder global items with drag & drop support
  */
 export const reorderGlobalItems = command(

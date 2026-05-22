@@ -2,7 +2,7 @@ export interface TreeNode {
   id: string;
   name: string;
   description?: string;
-  status?: 'active' | 'inactive' | 'draft';
+  status?: string;
   children: TreeNode[];
 }
 
@@ -11,7 +11,7 @@ export interface FlatItem {
   name?: string;
   title?: string;
   description?: string;
-  status?: 'active' | 'inactive' | 'draft';
+  status?: string;
   parent_id?: string | null;
   [key: string]: any; // Allow additional properties
 }

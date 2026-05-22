@@ -5,6 +5,7 @@
   import { slide } from 'svelte/transition';
   import { quintIn, quintOut } from 'svelte/easing';
   import { m } from '$sailor/i18n';
+  import { getStatusBadge } from 'sailorcms/core/ui/status-badge';
 
   let {
     title,
@@ -21,7 +22,10 @@
     featured = false,
     showSelection = false,
     isSelected = false,
-    onSelectNode
+    onSelectNode,
+    status,
+    statusOptions,
+    onStatusToggle
   }: {
     title: string;
     subtitle?: string;
@@ -38,13 +42,44 @@
     showSelection?: boolean;
     isSelected?: boolean;
     onSelectNode?: (checked: boolean) => void;
+    status?: string | null;
+    statusOptions?: Array<{ label: string; value: string }>;
+    onStatusToggle?: (next: string) => void;
   } = $props();
 
   let isOpen = $derived(open);
+  // Row click expands/collapses only when there is something to expand AND
+  // when the card isn't using a modal-edit pattern (onEdit takes over from
+  // the chevron and inline expansion in that mode).
+  let rowToggleEnabled = $derived(!!children && !onEdit);
+  // Translated label + base classes for known statuses (published / draft /
+  // archived / private / active). Unknown values fall back to the raw string
+  // with muted styling — covers consumer-custom select values.
+  let statusBadge = $derived(status ? getStatusBadge(status) : null);
 
   function handleToggle() {
     isOpen = !isOpen;
     onToggle?.();
+  }
+
+  function handleHeaderClick() {
+    if (!rowToggleEnabled) return;
+    handleToggle();
+  }
+
+  function handleHeaderKey(e: KeyboardEvent) {
+    if (!rowToggleEnabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleToggle();
+    }
+  }
+
+  function handleStatusClick() {
+    if (!onStatusToggle || !statusOptions || statusOptions.length < 2 || !status) return;
+    const idx = statusOptions.findIndex((o) => o.value === status);
+    const next = statusOptions[(idx + 1) % statusOptions.length].value;
+    onStatusToggle(next);
   }
 </script>
 
@@ -56,13 +91,20 @@
 >
   <!-- Header -->
   <div
-    class="bg-muted/30 hover:bg-muted/50 flex items-center justify-between px-4 py-1 transition-colors"
+    class="bg-muted/30 hover:bg-muted/50 flex items-center justify-between px-4 py-1 transition-colors {rowToggleEnabled
+      ? 'cursor-pointer'
+      : ''}"
+    role="button"
+    tabindex="0"
+    onclick={handleHeaderClick}
+    onkeydown={handleHeaderKey}
   >
     <div class="flex items-center gap-3">
       <button
         class="text-muted-foreground hover:bg-muted/50 cursor-grab rounded p-1 transition-colors hover:cursor-grabbing"
         data-drag-handle
         tabindex="-1"
+        onclick={(e) => e.stopPropagation()}
         {...dragAttributes}
       >
         <GripVertical class="h-4 w-4" />
@@ -100,12 +142,27 @@
       {/if}
     </div>
     <div class="flex items-center gap-2">
+      {#if status && statusBadge && onStatusToggle}
+        <button
+          type="button"
+          onclick={(e) => {
+            e.stopPropagation();
+            handleStatusClick();
+          }}
+          class="cursor-pointer rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 {statusBadge.classes}"
+        >
+          {statusBadge.label}
+        </button>
+      {/if}
       {#if onEdit}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          onclick={onEdit}
+          onclick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
           class="text-muted-foreground hover:text-foreground size-8 cursor-pointer"
         >
           <Edit class="h-4 w-4" />
@@ -116,7 +173,10 @@
           type="button"
           variant="ghost"
           size="icon"
-          onclick={onRemove}
+          onclick={(e) => {
+            e.stopPropagation();
+            onRemove?.();
+          }}
           class="text-destructive hover:text-destructive/90 size-8 cursor-pointer"
         >
           <Trash2 class="h-4 w-4" />
@@ -133,7 +193,16 @@
         </div>
       {/if}
       {#if children && !onEdit}
-        <Button type="button" variant="ghost" size="icon" class="h-8 w-8" onclick={handleToggle}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8"
+          onclick={(e) => {
+            e.stopPropagation();
+            handleToggle();
+          }}
+        >
           <ChevronDown class="h-4 w-4 transition-transform {isOpen ? '' : 'rotate-180'}" />
         </Button>
       {/if}

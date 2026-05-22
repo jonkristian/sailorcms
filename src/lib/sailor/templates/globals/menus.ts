@@ -22,6 +22,16 @@ export const menusGlobal: GlobalDefinition = {
       label: 'Name',
       position: 'sidebar'
     },
+    status: {
+      type: 'select',
+      label: 'Status',
+      position: 'sidebar',
+      options: [
+        { label: 'Draft', value: 'draft' },
+        { label: 'Published', value: 'published' }
+      ],
+      default: 'published'
+    },
     items: {
       type: 'array',
       label: 'Menu Items',

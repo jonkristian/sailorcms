@@ -42,6 +42,16 @@ export const faqGlobal: GlobalDefinition = {
       default: false,
       position: 'sidebar',
       description: 'Show this FAQ prominently on the page'
+    },
+    status: {
+      type: 'select',
+      label: 'Status',
+      position: 'sidebar',
+      options: [
+        { label: 'Draft', value: 'draft' },
+        { label: 'Published', value: 'published' }
+      ],
+      default: 'published'
     }
   }
 };

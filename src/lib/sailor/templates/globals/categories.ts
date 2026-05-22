@@ -54,10 +54,10 @@ export const categoriesGlobal: GlobalDefinition = {
       position: 'sidebar',
       order: 3,
       options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' }
+        { label: 'Draft', value: 'draft' },
+        { label: 'Published', value: 'published' }
       ],
-      default: 'active'
+      default: 'published'
     }
   }
 };
