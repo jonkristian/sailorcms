@@ -4,6 +4,10 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`getImage` dropped `position` on the UUID branch** — `utils/files/client.ts`'s `getImageUrl` forwarded `width` / `height` / `resize` / `quality` / `format` to `/sailor/api/images/transform` but skipped `position`, so `getImage(uuid, { resize: 'cover', position: 'top' })` silently center-cropped (Sharp's default). Path-based inputs were unaffected. The transform endpoint already reads `position` from the query string.
+
 ## [0.7.5] - 22 May 2026
 
 ### Added

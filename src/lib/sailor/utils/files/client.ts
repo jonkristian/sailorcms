@@ -69,6 +69,7 @@ function getImageUrl(filePathOrId: string, options: FileTransformOptions = {}): 
     if (options.width) params.append('width', options.width.toString());
     if (options.height) params.append('height', options.height.toString());
     if (options.resize) params.append('resize', options.resize);
+    if (options.position) params.append('position', options.position);
     if (options.quality) params.append('quality', options.quality.toString());
     if (options.format) params.append('format', options.format);
 
