@@ -171,9 +171,11 @@ The fix is opt-in and intentionally separated from `db:update` — drops are des
 
 ## 8. Path-prefix routing recipe (public site)
 
-The most common public-site shape is one URL segment per language: `/no/...`, `/en/...`. Sailor doesn't enforce a routing pattern, but ships helpers and a hook option that make the typical setup mostly settings-driven.
+**Recommended shape: default locale at root, others prefixed.** Existing URLs (`/about`, `/blog/post-1`) keep serving the default locale unchanged; non-default locales live under their own prefix (`/no/about`, `/no/blog/post-1`). This is the SEO-safe shape for an established site flipping to localized — no mass URL change, no broken backlinks, no redirect storm. Greenfield projects benefit too: the default locale gets the cleanest URLs.
 
-### Settings — URL aliases
+> Avoid symmetric `/en/...` + `/no/...` (every locale prefixed). On established sites it rewrites every URL → 301-redirect chains, broken backlinks, search rankings reset. The asymmetric shape below is the default this guide documents.
+
+### Settings — URL aliases (optional)
 
 Content codes follow BCP-47 (`'nb-NO'`); URL aliases let the public site use friendlier segments (`'no'`):
 
@@ -191,17 +193,39 @@ content: {
 
 With this, `getUrlLangs()` returns `['en', 'no']`, `urlToContentLocale('no')` returns `'nb-NO'`, and `contentToUrlLang('nb-NO')` returns `'no'`. Locales without an alias use their BCP-47 code unchanged.
 
-### Param matcher
+### Param matcher — accept non-default URL forms only
 
 ```ts
 // src/params/lang.ts
 import type { ParamMatcher } from '@sveltejs/kit';
-import { urlToContentLocale } from 'sailorcms/utils/data';
+import { urlToContentLocale, contentToUrlLang, getContentSettings } from 'sailorcms/utils/data';
 
-export const match: ParamMatcher = (param) => urlToContentLocale(param) !== null;
+const { defaultLocale } = getContentSettings();
+const defaultUrlLang = defaultLocale ? contentToUrlLang(defaultLocale) : '';
+
+export const match: ParamMatcher = (param) => {
+  if (param === defaultUrlLang) return false; // default serves at root, not /en/...
+  return urlToContentLocale(param) !== null;
+};
 ```
 
-Then route folders use `[lang=lang]` and `params.lang` is guaranteed to be a configured URL segment.
+Refusing the default's URL form here keeps `/about` as the only valid URL for default-locale pages and prevents `/en/about` from quietly serving duplicate content (search engines penalize that).
+
+### Route layout — optional `[[lang]]` segment
+
+Use SvelteKit's optional matched-param `[[lang=lang]]` so each page is written once and matches both default-at-root and non-default-prefixed:
+
+```
+src/routes/(site)/
+  [[lang=lang]]/
+    +layout.server.ts        ← resolve content locale once
+    +layout.svelte           ← language switcher lives here
+    +page.server.ts          ← home (handles / and /no/)
+    about/+page.server.ts    ← /about and /no/about
+    blog/[slug]/+page.server.ts
+```
+
+`/about` → `params.lang === undefined` (default locale); `/no/about` → `params.lang === 'no'`.
 
 ### Hook — stamp `<html lang>` + `event.locals.contentLocale`
 
@@ -209,7 +233,7 @@ Then route folders use `[lang=lang]` and `params.lang` is guaranteed to be a con
 // src/hooks.server.ts
 import { type Handle } from '@sveltejs/kit';
 import { handleSailorHooks } from 'sailorcms/core/hooks/sailor-hooks';
-import { urlToContentLocale } from 'sailorcms/utils/data';
+import { urlToContentLocale, getContentSettings } from 'sailorcms/utils/data';
 
 export const handle: Handle = ({ event, resolve }) =>
   handleSailorHooks(event, resolve, {
@@ -217,25 +241,25 @@ export const handle: Handle = ({ event, resolve }) =>
       // Skip admin tree — paraglide handles its own locale there.
       if (event.url.pathname.startsWith('/sailor')) return null;
       const seg = event.url.pathname.split('/')[1];
-      return urlToContentLocale(seg);
+      // No prefix → default locale. Recognized prefix → non-default.
+      // Unrecognized first segment → still default (route is at root,
+      // first segment is something else like 'about').
+      return urlToContentLocale(seg) ?? getContentSettings().defaultLocale ?? null;
     }
   });
 ```
 
-This:
+Result: `event.locals.contentLocale` is always set on public routes, and `<html lang="...">` is rewritten to the BCP-47 form for SEO / screen readers.
 
-- Stamps `event.locals.contentLocale = 'nb-NO'` for downstream loaders.
-- Rewrites `<html lang="nb-NO">` on the response — correct BCP-47 value for SEO / screen readers.
-
-### Loader — thread `locale`
+### Loader — read locale from `[[lang]]` or fall back to default
 
 ```ts
-// src/routes/(site)/[lang=lang]/pages/[slug]/+page.server.ts
-import { getCollections } from 'sailorcms/utils/data';
-import { urlToContentLocale } from 'sailorcms/utils/data';
+// src/routes/(site)/[[lang=lang]]/pages/[slug]/+page.server.ts
+import { getCollections, urlToContentLocale, getContentSettings } from 'sailorcms/utils/data';
 
 export const load = async ({ params }) => {
-  const locale = urlToContentLocale(params.lang)!; // matcher guarantees this
+  const locale =
+    (params.lang && urlToContentLocale(params.lang)) ?? getContentSettings().defaultLocale!;
   const page = await getCollections('pages', {
     itemSlug: params.slug,
     locale,
@@ -245,37 +269,44 @@ export const load = async ({ params }) => {
 };
 ```
 
-> Note: until an "implicit locale via `event.locals.contentLocale`" pickup lands in `getCollections`, the `locale` arg has to be threaded explicitly. The matcher + hook plumbing above is the boilerplate-light path today.
+> Note: until an "implicit locale via `event.locals.contentLocale`" pickup lands in `getCollections`, the `locale` arg has to be threaded explicitly. The hook above stamps `event.locals.contentLocale` so you can also read it from there if you prefer.
 
-### Language switcher
+### Language switcher — omits prefix for the default locale
 
 ```svelte
-<!-- src/routes/(site)/[lang=lang]/+layout.svelte -->
+<!-- src/routes/(site)/[[lang=lang]]/+layout.svelte -->
 <script>
-  import { page } from '$app/state';
   import LanguageSwitcher from 'sailorcms/components/sailor/site/LanguageSwitcher.svelte';
+  import { getContentSettings } from 'sailorcms/utils/data';
 
   let { data, children } = $props();
+  const { defaultLocale } = getContentSettings();
 </script>
 
 <LanguageSwitcher
   translations={data.page?.translations ?? []}
   currentLocale={data.locale}
-  buildHref={(locale, translation, urlLang) =>
-    translation ? `/${urlLang}/pages/${translation.slug}` : `/${urlLang}`}
+  buildHref={(locale, translation, urlLang) => {
+    const isDefault = locale === defaultLocale;
+    const prefix = isDefault ? '' : `/${urlLang}`;
+    if (translation) return `${prefix}/pages/${translation.slug}`;
+    return prefix || '/'; // home fallback
+  }}
 />
 
 {@render children?.()}
 ```
 
-`buildHref`'s third arg (`urlLang`) is the URL form (alias applied). The first arg (`locale`) stays BCP-47 so you can pass it through to other APIs. `translation` is the row from `includeTranslations: true` — present means a real translation exists; `null` means missing (consumer decides whether to omit, link to home, or render a disabled chip).
+`buildHref`'s third arg (`urlLang`) is the URL form (alias applied). The first arg (`locale`) stays BCP-47. `translation` is the row from `includeTranslations: true` — present means a real translation exists; `null` means missing (consumer decides whether to omit, link to home, or render a disabled chip).
 
 ### What this gives you
 
+- Existing URLs unchanged when flipping `localized: true` — SEO-safe migration path for established sites.
 - One settings block defines locales + URL form.
-- One matcher line, one hook block, one switcher component.
-- `<html lang>` is correct on every public page automatically.
-- Switcher deep-links to the per-locale slug when translations exist, falls back gracefully when they don't.
+- One matcher + one hook + one switcher.
+- Per-page route file is written once via `[[lang=lang]]`; default-locale URLs stay at root.
+- `<html lang>` correct on every public page automatically.
+- Switcher deep-links to the per-locale slug when translations exist, falls back to the locale's home when they don't.
 
 ---
 
