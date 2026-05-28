@@ -104,10 +104,13 @@ async function searchContent(q: string): Promise<AdminSearchHit[]> {
 
   if (ftsQuery) {
     try {
+      // We over-fetch (multiplied by locales) and dedupe below, so localized
+      // collections still produce PER_GROUP_LIMIT distinct items in the result.
       rows = (await db.all(sql`
         SELECT si.entity_type AS entity_type,
                si.entity_name AS entity_name,
                si.entity_id   AS entity_id,
+               si.locale      AS locale,
                si.title       AS title,
                si.updated_at  AS updated_at,
                bm25(search_index_fts, 5.0, 1.0) AS rank
@@ -116,9 +119,13 @@ async function searchContent(q: string): Promise<AdminSearchHit[]> {
           search_index_fts.entity_type = si.entity_type
           AND search_index_fts.entity_name = si.entity_name
           AND search_index_fts.entity_id = si.entity_id
+          AND (
+            search_index_fts.locale = si.locale
+            OR (search_index_fts.locale IS NULL AND si.locale IS NULL)
+          )
         WHERE search_index_fts MATCH ${ftsQuery}
         ORDER BY rank ASC, si.updated_at DESC
-        LIMIT ${PER_GROUP_LIMIT}
+        LIMIT ${PER_GROUP_LIMIT * 4}
       `)) as any[];
     } catch (err) {
       console.warn('adminSearch: FTS query failed', err);
@@ -132,6 +139,7 @@ async function searchContent(q: string): Promise<AdminSearchHit[]> {
         entity_type: table.entity_type,
         entity_name: table.entity_name,
         entity_id: table.entity_id,
+        locale: table.locale,
         title: table.title,
         updated_at: table.updated_at
       })
@@ -143,10 +151,25 @@ async function searchContent(q: string): Promise<AdminSearchHit[]> {
         ) as SQL
       )
       .orderBy(desc(table.updated_at))
-      .limit(PER_GROUP_LIMIT);
+      .limit(PER_GROUP_LIMIT * 4);
   }
 
-  return rows.map((r: any) => contentRowToHit(r)).filter((h): h is AdminSearchHit => h !== null);
+  // Dedupe per item: a translated post has one row per locale on search_index,
+  // but admin search should show one hit per item. Keep the first match (=
+  // best ranked from FTS, or most recently updated from LIKE) — that locale's
+  // title is what the editor sees. The admin can then click through and use
+  // the locale switcher on the edit page to find a different translation.
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+  for (const r of rows) {
+    const key = `${r.entity_type}:${r.entity_name}:${r.entity_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(r);
+    if (deduped.length >= PER_GROUP_LIMIT) break;
+  }
+
+  return deduped.map((r: any) => contentRowToHit(r)).filter((h): h is AdminSearchHit => h !== null);
 }
 
 function contentRowToHit(r: {
@@ -338,10 +361,10 @@ function matchDestinations(
       visible: flags.canSettings
     },
     {
-      label: m.settings_nav_taggables_label,
+      label: m.settings_nav_tags_label,
       parent: m.nav_settings,
-      extras: [m.settings_nav_taggables_description, m.settings_nav_taggables_aliases],
-      href: '/sailor/settings/taggables',
+      extras: [m.settings_nav_tags_description, m.settings_nav_tags_aliases],
+      href: '/sailor/settings/tags',
       visible: flags.canSettings
     },
     {

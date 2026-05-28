@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { db } from 'sailorcms/core/db/index.server';
 import { eq, isNotNull, desc, count } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { entityLabelJoin } from 'sailorcms/utils/data/entity-label.server';
 import { log } from 'sailorcms/core/utils/logger';
 import type { PageServerLoad } from './$types';
 
@@ -16,8 +17,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   });
   if (!collectionType) throw error(404, 'Collection not found');
 
-  const table = schema[`collection_${slug}` as keyof typeof schema];
-  if (!table) throw error(404, 'Collection table not found');
+  const join = entityLabelJoin('collection', slug);
+  if (!join.table) throw error(404, 'Collection table not found');
+  const table = join.table;
 
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
   const pageSize = Math.max(1, Math.min(100, parseInt(url.searchParams.get('pageSize') || '20')));
@@ -26,21 +28,28 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   try {
     const [{ totalItems }] = await db
       .select({ totalItems: count() })
-      .from(table as any)
-      .where(isNotNull((table as any).deleted_at));
+      .from(table)
+      .where(isNotNull(table.deleted_at));
 
-    const items = await db
+    let itemsQuery = db
       .select({
-        id: (table as any).id,
-        title: (table as any).title,
-        deleted_at: (table as any).deleted_at,
-        deleted_by: (table as any).deleted_by,
+        id: table.id,
+        title: join.title,
+        deleted_at: table.deleted_at,
+        deleted_by: table.deleted_by,
         deleted_by_name: schema.users.name
       })
-      .from(table as any)
-      .leftJoin(schema.users, eq((table as any).deleted_by, schema.users.id))
-      .where(isNotNull((table as any).deleted_at))
-      .orderBy(desc((table as any).deleted_at))
+      .from(table)
+      .$dynamic();
+
+    if (join.localesTable && join.joinCondition) {
+      itemsQuery = itemsQuery.leftJoin(join.localesTable, join.joinCondition);
+    }
+
+    const items = await itemsQuery
+      .leftJoin(schema.users, eq(table.deleted_by, schema.users.id))
+      .where(isNotNull(table.deleted_at))
+      .orderBy(desc(table.deleted_at))
       .limit(pageSize)
       .offset(offset);
 

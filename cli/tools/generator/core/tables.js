@@ -7,9 +7,13 @@ export class TableGenerator {
   }
 
   /**
-   * Create a main entity table (collection, global, block)
+   * Create a main entity table (collection, global, block).
+   *
+   * `indexes` is an optional array of `{ type: 'unique' | 'index', name, columns }`
+   * emitted as the second arg to the Drizzle table function. Used for composite
+   * uniques like `(posts_id, locale)` on localized sibling tables.
    */
-  createMainTable(tableName, fields, entityInfo) {
+  createMainTable(tableName, fields, entityInfo, indexes, opts) {
     const table = this.createTableDefinition(tableName, fields);
 
     this.metadata.registerTable(tableName, {
@@ -18,7 +22,7 @@ export class TableGenerator {
       fields: Object.keys(fields)
     });
 
-    return { name: tableName, table };
+    return { name: tableName, table, indexes, opts };
   }
 
   /**

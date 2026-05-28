@@ -182,6 +182,39 @@
 
 <OverlayLoader>
   <div class="container mx-auto px-6 py-6">
+    <!-- Locale switcher (only for localized globals). Same UX as collections:
+         pills per available locale, current is solid-primary, translated rows
+         are normal-bordered, missing-translation locales are dashed. Pills
+         link to `?locale=<code>` which triggers a client-side load swap. -->
+    {#if data.localized && data.availableLocales.length > 0}
+      <div class="mb-4 flex flex-wrap items-center gap-1">
+        {#each data.availableLocales as code}
+          {@const isCurrent = code === data.currentLocale}
+          {@const isTranslated = data.translatedLocales.includes(code)}
+          <a
+            href="?locale={code}"
+            class="rounded-md border px-2.5 py-1 text-xs font-medium transition-colors {isCurrent
+              ? 'border-primary bg-primary text-primary-foreground'
+              : isTranslated
+                ? 'border-border bg-card hover:bg-accent'
+                : 'border-border text-muted-foreground hover:bg-accent border-dashed'}"
+            aria-current={isCurrent ? 'page' : undefined}
+            title={isTranslated ? code : `${code} — not yet translated`}
+          >
+            {code}{#if !isTranslated && !isCurrent}<span class="ml-1 opacity-60">+</span>{/if}
+          </a>
+        {/each}
+      </div>
+      {#if data.page?._localePrefilledFrom}
+        <div
+          class="border-border bg-card/60 text-muted-foreground mb-2 rounded-md border border-dashed px-3 py-2 text-xs"
+        >
+          New translation — fields prefilled from <span class="font-medium"
+            >{data.page._localePrefilledFrom}</span
+          >. Edit as needed; save will create the {data.currentLocale} version.
+        </div>
+      {/if}
+    {/if}
     <form onsubmit={handleSubmit} class="flex h-[calc(100vh-12rem)] gap-6">
       <!-- Main Content Area -->
       <div class="flex flex-1 flex-col">

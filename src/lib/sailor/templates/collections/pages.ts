@@ -44,16 +44,6 @@ export const pagesCollection: CollectionDefinition = {
         accept: 'image/*'
       }
     },
-    gallery: {
-      type: 'file',
-      label: 'Galleri',
-      position: 'main',
-      items: {
-        multiple: true,
-        fileType: 'image',
-        accept: 'image/*'
-      }
-    },
     excerpt: {
       type: 'textarea',
       label: 'Excerpt',

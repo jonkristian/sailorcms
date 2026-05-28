@@ -10,7 +10,7 @@
   let {
     title,
     subtitle,
-    open = true,
+    open = $bindable(true),
     onToggle,
     onEdit,
     onRemove,
@@ -47,7 +47,6 @@
     onStatusToggle?: (next: string) => void;
   } = $props();
 
-  let isOpen = $derived(open);
   // Row click expands/collapses only when there is something to expand AND
   // when the card isn't using a modal-edit pattern (onEdit takes over from
   // the chevron and inline expansion in that mode).
@@ -58,7 +57,7 @@
   let statusBadge = $derived(status ? getStatusBadge(status) : null);
 
   function handleToggle() {
-    isOpen = !isOpen;
+    open = !open;
     onToggle?.();
   }
 
@@ -203,14 +202,14 @@
             handleToggle();
           }}
         >
-          <ChevronDown class="h-4 w-4 transition-transform {isOpen ? '' : 'rotate-180'}" />
+          <ChevronDown class="h-4 w-4 transition-transform {open ? '' : 'rotate-180'}" />
         </Button>
       {/if}
     </div>
   </div>
 
   <!-- Content -->
-  {#if children && isOpen}
+  {#if children && open}
     <div
       class="space-y-4 px-6 pt-4 pb-6"
       in:slide={{ duration: 300, easing: quintOut }}

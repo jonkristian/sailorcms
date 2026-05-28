@@ -37,6 +37,17 @@ export const settings: Partial<CMSSettings> = {
     maxSize: '1GB'
   },
 
+  // ✅ Content i18n — only relevant for collections (and v2: globals) marked
+  // `localized: true` in their template. Distinct from paraglide's admin-UI
+  // locales above: content locales are what your editors translate posts/pages
+  // into; admin locales are what the CMS chrome is rendered in. They can
+  // overlap or be totally different.
+  content: {
+    locales: ['en', 'nb-NO'],
+    defaultLocale: 'en',
+    fallback: 'default' // 'default' returns the default-locale row when the requested locale has none; 'strict' returns null
+  },
+
   // ✅ System settings (minimal - most via env vars)
   system: {},
 

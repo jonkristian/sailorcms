@@ -320,6 +320,25 @@
   let userChanges: Record<string, any> = $state({});
   let blocksChanged = $state(false);
 
+  // Re-initialize form state when the user switches locale via the pill nav.
+  // Without this, formData stays bound to the locale we mounted with — the
+  // outer `untrack(...)` deliberately blocks `data.page` from auto-refreshing
+  // formData on save round-trips (otherwise saves would clobber in-progress
+  // edits). A locale switch IS a "new identity" though, so we track
+  // `data.currentLocale` specifically and rebuild form state on change.
+  // `untrack` captures the initial value without subscribing — the $effect
+  // body re-reads `data.currentLocale` each tick to compare.
+  let lastLoadedLocale = untrack(() => data.currentLocale);
+  $effect(() => {
+    if (data.currentLocale !== lastLoadedLocale) {
+      lastLoadedLocale = data.currentLocale;
+      formData = buildFormData(data.page);
+      blocks = buildBlocksFromPage(data.page);
+      userChanges = {};
+      blocksChanged = false;
+    }
+  });
+
   // Handle title changes (no longer auto-generates slug)
   function handleTitleChange(newTitle: string) {
     formData.title = newTitle;
@@ -508,6 +527,44 @@
   <div class="flex gap-6 px-6">
     <!-- Main Content Area -->
     <div class="flex flex-1 flex-col">
+      <!-- Locale switcher (only for localized collections). Each pill links to
+           the same item with `?locale=<code>`, which triggers a server reload
+           that swaps the `_locales` row backing the form. Pills show whether a
+           translation exists for that locale ("translated"), the current view
+           ("active"), or has no row yet ("missing" — clicking opens an empty
+           form ready to translate, the row is created on first save). -->
+      {#if data.localized && data.availableLocales.length > 0}
+        <div class="mt-4 mb-2 flex flex-wrap items-center gap-1">
+          {#each data.availableLocales as code}
+            {@const isCurrent = code === data.currentLocale}
+            {@const isTranslated = data.translatedLocales.includes(code)}
+            <a
+              href="?locale={code}"
+              class="rounded-md border px-2.5 py-1 text-xs font-medium transition-colors {isCurrent
+                ? 'border-primary bg-primary text-primary-foreground'
+                : isTranslated
+                  ? 'border-border bg-card hover:bg-accent'
+                  : 'border-border text-muted-foreground hover:bg-accent border-dashed'}"
+              aria-current={isCurrent ? 'page' : undefined}
+              title={isTranslated ? code : `${code} — not yet translated`}
+            >
+              {code}{#if !isTranslated && !isCurrent}<span class="ml-1 opacity-60">+</span>{/if}
+            </a>
+          {/each}
+        </div>
+        <!-- Prefill banner: server loaded the default-locale row as a starting
+             draft because no translation exists for the current locale yet.
+             Save will create a fresh `_locales` row scoped to this locale. -->
+        {#if data.page?._localePrefilledFrom}
+          <div
+            class="border-border bg-card/60 text-muted-foreground mb-2 rounded-md border border-dashed px-3 py-2 text-xs"
+          >
+            New translation — fields prefilled from <span class="font-medium"
+              >{data.page._localePrefilledFrom}</span
+            >. Edit as needed; save will create the {data.currentLocale} version.
+          </div>
+        {/if}
+      {/if}
       {#if isInRecovery}
         <div
           class="mt-4 mb-2 flex items-center justify-between gap-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"

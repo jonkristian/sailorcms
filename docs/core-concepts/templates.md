@@ -145,6 +145,10 @@ export const postsCollection: CollectionDefinition = {
 | `nestable`   | `boolean`                     | Enable parent-child hierarchical relationships                                                                                                                                                                  |
 | `revisions`  | `boolean \| { keep: number }` | Snapshot a revision on every save. `true` keeps the last 50; pass `{ keep: N }` to override. See [Revisions](#revisions) below.                                                                                 |
 
+### Localization
+
+`localized: true` (declared at the top of the template, not in `options`) opts the collection into per-locale translations: editable fields move to a `_locales` sibling table, each translation owns its own slug / status / blocks / file picks. See [Content Translation]({{ site.baseurl }}{% link core-concepts/content-translation.md %}).
+
 ### Registration
 
 Register in `src/lib/sailor/templates/collections/index.ts`:
@@ -312,6 +316,10 @@ export const menusGlobal: GlobalDefinition = {
 | `defaultSort` | `{ field, direction}`         | Default sort order for list views                                                                                                                                                                           |
 | `searchable`  | `boolean`                     | Include this global in the frontend `search()` utility                                                                                                                                                      |
 | `revisions`   | `boolean \| { keep: number }` | _Coming next round — declared in types, not yet wired into the global save path._ See [Revisions](#revisions) below.                                                                                        |
+
+### Localization (repeatable globals)
+
+`localized: true` at the top of a repeatable global's template (e.g. FAQs, menus) enables per-locale translations. Flat singletons (`dataType: 'flat'`) are not localized in v1. See [Content Translation]({{ site.baseurl }}{% link core-concepts/content-translation.md %}).
 
 ### Registration
 

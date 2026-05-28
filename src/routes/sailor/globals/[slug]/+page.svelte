@@ -128,6 +128,39 @@
 <OverlayLoader>
   <div class="container mx-auto px-6">
     {#key data.global.slug}
+      <!-- Locale switcher for localized globals. For flat globals each pill
+           swaps the underlying `_locales` row that backs the FlatView form.
+           For repeatable globals the switcher controls which locale's title /
+           slug / status the list shows (and what the row's edit page opens to). -->
+      {#if data.localized && data.availableLocales.length > 0}
+        <div class="mt-4 mb-2 flex flex-wrap items-center gap-1">
+          {#each data.availableLocales as code}
+            {@const isCurrent = code === data.currentLocale}
+            {@const isTranslated = data.translatedLocales.includes(code)}
+            <a
+              href="?locale={code}"
+              class="rounded-md border px-2.5 py-1 text-xs font-medium transition-colors {isCurrent
+                ? 'border-primary bg-primary text-primary-foreground'
+                : isTranslated
+                  ? 'border-border bg-card hover:bg-accent'
+                  : 'border-border text-muted-foreground hover:bg-accent border-dashed'}"
+              aria-current={isCurrent ? 'page' : undefined}
+              title={isTranslated ? code : `${code} — not yet translated`}
+            >
+              {code}{#if !isTranslated && !isCurrent}<span class="ml-1 opacity-60">+</span>{/if}
+            </a>
+          {/each}
+        </div>
+        {#if data.existingData?._localePrefilledFrom}
+          <div
+            class="border-border bg-card/60 text-muted-foreground mb-2 rounded-md border border-dashed px-3 py-2 text-xs"
+          >
+            New translation — fields prefilled from <span class="font-medium"
+              >{data.existingData._localePrefilledFrom}</span
+            >. Edit as needed; save will create the {data.currentLocale} version.
+          </div>
+        {/if}
+      {/if}
       <Header
         title={data.global.name.plural}
         description={data.global.description}

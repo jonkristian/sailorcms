@@ -17,12 +17,16 @@ export async function loadFileFields(
       const fileConfig = (fieldDef as any).items || (fieldDef as any).file || {};
       const multiple = !!fileConfig.multiple;
 
-      // All file fields use relation tables
+      // All file fields use relation tables. For localized collections,
+      // junctions FK to the `_locales` row id — the caller stamps `_localeId`
+      // on the item; non-localized callers leave it undefined and we fall
+      // back to `item.id` (= main row id) unchanged.
       try {
         const fileTableName = `${tablePrefix}_${fieldName}`;
+        const parentId = item._localeId ?? item.id;
         const fileResult = await db.run(
           sql`SELECT file_id FROM ${sql.identifier(fileTableName)}
-              WHERE parent_id = ${item.id} AND parent_type IN ('collection', 'global', 'block')
+              WHERE parent_id = ${parentId} AND parent_type IN ('collection', 'global', 'block')
               ORDER BY "sort"`
         );
         const fileIds = fileResult.rows.map((r: any) => r.file_id).filter(Boolean);

@@ -4,9 +4,83 @@ import { db } from 'sailorcms/core/db/index.server';
 import { log } from 'sailorcms/core/utils/logger';
 import { eq, and, or, sql, asc, ne } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
 import { generateUUID } from 'sailorcms/core/utils/common';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
+import { getContentSettings } from 'sailorcms/utils/data/collections';
+
+/**
+ * Resolve the right scope for tag/sort/nesting/etc writes on a collection
+ * item. For localized collections, sort/parent_id/tags live on the
+ * `_locales` row keyed by `(item_id, locale)`. Non-localized collections
+ * still write to main.
+ *
+ * Throws if a localized collection has no translation for the requested
+ * locale — operations target a translation row that doesn't exist would
+ * silently no-op (UPDATE 0 rows) or write orphan tags.
+ */
+async function resolveLocaleScope(
+  collectionSlug: string,
+  mainItemId: string,
+  locale?: string
+): Promise<{
+  isLocalized: boolean;
+  taggableType: string;
+  entityId: string;
+  currentLocale: string | null;
+  localesTable: any;
+  fkField: string;
+}> {
+  const isLocalized =
+    (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
+  if (!isLocalized) {
+    return {
+      isLocalized: false,
+      taggableType: `collection_${collectionSlug}`,
+      entityId: mainItemId,
+      currentLocale: null,
+      localesTable: null,
+      fkField: ''
+    };
+  }
+
+  const { defaultLocale } = getContentSettings();
+  const currentLocale = locale || defaultLocale;
+  if (!currentLocale) {
+    throw new Error(
+      `Localized collection '${collectionSlug}' needs content.defaultLocale set in templates/settings.ts`
+    );
+  }
+
+  const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
+  if (!localesTable) {
+    throw new Error(
+      `Localized collection '${collectionSlug}' missing locales table — run db:update`
+    );
+  }
+  const fkField = `${collectionSlug}_id`;
+  const rows = await db
+    .select({ id: localesTable.id })
+    .from(localesTable)
+    .where(and(eq(localesTable[fkField], mainItemId), eq(localesTable.locale, currentLocale)))
+    .limit(1);
+
+  if (rows.length === 0) {
+    throw new Error(
+      `Collection '${collectionSlug}' has no translation for locale '${currentLocale}' on item ${mainItemId} — save the translation first.`
+    );
+  }
+
+  return {
+    isLocalized: true,
+    taggableType: `collection_${collectionSlug}`,
+    entityId: rows[0].id as string,
+    currentLocale,
+    localesTable,
+    fkField
+  };
+}
 
 /**
  * Clone collection items
@@ -24,6 +98,19 @@ export const cloneCollectionItems = command(
       const collectionTable = schema[`collection_${collectionSlug}` as keyof typeof schema];
       if (!collectionTable) {
         return { success: false, error: `Collection '${collectionSlug}' not found` };
+      }
+
+      // Cloning a localized item means deep-copying the main row + every
+      // `_locales` row + every per-locale junction + every per-locale block.
+      // Not wired up yet — fail loudly rather than silently shipping a clone
+      // that loses all translations.
+      const isLocalized =
+        (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
+      if (isLocalized) {
+        return {
+          success: false,
+          error: `Cloning isn't supported for localized collections yet — clone the source item, edit each translation manually, or implement deep-clone in cloneCollectionItems.`
+        };
       }
 
       let successCount = 0;
@@ -302,10 +389,13 @@ export const updateCollectionItemsSort = command(
   'unchecked',
   async ({
     collectionSlug,
-    updates
+    updates,
+    locale
   }: {
     collectionSlug: string;
     updates: Array<{ id: string; sort: number }>;
+    /** For localized collections — defaults to `content.defaultLocale`. Sort lives on `_locales` (per-locale tree). */
+    locale?: string;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -319,29 +409,56 @@ export const updateCollectionItemsSort = command(
         return { success: false, error: `Collection '${collectionSlug}' not found` };
       }
 
-      // Check permissions for each item being reordered
       const canUpdate = await locals.security.hasPermission('update', 'content');
       if (!canUpdate) {
-        return {
-          success: false,
-          error: 'You do not have permission to update content'
-        };
+        return { success: false, error: 'You do not have permission to update content' };
       }
 
+      const isLocalized =
+        (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
+
+      if (isLocalized) {
+        // For localized collections, sort lives on the `_locales` row for
+        // the current locale. Each translation can have its own ordering.
+        const { defaultLocale } = getContentSettings();
+        const currentLocale = locale || defaultLocale;
+        if (!currentLocale) {
+          return {
+            success: false,
+            error: `Localized collection '${collectionSlug}' needs content.defaultLocale set in templates/settings.ts`
+          };
+        }
+        const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
+        if (!localesTable) {
+          return {
+            success: false,
+            error: `Localized collection '${collectionSlug}' missing locales table — run db:update`
+          };
+        }
+        const fkField = `${collectionSlug}_id`;
+        for (const update of updates) {
+          await db
+            .update(localesTable)
+            .set({ sort: update.sort, updated_at: new Date() })
+            .where(
+              and(eq(localesTable[fkField], update.id), eq(localesTable.locale, currentLocale))
+            );
+        }
+        return { success: true };
+      }
+
+      // Non-localized path: verify items exist, then update sort on main.
       for (const update of updates) {
-        // Get the item to verify it exists
         const item = await db
           .select()
           .from(collectionTable)
           .where(eq((collectionTable as any).id, update.id))
           .limit(1);
-
         if (item.length === 0) {
           return { success: false, error: `Item with ID '${update.id}' not found` };
         }
       }
 
-      // Update sort values for all items after permission checks pass
       for (const update of updates) {
         await db
           .update(collectionTable)
@@ -351,7 +468,10 @@ export const updateCollectionItemsSort = command(
 
       return { success: true };
     } catch (err) {
-      return { success: false, error: 'Failed to update sort order' };
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to update sort order'
+      };
     }
   }
 );
@@ -365,12 +485,15 @@ export const updateCollectionItemNesting = command(
     collectionSlug,
     itemId,
     parentId,
-    newIndex
+    newIndex,
+    locale
   }: {
     collectionSlug: string;
     itemId: string;
     parentId: string | null;
     newIndex: number;
+    /** For localized collections — defaults to `content.defaultLocale`. parent_id + sort live on `_locales`. */
+    locale?: string;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -388,73 +511,115 @@ export const updateCollectionItemNesting = command(
         return { success: false, error: `Collection '${collectionSlug}' not found` };
       }
 
-      // Check permissions for the item being moved
       const canUpdate = await locals.security.hasPermission('update', 'content');
       if (!canUpdate) {
-        return {
-          success: false,
-          error: 'You do not have permission to update content'
-        };
+        return { success: false, error: 'You do not have permission to update content' };
       }
 
-      const item = await db
-        .select()
-        .from(collectionTable)
-        .where(eq((collectionTable as any).id, itemId))
-        .limit(1);
+      const isLocalized =
+        (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
 
-      if (item.length === 0) {
-        return { success: false, error: `Item with ID '${itemId}' not found` };
+      // Resolve the table + columns for the parent_id/sort write. Localized
+      // collections store both on `_locales`; siblings query also targets that
+      // table scoped to the current locale.
+      let writeTable: any;
+      let parentCol: any;
+      let sortCol: any;
+      let idCol: any;
+      let extraWhere: any = undefined;
+
+      if (isLocalized) {
+        const { defaultLocale } = getContentSettings();
+        const currentLocale = locale || defaultLocale;
+        if (!currentLocale) {
+          return {
+            success: false,
+            error: `Localized collection '${collectionSlug}' needs content.defaultLocale set`
+          };
+        }
+        const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
+        if (!localesTable) {
+          return {
+            success: false,
+            error: `Localized collection '${collectionSlug}' missing locales table — run db:update`
+          };
+        }
+        const fkField = `${collectionSlug}_id`;
+        // Confirm the locale row exists before we calculate sibling positions.
+        const localeRow = await db
+          .select({ id: localesTable.id })
+          .from(localesTable)
+          .where(and(eq(localesTable[fkField], itemId), eq(localesTable.locale, currentLocale)))
+          .limit(1);
+        if (localeRow.length === 0) {
+          return {
+            success: false,
+            error: `Collection '${collectionSlug}' has no translation for locale '${currentLocale}' on item ${itemId} — save the translation first.`
+          };
+        }
+        writeTable = localesTable;
+        parentCol = localesTable.parent_id;
+        sortCol = localesTable.sort;
+        idCol = localesTable[fkField]; // keyed by main item id, locale-scoped
+        extraWhere = eq(localesTable.locale, currentLocale);
+      } else {
+        const item = await db
+          .select()
+          .from(collectionTable)
+          .where(eq((collectionTable as any).id, itemId))
+          .limit(1);
+        if (item.length === 0) {
+          return { success: false, error: `Item with ID '${itemId}' not found` };
+        }
+        writeTable = collectionTable;
+        parentCol = (collectionTable as any).parent_id;
+        sortCol = (collectionTable as any).sort;
+        idCol = (collectionTable as any).id;
       }
 
-      // Get existing siblings to calculate proper sort order
+      // Get siblings to calculate proper sort order (in the right scope).
       const siblingCondition = parentId
-        ? eq((collectionTable as any).parent_id, parentId)
-        : or(
-            sql`${(collectionTable as any).parent_id} IS NULL`,
-            sql`${(collectionTable as any).parent_id} = ''`,
-            sql`${(collectionTable as any).parent_id} = '[]'`
-          );
+        ? eq(parentCol, parentId)
+        : or(sql`${parentCol} IS NULL`, sql`${parentCol} = ''`, sql`${parentCol} = '[]'`);
+
+      const conditions: any[] = [siblingCondition, ne(idCol, itemId)];
+      if (extraWhere) conditions.push(extraWhere);
 
       const siblings = await db
-        .select({ id: (collectionTable as any).id, sort: (collectionTable as any).sort })
-        .from(collectionTable)
-        .where(
-          and(
-            siblingCondition,
-            ne((collectionTable as any).id, itemId) // Exclude the item being moved
-          )
-        )
-        .orderBy(asc((collectionTable as any).sort));
+        .select({ id: idCol, sort: sortCol })
+        .from(writeTable)
+        .where(and(...conditions))
+        .orderBy(asc(sortCol));
 
-      // Calculate sort value based on position among siblings
-      let sortOrder;
+      let sortOrder: number;
       if (newIndex === 0) {
-        // Insert at beginning
-        sortOrder = siblings.length > 0 ? Math.max(0, siblings[0].sort - 1) : 0;
+        sortOrder = siblings.length > 0 ? Math.max(0, (siblings[0].sort ?? 0) - 1) : 0;
       } else if (newIndex >= siblings.length) {
-        // Insert at end
-        sortOrder = siblings.length > 0 ? siblings[siblings.length - 1].sort + 1 : newIndex;
+        sortOrder = siblings.length > 0 ? (siblings[siblings.length - 1].sort ?? 0) + 1 : newIndex;
       } else {
-        // Insert between existing siblings
-        const prevSort = siblings[newIndex - 1]?.sort || 0;
-        const nextSort = siblings[newIndex]?.sort || prevSort + 2;
+        const prevSort = siblings[newIndex - 1]?.sort ?? 0;
+        const nextSort = siblings[newIndex]?.sort ?? prevSort + 2;
         sortOrder = prevSort + (nextSort - prevSort) / 2;
       }
 
-      // Update the item's parent_id and sort order
+      const whereConditions: any[] = [eq(idCol, itemId)];
+      if (extraWhere) whereConditions.push(extraWhere);
+
       await db
-        .update(collectionTable)
+        .update(writeTable)
         .set({
           parent_id: parentId,
           sort: sortOrder,
           updated_at: new Date()
         })
-        .where(eq((collectionTable as any).id, itemId));
+        .where(and(...whereConditions));
 
       return { success: true };
     } catch (err) {
-      return { success: false, error: 'Failed to update nesting' };
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to update nesting'
+      };
     }
   }
 );
@@ -467,28 +632,30 @@ export const updateCollectionItemTags = command(
   async ({
     collectionSlug,
     itemId,
-    tags
+    tags,
+    locale
   }: {
     collectionSlug: string;
     itemId: string;
     tags: string[];
+    /** For localized collections — defaults to `content.defaultLocale`. */
+    locale?: string;
   }) => {
-    const { locals } = getRequestEvent();
-
-    // Authentication handled by hooks
-
     if (!collectionSlug || !itemId || !Array.isArray(tags)) {
       return { success: false, error: 'Collection slug, item ID, and tags are required' };
     }
 
     try {
-      // Use TagService to replace tags with collection-scoped taggable_type
-      await TagService.tagEntity(`collection_${collectionSlug}`, itemId, tags);
+      const scope = await resolveLocaleScope(collectionSlug, itemId, locale);
+      await TagService.tagEntity(scope.taggableType, scope.entityId, tags);
 
       return { success: true, message: 'Tags updated successfully' };
     } catch (error) {
       log.error('Failed to update item tags', {}, error as Error);
-      return { success: false, error: 'Failed to update item tags' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update item tags'
+      };
     }
   }
 );
@@ -518,21 +685,37 @@ export const restoreCollectionItem = command(
         return { success: false, error: `Collection '${collectionSlug}' not found` };
       }
 
-      const [maxRow] = await db
-        .select({ max: sql<number>`coalesce(max(${(collectionTable as any).sort}), 0)` })
-        .from(collectionTable);
-      const nextSort = (maxRow?.max ?? 0) + 1;
+      const isLocalized =
+        (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
 
-      await db
-        .update(collectionTable)
-        .set({
-          deleted_at: null,
-          deleted_by: null,
-          parent_id: null,
-          sort: nextSort,
-          updated_at: new Date()
-        } as any)
-        .where(eq((collectionTable as any).id, itemId));
+      if (isLocalized) {
+        // For localized collections, sort + parent_id live on `_locales` and
+        // don't need restoration (the locale rows weren't deleted in the first
+        // place — delete is item-level on main). Just clear deleted_at/by.
+        await db
+          .update(collectionTable)
+          .set({
+            deleted_at: null,
+            deleted_by: null
+          } as any)
+          .where(eq((collectionTable as any).id, itemId));
+      } else {
+        const [maxRow] = await db
+          .select({ max: sql<number>`coalesce(max(${(collectionTable as any).sort}), 0)` })
+          .from(collectionTable);
+        const nextSort = (maxRow?.max ?? 0) + 1;
+
+        await db
+          .update(collectionTable)
+          .set({
+            deleted_at: null,
+            deleted_by: null,
+            parent_id: null,
+            sort: nextSort,
+            updated_at: new Date()
+          } as any)
+          .where(eq((collectionTable as any).id, itemId));
+      }
 
       await SearchIndexService.onSaveSafe('collection', collectionSlug, itemId);
 

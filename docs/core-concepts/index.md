@@ -35,9 +35,14 @@ Site-wide settings and content that appear across multiple pages, like navigatio
 
 The building blocks of your content structure. Sailor provides many field types from simple text inputs to complex relationship fields.
 
+### Content Translation
+
+Opt any collection or repeatable global into per-locale translations with `localized: true`. Editors get a locale switcher; each translation owns its own slug, status, blocks, and selections. Read API accepts `locale` + `fallback`.
+
 ---
 
 ## Next Steps
 
 - [Learn about Templates]({{ site.baseurl }}{% link core-concepts/templates.md %})
 - [Explore Field Types]({{ site.baseurl }}{% link core-concepts/field-types.md %})
+- [Translate Content]({{ site.baseurl }}{% link core-concepts/content-translation.md %})

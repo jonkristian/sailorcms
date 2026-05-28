@@ -208,6 +208,7 @@ function generateFieldConfigs(
       slug,
       description: definition.description,
       icon: definition.icon,
+      localized: definition.localized === true,
       options: definition.options,
       fields: mergedFields
     };
@@ -229,6 +230,7 @@ function generateFieldConfigs(
       slug,
       description: definition.description,
       icon: definition.icon,
+      localized: definition.localized === true,
       dataType: definition.dataType,
       options: definition.options,
       fields: mergedFields

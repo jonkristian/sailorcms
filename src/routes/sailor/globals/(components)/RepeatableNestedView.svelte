@@ -44,22 +44,32 @@
   let canDelete = $derived(permissions.globals.delete);
   let canCreate = $derived(permissions.globals.create);
 
-  let flatItems: FlatItem[] = $derived(
-    items.map((item: any) => ({
+  // Flat-tree view of `items`. The drag-drop handler optimistically reorders
+  // before invalidateAll lands, so we layer an optional override on top of
+  // the derived base: when `optimisticItems` is non-null it wins, otherwise
+  // we fall back to the prop-derived list. Clearing the override after the
+  // save completes is what hands control back to fresh server data.
+  function toFlatItems(source: any[]): FlatItem[] {
+    return source.map((item: any) => ({
       id: item.id,
       name: item.name || item.title || 'Untitled',
       description: item.description || '',
       status: item.status || 'active',
       parent_id: item.parent_id || null,
       ...item
-    }))
-  );
+    }));
+  }
+  let flatItemsBase = $derived(toFlatItems(items));
+  let optimisticItems: FlatItem[] | null = $state(null);
+  let flatItems: FlatItem[] = $derived(optimisticItems ?? flatItemsBase);
 
   // Handle data changes from DragDrop component
   async function handleDataChange(updatedData: FlatItem[]) {
     try {
-      // Update local state immediately for responsive UI
-      flatItems = updatedData;
+      // Optimistic local override for responsive UI; cleared on success
+      // (so the derived snaps back to fresh props after invalidateAll) or
+      // on failure (so the UI shows the server-side truth).
+      optimisticItems = updatedData;
 
       // Check for any changes (parent or order) against original items
       const hasChanges = updatedData.some((updatedItem, index) => {
@@ -89,31 +99,20 @@
         if (result.success) {
           setTimeout(async () => {
             await invalidateAll();
+            optimisticItems = null;
           }, 1000);
         } else {
           toast.error(result.error || m.toast_update_items_failed());
-          // Revert local changes on failure
-          flatItems = items.map((item: any) => ({
-            id: item.id,
-            name: item.name || item.title || 'Untitled',
-            description: item.description || '',
-            status: item.status || 'active',
-            parent_id: item.parent_id || null,
-            ...item
-          }));
+          // Drop the optimistic override; derived reflects the unchanged prop.
+          optimisticItems = null;
         }
+      } else {
+        optimisticItems = null;
       }
     } catch (error) {
       toast.error(m.toast_update_items_failed());
-      // Revert local changes on error
-      flatItems = items.map((item: any) => ({
-        id: item.id,
-        name: item.name || item.title || 'Untitled',
-        description: item.description || '',
-        status: item.status || 'active',
-        parent_id: item.parent_id || null,
-        ...item
-      }));
+      // Drop the optimistic override on error.
+      optimisticItems = null;
     }
   }
 

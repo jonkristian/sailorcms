@@ -20,7 +20,7 @@
   let pendingDeleteTag: { id: string; name: string } | null = $state(null);
 
   const tableFilters = useTableFilters({
-    baseUrl: '/sailor/settings/taggables',
+    baseUrl: '/sailor/settings/tags',
     config: { search: true }
   });
 

@@ -1,6 +1,7 @@
 import { getCollections, getSiteSettings } from 'sailorcms/utils/index';
 import { extractSEO, generateMetaTags, generateJsonLd } from 'sailorcms/utils/content/seo';
 import type { CollectionsSingleResult } from 'sailorcms/utils/types';
+import type { Page } from '$sailor/generated/types';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
@@ -10,7 +11,7 @@ export const load: PageServerLoad = async ({ params }) => {
     itemSlug: params.slug,
     status: 'published',
     includeBlocks: true // Include blocks for page content
-  })) as CollectionsSingleResult;
+  })) as CollectionsSingleResult<Page>;
 
   if (!page) {
     throw error(404, 'Page not found');

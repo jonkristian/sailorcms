@@ -82,6 +82,15 @@ const techPosts = await getCollections<Post>('posts', {
   }
 });
 
+// Localized collections — fetch a specific translation, fall back to
+// the default locale if the requested one has no row yet. Ignored on
+// non-localized collections. See Content Translation guide.
+const post = await getCollections<Post>('posts', {
+  itemSlug: 'hello',
+  locale: 'nb-NO',
+  fallback: 'default' // 'default' | 'strict'
+});
+
 // Complex queries with filtering, ordering, grouping
 const posts = await getCollections<Post>('posts', {
   limit: 10,
@@ -98,26 +107,28 @@ const posts = await getCollections<Post>('posts', {
 
 ### Collection Options
 
-| Option               | Type                              | Description                                                |
-| -------------------- | --------------------------------- | ---------------------------------------------------------- |
-| `itemSlug`           | `string`                          | Get specific item by slug (returns single item)            |
-| `itemId`             | `string`                          | Get specific item by ID (returns single item)              |
-| `parentId`           | `string`                          | Get children of this parent                                |
-| `siblingOf`          | `string`                          | Get siblings of this item                                  |
-| `excludeCurrent`     | `boolean`                         | Exclude current item from siblings query (default: `true`) |
-| `status`             | `'published' \| 'draft' \| 'all'` | Filter by status (default: `'published'`)                  |
-| `includeBlocks`      | `boolean`                         | Load blocks for items (default: `true`)                    |
-| `includeBreadcrumbs` | `boolean`                         | Generate breadcrumb navigation (default: `false`)          |
-| `includeAuthors`     | `boolean`                         | Populate author details (default: `false`)                 |
-| `orderBy`            | `string`                          | Field to order by (default: `'created_at'`)                |
-| `order`              | `'asc' \| 'desc'`                 | Sort order (default: `'desc'`)                             |
-| `groupBy`            | `string`                          | Group results by field                                     |
-| `limit`              | `number`                          | Limit number of results                                    |
-| `offset`             | `number`                          | Offset for pagination                                      |
-| `baseUrl`            | `string`                          | Base URL for pagination links                              |
-| `currentPage`        | `number`                          | Current page for pagination                                |
-| `whereRelated`       | `object`                          | Filter by related content: `{ field, value, recursive? }`  |
-| `user`               | `User \| null`                    | User context for ACL filtering                             |
+| Option               | Type                              | Description                                                                                                                                                                                                     |
+| -------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `itemSlug`           | `string`                          | Get specific item by slug (returns single item)                                                                                                                                                                 |
+| `itemId`             | `string`                          | Get specific item by ID (returns single item)                                                                                                                                                                   |
+| `parentId`           | `string`                          | Get children of this parent                                                                                                                                                                                     |
+| `siblingOf`          | `string`                          | Get siblings of this item                                                                                                                                                                                       |
+| `excludeCurrent`     | `boolean`                         | Exclude current item from siblings query (default: `true`)                                                                                                                                                      |
+| `status`             | `'published' \| 'draft' \| 'all'` | Filter by status (default: `'published'`)                                                                                                                                                                       |
+| `includeBlocks`      | `boolean`                         | Load blocks for items (default: `true`)                                                                                                                                                                         |
+| `includeBreadcrumbs` | `boolean`                         | Generate breadcrumb navigation (default: `false`)                                                                                                                                                               |
+| `includeAuthors`     | `boolean`                         | Populate author details (default: `false`)                                                                                                                                                                      |
+| `orderBy`            | `string`                          | Field to order by (default: `'created_at'`)                                                                                                                                                                     |
+| `order`              | `'asc' \| 'desc'`                 | Sort order (default: `'desc'`)                                                                                                                                                                                  |
+| `groupBy`            | `string`                          | Group results by field                                                                                                                                                                                          |
+| `limit`              | `number`                          | Limit number of results                                                                                                                                                                                         |
+| `offset`             | `number`                          | Offset for pagination                                                                                                                                                                                           |
+| `baseUrl`            | `string`                          | Base URL for pagination links                                                                                                                                                                                   |
+| `currentPage`        | `number`                          | Current page for pagination                                                                                                                                                                                     |
+| `whereRelated`       | `object`                          | Filter by related content: `{ field, value, recursive? }`                                                                                                                                                       |
+| `user`               | `User \| null`                    | User context for ACL filtering                                                                                                                                                                                  |
+| `locale`             | `string`                          | BCP-47 locale (e.g. `'en'`, `'nb-NO'`) for localized collections. Defaults to `content.defaultLocale`. Ignored for non-localized.                                                                               |
+| `fallback`           | `'default' \| 'strict'`           | Behavior when the requested locale has no row: `'default'` returns the default-locale row with a `_localeFallback` marker; `'strict'` returns `null` / omits. Defaults to `content.fallback`, then `'default'`. |
 
 ### Return Types
 
@@ -195,27 +206,33 @@ const faqsByTags = await getGlobals('faq', {
 const techCategories = await getGlobals<Category>('categories', {
   whereRelated: { field: 'parent', value: 'technology' }
 });
+
+// Localized repeatable globals — same locale / fallback options as
+// collections. Ignored for flat globals and non-localized templates.
+const faq = await getGlobals('faq', { locale: 'nb-NO', fallback: 'default' });
 ```
 
 ### Global Options
 
-| Option                | Type              | Description                                                |
-| --------------------- | ----------------- | ---------------------------------------------------------- |
-| `itemSlug`            | `string`          | Get specific item by slug (returns single item)            |
-| `itemId`              | `string`          | Get specific item by ID (returns single item)              |
-| `parentId`            | `string`          | Get children of this parent                                |
-| `siblingOf`           | `string`          | Get siblings of this item                                  |
-| `excludeCurrent`      | `boolean`         | Exclude current item from siblings query (default: `true`) |
-| `withRelations`       | `boolean`         | Include relations for items (default: `true`)              |
-| `withTags`            | `boolean`         | Include tags for items (default: `false`)                  |
-| `loadFullFileObjects` | `boolean`         | Load full file objects vs just IDs (default: `false`)      |
-| `groupBy`             | `string`          | Group results by field                                     |
-| `orderBy`             | `string`          | Field to order by (default: `'sort'`)                      |
-| `order`               | `'asc' \| 'desc'` | Sort order (default: `'asc'`)                              |
-| `limit`               | `number`          | Limit number of results                                    |
-| `offset`              | `number`          | Offset for pagination                                      |
-| `whereRelated`        | `object`          | Filter by related content: `{ field, value }`              |
-| `user`                | `User \| null`    | User context for ACL filtering                             |
+| Option                | Type                    | Description                                                                                                                                                                                                   |
+| --------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `itemSlug`            | `string`                | Get specific item by slug (returns single item)                                                                                                                                                               |
+| `itemId`              | `string`                | Get specific item by ID (returns single item)                                                                                                                                                                 |
+| `parentId`            | `string`                | Get children of this parent                                                                                                                                                                                   |
+| `siblingOf`           | `string`                | Get siblings of this item                                                                                                                                                                                     |
+| `excludeCurrent`      | `boolean`               | Exclude current item from siblings query (default: `true`)                                                                                                                                                    |
+| `withRelations`       | `boolean`               | Include relations for items (default: `true`)                                                                                                                                                                 |
+| `withTags`            | `boolean`               | Include tags for items (default: `false`)                                                                                                                                                                     |
+| `loadFullFileObjects` | `boolean`               | Load full file objects vs just IDs (default: `false`)                                                                                                                                                         |
+| `groupBy`             | `string`                | Group results by field                                                                                                                                                                                        |
+| `orderBy`             | `string`                | Field to order by (default: `'sort'`)                                                                                                                                                                         |
+| `order`               | `'asc' \| 'desc'`       | Sort order (default: `'asc'`)                                                                                                                                                                                 |
+| `limit`               | `number`                | Limit number of results                                                                                                                                                                                       |
+| `offset`              | `number`                | Offset for pagination                                                                                                                                                                                         |
+| `whereRelated`        | `object`                | Filter by related content: `{ field, value }`                                                                                                                                                                 |
+| `user`                | `User \| null`          | User context for ACL filtering                                                                                                                                                                                |
+| `locale`              | `string`                | BCP-47 locale for localized repeatable globals. Defaults to `content.defaultLocale`. Ignored for flat globals and non-localized templates.                                                                    |
+| `fallback`            | `'default' \| 'strict'` | Behavior when the requested locale has no row: `'default'` returns the default-locale row with a `_localeFallback` marker; `'strict'` omits / returns null. Defaults to `content.fallback`, then `'default'`. |
 
 ### Return Types
 

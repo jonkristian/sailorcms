@@ -1,6 +1,7 @@
 import { getCollections, getSiteSettings } from 'sailorcms/utils/index';
 import { extractSEO, generateMetaTags, generateJsonLd } from 'sailorcms/utils/content/seo';
 import type { CollectionsSingleResult, CollectionsMultipleResult } from 'sailorcms/utils/types';
+import type { Post } from '$sailor/generated/types';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
@@ -10,7 +11,7 @@ export const load: PageServerLoad = async ({ params }) => {
     itemSlug: params.slug,
     status: 'published',
     includeAuthors: true // populates `post.author` with { id, name, email } for the byline below
-  })) as CollectionsSingleResult;
+  })) as CollectionsSingleResult<Post>;
 
   if (!post) {
     throw error(404, 'Post not found');
@@ -21,7 +22,7 @@ export const load: PageServerLoad = async ({ params }) => {
     status: 'published',
     includeBlocks: false, // Better performance for related posts
     limit: 4 // Get 4 so we can filter out current and still have 3
-  })) as CollectionsMultipleResult;
+  })) as CollectionsMultipleResult<Post>;
 
   const relatedPosts = relatedPostsResult.items.filter((p) => p.id !== post.id).slice(0, 3);
 

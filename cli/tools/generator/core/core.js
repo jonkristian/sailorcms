@@ -168,7 +168,10 @@ export class CoreGenerator {
 );`,
 
       // Search index table (populated by SearchIndexService on content save;
-      // queried by the search() utility)
+      // queried by the search() utility). `locale` is nullable: non-localized
+      // entities store NULL and have at most one row per item; localized
+      // entities (collections marked `localized: true`) store one row per
+      // (item, locale) so each translation is independently searchable.
       `export const searchIndex = ${this.adapter.getTableFunction()}(
   'search_index',
   {
@@ -176,14 +179,16 @@ export class CoreGenerator {
     entity_type: ${this.adapter.getTextFieldDefinition('entity_type', { notNull: true })},
     entity_name: ${this.adapter.getTextFieldDefinition('entity_name', { notNull: true })},
     entity_id: ${this.adapter.getTextFieldDefinition('entity_id', { notNull: true })},
+    locale: ${this.adapter.getTextFieldDefinition('locale')},
     title: ${this.adapter.getTextFieldDefinition('title')},
     searchable_text: ${this.adapter.getTextFieldDefinition('searchable_text', { notNull: true })},
     status: ${this.adapter.getTextFieldDefinition('status')},
     updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
   },
   (table) => [
-    uniqueIndex('search_index_entity_unique_idx').on(table.entity_type, table.entity_name, table.entity_id),
+    uniqueIndex('search_index_entity_unique_idx').on(table.entity_type, table.entity_name, table.entity_id, table.locale),
     index('search_index_entity_idx').on(table.entity_type, table.entity_name),
+    index('search_index_locale_idx').on(table.locale),
     index('search_index_status_updated_idx').on(table.status, table.updated_at)
   ]
 );`,

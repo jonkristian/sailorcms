@@ -262,13 +262,18 @@ export async function loadManyToManyRelations(
         // Filter target rows by liveOnly + status so soft-deleted or unpublished
         // entries don't leak through a relation. Junction rows themselves don't
         // carry deleted_at/status, so the filters apply to the target table.
+        //
+        // For localized collections, junctions FK to the _locales row id.
+        // The `_localeId` convention lets non-localized callers pass `undefined`
+        // and fall through to `item.id` (= main row id) unchanged.
+        const parentId = item._localeId ?? item.id;
         const relationResult = await db
           .select()
           .from(targetTable)
           .innerJoin(junctionTable, eq((targetTable as any).id, (junctionTable as any).target_id))
           .where(
             and(
-              eq((junctionTable as any)[foreignKeyField], item.id),
+              eq((junctionTable as any)[foreignKeyField], parentId),
               liveOnly(targetTable),
               statusOnly(targetTable, status)
             )

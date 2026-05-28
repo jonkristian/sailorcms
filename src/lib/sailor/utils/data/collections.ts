@@ -8,6 +8,8 @@ import type { Pagination } from 'sailorcms/core/types';
 import type { BreadcrumbItem } from '../types';
 import { getCollectionType } from 'sailorcms/core/utils/db.server';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
+import * as generatedSettings from '$sailor/generated/settings';
 import { getGlobals } from './globals';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
@@ -21,6 +23,37 @@ import { parseDate, groupItemsByField } from './internal';
 import { TagService } from 'sailorcms/core/services/tag.server';
 
 /**
+ * True if the consumer marked this collection `localized: true` in its
+ * template. Read at runtime from the generated `fields.ts` so the read path
+ * branches without re-parsing templates.
+ */
+function isLocalizedCollection(slug: string): boolean {
+  return (fieldConfigurations as any).collections?.[slug]?.localized === true;
+}
+
+/**
+ * Resolve the project's content i18n config from `templates/settings.ts`.
+ * Sync read of the generated module — no DB hit, no async cost per read.
+ *
+ * Content locales are deliberately decoupled from paraglide's admin-UI
+ * locales: a project can run the admin in English while authoring content
+ * in 10 languages, or vice versa. So both `locales` and `defaultLocale`
+ * must come from `content` in settings — there's no paraglide fallback.
+ * Read paths fail loud when `localized: true` is used without these set.
+ *
+ * Exported (not just file-local) so admin route loaders use the same
+ * resolution rules — keeps the localized read shape consistent everywhere.
+ */
+export function getContentSettings() {
+  const s = (generatedSettings as any).settings?.content ?? {};
+  return {
+    locales: s.locales as string[] | undefined,
+    defaultLocale: s.defaultLocale as string | undefined,
+    fallback: (s.fallback as 'default' | 'strict' | undefined) ?? 'default'
+  };
+}
+
+/**
  * Load all fields (files, arrays, relations) for a collection
  * Collection-specific implementation that knows about collection table naming conventions
  */
@@ -31,7 +64,13 @@ async function loadCollectionFields(
   loadFullFileObjects: boolean = false,
   status: RelationStatus = 'published'
 ): Promise<void> {
+  // Child tables (files, arrays, junctions) anchor on `collection_<slug>`
+  // regardless of `localized` — the generator keeps the same names for both
+  // modes so a non-localized → localized flip doesn't rename tables. For
+  // localized rows the FK columns (`parent_id`, `collection_id`) point at
+  // the `_locales` row id, which loaders pass in as `_localeId`.
   const tablePrefix = `collection_${collectionSlug}`;
+  const junctionPrefix = collectionSlug;
 
   // Load file fields
   await loadFileFields(collection, collectionSchema, tablePrefix, loadFullFileObjects);
@@ -53,21 +92,25 @@ async function loadCollectionFields(
   await loadManyToManyRelations(
     collection,
     collectionSchema,
-    collectionSlug,
+    junctionPrefix,
     'collection_id',
     loadFullFileObjects,
     status
   );
 
-  // Load tags for every `type: 'tags'` field on the collection item. Tags
-  // live in `taggables` under `taggable_type = 'collection_<slug>'`, so a
-  // single query covers all tag fields on the item.
+  // Tags live in `taggables` under `taggable_type = 'collection_<slug>'`
+  // for both localized and non-localized. The `taggable_id` references the
+  // `_locales` row id for localized (each translation owns its tags) or
+  // main.id otherwise — both come from `randomUUID()`, so the (type,id)
+  // pair stays unique without a per-mode type discriminator.
   const tagFieldNames = Object.entries(collectionSchema)
     .filter(([, fieldDef]) => (fieldDef as any)?.type === 'tags')
     .map(([name]) => name);
   if (tagFieldNames.length > 0) {
     try {
-      const tags = await TagService.getTagsForEntity(`collection_${collectionSlug}`, collection.id);
+      const taggableType = tablePrefix;
+      const taggableId = (collection as any)._localeId ?? collection.id;
+      const tags = await TagService.getTagsForEntity(taggableType, taggableId);
       for (const fieldName of tagFieldNames) collection[fieldName] = tags;
     } catch {
       for (const fieldName of tagFieldNames) collection[fieldName] = [];
@@ -127,6 +170,21 @@ export interface CollectionsOptions {
 
   // Security
   user?: User | null; // User context for ACL filtering
+
+  // Localization (only meaningful for collections declared `localized: true`)
+  /**
+   * BCP-47 locale to fetch (e.g. `'en'`, `'nb-NO'`). Defaults to
+   * `content.defaultLocale` from settings when unset. Ignored for
+   * non-localized collections.
+   */
+  locale?: string;
+  /**
+   * Behavior when the requested locale has no row for an item:
+   * - `'default'`: return the default-locale row marked `_localeFallback`.
+   * - `'strict'`: return null (single-item) or omit (multi-item).
+   * Defaults to `content.fallback` from settings, then `'default'`.
+   */
+  fallback?: 'default' | 'strict';
 }
 
 // Return types with generic support
@@ -250,11 +308,14 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
     baseUrl,
     currentPage,
     whereRelated,
-    user
+    user,
+    locale,
+    fallback
   } = options || {};
 
   // Determine if this is a single item query
   const isSingleQuery = !!(itemSlug || itemId);
+  const isLocalized = isLocalizedCollection(collectionSlug);
 
   try {
     // Get the table dynamically from schema
@@ -278,6 +339,19 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
 
     // Handle single item queries
     if (isSingleQuery) {
+      if (isLocalized) {
+        return await handleSingleLocalizedCollectionItem<T>(collectionSlug, {
+          itemSlug,
+          itemId,
+          status,
+          includeBlocks,
+          includeBreadcrumbs,
+          includeAuthors,
+          user,
+          locale,
+          fallback
+        });
+      }
       return await handleSingleCollectionItem<T>(table, collectionSlug, {
         itemSlug,
         itemId,
@@ -290,6 +364,29 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
     }
 
     // Handle multiple items queries
+    if (isLocalized) {
+      return await handleMultipleLocalizedCollectionItems<T>(collectionSlug, {
+        parentId,
+        siblingOf,
+        excludeCurrent,
+        status,
+        includeBlocks,
+        includeBreadcrumbs,
+        includeAuthors,
+        orderBy,
+        order,
+        groupBy,
+        limit,
+        offset,
+        baseUrl,
+        currentPage,
+        whereRelated,
+        user,
+        locale,
+        fallback
+      });
+    }
+
     return await handleMultipleCollectionItems<T>(table, collectionSlug, {
       parentId,
       siblingOf,
@@ -359,6 +456,130 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
   }
 
   const item = await enrichCollectionItem(result[0], collectionSlug, {
+    includeBlocks,
+    includeBreadcrumbs,
+    includeAuthors,
+    status: status as RelationStatus
+  });
+
+  return item as CollectionsSingleResult<T>;
+}
+
+/**
+ * Handle single-item query for a localized collection.
+ *
+ * Storage shape: `collection_<slug>` holds identity (id, author, created_at,
+ * deleted_at, deleted_by) and `collection_<slug>_locales` holds editable
+ * content per locale, joined on `<slug>_id`. We JOIN them, resolve the
+ * requested locale (with fallback to defaultLocale when allowed), and return
+ * a flattened item shaped like a non-localized read with two extra fields:
+ *
+ *   - `_localeId`: the `_locales` row id. Loaders use this for junction
+ *     `parent_id` queries (junctions FK to `_locales.id` for localized
+ *     collections — see Phase 1b generator).
+ *   - `locale`: the resolved locale code that backed this row.
+ *   - `_localeFallback` (optional): set when the row came from the default
+ *     locale because the requested one had no translation.
+ *
+ * `item.id` is always the **main** row id so consumers can pass it back to
+ * other utilities (`getCollections({ itemId })`) language-agnostically.
+ */
+async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: {
+    itemSlug?: string;
+    itemId?: string;
+    status: string;
+    includeBlocks: boolean;
+    includeBreadcrumbs: boolean;
+    includeAuthors: boolean;
+    user?: User | null;
+    locale?: string;
+    fallback?: 'default' | 'strict';
+  }
+): Promise<CollectionsSingleResult<T>> {
+  const {
+    itemSlug,
+    itemId,
+    status,
+    includeBlocks,
+    includeBreadcrumbs,
+    includeAuthors,
+    locale,
+    fallback
+  } = options;
+
+  const mainTableName = `collection_${collectionSlug}`;
+  const localesTableName = `${mainTableName}_locales`;
+  const mainTable = (schema as any)[mainTableName];
+  const localesTable = (schema as any)[localesTableName];
+
+  if (!mainTable || !localesTable) {
+    console.error(
+      `Localized collection '${collectionSlug}' is missing tables ('${mainTableName}' / '${localesTableName}'). Run 'npx sailor db:update'.`
+    );
+    return null;
+  }
+
+  const { defaultLocale, fallback: settingsFallback } = getContentSettings();
+  const fallbackMode = fallback ?? settingsFallback;
+  const requestedLocale = locale ?? defaultLocale;
+
+  if (!requestedLocale) {
+    console.error(
+      `getCollections('${collectionSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale in templates/settings.ts.`
+    );
+    return null;
+  }
+
+  const fkField = `${collectionSlug}_id`;
+
+  const runQuery = async (resolveLocale: string) => {
+    const conditions = [liveOnly(mainTable), eq(localesTable.locale, resolveLocale)];
+    if (itemSlug) conditions.push(eq(localesTable.slug, itemSlug));
+    if (itemId) conditions.push(eq(mainTable.id, itemId));
+    if (status !== 'all') conditions.push(eq(localesTable.status, status));
+
+    return db
+      .select({ main: mainTable, locale: localesTable })
+      .from(mainTable)
+      .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
+      .where(and(...conditions))
+      .limit(1);
+  };
+
+  let rows = await runQuery(requestedLocale);
+  let fellBack = false;
+
+  if (
+    rows.length === 0 &&
+    fallbackMode === 'default' &&
+    defaultLocale &&
+    requestedLocale !== defaultLocale
+  ) {
+    rows = await runQuery(defaultLocale);
+    fellBack = rows.length > 0;
+  }
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0] as any;
+  const mainRow = row.main;
+  const localeRow = row.locale;
+
+  // Flatten: main provides identity (id, author, created_at, deleted_*);
+  // locale provides everything editable. Drop the locale row's own id and
+  // back-reference fkField so they don't leak into the user-facing shape —
+  // `_localeId` exposes the locale row id explicitly for loaders.
+  const { id: localeRowId, [fkField]: _ignoredFk, ...localeContent } = localeRow;
+  const flat: any = {
+    ...mainRow,
+    ...localeContent,
+    _localeId: localeRowId
+  };
+  if (fellBack) flat._localeFallback = requestedLocale;
+
+  const item = await enrichCollectionItem(flat, collectionSlug, {
     includeBlocks,
     includeBreadcrumbs,
     includeAuthors,
@@ -538,6 +759,235 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
 }
 
 /**
+ * Multi-item read for a localized collection.
+ *
+ * INNER JOIN of main + `_locales` filtered by the requested locale — items
+ * without a translation in that locale are omitted from the list. This is
+ * the strict semantics, and the only mode v1 supports for lists. Per-row
+ * fallback to default locale (`fallback: 'default'`) is honored for
+ * single-item reads but deferred to a follow-up for lists, because pagination
+ * over a mix of "real translations + fallback rows" requires either UNION
+ * tricks or a window function — both add real complexity and the most
+ * common list use case (only-translated-items) is the right default anyway.
+ *
+ * All filter/order/paginate options work; ordering picks the right table
+ * based on which one has the column. `whereRelated` uses
+ * `buildRelationshipSubquery`, which already routes to the localized
+ * junction name and returns `_locales.id` values to filter against.
+ */
+async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: {
+    parentId?: string;
+    siblingOf?: string;
+    excludeCurrent: boolean;
+    status: string;
+    includeBlocks: boolean;
+    includeBreadcrumbs: boolean;
+    includeAuthors: boolean;
+    orderBy: string;
+    order: 'asc' | 'desc';
+    groupBy?: string;
+    limit?: number;
+    offset: number;
+    baseUrl?: string;
+    currentPage?: number;
+    whereRelated?: {
+      field: string;
+      value: string | string[];
+      recursive?: boolean;
+    };
+    user?: User | null;
+    locale?: string;
+    fallback?: 'default' | 'strict';
+  }
+): Promise<CollectionsMultipleResult<T>> {
+  const {
+    parentId,
+    siblingOf,
+    excludeCurrent,
+    status,
+    includeBlocks,
+    includeBreadcrumbs,
+    includeAuthors,
+    orderBy,
+    order,
+    groupBy,
+    limit,
+    offset,
+    baseUrl,
+    currentPage,
+    whereRelated,
+    locale
+  } = options;
+
+  const mainTableName = `collection_${collectionSlug}`;
+  const localesTableName = `${mainTableName}_locales`;
+  const mainTable = (schema as any)[mainTableName];
+  const localesTable = (schema as any)[localesTableName];
+
+  if (!mainTable || !localesTable) {
+    console.error(
+      `Localized collection '${collectionSlug}' is missing tables. Run 'npx sailor db:update'.`
+    );
+    return { items: [], total: 0, hasMore: false };
+  }
+
+  const { defaultLocale } = getContentSettings();
+  const requestedLocale = locale ?? defaultLocale;
+  if (!requestedLocale) {
+    console.error(
+      `getCollections('${collectionSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale.`
+    );
+    return { items: [], total: 0, hasMore: false };
+  }
+
+  const fkField = `${collectionSlug}_id`;
+
+  const whereConditions: any[] = [liveOnly(mainTable), eq(localesTable.locale, requestedLocale)];
+
+  if (status !== 'all') {
+    whereConditions.push(eq(localesTable.status, status));
+  }
+
+  // Relationship filtering — buildRelationshipSubquery returns `_locales.id`
+  // values for localized collections, so we filter against `localesTable.id`.
+  if (whereRelated) {
+    const relatedIds = await buildRelationshipSubquery(
+      collectionSlug,
+      whereRelated.field,
+      whereRelated.value,
+      whereRelated.recursive || false
+    );
+
+    if (relatedIds.length > 0) {
+      whereConditions.push(inArray(localesTable.id, relatedIds));
+    } else {
+      whereConditions.push(sql`1 = 0`);
+    }
+  }
+
+  // parent_id lives on `_locales` (each translation owns its tree position).
+  if (parentId) {
+    whereConditions.push(eq(localesTable.parent_id, parentId));
+  }
+
+  if (siblingOf) {
+    // Look up the sibling's parent_id in the requested locale's row.
+    const siblingRow = await db
+      .select({ parent_id: localesTable.parent_id })
+      .from(mainTable)
+      .innerJoin(
+        localesTable,
+        and(eq(localesTable[fkField], mainTable.id), eq(localesTable.locale, requestedLocale))
+      )
+      .where(eq(mainTable.id, siblingOf))
+      .limit(1);
+
+    if (siblingRow.length > 0 && siblingRow[0].parent_id) {
+      whereConditions.push(eq(localesTable.parent_id, siblingRow[0].parent_id));
+      if (excludeCurrent) {
+        whereConditions.push(ne(mainTable.id, siblingOf));
+      }
+    } else {
+      whereConditions.push(sql`1 = 0`);
+    }
+  }
+
+  const whereClause = and(...whereConditions);
+
+  // Count via the JOIN — `count()` over the joined row count gives us the
+  // total items matching the filter, same semantics as the non-localized path.
+  const countPromise = db
+    .select({ count: count() })
+    .from(mainTable)
+    .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
+    .where(whereClause);
+
+  // Items query
+  let itemsQuery: any = db
+    .select({ main: mainTable, locale: localesTable })
+    .from(mainTable)
+    .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
+    .where(whereClause);
+
+  // Ordering: column might live on main (created_at, deleted_at) or on
+  // `_locales` (everything editable + slug, status, sort, updated_at). Pick
+  // whichever table has it; if neither, skip ordering.
+  if (orderBy) {
+    const onMain = (mainTable as any)[orderBy];
+    const onLocale = (localesTable as any)[orderBy];
+    const targetCol = onMain ?? onLocale;
+    if (targetCol) {
+      const orderFn = order === 'desc' ? desc : asc;
+      itemsQuery = itemsQuery.orderBy(orderFn(targetCol));
+    }
+  }
+
+  if (limit) {
+    itemsQuery = itemsQuery.limit(limit).offset(offset);
+  }
+
+  const [countResult, rows] = await Promise.all([countPromise, itemsQuery]);
+  const total = countResult[0]?.count || 0;
+
+  // Flatten each {main, locale} row into the user-facing shape. Same logic
+  // as handleSingleLocalizedCollectionItem — main provides identity, locale
+  // provides editable content, `_localeId` exposed for loaders.
+  const flatItems: any[] = (rows as any[]).map((row) => {
+    const mainRow = row.main;
+    const localeRow = row.locale;
+    const { id: localeRowId, [fkField]: _ignoredFk, ...localeContent } = localeRow;
+    return {
+      ...mainRow,
+      ...localeContent,
+      _localeId: localeRowId
+    };
+  });
+
+  for (const item of flatItems) {
+    item.created_at = parseDate(item.created_at);
+    item.updated_at = parseDate(item.updated_at);
+  }
+
+  const enrichedItems = await Promise.all(
+    flatItems.map((item) =>
+      enrichCollectionItem(item, collectionSlug, {
+        includeBlocks,
+        includeBreadcrumbs,
+        includeAuthors,
+        status: status as RelationStatus
+      })
+    )
+  );
+
+  const result: CollectionsMultipleResult = {
+    items: enrichedItems as any,
+    total,
+    hasMore: limit ? offset + (rows as any[]).length < total : false
+  };
+
+  if (limit && baseUrl) {
+    const page = currentPage || Math.floor(offset / limit) + 1;
+    const totalPages = Math.ceil(total / limit);
+    result.pagination = {
+      page,
+      pageSize: limit,
+      totalItems: total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1
+    } as Pagination;
+  }
+
+  if (groupBy) {
+    result.grouped = groupItemsByField(enrichedItems, groupBy) as any;
+  }
+
+  return result as CollectionsMultipleResult<T>;
+}
+
+/**
  * Enrich a single collection item with blocks, breadcrumbs, authors, etc.
  */
 async function enrichCollectionItem(
@@ -568,9 +1018,12 @@ async function enrichCollectionItem(
     );
   }
 
-  // Load blocks if requested
+  // Load blocks if requested. For localized collections the block junction's
+  // `collection_id` references the `_locales` row id (Phase 1b generator),
+  // so pass `_localeId` when present and fall through to the main id otherwise.
   if (includeBlocks) {
-    enrichedItem.blocks = await loadBlocksForCollection(enrichedItem.id, { status });
+    const blockParentId = (enrichedItem as any)._localeId ?? enrichedItem.id;
+    enrichedItem.blocks = await loadBlocksForCollection(blockParentId, { status });
   }
 
   // Populate user references if requested
@@ -790,14 +1243,18 @@ async function buildRelationshipSubquery(
     }
   }
 
-  // Get the junction table name using the same logic as schema generation
-  let throughTableName = `junction_${collectionSlug}_${toSnakeCase(relationField)}`;
+  // Junction table name is the same for localized and non-localized. For
+  // localized collections the `collection_id` column stores the `_locales`
+  // row id; callers (`buildRelationshipSubquery`) account for that when
+  // joining back.
+  const junctionBase = collectionSlug;
+  let throughTableName = `junction_${junctionBase}_${toSnakeCase(relationField)}`;
   let throughTable = schema[throughTableName as keyof typeof schema];
 
   // If the standard naming doesn't work, try alternative naming patterns
   if (!throughTable) {
     // Try with just the field name (singular)
-    throughTableName = `junction_${collectionSlug}_${relationField}`;
+    throughTableName = `junction_${junctionBase}_${relationField}`;
     throughTable = schema[throughTableName as keyof typeof schema];
   }
 

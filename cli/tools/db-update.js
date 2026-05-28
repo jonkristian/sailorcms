@@ -6,6 +6,8 @@ import {
   runMigrations,
   stripLegacyDbScripts
 } from '../utils.js';
+import { detectLocalizedMigrations, printPendingMigrations } from './db-localize-detector.js';
+import { runI18nMigrations } from './db-i18n-migrator.js';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import fs from 'fs-extra';
@@ -55,12 +57,27 @@ export function registerDbUpdate(program) {
           console.log(`🧰 Restored missing scaffold: ${restored.join(', ')}`);
         }
 
+        // Capture entities that just flipped to `localized: true` but don't
+        // yet have a `_locales` sibling — we hand this list off to the i18n
+        // migrator AFTER drizzle creates `_locales`. Captured before
+        // schema regeneration so the detector sees the pre-migration shape.
+        const pendingLocalizations = await detectLocalizedMigrations(targetDir);
+        if (pendingLocalizations && pendingLocalizations.length > 0) {
+          printPendingMigrations(pendingLocalizations);
+        }
+
         await generateSchema(targetDir);
         execSync('npx drizzle-kit generate --config=drizzle.config.ts', {
           cwd: targetDir,
           stdio: 'inherit'
         });
         await runMigrations(targetDir);
+
+        // Now that `_locales` tables exist, copy main rows over and re-point
+        // child tables. Idempotent — a re-run is a no-op.
+        if (pendingLocalizations && pendingLocalizations.length > 0) {
+          await runI18nMigrations(targetDir, pendingLocalizations);
+        }
 
         const pkgSeeder = path.join(
           targetDir,

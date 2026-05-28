@@ -6,6 +6,9 @@
 // user passes --fix. Reports are read-only by default.
 import fs from 'fs-extra';
 import path from 'path';
+import { existsSync, readdirSync } from 'fs';
+import { pathToFileURL } from 'url';
+import { sql } from 'drizzle-orm';
 import {
   patchSvelteConfig,
   patchViteConfig,
@@ -13,6 +16,7 @@ import {
   dedupeNestedSailorcmsDeps,
   stripLegacyDbScripts,
   isCorePackage,
+  loadConsumerEnv,
   SAILOR_DIRS_RESOLVED_VIA_PACKAGE,
   COMPONENT_DIRS_RESOLVED_VIA_PACKAGE
 } from '../utils.js';
@@ -454,6 +458,149 @@ async function checkDbLocked(targetDir) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// i18n vestigial-columns check
+//
+// Localized entities keep their main table additive: the same columns are
+// emitted whether or not `localized: true` is set, so flipping the flag is
+// non-destructive. After the data migrator copies main → _locales those
+// content columns on main go unused — `_locales` becomes the canonical
+// store. This check lists them and offers --fix to drop them via SQLite
+// `ALTER TABLE DROP COLUMN` (3.35+).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const I18N_MAIN_KEEP = new Set(['id', 'created_at', 'deleted_at', 'deleted_by']);
+
+async function loadLocalizedEntities(targetDir) {
+  const out = [];
+  for (const kind of ['collection', 'global']) {
+    const dir = path.join(
+      targetDir,
+      'src',
+      'lib',
+      'sailor',
+      'templates',
+      kind === 'collection' ? 'collections' : 'globals'
+    );
+    if (!existsSync(dir)) continue;
+    const files = readdirSync(dir).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
+    for (const file of files) {
+      const mod = await import(pathToFileURL(path.join(dir, file)).href);
+      for (const exp of Object.values(mod)) {
+        if (
+          exp &&
+          typeof exp === 'object' &&
+          typeof exp.slug === 'string' &&
+          exp.localized === true
+        ) {
+          out.push({ kind, slug: exp.slug });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+async function openLibsqlClientForDoctor(targetDir) {
+  await loadConsumerEnv(targetDir);
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) return null;
+  if (dbUrl.startsWith('postgres')) return null;
+  const { createClient } = await import('@libsql/client');
+  const { drizzle } = await import('drizzle-orm/libsql');
+  const url = dbUrl.startsWith('file:') || dbUrl.startsWith('libsql:') ? dbUrl : `file:${dbUrl}`;
+  const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN });
+  return drizzle(client);
+}
+
+async function tableExistsForDoctor(db, tableName) {
+  const r = await db.run(
+    sql.raw(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`)
+  );
+  return (r.rows || []).length > 0;
+}
+
+async function columnsForDoctor(db, tableName) {
+  const r = await db.run(sql.raw(`PRAGMA table_info("${tableName}")`));
+  return (r.rows || []).map((row) => row.name);
+}
+
+async function checkI18nVestigialColumns(targetDir) {
+  const entities = await loadLocalizedEntities(targetDir);
+  if (entities.length === 0) {
+    return {
+      id: 'i18n:vestigial-main-columns',
+      label: 'Localized main tables: vestigial content columns',
+      ok: true,
+      message: 'no localized entities — skipping',
+      fixable: false
+    };
+  }
+
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id: 'i18n:vestigial-main-columns',
+      label: 'Localized main tables: vestigial content columns',
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+
+  const findings = []; // { kind, slug, mainTable, vestigial: [colName] }
+
+  for (const e of entities) {
+    const mainTable = `${e.kind === 'collection' ? 'collection_' : 'global_'}${e.slug}`;
+    const localesTable = `${mainTable}_locales`;
+    if (!(await tableExistsForDoctor(db, mainTable))) continue;
+    if (!(await tableExistsForDoctor(db, localesTable))) continue;
+
+    const mainCols = await columnsForDoctor(db, mainTable);
+    const localesCols = new Set(await columnsForDoctor(db, localesTable));
+    const fkField = `${e.slug}_id`;
+
+    const vestigial = mainCols.filter(
+      (c) => localesCols.has(c) && !I18N_MAIN_KEEP.has(c) && c !== fkField && c !== 'locale'
+    );
+    if (vestigial.length > 0) findings.push({ ...e, mainTable, vestigial });
+  }
+
+  if (findings.length === 0) {
+    return {
+      id: 'i18n:vestigial-main-columns',
+      label: 'Localized main tables: vestigial content columns',
+      ok: true,
+      message: 'no vestigial content columns on localized main tables',
+      fixable: false
+    };
+  }
+
+  const detail = findings.map(
+    (f) => `    ${f.mainTable} — ${f.vestigial.length} column(s): ${f.vestigial.join(', ')}`
+  );
+
+  return {
+    id: 'i18n:vestigial-main-columns',
+    label: 'Localized main tables: vestigial content columns',
+    ok: false,
+    message: `${findings.length} localized main table(s) carry content columns shadowed by _locales\n${detail.join('\n')}`,
+    fixable: true,
+    fix: async () => {
+      for (const f of findings) {
+        for (const col of f.vestigial) {
+          try {
+            await db.run(sql.raw(`ALTER TABLE "${f.mainTable}" DROP COLUMN "${col}"`));
+            console.log(`  🗑  ${f.mainTable}: dropped "${col}"`);
+          } catch (err) {
+            console.error(`  ✗ ${f.mainTable}: failed to drop "${col}" — ${err?.message || err}`);
+          }
+        }
+      }
+    }
+  };
+}
+
 const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
@@ -462,7 +609,8 @@ const CHECKS = [
   checkLegacyDbScripts,
   checkNestedAcorn,
   checkNestedSailorcmsDeps,
-  checkDbLocked
+  checkDbLocked,
+  checkI18nVestigialColumns
 ];
 
 // Tiny ANSI color helpers. Respects NO_COLOR (https://no-color.org/) and

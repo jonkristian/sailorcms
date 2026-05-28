@@ -28,6 +28,19 @@ export interface SearchOptions {
   status?: 'published' | 'draft' | 'all'; // Applied to both collections and globals. Default: 'published'
   user?: User | null;
 
+  /**
+   * BCP-47 locale to scope search results to. When set, matches rows where
+   * `locale = <locale>` OR `locale IS NULL` (the latter covers non-localized
+   * entities — those still surface regardless of the requested locale).
+   * Hit hydration passes this locale to `getCollections` so the returned item
+   * is the right translation.
+   *
+   * Default: undefined (no filter — returns every locale's row, which can
+   * produce per-locale duplicates of the same item; pass a locale on
+   * multilingual sites to dedupe naturally).
+   */
+  locale?: string;
+
   // Pagination URL generation (same shape as getCollections).
   // Populate `pagination` in the result when both `limit` and `baseUrl` are provided.
   baseUrl?: string;
@@ -82,6 +95,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
     offset = 0,
     status = 'published',
     user,
+    locale,
     baseUrl,
     currentPage
   } = options;
@@ -107,7 +121,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
 
   if (ftsQuery) {
     try {
-      matches = (await fetchFtsMatches(ftsQuery, status, scope)).filter(inAllowlist);
+      matches = (await fetchFtsMatches(ftsQuery, status, scope, locale)).filter(inAllowlist);
     } catch (err) {
       console.error('search(): FTS query failed', err);
     }
@@ -118,7 +132,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
   // at least see plausible matches.
   if (matches.length === 0) {
     try {
-      matches = (await fetchLikeMatches(table, trimmed, status, scope)).filter(inAllowlist);
+      matches = (await fetchLikeMatches(table, trimmed, status, scope, locale)).filter(inAllowlist);
     } catch (err) {
       console.error('search(): LIKE query failed', err);
       return { items: [], total: 0, totalByEntity: {}, hasMore: false };
@@ -135,9 +149,18 @@ export async function search(query: string, options: SearchOptions = {}): Promis
 
   const items: SearchResultItem[] = [];
   for (const m of page) {
+    // Hydrate via the read API so consumers get the same enriched item shape
+    // as `getCollections`/`getGlobals`. For localized collections, pass the
+    // matched locale so the right translation comes back (matches `m.locale`
+    // — could be the requested locale or a non-localized item's null).
     const hydrated =
       m.entity_type === 'collection'
-        ? await getCollections(m.entity_name, { itemId: m.entity_id, status, user })
+        ? await getCollections(m.entity_name, {
+            itemId: m.entity_id,
+            status,
+            user,
+            ...(m.locale ? { locale: m.locale } : {})
+          })
         : await getGlobals(m.entity_name, { itemId: m.entity_id, status, user });
     if (!hydrated) continue;
     items.push({
@@ -189,6 +212,7 @@ type MatchRow = {
   entity_type: 'collection' | 'global';
   entity_name: string;
   entity_id: string;
+  locale: string | null;
   title: string | null;
   searchable_text: string;
   status: string | null;
@@ -206,13 +230,19 @@ type MatchRow = {
 async function fetchFtsMatches(
   ftsQuery: string,
   status: string,
-  scope: SearchScope | undefined
+  scope: SearchScope | undefined,
+  locale: string | undefined
 ): Promise<MatchRow[]> {
   const filters: SQL[] = [sql`search_index_fts MATCH ${ftsQuery}`];
   const statusFilter = buildStatusFilterRaw(status);
   if (statusFilter) filters.push(statusFilter);
   const scopeFilter = buildScopeFilterRaw(scope);
   if (scopeFilter) filters.push(scopeFilter);
+  // Locale-scoped reads: include the matching locale's rows AND any row with
+  // locale IS NULL (non-localized entities — globals, non-localized collections).
+  if (locale) {
+    filters.push(sql`(si.locale = ${locale} OR si.locale IS NULL)`);
+  }
 
   const whereClause = filters.length > 1 ? sql.join(filters, sql` AND `) : filters[0];
 
@@ -221,6 +251,7 @@ async function fetchFtsMatches(
       si.entity_type AS entity_type,
       si.entity_name AS entity_name,
       si.entity_id AS entity_id,
+      si.locale AS locale,
       si.title AS title,
       si.searchable_text AS searchable_text,
       si.status AS status,
@@ -231,6 +262,10 @@ async function fetchFtsMatches(
       search_index_fts.entity_type = si.entity_type
       AND search_index_fts.entity_name = si.entity_name
       AND search_index_fts.entity_id = si.entity_id
+      AND (
+        search_index_fts.locale = si.locale
+        OR (search_index_fts.locale IS NULL AND si.locale IS NULL)
+      )
     WHERE ${whereClause}
     ORDER BY rank ASC, si.updated_at DESC
   `);
@@ -245,7 +280,8 @@ async function fetchLikeMatches(
   table: any,
   query: string,
   status: string,
-  scope: SearchScope | undefined
+  scope: SearchScope | undefined,
+  locale: string | undefined
 ): Promise<MatchRow[]> {
   const pattern = `%${escapeLike(query.toLowerCase())}%`;
   const matchCondition = or(
@@ -265,6 +301,9 @@ async function fetchLikeMatches(
   }
   const scopeClause = buildScopeFilterBuilder(table, scope);
   if (scopeClause) conditions.push(scopeClause);
+  if (locale) {
+    conditions.push(or(eq(table.locale, locale), sql`${table.locale} is null`) as SQL);
+  }
 
   const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
 
@@ -273,6 +312,7 @@ async function fetchLikeMatches(
       entity_type: table.entity_type,
       entity_name: table.entity_name,
       entity_id: table.entity_id,
+      locale: table.locale,
       title: table.title,
       searchable_text: table.searchable_text,
       status: table.status,
@@ -292,6 +332,7 @@ function normalizeMatchRow(r: any): MatchRow {
     entity_type: r.entity_type,
     entity_name: r.entity_name,
     entity_id: r.entity_id,
+    locale: r.locale ?? null,
     title: r.title ?? null,
     searchable_text: r.searchable_text ?? '',
     status: r.status ?? null,

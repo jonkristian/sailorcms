@@ -67,7 +67,14 @@
   // Convert items to flat data format for Blocks
   function getFlatData(): FlatItem[] {
     return (items || []).map((item: any, index: number) => {
-      // Try to find a good display name from common fields
+      // Try to find a good display name from common fields. The wildcard
+      // fallback walks the item's own string values but EXCLUDES `id`,
+      // any *_id foreign keys, and well-known system fields — otherwise a
+      // brand-new row's id or parent-fk UUID surfaces as the row's display
+      // label (e.g. '5a2038f1-...' from `global_id` on a fresh menu item).
+      const SKIP_DISPLAY_KEYS = new Set(['id', 'sort', 'created_at', 'updated_at', 'status']);
+      const isSystemKey = (k: string) =>
+        SKIP_DISPLAY_KEYS.has(k) || k.endsWith('_id') || k === 'locale';
       const displayName =
         item.title ||
         item.name ||
@@ -76,9 +83,12 @@
         item.text ||
         item.content ||
         item.description ||
-        (item && typeof item === 'object' ? Object.values(item) : []).find(
-          (val: any) => typeof val === 'string' && val.length > 0
-        ) ||
+        (item && typeof item === 'object'
+          ? Object.entries(item)
+              .filter(([k]) => !isSystemKey(k))
+              .map(([, v]) => v)
+          : []
+        ).find((val: any) => typeof val === 'string' && val.length > 0) ||
         `Item ${index + 1}`;
 
       return {

@@ -56,6 +56,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     const contentSummary = user ? await getUserContentSummary(userId) : {};
 
     return {
+      // `page.title` is what the layout breadcrumb component reads as the
+      // last-segment label. Without it the URL segment (the user's UUID)
+      // surfaces in the trail.
+      page: { title: user?.name ?? user?.email ?? 'New user' },
       targetUser: user, // Will be null if not found (create mode)
       isCreateMode: !user,
       availableUsers,
@@ -65,6 +69,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     log.error('Failed to load user', { userId }, err as Error);
     // Return create mode on any database error
     return {
+      page: { title: 'New user' },
       targetUser: null,
       isCreateMode: true,
       availableUsers: [],

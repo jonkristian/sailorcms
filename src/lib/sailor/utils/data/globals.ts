@@ -3,6 +3,7 @@ import { sql, ne, eq, asc, desc, and, count } from 'drizzle-orm';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import { globalTypes, files } from '$sailor/generated/schema';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
 import type { GlobalTypes } from '$sailor/generated/types';
 import type { Pagination } from 'sailorcms/core/types';
 import { TagService } from 'sailorcms/core/services/tag.server';
@@ -20,6 +21,15 @@ import {
 } from './loaders/relation-loader';
 import { assertAccess, AccessDeniedError } from './access';
 import { parseDate, groupItemsByField } from './internal';
+import { getContentSettings } from './collections';
+
+/**
+ * True if the consumer marked this global `localized: true` in its template.
+ * Mirrors `isLocalizedCollection` in collections.ts.
+ */
+function isLocalizedGlobal(slug: string): boolean {
+  return (fieldConfigurations as any).globals?.[slug]?.localized === true;
+}
 
 /**
  * Load all fields (files, arrays, relations) for a global
@@ -32,7 +42,13 @@ async function loadGlobalFields(
   loadFullFileObjects: boolean = false,
   status: RelationStatus = 'published'
 ): Promise<void> {
+  // Child tables (files, arrays, junctions) anchor on `global_<slug>` for
+  // both localized and non-localized — the generator keeps the same names
+  // for both modes. For localized rows the FK columns (`parent_id`,
+  // `global_id`) point at the `_locales` row id, supplied by callers as
+  // `_localeId`.
   const tablePrefix = `global_${globalSlug}`;
+  const junctionPrefix = globalSlug;
 
   // Load file fields
   await loadFileFields(global, globalSchema, tablePrefix, loadFullFileObjects);
@@ -54,7 +70,7 @@ async function loadGlobalFields(
   await loadManyToManyRelations(
     global,
     globalSchema,
-    globalSlug,
+    junctionPrefix,
     'global_id',
     loadFullFileObjects,
     status
@@ -121,6 +137,12 @@ export interface GlobalsOptions {
 
   // Security
   user?: User | null; // User context for ACL filtering
+
+  // Localization (only meaningful for globals declared `localized: true`)
+  /** BCP-47 locale to fetch; defaults to `content.defaultLocale` from settings. */
+  locale?: string;
+  /** Behavior when the requested locale has no row for an item: `'default'` returns the default-locale row marked `_localeFallback`; `'strict'` returns null/omits. */
+  fallback?: 'default' | 'strict';
 }
 
 // Return types
@@ -217,11 +239,14 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
     offset = 0,
     baseUrl,
     currentPage,
-    user: _user // Reserved for future ACL implementation
+    user: _user, // Reserved for future ACL implementation
+    locale,
+    fallback
   } = options || {};
 
   // Determine if this is a single item query
   const isSingleQuery = !!(itemSlug || itemId);
+  const isLocalized = isLocalizedGlobal(globalSlug);
 
   try {
     // Get global type definition
@@ -246,12 +271,45 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
 
     // Handle singleton globals
     if (isFlat) {
+      if (isLocalized) {
+        return await handleSingletonLocalizedGlobal<T>(globalSlug, globalType, {
+          withRelations,
+          withTags,
+          loadFullFileObjects,
+          status,
+          locale,
+          fallback
+        });
+      }
       return await handleSingletonGlobal<T>(globalSlug, globalType, {
         withRelations,
         withTags,
         loadFullFileObjects,
         status
       });
+    }
+
+    // Repeatable globals. Multi-item localized reads aren't wired yet — fail
+    // loud rather than returning bad results. Phase 2b equivalent for globals.
+    if (isLocalized) {
+      if (isSingleQuery) {
+        return await handleRepeatableLocalizedGlobalSingle<T>(globalSlug, globalType, {
+          itemSlug,
+          itemId,
+          withRelations,
+          withTags,
+          loadFullFileObjects,
+          status,
+          locale,
+          fallback,
+          user: _user
+        });
+      }
+      // Multi-item localized repeatable — defer (mirrors collections Phase 2b
+      // staging; bring up when needed).
+      throw new Error(
+        `getGlobals('${globalSlug}', ...): multi-item reads on localized repeatable globals aren't wired yet. Use { itemId } or { itemSlug } in the meantime.`
+      );
     }
 
     // Handle repeatable globals
@@ -327,6 +385,191 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
   });
 
   return enrichedGlobal;
+}
+
+/**
+ * Singleton (flat) global with localization. Main row id == globalSlug
+ * (existing convention); content lives on `global_<slug>_locales`. JOIN +
+ * locale resolution mirror the collection single-item path.
+ */
+async function handleSingletonLocalizedGlobal<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  globalType: any,
+  options: {
+    withRelations: boolean;
+    withTags: boolean;
+    loadFullFileObjects: boolean;
+    status: RelationStatus;
+    locale?: string;
+    fallback?: 'default' | 'strict';
+  }
+): Promise<GlobalsSingleResult<T>> {
+  const { withRelations, withTags, loadFullFileObjects, status, locale, fallback } = options;
+
+  const mainTableName = `global_${globalSlug}`;
+  const localesTableName = `${mainTableName}_locales`;
+  const mainTable = (schema as any)[mainTableName];
+  const localesTable = (schema as any)[localesTableName];
+
+  if (!mainTable || !localesTable) {
+    console.warn(`Localized global '${globalSlug}' is missing tables. Run 'npx sailor db:update'.`);
+    return null;
+  }
+
+  const { defaultLocale, fallback: settingsFallback } = getContentSettings();
+  const fallbackMode = fallback ?? settingsFallback;
+  const requestedLocale = locale ?? defaultLocale;
+  if (!requestedLocale) {
+    console.error(
+      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale.`
+    );
+    return null;
+  }
+
+  const fkField = `${globalSlug}_id`;
+
+  const runQuery = async (resolveLocale: string) =>
+    db
+      .select({ main: mainTable, locale: localesTable })
+      .from(mainTable)
+      .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
+      .where(
+        and(
+          eq(mainTable.id, globalSlug),
+          liveOnly(mainTable),
+          eq(localesTable.locale, resolveLocale)
+        )
+      )
+      .limit(1);
+
+  let rows = await runQuery(requestedLocale);
+  let fellBack = false;
+  if (
+    rows.length === 0 &&
+    fallbackMode === 'default' &&
+    defaultLocale &&
+    requestedLocale !== defaultLocale
+  ) {
+    rows = await runQuery(defaultLocale);
+    fellBack = rows.length > 0;
+  }
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0] as any;
+  const mainRow = row.main;
+  const localeRow = row.locale;
+  const { id: localeRowId, [fkField]: _ignored, ...localeContent } = localeRow;
+  const flat: any = {
+    ...mainRow,
+    ...localeContent,
+    _localeId: localeRowId
+  };
+  if (fellBack) flat._localeFallback = requestedLocale;
+
+  const enriched = await enrichGlobalItem<T>(flat, globalSlug, globalType, {
+    withRelations,
+    withTags,
+    loadFullFileObjects,
+    status
+  });
+
+  return enriched;
+}
+
+/**
+ * Single-item read for a localized repeatable global. Mirrors the collection
+ * single-item path: JOIN by item id, resolve locale, optional fallback.
+ */
+async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  globalType: any,
+  options: {
+    itemSlug?: string;
+    itemId?: string;
+    withRelations: boolean;
+    withTags: boolean;
+    loadFullFileObjects: boolean;
+    status: RelationStatus;
+    locale?: string;
+    fallback?: 'default' | 'strict';
+    user?: User | null;
+  }
+): Promise<GlobalsSingleResult<T>> {
+  const {
+    itemSlug,
+    itemId,
+    withRelations,
+    withTags,
+    loadFullFileObjects,
+    status,
+    locale,
+    fallback
+  } = options;
+
+  const mainTableName = `global_${globalSlug}`;
+  const localesTableName = `${mainTableName}_locales`;
+  const mainTable = (schema as any)[mainTableName];
+  const localesTable = (schema as any)[localesTableName];
+
+  if (!mainTable || !localesTable) {
+    console.warn(`Localized global '${globalSlug}' is missing tables. Run 'npx sailor db:update'.`);
+    return null;
+  }
+
+  const { defaultLocale, fallback: settingsFallback } = getContentSettings();
+  const fallbackMode = fallback ?? settingsFallback;
+  const requestedLocale = locale ?? defaultLocale;
+  if (!requestedLocale) {
+    console.error(
+      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale.`
+    );
+    return null;
+  }
+
+  const fkField = `${globalSlug}_id`;
+
+  const runQuery = async (resolveLocale: string) => {
+    const conditions: any[] = [liveOnly(mainTable), eq(localesTable.locale, resolveLocale)];
+    if (itemId) conditions.push(eq(mainTable.id, itemId));
+    if (itemSlug) conditions.push(eq(localesTable.slug, itemSlug));
+    if (status !== 'all' && localesTable.status) {
+      conditions.push(eq(localesTable.status, status));
+    }
+    return db
+      .select({ main: mainTable, locale: localesTable })
+      .from(mainTable)
+      .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
+      .where(and(...conditions))
+      .limit(1);
+  };
+
+  let rows = await runQuery(requestedLocale);
+  let fellBack = false;
+  if (
+    rows.length === 0 &&
+    fallbackMode === 'default' &&
+    defaultLocale &&
+    requestedLocale !== defaultLocale
+  ) {
+    rows = await runQuery(defaultLocale);
+    fellBack = rows.length > 0;
+  }
+  if (rows.length === 0) return null;
+
+  const row = rows[0] as any;
+  const mainRow = row.main;
+  const localeRow = row.locale;
+  const { id: localeRowId, [fkField]: _ignored, ...localeContent } = localeRow;
+  const flat: any = { ...mainRow, ...localeContent, _localeId: localeRowId };
+  if (fellBack) flat._localeFallback = requestedLocale;
+
+  return enrichGlobalItem<T>(flat, globalSlug, globalType, {
+    withRelations,
+    withTags,
+    loadFullFileObjects,
+    status
+  });
 }
 
 /**
@@ -526,10 +769,15 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
     updated_at: parseDate(item.updated_at)
   };
 
-  // Load tags if requested
+  // Load tags if requested. Tags live under `taggable_type = 'global_<slug>'`
+  // for both modes. For localized globals the `taggable_id` is the `_locales`
+  // row id (callers pass it as `_localeId`); ids never collide across modes
+  // so the type discriminator stays mode-agnostic.
   if (withTags) {
     try {
-      const tags = await TagService.getTagsForEntity(`global_${globalSlug}`, enrichedItem.id);
+      const taggableType = `global_${globalSlug}`;
+      const taggableId = (enrichedItem as any)._localeId ?? enrichedItem.id;
+      const tags = await TagService.getTagsForEntity(taggableType, taggableId);
       const globalFields = JSON.parse(globalType.schema);
       Object.entries(globalFields).forEach(([fieldName, fieldDef]) => {
         if ((fieldDef as any).type === 'tags') {

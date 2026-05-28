@@ -1,5 +1,6 @@
 import { getCollections } from 'sailorcms/utils/index';
 import type { CollectionsMultipleResult } from 'sailorcms/utils/types';
+import type { Post } from '$sailor/generated/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -18,7 +19,7 @@ export const load: PageServerLoad = async ({ url }) => {
     order: 'desc',
     baseUrl: '/blog',
     currentPage: page
-  })) as CollectionsMultipleResult;
+  })) as CollectionsMultipleResult<Post>;
 
   return {
     posts: result.items, // Items automatically include .url property

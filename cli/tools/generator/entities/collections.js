@@ -10,6 +10,10 @@ export class CollectionGenerator {
    * Generate all tables for a collection definition
    */
   generateTables(collectionSlug, definition, coreFields) {
+    if (definition.localized) {
+      return this.generateLocalizedTables(collectionSlug, definition, coreFields);
+    }
+
     const tables = [];
     const entityInfo = {
       type: 'collection',
@@ -25,11 +29,9 @@ export class CollectionGenerator {
     );
     tables.push(mainTable);
 
-    // Create child tables for blocks (if enabled)
-    if (definition.options?.blocks) {
-      const blockTable = this.createBlockTable(mainTable.name, entityInfo);
-      tables.push(blockTable);
-    }
+    // `options.blocks: true` flips block UI on for this collection. The block
+    // rows themselves live in `block_<type>` tables with a `collection_id`
+    // column referencing the parent — no per-collection junction table needed.
 
     // Create array and file tables for template fields
     const templateFields = definition.fields || {};
@@ -51,18 +53,164 @@ export class CollectionGenerator {
   }
 
   /**
-   * Create the main collection table
+   * Generate tables for a localized collection.
+   *
+   *   - `collection_<slug>`         — full shape (same columns as non-localized).
+   *                                   Lets a non-localized → localized flip avoid
+   *                                   destructive column drops; content columns
+   *                                   become vestigial after data migration and
+   *                                   are flagged by `sailor doctor` as cleanable.
+   *   - `collection_<slug>_locales` — per-locale editable content + FK back to
+   *                                   main. The canonical content store for
+   *                                   localized reads/writes.
+   *
+   * Child tables (arrays, files, m2m junctions) keep the same names as
+   * non-localized — no `_locales` segment in their names. Their `parent_id` /
+   * `collection_id` columns reference `_locales.id` at runtime; the loaders /
+   * persisters resolve that via `_localeId`.
    */
-  createMainCollectionTable(collectionSlug, definition, coreFields, entityInfo) {
+  generateLocalizedTables(collectionSlug, definition, coreFields) {
+    const tables = [];
+    const entityInfo = { type: 'collection', slug: collectionSlug };
+
+    // Main: full shape, same as non-localized — but content columns are
+    // emitted nullable + non-unique (`relaxed: true`). They go vestigial
+    // once `_locales` is the canonical store; the seed copy from the data
+    // migrator may also collide on slug uniqueness across pre-existing
+    // rows. SQLite refuses `ALTER TABLE ADD COLUMN NOT NULL` without
+    // default on a populated table, so relaxing here lets the flip apply
+    // cleanly.
+    const mainTable = this.createMainCollectionTable(
+      collectionSlug,
+      definition,
+      coreFields,
+      entityInfo,
+      { relaxed: true }
+    );
+    tables.push(mainTable);
+
+    // Locales sibling: the canonical per-locale content store.
+    const localesTable = this.createLocalizedLocalesTable(
+      collectionSlug,
+      definition,
+      coreFields,
+      entityInfo,
+      mainTable.name
+    );
+    tables.push(localesTable);
+
+    // Child tables anchor on main (same naming as non-localized). The runtime
+    // convention is "parent_id references _locales.id for localized" — kept
+    // out of table names so flipping localized doesn't rename tables.
+    const childParent = mainTable.name;
+
+    const templateFields = definition.fields || {};
+    for (const [fieldName, fieldDef] of Object.entries(templateFields)) {
+      if (fieldDef.type === 'array') {
+        tables.push(...this.createArrayTables(childParent, fieldName, fieldDef, entityInfo));
+      } else if (fieldDef.type === 'file') {
+        tables.push(this.createFileTable(childParent, fieldName, fieldDef, entityInfo));
+      }
+    }
+
+    const allFields = this.mergeFields(definition, coreFields);
+    tables.push(...this.createRelationTables(childParent, allFields, entityInfo));
+
+    return tables;
+  }
+
+  /**
+   * Locale sibling table: per-locale editable content. Holds the FK back to main,
+   * the locale code, and all editable scalar + FK-relation fields. File fields,
+   * array fields, m2m junctions, and the block list all live in separate tables
+   * that FK to this row's id (handled by the parent caller).
+   */
+  createLocalizedLocalesTable(collectionSlug, definition, coreFields, entityInfo, mainTableName) {
+    const tableName = `${mainTableName}_locales`;
+    const fkField = `${collectionSlug}_id`;
+
+    const fields = {
+      id: this.tableGen.getPrimaryKeyField(),
+      [fkField]: this.tableGen.getTextField({
+        notNull: true,
+        references: { table: mainTableName, field: 'id' }
+      }),
+      locale: this.tableGen.getTextField({ notNull: true }),
+      updated_at: this.tableGen.getTimestampField(),
+      last_modified_by: this.tableGen.getTextField()
+    };
+
+    // Core+template fields, minus identity (stays on main) and minus the
+    // last_modified_by we already added explicitly above.
+    const MAIN_ONLY = new Set(['id', 'created_at', 'deleted_at', 'deleted_by', 'author']);
+    const allFields = this.mergeFields(definition, coreFields);
+
+    for (const [fieldName, fieldDef] of Object.entries(allFields)) {
+      if (MAIN_ONLY.has(fieldName)) continue;
+      if (fieldName === 'updated_at' || fieldName === 'last_modified_by') continue;
+      if (fieldDef.type === 'array') continue; // separate table
+      if (fieldDef.type === 'file') continue; // separate table
+      if (fieldDef.type === 'tags') continue; // polymorphic taggables, no column
+
+      if (fieldDef.type === 'relation') {
+        const relation = fieldDef.relation;
+        if (relation && relation.type !== 'many-to-many') {
+          const targetTable = this.resolveTargetTable(relation);
+          fields[fieldName] = this.tableGen.getTextField({
+            references: { table: targetTable, field: 'id' }
+          });
+        }
+        continue; // m2m relations get junction tables, not a column
+      }
+
+      fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef);
+    }
+
+    // Composite uniques: one row per item per locale, slug unique within a locale.
+    const indexes = [
+      {
+        type: 'unique',
+        name: `${tableName}_item_locale_unique_idx`,
+        columns: [fkField, 'locale']
+      },
+      {
+        type: 'unique',
+        name: `${tableName}_slug_locale_unique_idx`,
+        columns: ['slug', 'locale']
+      }
+    ];
+
+    const table = this.tableGen.createMainTable(tableName, fields, entityInfo, indexes);
+
+    // Register the FK relationship so Drizzle's `relations()` knows about it.
+    this.tableGen.metadata.addRelation({
+      fromTable: tableName,
+      toTable: mainTableName,
+      type: 'many-to-one',
+      foreignKey: fkField,
+      references: 'id'
+    });
+
+    return table;
+  }
+
+  /**
+   * Create the main collection table.
+   *
+   * `opts.relaxed = true` drops NOT NULL / UNIQUE on content columns — used
+   * for the localized main table, where those constraints would block
+   * `ALTER TABLE ADD COLUMN` on populated rows during the localized flip.
+   */
+  createMainCollectionTable(collectionSlug, definition, coreFields, entityInfo, opts = {}) {
     const tableName = `collection_${collectionSlug}`;
 
     // Merge core fields with template fields
     const allFields = this.mergeFields(definition, coreFields);
 
     // Build table fields, excluding relations (they get separate tables/foreign keys)
-    const tableFields = this.buildMainTableFields(allFields, definition);
+    const tableFields = this.buildMainTableFields(allFields, definition, opts);
 
-    return this.tableGen.createMainTable(tableName, tableFields, entityInfo);
+    return this.tableGen.createMainTable(tableName, tableFields, entityInfo, undefined, opts);
   }
 
   /**
@@ -124,36 +272,6 @@ export class CollectionGenerator {
       { name: fieldName, ...fieldDef },
       entityInfo
     );
-  }
-
-  /**
-   * Create blocks table for collection with blocks enabled
-   */
-  createBlockTable(collectionTableName, entityInfo) {
-    const blockTableName = `${collectionTableName}_blocks`;
-
-    const fields = {
-      id: this.tableGen.getPrimaryKeyField(),
-      collection_id: this.tableGen.getTextField({ notNull: true }),
-      block_type: this.tableGen.getTextField({ notNull: true }),
-      block_id: this.tableGen.getTextField({ notNull: true }),
-      sort: this.tableGen.getIntegerField({ notNull: true, default: 0 }),
-      created_at: this.tableGen.getTimestampField(),
-      updated_at: this.tableGen.getTimestampField()
-    };
-
-    const blockTable = this.tableGen.createMainTable(blockTableName, fields, entityInfo);
-
-    // Add relation to parent collection
-    this.tableGen.metadata.addRelation({
-      fromTable: blockTableName,
-      toTable: collectionTableName,
-      type: 'many-to-one',
-      foreignKey: 'collection_id',
-      references: 'id'
-    });
-
-    return blockTable;
   }
 
   /**
@@ -273,11 +391,17 @@ export class CollectionGenerator {
   /**
    * Build main table fields, excluding relations
    */
-  buildMainTableFields(allFields, definition) {
+  buildMainTableFields(allFields, definition, opts = {}) {
     const fields = {
       id: this.tableGen.getPrimaryKeyField(),
       created_at: this.tableGen.getTimestampField(),
-      updated_at: this.tableGen.getTimestampField(),
+      // updated_at lives canonically on `_locales` for localized
+      // collections (per-translation modification time). Keep it
+      // nullable on main when relaxed so the localized flip's
+      // ALTER TABLE ADD COLUMN doesn't trip SQLite's NOT NULL guard.
+      updated_at: opts.relaxed
+        ? this.tableGen.getNullableTimestampField()
+        : this.tableGen.getTimestampField(),
       deleted_at: this.tableGen.getNullableTimestampField(),
       deleted_by: this.tableGen.getTextField()
     };
@@ -313,7 +437,7 @@ export class CollectionGenerator {
         continue;
       }
 
-      fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef);
+      fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef, opts);
     }
 
     return fields;
@@ -322,11 +446,11 @@ export class CollectionGenerator {
   /**
    * Build a single field definition with proper constraints
    */
-  buildFieldDefinition(fieldName, fieldDef) {
+  buildFieldDefinition(fieldName, fieldDef, opts = {}) {
     const options = {
-      notNull: fieldDef.required,
+      notNull: opts.relaxed ? false : fieldDef.required,
       default: fieldDef.default,
-      unique: fieldName === 'slug'
+      unique: opts.relaxed ? false : fieldName === 'slug'
     };
 
     // parent_id should never be required (top-level items have no parent)

@@ -57,12 +57,21 @@ export function useBulkSelection<T extends { id: string }>(
     return selectedItems.includes(id);
   }
 
+  // Intersect the raw selection with the current items list so deletions
+  // (purge / restore / external invalidate) don't leave ghost ids in
+  // `selectedItems` / `selectedCount` — fixes the "3 av 0 valgt" stale
+  // bulk-action bar after a successful purge.
+  const liveSelected = $derived.by(() => {
+    const live = new Set(items.map((item) => item.id));
+    return selectedItems.filter((id) => live.has(id));
+  });
+
   return {
     get selectedItems() {
-      return selectedItems;
+      return liveSelected;
     },
     get selectedCount() {
-      return selectedItems.length;
+      return liveSelected.length;
     },
     get totalCount() {
       return items.length;

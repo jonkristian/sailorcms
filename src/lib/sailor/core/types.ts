@@ -327,6 +327,19 @@ export type CollectionDefinition = {
    * See {@link AccessRule}.
    */
   access?: AccessRule;
+  /**
+   * Opt this collection into content translation.
+   *
+   * When `true`, the generator emits a `<slug>_locales` sibling table holding
+   * per-locale editable content; the main table holds only item identity. All
+   * editable fields (text, files, relations, tags, blocks) become per-locale,
+   * and editors translate via the locale switcher on the edit page.
+   *
+   * Requires `content.locales` configured in `settings.ts`. Default `false`.
+   * Adding this flag to an existing collection triggers a one-shot data
+   * migration on the next `db:update` (CLI prompt confirms).
+   */
+  localized?: boolean;
   fields: Record<string, FieldDefinition>;
   options?: {
     titleField?: string; // Field to use as title for display
@@ -370,6 +383,22 @@ export type GlobalDefinition = {
    * See {@link AccessRule}.
    */
   access?: AccessRule;
+  /**
+   * Opt this global into content translation. Same semantics as
+   * `CollectionDefinition.localized`:
+   *
+   *   - Flat globals (site settings, footer) → one main row holding identity,
+   *     N `_locales` rows holding per-locale content. Editor switches locale,
+   *     edits the per-locale field set.
+   *   - Repeatable globals (categories, menus) → main row per item like
+   *     collections; each item gets `_locales` rows per language. Editor sees
+   *     a list, opens an item, switches locale on the edit page.
+   *
+   * Requires `content.locales` configured in `settings.ts`. Default `false`.
+   * Adding to an existing global with data triggers the Phase 1c migration
+   * detector — back up first.
+   */
+  localized?: boolean;
   // Data behavior options
   options?: {
     sortable?: boolean; // enable manual sorting in UI

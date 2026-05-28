@@ -1,11 +1,13 @@
 import { db } from '../db/index.server';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
 import { collectionDefinitions } from '$sailor/templates/collections';
 import { globalDefinitions } from '$sailor/templates/globals';
 import { blockDefinitions } from '$sailor/templates/blocks';
 import type { FieldDefinition } from '../types';
 import { readGlobal, readCollection } from './data-read.server';
+import { getContentSettings } from 'sailorcms/utils/data/collections';
 import { TagService } from './tag.server';
 
 // Resolved lazily so the file typechecks even before `npx sailor db:update`
@@ -34,6 +36,7 @@ const FTS_CREATE_SQL = `CREATE VIRTUAL TABLE search_index_fts USING fts5(
   entity_type UNINDEXED,
   entity_name UNINDEXED,
   entity_id UNINDEXED,
+  locale UNINDEXED,
   title,
   searchable_text,
   tokenize = 'trigram'
@@ -49,17 +52,24 @@ export async function ensureFtsReady(): Promise<boolean> {
         const existingSql: string | undefined = existing?.[0]?.sql;
         const usesTrigram =
           typeof existingSql === 'string' && /tokenize\s*=\s*'trigram'/i.test(existingSql);
+        // The locale column was added when localized collections landed —
+        // older FTS tables (pre-i18n) are missing it. Detect and rebuild
+        // for the same reasons we rebuild older porter-tokenized tables.
+        const hasLocaleCol =
+          typeof existingSql === 'string' && /[\s,]\s*locale\s+UNINDEXED/i.test(existingSql);
 
-        if (existingSql && !usesTrigram) {
+        const needsRebuild = !existingSql || !usesTrigram || !hasLocaleCol;
+
+        if (existingSql && needsRebuild) {
           await db.run(sql`DROP TABLE search_index_fts`);
         }
-        if (!existingSql || !usesTrigram) {
+        if (needsRebuild) {
           await db.run(sql.raw(FTS_CREATE_SQL));
           // Repopulate from search_index so existing entries are searchable
           // without waiting for the next save.
           await db.run(sql`
-            INSERT INTO search_index_fts (entity_type, entity_name, entity_id, title, searchable_text)
-            SELECT entity_type, entity_name, entity_id, coalesce(title, ''), searchable_text
+            INSERT INTO search_index_fts (entity_type, entity_name, entity_id, locale, title, searchable_text)
+            SELECT entity_type, entity_name, entity_id, locale, coalesce(title, ''), searchable_text
             FROM search_index
           `);
         }
@@ -81,10 +91,24 @@ export interface SearchIndexEntry {
   entityType: EntityType;
   entityName: string;
   entityId: string;
+  /**
+   * BCP-47 locale code for localized collections (one row per item per locale).
+   * Null for non-localized entities (one row per item, full stop).
+   */
+  locale: string | null;
   title: string | null;
   searchableText: string;
   status: string | null;
   updatedAt: Date;
+}
+
+/**
+ * Locale-aware WHERE clause for `search_index` lookups. Drizzle/SQLite
+ * treats `column = NULL` as never true, so non-localized rows (locale IS
+ * NULL) need explicit `isNull` rather than `eq(table.locale, null)`.
+ */
+function localeMatch(table: any, locale: string | null) {
+  return locale === null ? isNull(table.locale) : eq(table.locale, locale);
 }
 
 export class SearchIndexService {
@@ -97,7 +121,8 @@ export class SearchIndexService {
         and(
           eq(table.entity_type, entry.entityType),
           eq(table.entity_name, entry.entityName),
-          eq(table.entity_id, entry.entityId)
+          eq(table.entity_id, entry.entityId),
+          localeMatch(table, entry.locale)
         )
       )
       .limit(1);
@@ -117,6 +142,7 @@ export class SearchIndexService {
         entity_type: entry.entityType,
         entity_name: entry.entityName,
         entity_id: entry.entityId,
+        locale: entry.locale,
         title: entry.title,
         searchable_text: entry.searchableText,
         status: entry.status,
@@ -131,18 +157,20 @@ export class SearchIndexService {
     entityType: EntityType;
     entityName: string;
     entityId: string;
+    /** Pass a locale to delete just that translation's row; omit/null to delete the non-localized row or every locale row for the item. */
+    locale?: string | null;
   }): Promise<void> {
     const table = getTable();
-    await db
-      .delete(table)
-      .where(
-        and(
-          eq(table.entity_type, ref.entityType),
-          eq(table.entity_name, ref.entityName),
-          eq(table.entity_id, ref.entityId)
-        )
-      );
-    await deleteFtsRow(ref.entityType, ref.entityName, ref.entityId);
+    const conditions = [
+      eq(table.entity_type, ref.entityType),
+      eq(table.entity_name, ref.entityName),
+      eq(table.entity_id, ref.entityId)
+    ];
+    if (ref.locale !== undefined) {
+      conditions.push(localeMatch(table, ref.locale));
+    }
+    await db.delete(table).where(and(...conditions));
+    await deleteFtsRow(ref.entityType, ref.entityName, ref.entityId, ref.locale);
   }
 
   /**
@@ -152,10 +180,19 @@ export class SearchIndexService {
    * the full index; `utils/data/search.ts` filters down to `searchable: true`
    * entities for public site search.
    */
+  /**
+   * Reindex one item. For non-localized entities this is a single row write.
+   * For localized collections, `locale` controls scope:
+   *   - Pass a specific locale → reindex just that translation's row
+   *     (what the save handler does after a single-locale save).
+   *   - Pass `undefined` → reindex every translation that exists in
+   *     `content.locales` (full rebuild path).
+   */
   static async reindexEntity(
     entityType: EntityType,
     entityName: string,
-    entityId: string
+    entityId: string,
+    locale?: string
   ): Promise<void> {
     const def = getDefinition(entityType, entityName);
     if (!def || def.options?.searchable === false) {
@@ -163,26 +200,88 @@ export class SearchIndexService {
       return;
     }
 
-    let item: any = null;
-    if (entityType === 'collection') {
-      item = await readCollection(entityName, {
-        itemId: entityId,
-        status: 'all',
-        includeBlocks: def.options?.blocks === true
-      });
-    } else {
-      item = await readGlobal(entityName, { itemId: entityId, status: 'all' });
-    }
+    const isLocalized =
+      (entityType === 'collection' &&
+        (fieldConfigurations as any).collections?.[entityName]?.localized === true) ||
+      (entityType === 'global' &&
+        (fieldConfigurations as any).globals?.[entityName]?.localized === true);
 
-    if (!item) {
-      await SearchIndexService.delete({ entityType, entityName, entityId });
+    if (!isLocalized) {
+      // Single non-localized row.
+      const item =
+        entityType === 'collection'
+          ? await readCollection(entityName, {
+              itemId: entityId,
+              status: 'all',
+              includeBlocks: def.options?.blocks === true
+            })
+          : await readGlobal(entityName, { itemId: entityId, status: 'all' });
+
+      if (!item) {
+        await SearchIndexService.delete({ entityType, entityName, entityId, locale: null });
+        return;
+      }
+
+      const tagNames = await loadTagNames(entityType, entityName, entityId);
+      const blockTagsByBlockId = await loadBlockTagsForItem(entityType, def, item);
+      const payload = buildEntry(
+        entityType,
+        entityName,
+        def,
+        item,
+        null,
+        tagNames,
+        blockTagsByBlockId
+      );
+      await SearchIndexService.upsert(payload);
       return;
     }
 
-    const tagNames = await loadTagNames(entityType, entityName, entityId);
-    const blockTagsByBlockId = await loadBlockTagsForItem(entityType, def, item);
-    const payload = buildEntry(entityType, entityName, def, item, tagNames, blockTagsByBlockId);
-    await SearchIndexService.upsert(payload);
+    // Localized entity (collection or global). Iterate the requested locale
+    // (single-locale save) or every configured content locale (full rebuild).
+    const { locales } = getContentSettings();
+    const localesToIndex = locale ? [locale] : (locales ?? []);
+
+    for (const loc of localesToIndex) {
+      const item: any =
+        entityType === 'collection'
+          ? await readCollection(entityName, {
+              itemId: entityId,
+              locale: loc,
+              fallback: 'strict', // index only real translations, not fallback duplicates
+              status: 'all',
+              includeBlocks: def.options?.blocks === true
+            })
+          : await readGlobal(entityName, {
+              itemId: entityId,
+              locale: loc,
+              fallback: 'strict',
+              status: 'all'
+            });
+
+      if (!item) {
+        // No translation for this locale — make sure any stale row is gone.
+        await SearchIndexService.delete({ entityType, entityName, entityId, locale: loc });
+        continue;
+      }
+
+      // Tags under `taggable_type = '<type>_<name>'` for both modes; for
+      // localized items the `taggable_id` is the `_locales` row id,
+      // surfaced as `item._localeId` by the localized read path.
+      const tagsTaggableId = (item._localeId as string) ?? entityId;
+      const tagNames = await loadTagNames(entityType, entityName, tagsTaggableId);
+      const blockTagsByBlockId = await loadBlockTagsForItem(entityType, def, item);
+      const payload = buildEntry(
+        entityType,
+        entityName,
+        def,
+        item,
+        loc,
+        tagNames,
+        blockTagsByBlockId
+      );
+      await SearchIndexService.upsert(payload);
+    }
   }
 
   /**
@@ -194,36 +293,115 @@ export class SearchIndexService {
     let indexed = 0;
     let skipped = 0;
 
+    const { locales: contentLocales } = getContentSettings();
+
     for (const [name, def] of Object.entries(collectionDefinitions) as Array<[string, any]>) {
       if (def?.options?.searchable === false) continue;
-      const result = await readCollection(name, {
-        status: 'all',
-        includeBlocks: def.options?.blocks === true,
-        limit: 10_000
-      });
-      const items = (result as any).items ?? [];
-      for (const item of items) {
-        try {
-          const tagNames = await loadTagNames('collection', name, item.id);
-          const blockTagsByBlockId = await loadBlockTagsForItem('collection', def, item);
-          const payload = buildEntry('collection', name, def, item, tagNames, blockTagsByBlockId);
-          await SearchIndexService.upsert(payload);
-          indexed++;
-        } catch (err) {
-          skipped++;
-          console.warn(`reindex collection:${name} id=${item.id} failed:`, err);
+
+      const isLocalized = (fieldConfigurations as any).collections?.[name]?.localized === true;
+
+      if (!isLocalized) {
+        const result = await readCollection(name, {
+          status: 'all',
+          includeBlocks: def.options?.blocks === true,
+          limit: 10_000
+        });
+        const items = (result as any).items ?? [];
+        for (const item of items) {
+          try {
+            const tagNames = await loadTagNames('collection', name, item.id);
+            const blockTagsByBlockId = await loadBlockTagsForItem('collection', def, item);
+            const payload = buildEntry(
+              'collection',
+              name,
+              def,
+              item,
+              null,
+              tagNames,
+              blockTagsByBlockId
+            );
+            await SearchIndexService.upsert(payload);
+            indexed++;
+          } catch (err) {
+            skipped++;
+            console.warn(`reindex collection:${name} id=${item.id} failed:`, err);
+          }
+        }
+        continue;
+      }
+
+      // Localized: one row per (item, locale). Iterate every configured
+      // content locale and index whatever translations exist.
+      for (const loc of contentLocales ?? []) {
+        const result = await readCollection(name, {
+          locale: loc,
+          fallback: 'strict',
+          status: 'all',
+          includeBlocks: def.options?.blocks === true,
+          limit: 10_000
+        });
+        const items = (result as any).items ?? [];
+        for (const item of items) {
+          try {
+            const tagsTaggableId = (item._localeId as string) ?? item.id;
+            const tagNames = await loadTagNames('collection', name, tagsTaggableId);
+            const blockTagsByBlockId = await loadBlockTagsForItem('collection', def, item);
+            const payload = buildEntry(
+              'collection',
+              name,
+              def,
+              item,
+              loc,
+              tagNames,
+              blockTagsByBlockId
+            );
+            await SearchIndexService.upsert(payload);
+            indexed++;
+          } catch (err) {
+            skipped++;
+            console.warn(`reindex collection:${name}:${loc} id=${item.id} failed:`, err);
+          }
         }
       }
     }
 
     for (const [name, def] of Object.entries(globalDefinitions) as Array<[string, any]>) {
       if (def?.options?.searchable === false) continue;
+
+      const isLocalized = (fieldConfigurations as any).globals?.[name]?.localized === true;
+
+      if (isLocalized) {
+        // Localized globals iterate locales just like localized collections.
+        for (const loc of contentLocales ?? []) {
+          const result = await readGlobal(name, {
+            locale: loc,
+            fallback: 'strict',
+            status: 'all',
+            limit: 10_000
+          });
+          const items = (result as any).items ?? [];
+          for (const item of items) {
+            try {
+              const tagsTaggableId = (item._localeId as string) ?? item.id;
+              const tagNames = await loadTagNames('global', name, tagsTaggableId);
+              const payload = buildEntry('global', name, def, item, loc, tagNames, {});
+              await SearchIndexService.upsert(payload);
+              indexed++;
+            } catch (err) {
+              skipped++;
+              console.warn(`reindex global:${name}:${loc} id=${item.id} failed:`, err);
+            }
+          }
+        }
+        continue;
+      }
+
       const result = await readGlobal(name, { status: 'all', limit: 10_000 });
       const items = (result as any).items ?? [];
       for (const item of items) {
         try {
           const tagNames = await loadTagNames('global', name, item.id);
-          const payload = buildEntry('global', name, def, item, tagNames, {});
+          const payload = buildEntry('global', name, def, item, null, tagNames, {});
           await SearchIndexService.upsert(payload);
           indexed++;
         } catch (err) {
@@ -252,22 +430,32 @@ export class SearchIndexService {
   static async onSaveSafe(
     entityType: EntityType,
     entityName: string,
-    entityId: string
+    entityId: string,
+    locale?: string
   ): Promise<void> {
     try {
-      await SearchIndexService.reindexEntity(entityType, entityName, entityId);
+      await SearchIndexService.reindexEntity(entityType, entityName, entityId, locale);
     } catch (err) {
-      console.warn(`search_index: reindex failed for ${entityType}:${entityName} ${entityId}`, err);
+      console.warn(
+        `search_index: reindex failed for ${entityType}:${entityName} ${entityId}${locale ? `:${locale}` : ''}`,
+        err
+      );
     }
   }
 
   static async onDeleteSafe(
     entityType: EntityType,
     entityName: string,
-    entityId: string
+    entityId: string,
+    locale?: string
   ): Promise<void> {
     try {
-      await SearchIndexService.delete({ entityType, entityName, entityId });
+      await SearchIndexService.delete({
+        entityType,
+        entityName,
+        entityId,
+        locale: locale ?? undefined
+      });
     } catch (err) {
       console.warn(`search_index: delete failed for ${entityType}:${entityName} ${entityId}`, err);
     }
@@ -289,6 +477,7 @@ function buildEntry(
   entityName: string,
   def: any,
   item: any,
+  locale: string | null,
   tagNames: string[] = [],
   blockTagsByBlockId: Record<string, string[]> = {}
 ): SearchIndexEntry {
@@ -336,6 +525,7 @@ function buildEntry(
     entityType,
     entityName,
     entityId: item.id,
+    locale,
     title,
     searchableText,
     status,
@@ -346,15 +536,29 @@ function buildEntry(
 async function syncFtsRow(entry: SearchIndexEntry): Promise<void> {
   if (!(await ensureFtsReady())) return;
   try {
+    // Delete is locale-scoped so we don't wipe out the EN row when reindexing
+    // the NB row (or vice versa). SQLite treats `= NULL` as never-true, so
+    // non-localized rows match via `IS NULL`.
+    if (entry.locale === null) {
+      await db.run(sql`
+        DELETE FROM search_index_fts
+        WHERE entity_type = ${entry.entityType}
+          AND entity_name = ${entry.entityName}
+          AND entity_id = ${entry.entityId}
+          AND locale IS NULL
+      `);
+    } else {
+      await db.run(sql`
+        DELETE FROM search_index_fts
+        WHERE entity_type = ${entry.entityType}
+          AND entity_name = ${entry.entityName}
+          AND entity_id = ${entry.entityId}
+          AND locale = ${entry.locale}
+      `);
+    }
     await db.run(sql`
-      DELETE FROM search_index_fts
-      WHERE entity_type = ${entry.entityType}
-        AND entity_name = ${entry.entityName}
-        AND entity_id = ${entry.entityId}
-    `);
-    await db.run(sql`
-      INSERT INTO search_index_fts (entity_type, entity_name, entity_id, title, searchable_text)
-      VALUES (${entry.entityType}, ${entry.entityName}, ${entry.entityId}, ${entry.title ?? ''}, ${entry.searchableText})
+      INSERT INTO search_index_fts (entity_type, entity_name, entity_id, locale, title, searchable_text)
+      VALUES (${entry.entityType}, ${entry.entityName}, ${entry.entityId}, ${entry.locale}, ${entry.title ?? ''}, ${entry.searchableText})
     `);
   } catch (err) {
     console.warn('search_index_fts: upsert failed', err);
@@ -364,16 +568,37 @@ async function syncFtsRow(entry: SearchIndexEntry): Promise<void> {
 async function deleteFtsRow(
   entityType: EntityType,
   entityName: string,
-  entityId: string
+  entityId: string,
+  locale?: string | null
 ): Promise<void> {
   if (!(await ensureFtsReady())) return;
   try {
-    await db.run(sql`
-      DELETE FROM search_index_fts
-      WHERE entity_type = ${entityType}
-        AND entity_name = ${entityName}
-        AND entity_id = ${entityId}
-    `);
+    // `undefined` → delete every row for the item (any locale or NULL).
+    // `null` → just the non-localized row. A string → just that locale.
+    if (locale === undefined) {
+      await db.run(sql`
+        DELETE FROM search_index_fts
+        WHERE entity_type = ${entityType}
+          AND entity_name = ${entityName}
+          AND entity_id = ${entityId}
+      `);
+    } else if (locale === null) {
+      await db.run(sql`
+        DELETE FROM search_index_fts
+        WHERE entity_type = ${entityType}
+          AND entity_name = ${entityName}
+          AND entity_id = ${entityId}
+          AND locale IS NULL
+      `);
+    } else {
+      await db.run(sql`
+        DELETE FROM search_index_fts
+        WHERE entity_type = ${entityType}
+          AND entity_name = ${entityName}
+          AND entity_id = ${entityId}
+          AND locale = ${locale}
+      `);
+    }
   } catch (err) {
     console.warn('search_index_fts: delete failed', err);
   }

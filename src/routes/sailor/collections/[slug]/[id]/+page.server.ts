@@ -1,22 +1,17 @@
-import { error } from '@sveltejs/kit';
-import { db } from 'sailorcms/core/db/index.server';
-import * as schema from '$sailor/generated/schema';
-import { sql, eq, and, desc } from 'drizzle-orm';
-import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
-import { collectionTypes } from 'sailorcms/core/db/index.server';
-import { TagService } from 'sailorcms/core/services/tag.server';
-import { loadBlockFields } from 'sailorcms/core/content/blocks.server';
-import { loadFileFields } from 'sailorcms/core/data/loaders/file-loader';
-import { loadFileFields as loadNestedFileFields } from 'sailorcms/utils/data/loaders/file-loader';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
+// Admin edit page for a single collection item.
+//
+// Thin wrapper around `loadCollectionItem` — auth + admin-specific concerns
+// (header actions, site URL) live here, the actual data load lives in the
+// loader. Localized + non-localized branching all happens inside the loader.
+
+import { error, redirect } from '@sveltejs/kit';
 import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
-import { resolveRevisionsKeep } from 'sailorcms/core/services/revisions.server';
+import { loadCollectionItem } from 'sailorcms/core/data/loaders/collection-item.server';
 import type { PageServerLoad } from './$types';
-import { log } from 'sailorcms/core/utils/logger';
 import { m } from '$sailor/i18n';
 import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';
 
-export const load: PageServerLoad = async ({ params, locals, request, url }) => {
+export const load: PageServerLoad = async ({ params, locals, url }) => {
   // Check permission to view content
   if (!(await locals.security.hasPermission('read', 'content'))) {
     throw error(403, 'Access denied: You do not have permission to view content');
@@ -24,330 +19,40 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
 
   const { slug, id } = params;
 
-  // Get collection definition and block types from database in parallel
-  const [collectionTypeRow, blockTypesResult] = await Promise.all([
-    db.query.collectionTypes.findFirst({
-      where: (collectionTypes: any, { eq }: any) => eq(collectionTypes.slug, slug)
-    }),
-    db.query.blockTypes.findMany()
-  ]);
-
-  if (!collectionTypeRow) {
-    throw error(404, 'Collection not found');
-  }
-
-  // Parse the stored schema - core fields are handled separately
-  const effectiveFields = JSON.parse(collectionTypeRow.schema);
-
-  // Transform the collection type to match the expected format
-  const collectionDefinition = {
-    id: collectionTypeRow.id,
-    name: {
-      singular: collectionTypeRow.name_singular,
-      plural: collectionTypeRow.name_plural
-    },
-    slug: collectionTypeRow.slug,
-    description: collectionTypeRow.description,
-    fields: effectiveFields,
-    options: collectionTypeRow.options ? JSON.parse(collectionTypeRow.options) : {},
-    created_at: collectionTypeRow.created_at,
-    updated_at: collectionTypeRow.updated_at
-  };
-
-  const availableBlocks: Record<string, any> = {};
-
-  for (const blockType of blockTypesResult) {
-    availableBlocks[blockType.slug] = {
-      name: blockType.name,
-      slug: blockType.slug,
-      description: blockType.description,
-      fields: JSON.parse(blockType.schema)
-    };
-  }
-
-  // Get the collection table dynamically
-  const collectionTable = schema[`collection_${slug}` as keyof typeof schema];
-  if (!collectionTable) {
-    throw error(404, `Collection table for '${slug}' not found`);
-  }
-
-  // Try to get the existing item
-  const existingItems = await db
-    .select()
-    .from(collectionTable)
-    .where(eq((collectionTable as any).id, id))
-    .limit(1);
-
-  let page: Record<string, any>;
-  let isNewItem = false;
-  const blocks: any[] = [];
-
-  if (existingItems.length === 0) {
-    // This is a new item - create permission is checked by hooks at route level
-
-    isNewItem = true;
-    const defaultTitle = `New ${collectionDefinition.name.singular}`;
-    page = {
-      id: id,
-      title: defaultTitle,
-      slug: '',
-      status: 'draft',
-      created_at: getCurrentTimestamp(),
-      updated_at: getCurrentTimestamp()
-    };
-
-    // Initialize empty arrays for tag fields
-    for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
-      if ((fieldDef as any).type === 'tags') {
-        page[fieldName] = [];
-      }
+  let loaded;
+  try {
+    loaded = await loadCollectionItem({
+      slug,
+      itemId: id,
+      user: locals.user ? { id: locals.user.id } : null,
+      locale: url.searchParams.get('locale') ?? undefined
+    });
+  } catch (err) {
+    if (err && (err as any).notFound) {
+      throw error(404, (err as Error).message);
     }
+    throw error(500, err instanceof Error ? err.message : 'Failed to load collection item');
+  }
 
-    // Initialize SEO fields if SEO is enabled
-    if (collectionDefinition.options.seo) {
-      const { SEO_FIELDS } = await import('sailorcms/core/types');
-      Object.keys(SEO_FIELDS).forEach((seoField) => {
-        page[seoField] = '';
-      });
-    }
-  } else {
-    // Existing item found
-    page = existingItems[0] as Record<string, any>;
+  // For /new the loader generates a fresh UUID and stamps it on page.id.
+  // Replace the URL with the real id so refresh / share / save all target
+  // the same row and the save flow doesn't need a post-create redirect.
+  if (id === 'new' && loaded.isNewItem && loaded.page?.id) {
+    const target = new URL(url);
+    target.pathname = target.pathname.replace(/\/new$/, `/${loaded.page.id}`);
+    throw redirect(307, target.pathname + target.search);
+  }
 
-    // For edit routes, check if user can update this specific item
+  // For edit routes, check if user can update this specific item
+  if (!loaded.isNewItem) {
     const canUpdate = await locals.security.hasPermission('update', 'content');
     if (!canUpdate) {
       throw error(403, 'You do not have permission to update this content');
     }
-
-    // Load tags for existing item - load into tag fields
-    try {
-      const entityTags = await TagService.getTagsForEntity(`collection_${slug}`, id);
-      // Find all tag fields and populate them
-      for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
-        if ((fieldDef as any).type === 'tags') {
-          page[fieldName] = entityTags;
-        }
-      }
-    } catch (error) {
-      log.warn('Failed to load tags for collection item', { id, error });
-      // Initialize empty arrays for tag fields
-      for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
-        if ((fieldDef as any).type === 'tags') {
-          page[fieldName] = [];
-        }
-      }
-    }
-
-    // Load relation data for collection fields
-    for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
-      if ((fieldDef as any).type === 'relation') {
-        const relType = (fieldDef as any).relation?.type;
-        // For single FK relations (one-to-one, one-to-many) resolve server-side to avoid client loops
-        if (relType === 'one-to-one' || relType === 'one-to-many') {
-          const targetId = page[fieldName];
-          if (targetId) {
-            try {
-              const { getRelationItem } = await import('sailorcms/remote/relations.remote');
-              const scope = (fieldDef as any).relation?.targetGlobal ? 'global' : 'collection';
-              const slugArg =
-                (fieldDef as any).relation?.targetGlobal ||
-                (fieldDef as any).relation?.targetCollection;
-              const res = await getRelationItem({ scope, slug: slugArg, id: String(targetId) });
-              if (res.success && res.item) {
-                page[fieldName] = JSON.stringify(res.item);
-              }
-            } catch {
-              // Ignore and leave as id
-            }
-          }
-          continue;
-        }
-        // Use the correct junction table naming convention
-        const junctionTableName =
-          (fieldDef as any).relation?.through || `junction_${slug}_${fieldName}`;
-        const targetGlobal = (fieldDef as any).relation?.targetGlobal;
-        const targetCollection = (fieldDef as any).relation?.targetCollection;
-
-        try {
-          const relationResult = await db.run(
-            sql`SELECT target_id FROM ${sql.identifier(junctionTableName)} WHERE collection_id = ${id}`
-          );
-
-          // Get the target IDs
-          const targetIds = relationResult.rows.map((row: any) => row.target_id);
-
-          // If we have target IDs, fetch the full item details
-          if (targetIds.length > 0) {
-            let targetTable: string;
-            if (targetGlobal) {
-              targetTable = `global_${targetGlobal}`;
-            } else if (targetCollection) {
-              targetTable = `collection_${targetCollection}`;
-            } else {
-              // Fallback to just IDs if we can't determine the target table
-              page[fieldName] = JSON.stringify(targetIds);
-              continue;
-            }
-
-            // Fetch the full item details
-            const targetResult = await db.run(
-              sql`SELECT id, title FROM ${sql.identifier(targetTable)} WHERE id IN (${sql.join(
-                targetIds.map((id: any) => sql`${id}`),
-                sql`, `
-              )})`
-            );
-
-            // Return array of objects with id and title for initial display; RelationField still emits IDs on change
-            const relationItems = targetResult.rows.map((row: any) => ({
-              id: row.id,
-              title: row.title
-            }));
-            page[fieldName] = relationItems;
-          } else {
-            page[fieldName] = [];
-          }
-        } catch {
-          // Relation table doesn't exist yet
-          page[fieldName] = [];
-        }
-      }
-    }
-
-    // Load array fields for collection
-    for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
-      if ((fieldDef as any).type === 'array') {
-        try {
-          const arrayTableName = `collection_${slug}_${fieldName}`;
-          const arrayResult = await db.run(
-            sql`SELECT * FROM ${sql.identifier(arrayTableName)} WHERE collection_id = ${id} ORDER BY "sort"`
-          );
-          page[fieldName] = arrayResult.rows || [];
-        } catch (error) {
-          // Array table doesn't exist yet
-          page[fieldName] = [];
-        }
-      }
-    }
-
-    // Load file fields for collection
-    await loadFileFields(page, collectionDefinition.fields, `collection_${slug}`);
-
-    // Files nested inside array items: loadFileFields above only walks top-level
-    // collectionDefinition.fields. Recurse into each array's items.properties per row.
-    // Clear any stale column-style file values so the loader re-fetches from the
-    // file-relation table (canonical source post-generator fix).
-    for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
-      if ((fieldDef as any).type !== 'array') continue;
-      const itemsProperties = (fieldDef as any).items?.properties;
-      if (!itemsProperties) continue;
-
-      const fileKeys: Array<[string, string]> = Object.entries(itemsProperties)
-        .filter(([, def]) => (def as any).type === 'file')
-        .map(([key]) => [key, toSnakeCase(key)]);
-
-      if (fileKeys.length === 0) continue;
-
-      const arrayTableName = `collection_${slug}_${toSnakeCase(fieldName)}`;
-      const rows = (page[fieldName] as any[]) || [];
-      for (const row of rows) {
-        for (const [k, snakeK] of fileKeys) {
-          delete row[k];
-          if (snakeK !== k) delete row[snakeK];
-        }
-        await loadNestedFileFields(row, itemsProperties, arrayTableName, false);
-      }
-    }
-
-    // Get raw blocks data for each block type using dynamic schemas
-    for (const [blockSlug, blockDef] of Object.entries(availableBlocks)) {
-      try {
-        const blocksResult = await db.run(
-          sql`SELECT * FROM ${sql.identifier(`block_${blockSlug}`)} WHERE collection_id = ${id} ORDER BY "sort"`
-        );
-
-        for (const block of blocksResult.rows) {
-          // Load the main block data with array fields
-          await loadBlockFields(block, blockSlug, blockDef.fields || {});
-
-          // Get relation data from the processed block
-          let relationData: any[] = [];
-          const arrayField = Object.entries(blockDef.fields || {}).find(
-            ([_, fieldDef]: [string, any]) => fieldDef.type === 'array'
-          );
-
-          if (arrayField) {
-            const [fieldName] = arrayField;
-            relationData = block[fieldName] || [];
-          }
-
-          // Get file relations for each file field
-          const fileRelations: Record<string, any[]> = {};
-          const fileFields = Object.entries(blockDef.fields || {}).filter(
-            ([_, fieldDef]: [string, any]) => fieldDef.type === 'file'
-          );
-
-          for (const [fieldName] of fileFields) {
-            try {
-              const fileResult = await db.run(
-                sql`SELECT file_id FROM ${sql.identifier(`block_${blockSlug}_${fieldName}`)} WHERE parent_id = ${block.id} AND (parent_type = 'block' OR parent_type IS NULL OR parent_type = '') ORDER BY "sort"`
-              );
-              // Extract just the file IDs for the field renderer
-              fileRelations[fieldName] = fileResult.rows.map((row: any) => row.file_id);
-            } catch {
-              // File relation table doesn't exist yet
-              fileRelations[fieldName] = [];
-            }
-          }
-
-          blocks.push({
-            id: block.id,
-            blockType: blockSlug,
-            blockSchema: blockDef,
-            data: block,
-            relations: relationData,
-            fileRelations: fileRelations
-          });
-        }
-      } catch {
-        // Block table doesn't exist yet - skip this block type
-        log.warn(`Block table block_${blockSlug} doesn't exist yet, skipping`, { blockSlug });
-      }
-    }
-
-    // Sort by sort
-    blocks.sort((a, b) => a.data.sort - b.data.sort);
   }
 
   // Get site URL for SEO canonical URL generation
   const siteUrl = await SystemSettingsService.getSetting('site.url');
-
-  // Load user names for author and last_modified_by fields
-  if (!isNewItem) {
-    try {
-      // Load author name if author field exists
-      if (page.author) {
-        const authorUser = await db.query.users.findFirst({
-          where: (users: any, { eq }: any) => eq(users.id, page.author),
-          columns: { name: true, email: true }
-        });
-        page.author_name = authorUser?.name || null;
-        page.author_email = authorUser?.email || null;
-      }
-
-      // Load last modified by name if field exists
-      if (page.last_modified_by) {
-        const lastModifiedUser = await db.query.users.findFirst({
-          where: (users: any, { eq }: any) => eq(users.id, page.last_modified_by),
-          columns: { name: true, email: true }
-        });
-        page.last_modified_by_name = lastModifiedUser?.name || null;
-        page.last_modified_by_email = lastModifiedUser?.email || null;
-      }
-    } catch (error) {
-      log.warn('Failed to load user names', { error });
-    }
-  }
 
   // Setup header actions
   const headerActions = [];
@@ -357,13 +62,13 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
     type: 'payload-preview',
     props: {
       type: 'collection',
-      id: String(page.id || ''),
-      slug: slug,
+      id: String(loaded.page.id || ''),
+      slug,
       title: m.payload_title_collection(),
-      fields: effectiveFields,
+      fields: loaded.effectiveFields,
       initialPayload: {
-        ...page,
-        blocks: blocks.map((block: any) => ({
+        ...loaded.page,
+        blocks: loaded.blocks.map((block: any) => ({
           id: block.id,
           blockType: block.blockType,
           content: block.data,
@@ -374,17 +79,20 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
   });
 
   // Add preview link if not a new item and has slug (left side)
-  if (!isNewItem && page.slug) {
+  if (!loaded.isNewItem && loaded.page.slug) {
     // Prefer canonical_url override when set; otherwise fall back to basePath + slug
     let previewUrl: string;
-    const canonical = typeof page.canonical_url === 'string' ? page.canonical_url.trim() : '';
+    const canonical =
+      typeof loaded.page.canonical_url === 'string' ? loaded.page.canonical_url.trim() : '';
     if (canonical) {
       previewUrl = canonical;
     } else {
-      let basePath = collectionDefinition.options?.basePath || `/${slug}/`;
+      let basePath = loaded.collectionType.options?.basePath || `/${slug}/`;
       if (!basePath.startsWith('/')) basePath = `/${basePath}`;
       if (!basePath.endsWith('/')) basePath = `${basePath}/`;
-      const normalizedSlug = page.slug.startsWith('/') ? page.slug.slice(1) : page.slug;
+      const normalizedSlug = loaded.page.slug.startsWith('/')
+        ? loaded.page.slug.slice(1)
+        : loaded.page.slug;
       previewUrl = `${basePath}${normalizedSlug}`;
     }
     headerActions.push({
@@ -400,78 +108,28 @@ export const load: PageServerLoad = async ({ params, locals, request, url }) => 
   headerActions.push({
     type: 'save-button',
     props: {
-      text: isNewItem ? m.common_create() : m.common_save(),
-      submittingText: isNewItem ? m.common_creating() : m.common_saving(),
+      text: loaded.isNewItem ? m.common_create() : m.common_save(),
+      submittingText: loaded.isNewItem ? m.common_creating() : m.common_saving(),
       submitting: false, // Will be updated client-side
       formId: 'collection-form' // Submit the form instead
     }
   });
 
-  // Preload all revisions (including the snapshot payload) so the dialog can
-  // open straight to the most recent and arrow-navigate through them with no
-  // per-step fetch. Capped at the same default the writer prunes to.
-  let revisions: Array<{
-    id: string;
-    created_at: Date;
-    created_by_id: string | null;
-    created_by_name: string | null;
-    created_by_email: string | null;
-    data: Record<string, unknown>;
-  }> = [];
-  if (!isNewItem && resolveRevisionsKeep(collectionDefinition.options?.revisions) !== null) {
-    try {
-      const rows = await db
-        .select({
-          id: schema.revisions.id,
-          data: schema.revisions.data,
-          created_at: schema.revisions.created_at,
-          created_by_id: schema.revisions.created_by,
-          created_by_name: schema.users.name,
-          created_by_email: schema.users.email
-        })
-        .from(schema.revisions)
-        .leftJoin(schema.users, eq(schema.users.id, schema.revisions.created_by))
-        .where(
-          and(
-            eq(schema.revisions.entity_type, `collection:${slug}`),
-            eq(schema.revisions.entity_id, String(page.id))
-          )
-        )
-        .orderBy(desc(schema.revisions.created_at))
-        .limit(50);
-      revisions = rows.map((r: (typeof rows)[number]) => {
-        let parsed: Record<string, unknown> = {};
-        try {
-          const v = JSON.parse(r.data);
-          if (v && typeof v === 'object') parsed = v as Record<string, unknown>;
-        } catch {
-          // leave as empty object
-        }
-        return {
-          id: r.id,
-          created_at: r.created_at as Date,
-          created_by_id: r.created_by_id,
-          created_by_name: r.created_by_name,
-          created_by_email: r.created_by_email,
-          data: parsed
-        };
-      });
-    } catch (err) {
-      log.error('Failed to load revisions for page', { slug, id: page.id }, err as Error);
-    }
-  }
-
   return {
-    page: { ...page, blocks } as CollectionTypes[keyof CollectionTypes] & {
+    page: { ...loaded.page, blocks: loaded.blocks } as CollectionTypes[keyof CollectionTypes] & {
       blocks: BlockTypes[keyof BlockTypes][];
     } & Record<string, any>,
-    isNewItem,
-    collectionType: collectionDefinition,
-    availableBlocks: Object.values(availableBlocks),
-    slug: slug,
-    hasBlocks: collectionDefinition.options?.blocks !== false, // Default to true if not specified
+    isNewItem: loaded.isNewItem,
+    collectionType: loaded.collectionType,
+    availableBlocks: loaded.availableBlocks,
+    slug,
+    hasBlocks: loaded.hasBlocks,
     siteUrl: siteUrl || '',
     headerActions,
-    revisions
+    revisions: loaded.revisions,
+    localized: loaded.localized,
+    availableLocales: loaded.availableLocales,
+    currentLocale: loaded.currentLocale,
+    translatedLocales: loaded.translatedLocales
   };
 };

@@ -2,9 +2,10 @@
 import { query, getRequestEvent } from '$app/server';
 import { db } from 'sailorcms/core/db/index.server';
 import * as schema from '$sailor/generated/schema';
-import { desc, count, eq } from 'drizzle-orm';
+import { desc, count, eq, sql } from 'drizzle-orm';
 import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
 import { getDashboardActivityLink } from 'sailorcms/core/utils/routing';
+import { entityLabelJoin } from 'sailorcms/utils/data/entity-label.server';
 
 interface DashboardStats {
   collections: number;
@@ -54,6 +55,130 @@ interface DashboardData {
     name?: string;
     url?: string;
     description?: string;
+  };
+}
+
+interface RecentEntityRow {
+  id: string;
+  title: string | null;
+  created_at: Date;
+  updated_at: Date;
+  last_modified_by: string | null;
+  modifier_name: string | null;
+  modifier_email: string | null;
+  modifier_image: string | null;
+}
+
+/**
+ * Read the most recently touched rows of a collection/global with the
+ * effective title, timestamps, and the user who last modified it (joined
+ * in-query, not via N+1 lookups). Localized entities resolve title /
+ * updated_at / last_modified_by from the default-locale `_locales` row when
+ * present — see `entityLabelJoin` for the rule.
+ */
+async function readRecentEntityRows(
+  kind: 'collection' | 'global',
+  slug: string,
+  limit: number
+): Promise<RecentEntityRow[]> {
+  const j = entityLabelJoin(kind, slug);
+  if (!j.table) return [];
+
+  const modifierId = sql<
+    string | null
+  >`COALESCE(${j.last_modified_by}, ${j.table.author ?? sql`NULL`})`;
+
+  let q = db
+    .select({
+      id: j.table.id,
+      title: j.title,
+      created_at: j.table.created_at,
+      updated_at: j.updated_at,
+      last_modified_by: j.last_modified_by,
+      modifier_name: schema.users.name,
+      modifier_email: schema.users.email,
+      modifier_image: schema.users.image
+    })
+    .from(j.table)
+    .$dynamic();
+
+  if (j.localesTable && j.joinCondition) {
+    q = q.leftJoin(j.localesTable, j.joinCondition);
+  }
+
+  return (await q
+    .leftJoin(schema.users, eq(schema.users.id, modifierId))
+    .orderBy(desc(j.updated_at))
+    .limit(limit)) as unknown as RecentEntityRow[];
+}
+
+interface BuildActivityOptions {
+  idPrefix: string;
+  entityLabel: string;
+  contentTypeLabel: string;
+  link: string;
+  /** When false the entry id is just `idPrefix` (used for flat globals). */
+  useIdInPrefix?: boolean;
+}
+
+/**
+ * Drizzle decodes `integer('x', { mode: 'timestamp' })` to a Date when the
+ * column is referenced directly, but a `COALESCE(...)` wrapping returns the
+ * raw stored value (seconds since epoch). The localized branch of
+ * `entityLabelJoin` uses COALESCE, so consumers can receive either shape.
+ * Normalize both forms back to a Date.
+ */
+function toDate(value: Date | number | string | null | undefined): Date | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') {
+    // SQLite + drizzle timestamp mode stores seconds; anything beneath
+    // ~year 5138 in seconds is below the millisecond threshold.
+    return new Date(value < 1e11 ? value * 1000 : value);
+  }
+  return new Date(value);
+}
+
+function buildActivityEntry(
+  item: RecentEntityRow,
+  opts: BuildActivityOptions
+): {
+  id: string;
+  type: 'content';
+  action: 'created' | 'updated';
+  title: string;
+  descriptionKey: 'created' | 'edited' | 'updated';
+  entity: string;
+  timestamp: Date;
+  contentType: string;
+  link: string;
+  user: { name: string; email: string; image: string | undefined };
+} {
+  const created = toDate(item.created_at);
+  const updated = toDate(item.updated_at);
+  const isCreated = created && updated ? created.getTime() === updated.getTime() : false;
+  const action = isCreated ? ('created' as const) : ('updated' as const);
+  const descriptionKey = isCreated
+    ? ('created' as const)
+    : item.last_modified_by
+      ? ('edited' as const)
+      : ('updated' as const);
+
+  return {
+    id: opts.useIdInPrefix === false ? opts.idPrefix : `${opts.idPrefix}-${item.id}`,
+    type: 'content',
+    action,
+    title: item.title || 'Untitled',
+    descriptionKey,
+    entity: opts.entityLabel,
+    timestamp: updated ?? created ?? new Date(0),
+    contentType: opts.contentTypeLabel,
+    link: opts.link,
+    user: {
+      name: item.modifier_name || 'Unknown User',
+      email: item.modifier_email || '',
+      image: item.modifier_image ?? undefined
+    }
   };
 }
 
@@ -181,68 +306,18 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
     // Get recent content from collection tables
     for (const collection of collectionsForActivity) {
       try {
-        const collectionTable = (schema as any)[`collection_${collection.slug}`];
-        if (collectionTable) {
-          const recentItems = await db
-            .select({
-              id: collectionTable.id,
-              title: collectionTable.title,
-              created_at: collectionTable.created_at,
-              updated_at: collectionTable.updated_at,
-              author: collectionTable.author,
-              last_modified_by: collectionTable.last_modified_by
+        const items = await readRecentEntityRows('collection', collection.slug, 3);
+        for (const item of items) {
+          recentActivity.push(
+            buildActivityEntry(item, {
+              idPrefix: collection.slug,
+              entityLabel: collection.name_singular.toLowerCase(),
+              contentTypeLabel: collection.name_plural.toLowerCase(),
+              link: getDashboardActivityLink('collection', { slug: collection.slug }, item.id)
             })
-            .from(collectionTable)
-            .orderBy(desc(collectionTable.updated_at))
-            .limit(3);
-
-          for (const item of recentItems) {
-            // Get user who most recently modified the item (prioritize last_modified_by over author)
-            let user = { name: 'Unknown User', email: '', image: undefined };
-            const userId = item.last_modified_by || item.author;
-            if (userId) {
-              const userRecord = await db
-                .select({
-                  name: schema.users.name,
-                  email: schema.users.email,
-                  image: schema.users.image
-                })
-                .from(schema.users)
-                .where(eq(schema.users.id, userId))
-                .limit(1);
-              if (userRecord[0]) {
-                user = {
-                  name: userRecord[0].name || 'Unknown User',
-                  email: userRecord[0].email,
-                  image: userRecord[0].image
-                };
-              }
-            }
-
-            const isCreated =
-              new Date(item.created_at).getTime() === new Date(item.updated_at).getTime();
-            const action = isCreated ? ('created' as const) : ('updated' as const);
-            const descriptionKey = isCreated
-              ? ('created' as const)
-              : item.last_modified_by
-                ? ('edited' as const)
-                : ('updated' as const);
-
-            recentActivity.push({
-              id: `${collection.slug}-${item.id}`,
-              type: 'content' as const,
-              action,
-              title: item.title || 'Untitled',
-              descriptionKey,
-              entity: collection.name_singular.toLowerCase(),
-              timestamp: new Date(item.updated_at),
-              contentType: collection.name_plural.toLowerCase(),
-              link: getDashboardActivityLink('collection', { slug: collection.slug }, item.id),
-              user
-            });
-          }
+          );
         }
-      } catch (error) {
+      } catch {
         // Skip collections that don't have content tables yet
         continue;
       }
@@ -252,135 +327,41 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
     for (const global of globalsForActivity) {
       try {
         if (global.data_type === 'flat') {
-          // Flat globals: single record per global, link to /sailor/globals/{slug}
-          const globalTable = (schema as any)[`global_${global.slug}`];
-          if (globalTable) {
-            const recentItems = await db
-              .select({
-                id: globalTable.id,
-                created_at: globalTable.created_at,
-                updated_at: globalTable.updated_at,
-                author: globalTable.author,
-                last_modified_by: globalTable.last_modified_by
-              })
-              .from(globalTable)
-              .orderBy(desc(globalTable.updated_at))
-              .limit(1); // Only one record for flat globals
-
-            for (const item of recentItems) {
-              // Get user who most recently modified the item
-              let user = { name: 'Unknown User', email: '', image: undefined };
-              const userId = item.last_modified_by || item.author;
-              if (userId) {
-                const userRecord = await db
-                  .select({
-                    name: schema.users.name,
-                    email: schema.users.email,
-                    image: schema.users.image
-                  })
-                  .from(schema.users)
-                  .where(eq(schema.users.id, userId))
-                  .limit(1);
-                if (userRecord[0]) {
-                  user = {
-                    name: userRecord[0].name || 'Unknown User',
-                    email: userRecord[0].email,
-                    image: userRecord[0].image
-                  };
+          // Flat globals: single record per global, link to /sailor/globals/{slug}.
+          // Flat globals have no `title` column — substitute the global name.
+          const items = await readRecentEntityRows('global', global.slug, 1);
+          for (const item of items) {
+            recentActivity.push(
+              buildActivityEntry(
+                { ...item, title: global.name_singular },
+                {
+                  idPrefix: `${global.slug}-flat`,
+                  useIdInPrefix: false,
+                  entityLabel: global.name_singular.toLowerCase(),
+                  contentTypeLabel: global.name_singular.toLowerCase(),
+                  link: getDashboardActivityLink('global', { slug: global.slug, data_type: 'flat' })
                 }
-              }
-
-              const isCreated =
-                new Date(item.created_at).getTime() === new Date(item.updated_at).getTime();
-              const action = isCreated ? ('created' as const) : ('updated' as const);
-              const descriptionKey = isCreated
-                ? ('created' as const)
-                : item.last_modified_by
-                  ? ('edited' as const)
-                  : ('updated' as const);
-
-              recentActivity.push({
-                id: `${global.slug}-flat`,
-                type: 'content' as const,
-                action,
-                title: global.name_singular, // Use global name for flat globals
-                descriptionKey,
-                entity: global.name_singular.toLowerCase(),
-                timestamp: new Date(item.updated_at),
-                contentType: global.name_singular.toLowerCase(),
-                link: getDashboardActivityLink('global', { slug: global.slug, data_type: 'flat' }),
-                user
-              });
-            }
+              )
+            );
           }
         } else {
-          // Regular globals: multiple records, link to /sailor/globals/{slug}/{id}
-          const globalTable = (schema as any)[`global_${global.slug}`];
-          if (globalTable) {
-            const recentItems = await db
-              .select({
-                id: globalTable.id,
-                title: globalTable.title,
-                created_at: globalTable.created_at,
-                updated_at: globalTable.updated_at,
-                author: globalTable.author,
-                last_modified_by: globalTable.last_modified_by
-              })
-              .from(globalTable)
-              .orderBy(desc(globalTable.updated_at))
-              .limit(2);
-
-            for (const item of recentItems) {
-              // Get user who most recently modified the item
-              let user = { name: 'Unknown User', email: '', image: undefined };
-              const userId = item.last_modified_by || item.author;
-              if (userId) {
-                const userRecord = await db
-                  .select({
-                    name: schema.users.name,
-                    email: schema.users.email,
-                    image: schema.users.image
-                  })
-                  .from(schema.users)
-                  .where(eq(schema.users.id, userId))
-                  .limit(1);
-                if (userRecord[0]) {
-                  user = {
-                    name: userRecord[0].name || 'Unknown User',
-                    email: userRecord[0].email,
-                    image: userRecord[0].image
-                  };
-                }
-              }
-
-              const isCreated =
-                new Date(item.created_at).getTime() === new Date(item.updated_at).getTime();
-              const action = isCreated ? ('created' as const) : ('updated' as const);
-              const descriptionKey = isCreated
-                ? ('created' as const)
-                : item.last_modified_by
-                  ? ('edited' as const)
-                  : ('updated' as const);
-
-              recentActivity.push({
-                id: `${global.slug}-${item.id}`,
-                type: 'content' as const,
-                action,
-                title: item.title || 'Untitled',
-                descriptionKey,
-                entity: global.name_singular.toLowerCase(),
-                timestamp: new Date(item.updated_at),
-                contentType: global.name_plural.toLowerCase(),
+          // Repeatable globals: multiple records, link to /sailor/globals/{slug}/{id}
+          const items = await readRecentEntityRows('global', global.slug, 2);
+          for (const item of items) {
+            recentActivity.push(
+              buildActivityEntry(item, {
+                idPrefix: global.slug,
+                entityLabel: global.name_singular.toLowerCase(),
+                contentTypeLabel: global.name_plural.toLowerCase(),
                 link: getDashboardActivityLink('global', {
                   slug: global.slug,
                   data_type: 'repeatable'
-                }),
-                user
-              });
-            }
+                })
+              })
+            );
           }
         }
-      } catch (error) {
+      } catch {
         // Skip globals that don't have content tables yet
         continue;
       }

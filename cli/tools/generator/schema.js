@@ -250,9 +250,22 @@ export class SchemaGenerator {
    * Generate table definitions from collected tables
    */
   generateTableDefinitions() {
-    return this.allTables.map(({ name, table }) => {
-      const fields = this.buildFieldDefinitions(table);
-      return `export const ${name} = ${this.adapter.getTableFunction()}('${name}', {\n${fields.join(',\n')}\n});`;
+    return this.allTables.map(({ name, table, indexes, opts }) => {
+      const fields = this.buildFieldDefinitions(table, name, opts);
+      const fieldsBlock = `{\n${fields.join(',\n')}\n}`;
+
+      if (indexes && indexes.length > 0) {
+        const indexLines = indexes
+          .map((idx) => {
+            const fn = idx.type === 'unique' ? 'uniqueIndex' : 'index';
+            const cols = idx.columns.map((c) => `table.${c}`).join(', ');
+            return `  ${fn}('${idx.name}').on(${cols})`;
+          })
+          .join(',\n');
+        return `export const ${name} = ${this.adapter.getTableFunction()}('${name}', ${fieldsBlock}, (table) => [\n${indexLines}\n]);`;
+      }
+
+      return `export const ${name} = ${this.adapter.getTableFunction()}('${name}', ${fieldsBlock});`;
     });
   }
 
@@ -275,10 +288,22 @@ export class SchemaGenerator {
   }
 
   /**
-   * Build field definitions for a table
+   * Build field definitions for a table.
+   *
+   * `opts.relaxed = true` (set by the entity generators on a localized
+   * main table) drops NOT NULL / UNIQUE on the hardcoded core fields
+   * (`updated_at`, `sort`, `slug`). Those columns go vestigial once
+   * `_locales` is the canonical store, and SQLite would otherwise refuse
+   * `ALTER TABLE ADD COLUMN NOT NULL` on a populated table during the
+   * non-localized → localized flip.
    */
-  buildFieldDefinitions(table) {
+  buildFieldDefinitions(table, tableName, opts = {}) {
     const fields = [];
+    // Localized sibling tables enforce slug uniqueness via a composite
+    // (slug, locale) index emitted alongside the table — drop the single-column
+    // unique here so EN slug='about' and NB slug='about' can coexist.
+    const isLocalesTable = typeof tableName === 'string' && tableName.endsWith('_locales');
+    const relaxed = opts.relaxed === true;
 
     for (const [fieldName, fieldDef] of Object.entries(table)) {
       if (fieldName === 'id') {
@@ -286,7 +311,11 @@ export class SchemaGenerator {
       } else if (fieldName === 'created_at') {
         fields.push(`  created_at: ${this.adapter.getTimestampDefinition('created_at')}`);
       } else if (fieldName === 'updated_at') {
-        fields.push(`  updated_at: ${this.adapter.getTimestampDefinition('updated_at')}`);
+        fields.push(
+          relaxed
+            ? `  updated_at: ${this.adapter.getNullableTimestampDefinition('updated_at')}`
+            : `  updated_at: ${this.adapter.getTimestampDefinition('updated_at')}`
+        );
       } else if (fieldName === 'deleted_at') {
         fields.push(`  deleted_at: ${this.adapter.getNullableTimestampDefinition('deleted_at')}`);
       } else if (fieldName === 'deleted_by') {
@@ -297,15 +326,15 @@ export class SchemaGenerator {
         if (fieldDef.references) options.references = fieldDef.references;
         fields.push(`  parent_id: ${this.adapter.getTextFieldDefinition('parent_id', options)}`);
       } else if (fieldName.endsWith('_id')) {
-        fields.push(
-          `  ${fieldName}: ${this.adapter.getTextFieldDefinition(fieldName, { notNull: true })}`
-        );
+        const options = { notNull: true };
+        if (fieldDef.references) options.references = fieldDef.references;
+        fields.push(`  ${fieldName}: ${this.adapter.getTextFieldDefinition(fieldName, options)}`);
       } else if (fieldName === 'sort') {
-        fields.push(
-          `  sort: ${this.adapter.getIntegerFieldDefinition('sort', { notNull: true, default: 0 })}`
-        );
+        const sortOpts = relaxed ? { default: 0 } : { notNull: true, default: 0 };
+        fields.push(`  sort: ${this.adapter.getIntegerFieldDefinition('sort', sortOpts)}`);
       } else if (fieldName === 'slug') {
-        fields.push(`  slug: ${this.adapter.getTextFieldDefinition('slug', { unique: true })}`);
+        const slugOpts = isLocalesTable ? { notNull: true } : relaxed ? {} : { unique: true };
+        fields.push(`  slug: ${this.adapter.getTextFieldDefinition('slug', slugOpts)}`);
       } else {
         // Handle field definitions with potential foreign key references
         const options = {};

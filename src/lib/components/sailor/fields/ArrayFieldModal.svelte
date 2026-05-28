@@ -21,11 +21,17 @@
     itemIndex: number;
   } = $props();
 
-  let formData = $derived({ ...(item || {}) });
+  // Editable copy of the source item — `$state` (not `$derived`) so local
+  // edits via `handleFieldChange` aren't blown away every time the parent
+  // re-renders. Re-seed from `item` on each open via `onOpenChange` rather
+  // than reacting via $effect.
+  let formData: Record<string, any> = $state({ ...(item || {}) });
 
-  // Handle dialog close events
+  // Handle dialog open/close events
   function handleOpenChange(open: boolean) {
-    if (!open) {
+    if (open) {
+      formData = { ...(item || {}) };
+    } else {
       onClose();
     }
   }

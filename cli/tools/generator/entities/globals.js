@@ -10,6 +10,10 @@ export class GlobalGenerator {
    * Generate all tables for a global definition
    */
   generateTables(globalSlug, definition, coreFields) {
+    if (definition.localized) {
+      return this.generateLocalizedTables(globalSlug, definition, coreFields);
+    }
+
     const tables = [];
     const entityInfo = {
       type: 'global',
@@ -33,18 +37,169 @@ export class GlobalGenerator {
   }
 
   /**
-   * Create the main global table
+   * Generate tables for a localized global. Mirrors the collection split:
+   *
+   *   - `global_<slug>`         — full main shape (identity + all template
+   *     columns). Same schema as a non-localized global; per-locale reads
+   *     ignore these columns. Keeping main additive means a non-localized →
+   *     localized flip just adds the `_locales` sibling without dropping
+   *     existing populated columns; the data migrator copies the seed locale
+   *     across and the doctor flags the leftover columns as cleanable.
+   *   - `global_<slug>_locales` — canonical per-locale editable content, FK
+   *     back to main. All reads/writes post-migration go through here.
+   *
+   * Child tables (arrays, files, m2m junctions) anchor on `global_<slug>` —
+   * same naming as non-localized — so flipping localized doesn't churn child
+   * table names.
    */
-  createMainGlobalTable(globalSlug, definition, coreFields, entityInfo) {
+  generateLocalizedTables(globalSlug, definition, coreFields) {
+    const tables = [];
+    const entityInfo = { type: 'global', slug: globalSlug };
+
+    // Main: full shape, same as non-localized — but content columns are
+    // emitted nullable + non-unique (`relaxed: true`). They go vestigial
+    // once `_locales` is the canonical store; SQLite refuses
+    // `ALTER TABLE ADD COLUMN NOT NULL` without default on a populated
+    // table, so relaxing here lets the localized flip apply cleanly.
+    const mainTable = this.createMainGlobalTable(globalSlug, definition, coreFields, entityInfo, {
+      relaxed: true
+    });
+    tables.push(mainTable);
+
+    // Locales sibling: canonical per-locale content store.
+    const localesTable = this.createLocalizedLocalesTable(
+      globalSlug,
+      definition,
+      coreFields,
+      entityInfo,
+      mainTable.name
+    );
+    tables.push(localesTable);
+
+    // Child tables anchor on main (same naming as non-localized).
+    const childParent = mainTable.name;
+
+    const templateFields = definition.fields || {};
+    for (const [fieldName, fieldDef] of Object.entries(templateFields)) {
+      if (fieldDef.type === 'array') {
+        tables.push(...this.createArrayTables(childParent, fieldName, fieldDef, entityInfo));
+      } else if (fieldDef.type === 'file') {
+        tables.push(this.createFileTable(childParent, fieldName, fieldDef, entityInfo));
+      }
+    }
+
+    const allFields = this.mergeFields(definition, coreFields);
+    tables.push(...this.createRelationTables(childParent, allFields, entityInfo));
+
+    return tables;
+  }
+
+  /**
+   * Locale sibling for a localized global: per-locale editable content + FK
+   * back to main. Composite uniques mirror the collection version.
+   *
+   * For flat globals we still emit the same shape — the singleton-vs-multiple
+   * distinction is enforced by the read/write paths, not by the locales table
+   * schema. Each flat global ends up with one main row plus one `_locales`
+   * row per configured locale.
+   */
+  createLocalizedLocalesTable(globalSlug, definition, coreFields, entityInfo, mainTableName) {
+    const tableName = `${mainTableName}_locales`;
+    const fkField = `${globalSlug}_id`;
+
+    const fields = {
+      id: this.tableGen.getPrimaryKeyField(),
+      [fkField]: this.tableGen.getTextField({
+        notNull: true,
+        references: { table: mainTableName, field: 'id' }
+      }),
+      locale: this.tableGen.getTextField({ notNull: true }),
+      updated_at: this.tableGen.getTimestampField(),
+      last_modified_by: this.tableGen.getTextField()
+    };
+
+    // Identity fields stay on main; everything else (core + template) goes to
+    // _locales. For flat globals, `mergeFields` only injects `last_modified_by`
+    // from core (already added above), so the iteration below is just template
+    // fields. For repeatable, the full CORE_FIELDS set is included.
+    const MAIN_ONLY = new Set(['id', 'created_at', 'deleted_at', 'deleted_by']);
+    const allFields = this.mergeFields(definition, coreFields);
+
+    for (const [fieldName, fieldDef] of Object.entries(allFields)) {
+      if (MAIN_ONLY.has(fieldName)) continue;
+      if (fieldName === 'updated_at' || fieldName === 'last_modified_by') continue;
+      if (fieldDef.type === 'array') continue;
+      if (fieldDef.type === 'file') continue;
+      if (fieldDef.type === 'tags') continue;
+
+      if (fieldDef.type === 'relation') {
+        const relation = fieldDef.relation;
+        if (relation && relation.type !== 'many-to-many') {
+          const targetTable = this.resolveTargetTable(relation);
+          // Self-reference would create a circular dependency at schema emit;
+          // mirror the non-localized handling and emit the FK without a constraint.
+          if (targetTable === mainTableName || targetTable === tableName) {
+            fields[fieldName] = this.tableGen.getTextField();
+          } else {
+            fields[fieldName] = this.tableGen.getTextField({
+              references: { table: targetTable, field: 'id' }
+            });
+          }
+        }
+        continue;
+      }
+
+      fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef);
+    }
+
+    const indexes = [
+      {
+        type: 'unique',
+        name: `${tableName}_item_locale_unique_idx`,
+        columns: [fkField, 'locale']
+      }
+    ];
+    // Slug is optional on globals (flat ones often don't have it; repeatable
+    // ones usually do). Only emit the composite slug-locale unique when the
+    // template actually defines a slug field.
+    if (fields.slug) {
+      indexes.push({
+        type: 'unique',
+        name: `${tableName}_slug_locale_unique_idx`,
+        columns: ['slug', 'locale']
+      });
+    }
+
+    const table = this.tableGen.createMainTable(tableName, fields, entityInfo, indexes);
+
+    this.tableGen.metadata.addRelation({
+      fromTable: tableName,
+      toTable: mainTableName,
+      type: 'many-to-one',
+      foreignKey: fkField,
+      references: 'id'
+    });
+
+    return table;
+  }
+
+  /**
+   * Create the main global table.
+   *
+   * `opts.relaxed = true` drops NOT NULL / UNIQUE on content columns — used
+   * for the localized main table, where those constraints would block
+   * `ALTER TABLE ADD COLUMN` on populated rows during the localized flip.
+   */
+  createMainGlobalTable(globalSlug, definition, coreFields, entityInfo, opts = {}) {
     const tableName = `global_${globalSlug}`;
 
     // Merge core fields with template fields based on dataType
     const allFields = this.mergeFields(definition, coreFields);
 
     // Build table fields, excluding arrays and files (they get separate tables)
-    const tableFields = this.buildMainTableFields(allFields, definition, tableName);
+    const tableFields = this.buildMainTableFields(allFields, definition, tableName, opts);
 
-    return this.tableGen.createMainTable(tableName, tableFields, entityInfo);
+    return this.tableGen.createMainTable(tableName, tableFields, entityInfo, undefined, opts);
   }
 
   /**
@@ -245,11 +400,17 @@ export class GlobalGenerator {
   /**
    * Build main table fields, excluding arrays, files, and relations
    */
-  buildMainTableFields(allFields, definition, tableName) {
+  buildMainTableFields(allFields, definition, tableName, opts = {}) {
     const fields = {
       id: this.tableGen.getPrimaryKeyField(),
       created_at: this.tableGen.getTimestampField(),
-      updated_at: this.tableGen.getTimestampField(),
+      // updated_at lives canonically on `_locales` for localized
+      // globals. Keep it nullable on main when relaxed so the
+      // localized flip's ALTER TABLE ADD COLUMN doesn't trip
+      // SQLite's NOT NULL guard.
+      updated_at: opts.relaxed
+        ? this.tableGen.getNullableTimestampField()
+        : this.tableGen.getTimestampField(),
       deleted_at: this.tableGen.getNullableTimestampField(),
       deleted_by: this.tableGen.getTextField()
     };
@@ -288,7 +449,7 @@ export class GlobalGenerator {
         continue; // Don't process as regular field
       }
 
-      fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef);
+      fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef, opts);
     }
 
     return fields;
@@ -297,11 +458,11 @@ export class GlobalGenerator {
   /**
    * Build a single field definition with proper constraints
    */
-  buildFieldDefinition(fieldName, fieldDef) {
+  buildFieldDefinition(fieldName, fieldDef, opts = {}) {
     const options = {
-      notNull: fieldDef.required,
+      notNull: opts.relaxed ? false : fieldDef.required,
       default: fieldDef.default,
-      unique: fieldName === 'slug'
+      unique: opts.relaxed ? false : fieldName === 'slug'
     };
 
     // parent_id should never be required (top-level items have no parent)

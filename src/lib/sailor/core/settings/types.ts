@@ -75,10 +75,45 @@ export interface RoleSettings {
   adminRoles: string[];
 }
 
+// Content / i18n Settings
+export interface ContentSettings {
+  /**
+   * Available locales for content translation, e.g. `['en', 'nb-NO']`.
+   * Defaults to paraglide's configured locales when unset.
+   *
+   * Only meaningful for collections opted in via `localized: true`. Adding a
+   * locale here lets editors create translations in that locale; existing
+   * items are translated lazily on first edit.
+   */
+  locales?: string[];
+
+  /**
+   * Default content locale. Used as the source for clone-on-create (new
+   * translations are prefilled from this locale's row) and as the fallback
+   * target when `fallback === 'default'`.
+   *
+   * Defaults to paraglide's `baseLocale` when unset.
+   */
+  defaultLocale?: string;
+
+  /**
+   * Read-time fallback when a requested locale has no row for an item.
+   *
+   * - `'default'`: return the default-locale row marked with a fallback flag.
+   *   Good for list/index pages that should still surface untranslated items.
+   * - `'strict'`: omit the item from results. Good for URL resolvers that
+   *   should 404 on missing translations to avoid duplicate-content SEO.
+   *
+   * Per-read override via `getCollection({ fallback: ... })`. Defaults to `'default'`.
+   */
+  fallback?: 'default' | 'strict';
+}
+
 // Main Settings Interface
 export interface CMSSettings {
   storage: StorageSettings;
   cache: CacheConfig;
   system: SystemSettings;
   roles?: RoleSettings;
+  content?: ContentSettings;
 }

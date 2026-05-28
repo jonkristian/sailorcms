@@ -63,13 +63,14 @@
     return role.charAt(0).toUpperCase() + role.slice(1);
   }
 
-  // Transform data for display
+  // Transform data for display. Leave `created_at` raw — the cellRenderer
+  // calls `formatDate` itself; pre-formatting here would feed a localized
+  // string back into `new Date(...)`, hit NaN, and render '-'.
   const displayUsers = $derived(
     data.users.map((user) => ({
       ...user,
       title: user.name, // Map name to title for DataTable linking
-      role: formatRole(user.role),
-      created_at: formatDate(user.created_at)
+      role: formatRole(user.role)
     }))
   );
 </script>

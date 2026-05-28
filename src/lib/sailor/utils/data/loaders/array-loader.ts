@@ -29,10 +29,13 @@ export async function loadArrayFields(
     if (typedFieldDef.type === 'array' && typedFieldDef.items?.type === 'object') {
       const snakeCaseFieldName = toSnakeCase(fieldName);
       const arrayTableName = `${arrayTablePrefix}_${snakeCaseFieldName}`;
+      // Honor the `_localeId` convention for localized collections (junctions
+      // FK to the _locales row id, not main).
+      const parentId = item._localeId ?? item.id;
 
       try {
         const arrayResult = await db.run(
-          sql`SELECT * FROM ${sql.identifier(arrayTableName)} WHERE ${sql.identifier(foreignKeyField)} = ${item.id} ORDER BY "sort"`
+          sql`SELECT * FROM ${sql.identifier(arrayTableName)} WHERE ${sql.identifier(foreignKeyField)} = ${parentId} ORDER BY "sort"`
         );
 
         if (arrayResult.rows.length > 0) {

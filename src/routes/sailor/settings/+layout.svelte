@@ -39,10 +39,10 @@
       description: m.settings_nav_mail_description()
     },
     {
-      label: m.settings_nav_taggables_label(),
-      href: '/sailor/settings/taggables',
+      label: m.settings_nav_tags_label(),
+      href: '/sailor/settings/tags',
       icon: Tags,
-      description: m.settings_nav_taggables_description()
+      description: m.settings_nav_tags_description()
     },
     {
       label: m.settings_nav_import_label(),

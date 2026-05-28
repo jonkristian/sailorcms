@@ -34,6 +34,11 @@ export async function loadFileFields(
       // Step 1: If no value yet, try to load file IDs from relation table
       if (currentValue === undefined || currentValue === null) {
         const fileTableName = `${fileTablePrefix}_${snakeCaseFieldName}`;
+        // For localized collections, junctions FK to the _locales row id, not
+        // the main row id. Loaders honor the `_localeId` convention: enrichers
+        // set it on items where applicable; for non-localized reads it stays
+        // undefined and the loader falls back to `item.id` (= main row id).
+        const parentId = item._localeId ?? item.id;
 
         try {
           // Try to get the table from schema first
@@ -47,7 +52,7 @@ export async function loadFileFields(
               .from(relationTable)
               .where(
                 and(
-                  eq(relationTable.parent_id, item.id),
+                  eq(relationTable.parent_id, parentId),
                   sql`(${relationTable.parent_type} IN ('block','global','collection') OR ${relationTable.parent_type} IS NULL OR ${relationTable.parent_type} = '')`
                 )
               )
@@ -56,7 +61,7 @@ export async function loadFileFields(
             // Fallback to raw SQL for dynamic tables
             fileRelationResult = await db.run(
               sql`SELECT file_id FROM ${sql.identifier(fileTableName)}
-                  WHERE parent_id = ${item.id} AND (parent_type IN ('block','global','collection') OR parent_type IS NULL OR parent_type = '')
+                  WHERE parent_id = ${parentId} AND (parent_type IN ('block','global','collection') OR parent_type IS NULL OR parent_type = '')
                   ORDER BY "sort"`
             );
           }

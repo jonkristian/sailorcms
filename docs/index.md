@@ -49,6 +49,7 @@ Sailor CMS is a modern, template-driven headless CMS built with SvelteKit. It pr
 
 - [Templates System]({{ site.baseurl }}{% link core-concepts/templates.md %})
 - [Field Types Reference]({{ site.baseurl }}{% link core-concepts/field-types.md %})
+- [Content Translation]({{ site.baseurl }}{% link core-concepts/content-translation.md %})
 
 ### Security & Permissions
 

@@ -1,9 +1,20 @@
-// SvelteKit remote functions for global management
+// SvelteKit remote functions for global management.
+//
+// `updateFlatGlobal` and `updateRepeatableGlobal` are thin wrappers around
+// the `saveGlobalItem` persister — all save logic (categorize formData,
+// transactional upsert with localized/non-localized routing, arrays, files,
+// tags, search reindex) lives there. The other commands here (tags, status,
+// delete, reorder, bulkUpdate, restore) remain inline.
+//
+// Tag and status commands accept an optional `locale` so they can target the
+// right `_locales` row on localized globals — see `resolveLocaleScope` below.
+
 import { command, getRequestEvent } from '$app/server';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { db } from 'sailorcms/core/db/index.server';
 import { eq, sql, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
 import { getCurrentTimestamp, getCurrentTimestampSeconds } from 'sailorcms/core/utils/date';
 import { generateUUID, normalizeRelationId, slugify } from 'sailorcms/core/utils/common';
 import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
@@ -14,6 +25,71 @@ import {
   syncArrayRowFiles,
   clearArrayRowFiles
 } from 'sailorcms/core/data/persisters/array-row-files.server';
+import { saveGlobalItem } from 'sailorcms/core/data/persisters/global-item.server';
+import { getContentSettings } from 'sailorcms/utils/data/collections';
+
+/**
+ * For the tag/status commands below — given a global slug + main row id, look
+ * up the `_locales` row id for the requested locale so writes target the
+ * correct scope. For non-localized globals it's a no-op that returns the
+ * main row id + the legacy `global_<slug>` taggable type.
+ *
+ * Throws if a localized global has no translation yet for the requested
+ * locale — tagging or status-flipping a translation that doesn't exist would
+ * silently orphan data. The admin UI surfaces the error.
+ */
+async function resolveLocaleScope(
+  globalSlug: string,
+  mainItemId: string,
+  locale?: string
+): Promise<{
+  isLocalized: boolean;
+  taggableType: string;
+  entityId: string;
+  currentLocale: string | null;
+}> {
+  const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
+  if (!isLocalized) {
+    return {
+      isLocalized: false,
+      taggableType: `global_${globalSlug}`,
+      entityId: mainItemId,
+      currentLocale: null
+    };
+  }
+
+  const { defaultLocale } = getContentSettings();
+  const currentLocale = locale || defaultLocale;
+  if (!currentLocale) {
+    throw new Error(
+      `Localized global '${globalSlug}' needs content.defaultLocale set in templates/settings.ts`
+    );
+  }
+
+  const localesTable = (schema as any)[`global_${globalSlug}_locales`];
+  if (!localesTable) {
+    throw new Error(`Localized global '${globalSlug}' missing locales table — run db:update`);
+  }
+  const fkField = `${globalSlug}_id`;
+  const rows = await db
+    .select({ id: localesTable.id })
+    .from(localesTable)
+    .where(and(eq(localesTable[fkField], mainItemId), eq(localesTable.locale, currentLocale)))
+    .limit(1);
+
+  if (rows.length === 0) {
+    throw new Error(
+      `Global '${globalSlug}' has no translation for locale '${currentLocale}' — save the translation first.`
+    );
+  }
+
+  return {
+    isLocalized: true,
+    taggableType: `global_${globalSlug}`,
+    entityId: rows[0].id as string,
+    currentLocale
+  };
+}
 
 /**
  * Reorder array items with drag & drop support
@@ -50,7 +126,9 @@ export const reorderArrayItems = command(
     }
 
     try {
-      // Convert camelCase field name to snake_case for table name
+      // Array tables anchor on `global_<slug>` for both modes. Row ids are
+      // unique to the array table regardless of localization, so the
+      // UPDATE WHERE id = ? works without knowing the parent locale.
       const snakeCaseFieldName = toSnakeCase(fieldName);
       const tableName = `global_${globalSlug}_${snakeCaseFieldName}`;
 
@@ -78,24 +156,39 @@ export const reorderArrayItems = command(
  */
 export const updateGlobalItemTags = command(
   'unchecked',
-  async ({ globalSlug, itemId, tags }: { globalSlug: string; itemId: string; tags: string[] }) => {
-    const { locals } = getRequestEvent();
-
-    // Authentication handled by hooks
-
+  async ({
+    globalSlug,
+    itemId,
+    tags,
+    locale
+  }: {
+    globalSlug: string;
+    itemId: string;
+    tags: string[];
+    /** For localized globals — defaults to `content.defaultLocale`. */
+    locale?: string;
+  }) => {
     if (!globalSlug || !itemId || !Array.isArray(tags)) {
       return { success: false, error: 'Global slug, item ID, and tags are required' };
     }
 
     try {
-      // Use specific global entity type for better organization
-      await TagService.tagEntity(`global_${globalSlug}`, itemId, tags);
-      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+      const scope = await resolveLocaleScope(globalSlug, itemId, locale);
+      await TagService.tagEntity(scope.taggableType, scope.entityId, tags);
+      await SearchIndexService.onSaveSafe(
+        'global',
+        globalSlug,
+        itemId,
+        scope.currentLocale ?? undefined
+      );
 
       return { success: true, message: 'Tags updated successfully' };
     } catch (error) {
       log.error('Failed to update global item tags', {}, error as Error);
-      return { success: false, error: 'Failed to update global item tags' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update global item tags'
+      };
     }
   }
 );
@@ -105,29 +198,43 @@ export const updateGlobalItemTags = command(
  */
 export const addGlobalItemTags = command(
   'unchecked',
-  async ({ globalSlug, itemId, tags }: { globalSlug: string; itemId: string; tags: string[] }) => {
-    const { locals } = getRequestEvent();
-
-    // Authentication handled by hooks
-
+  async ({
+    globalSlug,
+    itemId,
+    tags,
+    locale
+  }: {
+    globalSlug: string;
+    itemId: string;
+    tags: string[];
+    /** For localized globals — defaults to `content.defaultLocale`. */
+    locale?: string;
+  }) => {
     if (!globalSlug || !itemId || !Array.isArray(tags) || tags.length === 0) {
       return { success: false, error: 'Global slug, item ID, and tags are required' };
     }
 
     try {
-      // Use slug-qualified taggable type to match updateGlobalItemTags + repeatable global writes
-      const taggableType = `global_${globalSlug}`;
-      const currentTags = await TagService.getTagsForEntity(taggableType, itemId);
+      const scope = await resolveLocaleScope(globalSlug, itemId, locale);
+      const currentTags = await TagService.getTagsForEntity(scope.taggableType, scope.entityId);
       const currentTagNames = currentTags.map((tag) => tag.name);
       const allTagNames = [...new Set([...currentTagNames, ...tags])]; // Deduplicate
 
-      await TagService.tagEntity(taggableType, itemId, allTagNames);
-      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+      await TagService.tagEntity(scope.taggableType, scope.entityId, allTagNames);
+      await SearchIndexService.onSaveSafe(
+        'global',
+        globalSlug,
+        itemId,
+        scope.currentLocale ?? undefined
+      );
 
       return { success: true, message: `${tags.length} tag(s) added successfully` };
     } catch (error) {
       log.error('Failed to add tags to global item', {}, error as Error);
-      return { success: false, error: 'Failed to add tags to global item' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to add tags to global item'
+      };
     }
   }
 );
@@ -137,29 +244,43 @@ export const addGlobalItemTags = command(
  */
 export const removeGlobalItemTags = command(
   'unchecked',
-  async ({ globalSlug, itemId, tags }: { globalSlug: string; itemId: string; tags: string[] }) => {
-    const { locals } = getRequestEvent();
-
-    // Authentication handled by hooks
-
+  async ({
+    globalSlug,
+    itemId,
+    tags,
+    locale
+  }: {
+    globalSlug: string;
+    itemId: string;
+    tags: string[];
+    /** For localized globals — defaults to `content.defaultLocale`. */
+    locale?: string;
+  }) => {
     if (!globalSlug || !itemId || !Array.isArray(tags) || tags.length === 0) {
       return { success: false, error: 'Global slug, item ID, and tags are required' };
     }
 
     try {
-      // Use slug-qualified taggable type to match updateGlobalItemTags + repeatable global writes
-      const taggableType = `global_${globalSlug}`;
-      const currentTags = await TagService.getTagsForEntity(taggableType, itemId);
+      const scope = await resolveLocaleScope(globalSlug, itemId, locale);
+      const currentTags = await TagService.getTagsForEntity(scope.taggableType, scope.entityId);
       const currentTagNames = currentTags.map((tag) => tag.name);
       const remainingTagNames = currentTagNames.filter((tagName) => !tags.includes(tagName));
 
-      await TagService.tagEntity(taggableType, itemId, remainingTagNames);
-      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+      await TagService.tagEntity(scope.taggableType, scope.entityId, remainingTagNames);
+      await SearchIndexService.onSaveSafe(
+        'global',
+        globalSlug,
+        itemId,
+        scope.currentLocale ?? undefined
+      );
 
       return { success: true, message: `${tags.length} tag(s) removed successfully` };
     } catch (error) {
       log.error('Failed to remove tags from global item', {}, error as Error);
-      return { success: false, error: 'Failed to remove tags from global item' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to remove tags from global item'
+      };
     }
   }
 );
@@ -237,11 +358,14 @@ export const updateGlobalItemStatus = command(
   async ({
     globalSlug,
     itemId,
-    status
+    status,
+    locale
   }: {
     globalSlug: string;
     itemId: string;
     status: string;
+    /** For localized globals — defaults to `content.defaultLocale`. Status lives on `_locales` for localized globals (per-translation publish state). */
+    locale?: string;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -264,15 +388,47 @@ export const updateGlobalItemStatus = command(
     }
 
     try {
-      await db
-        .update(table)
-        .set({
-          status,
-          updated_at: new Date(),
-          last_modified_by: locals.user.id
-        } as any)
-        .where(eq((table as any).id, itemId));
-      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+      const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
+
+      if (isLocalized) {
+        // Status is on `_locales` for localized globals — update that row's
+        // status for the requested locale, leaving other locales untouched.
+        const { defaultLocale } = getContentSettings();
+        const currentLocale = locale || defaultLocale;
+        if (!currentLocale) {
+          return {
+            success: false,
+            error: `Localized global '${globalSlug}' needs content.defaultLocale set in templates/settings.ts`
+          };
+        }
+        const localesTable = (schema as any)[`global_${globalSlug}_locales`];
+        if (!localesTable) {
+          return {
+            success: false,
+            error: `Localized global '${globalSlug}' missing locales table — run db:update`
+          };
+        }
+        const fkField = `${globalSlug}_id`;
+        await db
+          .update(localesTable)
+          .set({
+            status,
+            updated_at: new Date(),
+            last_modified_by: locals.user.id
+          } as any)
+          .where(and(eq(localesTable[fkField], itemId), eq(localesTable.locale, currentLocale)));
+        await SearchIndexService.onSaveSafe('global', globalSlug, itemId, currentLocale);
+      } else {
+        await db
+          .update(table)
+          .set({
+            status,
+            updated_at: new Date(),
+            last_modified_by: locals.user.id
+          } as any)
+          .where(eq((table as any).id, itemId));
+        await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
+      }
       return { success: true };
     } catch (error) {
       log.error('Failed to update global item status', {}, error as Error);
@@ -288,10 +444,13 @@ export const reorderGlobalItems = command(
   'unchecked',
   async ({
     globalSlug,
-    items
+    items,
+    locale
   }: {
     globalSlug: string;
     items: Array<{ id: string; parent_id?: string | null }>;
+    /** For localized globals — defaults to `content.defaultLocale`. Sort + parent_id live on `_locales` (per-locale tree structure). */
+    locale?: string;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -303,27 +462,63 @@ export const reorderGlobalItems = command(
       return { success: false, error: 'Global slug and items array are required' };
     }
 
-    // Check if user can update globals
     const canUpdate = await locals.security.hasPermission('update', 'content');
-
     if (!canUpdate) {
-      return {
-        success: false,
-        error: 'You do not have permission to update content'
-      };
+      return { success: false, error: 'You do not have permission to update content' };
     }
 
     try {
-      await db.transaction(async (tx: any) => {
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          await tx.run(
-            sql`UPDATE ${sql.identifier(`global_${globalSlug}`)}
-                SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestampSeconds()}
-                WHERE id = ${item.id}`
-          );
+      const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
+
+      if (isLocalized) {
+        // For localized globals, sort + parent_id live on the `_locales` row
+        // for the current locale (each translation has its own tree). The
+        // `items` array carries main row ids; we update the locale row's
+        // sort/parent_id keyed on (main_id, locale).
+        const { defaultLocale } = getContentSettings();
+        const currentLocale = locale || defaultLocale;
+        if (!currentLocale) {
+          return {
+            success: false,
+            error: `Localized global '${globalSlug}' needs content.defaultLocale set in templates/settings.ts`
+          };
         }
-      });
+        const localesTable = (schema as any)[`global_${globalSlug}_locales`];
+        if (!localesTable) {
+          return {
+            success: false,
+            error: `Localized global '${globalSlug}' missing locales table — run db:update`
+          };
+        }
+        const fkField = `${globalSlug}_id`;
+        await db.transaction(async (tx: any) => {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            await tx
+              .update(localesTable)
+              .set({
+                sort: i,
+                parent_id: item.parent_id || null,
+                updated_at: new Date(),
+                last_modified_by: locals.user!.id
+              } as any)
+              .where(
+                and(eq(localesTable[fkField], item.id), eq(localesTable.locale, currentLocale))
+              );
+          }
+        });
+      } else {
+        await db.transaction(async (tx: any) => {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            await tx.run(
+              sql`UPDATE ${sql.identifier(`global_${globalSlug}`)}
+                  SET sort = ${i}, parent_id = ${item.parent_id || null}, updated_at = ${getCurrentTimestampSeconds()}
+                  WHERE id = ${item.id}`
+            );
+          }
+        });
+      }
 
       return { success: true };
     } catch (error) {
@@ -340,211 +535,17 @@ export const updateFlatGlobal = command(
   'unchecked',
   async ({ globalSlug, data }: { globalSlug: string; data: Record<string, any> }) => {
     const { locals } = getRequestEvent();
-
-    if (!locals.user?.id) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    if (!globalSlug || !data) {
-      return { success: false, error: 'Global slug and data are required' };
-    }
-
-    // Check if user can update globals
-    const canUpdate = await locals.security.hasPermission('update', 'content');
-
-    if (!canUpdate) {
-      return {
-        success: false,
-        error: 'You do not have permission to update content'
-      };
-    }
-
-    try {
-      // Get global definition from database
-      const globalTypeRow = await db.query.globalTypes.findFirst({
-        where: eq(schema.globalTypes.slug, globalSlug)
-      });
-
-      if (!globalTypeRow || globalTypeRow.data_type !== 'flat') {
-        return { success: false, error: 'Invalid global type' };
-      }
-
-      const globalFields = JSON.parse(globalTypeRow.schema);
-
-      // Separate array fields from regular fields
-      const arrayFields: Record<string, any[]> = {};
-      const regularFields: Record<string, any> = {};
-
-      Object.entries(data).forEach(([key, value]) => {
-        const fieldDef = globalFields[key];
-        if (fieldDef?.type === 'array') {
-          arrayFields[key] = Array.isArray(value) ? value : [value];
-        } else if (key !== 'id' && fieldDef) {
-          // Only persist fields that exist in schema
-          regularFields[key] = value;
-        }
-      });
-
-      const itemId = globalSlug; // Use globalSlug as unique ID for flat globals
-      const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
-      if (!globalTable) {
-        return { success: false, error: `Global table for '${globalSlug}' not found` };
-      }
-
-      await db.transaction(async (tx: any) => {
-        // Check if singleton exists
-        const existing = await tx
-          .select()
-          .from(globalTable)
-          .where(eq((globalTable as any).id, itemId))
-          .limit(1);
-
-        if (existing.length > 0) {
-          // Update existing singleton
-          const updateFields = Object.keys(regularFields).filter(
-            (key) => !['id', 'created_at', 'updated_at'].includes(key)
-          );
-
-          if (updateFields.length > 0) {
-            // Build update data object for Drizzle
-            const updateData: Record<string, any> = {
-              updated_at: getCurrentTimestamp(),
-              last_modified_by: locals.user!.id
-            };
-
-            updateFields.forEach((key) => {
-              const normalized = normalizeRelationId(key, regularFields[key]);
-              updateData[key] = normalized;
-            });
-
-            await tx
-              .update(globalTable)
-              .set(updateData)
-              .where(eq((globalTable as any).id, existing[0].id));
-          }
-        } else {
-          // Create new singleton
-          const insertData: Record<string, any> = {
-            id: itemId,
-            author: locals.user!.id,
-            last_modified_by: locals.user!.id,
-            created_at: getCurrentTimestamp(),
-            updated_at: getCurrentTimestamp()
-          };
-
-          // Add regular fields
-          Object.keys(regularFields).forEach((key) => {
-            if (['id', 'created_at', 'updated_at'].includes(key)) return;
-
-            const normalized = normalizeRelationId(key, regularFields[key]);
-            insertData[key] = normalized;
-          });
-
-          await tx.insert(globalTable).values(insertData);
-        }
-
-        // Handle array fields for flat globals
-        for (const [fieldName, arrayItems] of Object.entries(arrayFields)) {
-          const fieldDef = globalFields[fieldName];
-          if (fieldDef?.type !== 'array' || !fieldDef?.items?.properties) {
-            continue;
-          }
-
-          // Convert camelCase field name to snake_case for table name
-          const snakeCaseFieldName = toSnakeCase(fieldName);
-          const relationTableName = `global_${globalSlug}_${snakeCaseFieldName}`;
-          const relationTable = schema[relationTableName as keyof typeof schema];
-
-          if (!relationTable) continue;
-
-          // Get existing items from database
-          const existingItems = await tx
-            .select()
-            .from(relationTable)
-            .where(eq((relationTable as any).global_id, itemId));
-
-          // Create maps for efficient lookup
-          const existingItemsMap = new Map(existingItems.map((item: any) => [item.id, item]));
-          const newItemsMap = new Map(arrayItems.map((item: any) => [item.id, item]));
-
-          // Find items to delete (exist in DB but not in new array)
-          const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
-
-          // Delete removed items + their nested file relation rows
-          for (const item of itemsToDelete) {
-            await clearArrayRowFiles(
-              tx,
-              relationTableName,
-              (item as any).id,
-              fieldDef.items.properties
-            );
-            await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
-          }
-
-          // Update or insert items
-          for (let i = 0; i < arrayItems.length; i++) {
-            const item = arrayItems[i];
-            const existingItem = existingItemsMap.get(item.id);
-            const arrayItemId = item.id || generateUUID();
-
-            if (existingItem) {
-              // Update existing item with new sort order and any changed data
-              const updateData: Record<string, any> = {
-                sort: i,
-                updated_at: getCurrentTimestamp()
-              };
-
-              // Add field properties that might have changed (skip file types — handled separately)
-              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
-                if ((propDef as any).type === 'file') return;
-                updateData[propKey] = item[propKey] || null;
-              });
-
-              await tx
-                .update(relationTable)
-                .set(updateData)
-                .where(eq((relationTable as any).id, item.id));
-            } else {
-              // Insert new item
-              const insertData: Record<string, any> = {
-                id: arrayItemId,
-                global_id: itemId,
-                sort: i,
-                created_at: getCurrentTimestamp(),
-                updated_at: getCurrentTimestamp()
-              };
-
-              // Add field properties (skip file types — handled separately)
-              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
-                if ((propDef as any).type === 'file') return;
-                insertData[propKey] = item[propKey] || null;
-              });
-
-              await tx.insert(relationTable).values(insertData);
-            }
-
-            await syncArrayRowFiles(
-              tx,
-              relationTableName,
-              arrayItemId,
-              fieldDef.items.properties,
-              item,
-              'global'
-            );
-          }
-        }
-      });
-
-      await SearchIndexService.onSaveSafe('global', globalSlug, itemId);
-
-      return { success: true };
-    } catch (error) {
-      log.error('Error updating flat global', {}, error as Error);
-      return {
-        success: false,
-        error: `Failed to update flat global: ${error instanceof Error ? error.message : String(error)}`
-      };
-    }
+    const [canCreate, canUpdate] = await Promise.all([
+      locals.security.hasPermission('create', 'content'),
+      locals.security.hasPermission('update', 'content')
+    ]);
+    return await saveGlobalItem({
+      globalSlug,
+      data,
+      user: locals.user ? { id: locals.user.id } : null,
+      canCreate,
+      canUpdate
+    });
   }
 );
 
@@ -563,403 +564,18 @@ export const updateRepeatableGlobal = command(
     data: Record<string, any>;
   }) => {
     const { locals } = getRequestEvent();
-
-    if (!locals.user?.id) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    if (!globalSlug || !data) {
-      return { success: false, error: 'Global slug and data are required' };
-    }
-
-    // Check if user can update globals
-    const canUpdate = await locals.security.hasPermission('update', 'content');
-
-    if (!canUpdate) {
-      return {
-        success: false,
-        error: 'You do not have permission to update content'
-      };
-    }
-
-    try {
-      // Get global definition from database
-      const globalTypeRow = await db.query.globalTypes.findFirst({
-        where: eq(schema.globalTypes.slug, globalSlug)
-      });
-
-      if (!globalTypeRow || globalTypeRow.data_type !== 'repeatable') {
-        return { success: false, error: 'Invalid global type' };
-      }
-
-      const globalFields = JSON.parse(globalTypeRow.schema);
-
-      // Separate array fields, file fields, tag fields, and regular fields
-      const arrayFields: Record<string, any[]> = {};
-      const fileFields: Record<string, any> = {};
-      const tagFields: Record<string, any[]> = {};
-      const regularFields: Record<string, any> = {};
-
-      Object.entries(data).forEach(([key, value]) => {
-        const fieldDef = globalFields[key];
-
-        if (fieldDef?.type === 'array') {
-          try {
-            arrayFields[key] = Array.isArray(value) ? value : [value];
-          } catch (error) {
-            log.warn(`Failed to parse array field ${key}`, { value, error });
-            arrayFields[key] = [];
-          }
-        } else if (fieldDef?.type === 'file') {
-          // Single file relation handled in its own relation table
-          fileFields[key] = value;
-        } else if (fieldDef?.type === 'tags') {
-          // Parse tags data - could be array or need parsing
-          let parsedTags = value;
-          if (typeof value === 'string') {
-            try {
-              parsedTags = JSON.parse(value);
-            } catch {
-              log.warn(`Failed to parse tags JSON for ${key}`, { value });
-              parsedTags = [];
-            }
-          }
-          tagFields[key] = Array.isArray(parsedTags) ? parsedTags : [];
-        } else if (key !== 'id' && fieldDef) {
-          // Only persist fields that exist in schema
-          regularFields[key] = value;
-        }
-      });
-
-      if (regularFields.slug) regularFields.slug = slugify(String(regularFields.slug));
-
-      // For repeatable globals, we need an item ID (from parameter or create new)
-      const finalItemId = itemId || generateUUID();
-
-      const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
-      if (!globalTable) {
-        return { success: false, error: `Global table for '${globalSlug}' not found` };
-      }
-
-      await db.transaction(async (tx: any) => {
-        // Check if item exists
-        const existing = await tx.run(
-          sql`SELECT * FROM ${sql.identifier(`global_${globalSlug}`)} WHERE id = ${finalItemId} LIMIT 1`
-        );
-
-        if (regularFields.slug) {
-          regularFields.slug = await ensureUniqueSlug({
-            table: globalTable as any,
-            slug: regularFields.slug,
-            excludeId: finalItemId,
-            tx
-          });
-        }
-
-        if (existing.rows.length > 0) {
-          // Update existing item
-          const now = getCurrentTimestamp();
-          const schemaKeys = Object.keys(globalFields);
-          const payloadMainRaw = Object.fromEntries(
-            Object.entries(regularFields).filter(
-              ([key]) =>
-                schemaKeys.includes(key) &&
-                !['author', 'last_modified_by', 'created_at', 'updated_at', 'sort', 'id'].includes(
-                  key
-                ) &&
-                globalFields[key]?.type !== 'array' &&
-                globalFields[key]?.type !== 'tags' &&
-                globalFields[key]?.type !== 'file'
-            )
-          );
-
-          // Normalize relation-like fields (e.g., parent_id)
-          const payloadMain: Record<string, any> = {};
-          for (const [k, v] of Object.entries(payloadMainRaw)) {
-            if (k === 'parent_id') {
-              let value: any = v;
-              if (Array.isArray(value) && value.length > 0) {
-                value = value[0]?.id || value[0] || null;
-              } else if (typeof value === 'object' && value !== null) {
-                value = (value as any).id || null;
-              }
-              payloadMain[k] = value;
-            } else {
-              payloadMain[k] = v;
-            }
-          }
-
-          // Allow updating author if provided; else keep existing
-          let authorValue: any = regularFields.author;
-          if (Array.isArray(authorValue) && authorValue.length > 0) {
-            authorValue = authorValue[0].id || authorValue[0] || null;
-          } else if (typeof authorValue === 'object' && authorValue !== null) {
-            authorValue = authorValue.id || null;
-          }
-
-          const updateData: Record<string, any> = {
-            ...payloadMain,
-            updated_at: now,
-            last_modified_by: locals.user!.id
-          };
-
-          if (authorValue) updateData.author = authorValue;
-          if (data.sort !== undefined && data.sort !== '' && !isNaN(Number(data.sort))) {
-            updateData.sort = Number(data.sort);
-          }
-
-          await (tx as any)
-            .update(globalTable)
-            .set(updateData)
-            .where(eq((globalTable as any).id, finalItemId));
-        } else {
-          // Create new item with core fields
-          const now = getCurrentTimestamp();
-          const schemaKeys = Object.keys(globalFields);
-          const payloadMainRaw = Object.fromEntries(
-            Object.entries(regularFields).filter(
-              ([key]) =>
-                schemaKeys.includes(key) &&
-                !['author', 'last_modified_by', 'created_at', 'updated_at', 'sort', 'id'].includes(
-                  key
-                ) &&
-                globalFields[key]?.type !== 'array' &&
-                globalFields[key]?.type !== 'tags' &&
-                globalFields[key]?.type !== 'file'
-            )
-          );
-
-          // Normalize relation-like fields (e.g., parent_id)
-          const payloadMain: Record<string, any> = {};
-          for (const [k, v] of Object.entries(payloadMainRaw)) {
-            if (k === 'parent_id') {
-              let value: any = v;
-              if (Array.isArray(value) && value.length > 0) {
-                value = value[0]?.id || value[0] || null;
-              } else if (typeof value === 'object' && value !== null) {
-                value = (value as any).id || null;
-              }
-              payloadMain[k] = value;
-            } else {
-              payloadMain[k] = v;
-            }
-          }
-
-          // Resolve author if provided; otherwise default to current user
-          let authorValue: any = regularFields.author;
-          if (Array.isArray(authorValue) && authorValue.length > 0) {
-            authorValue = authorValue[0].id || authorValue[0] || locals.user!.id;
-          } else if (typeof authorValue === 'object' && authorValue !== null) {
-            authorValue = authorValue.id || locals.user!.id;
-          }
-          if (!authorValue) authorValue = locals.user!.id;
-
-          const insertData: Record<string, any> = {
-            id: finalItemId,
-            sort: 0,
-            author: authorValue,
-            last_modified_by: locals.user!.id,
-            created_at: now,
-            updated_at: now,
-            ...payloadMain
-          };
-
-          await (tx as any).insert(globalTable).values(insertData);
-        }
-
-        // Handle array fields for repeatable globals
-        for (const [fieldName, arrayItems] of Object.entries(arrayFields)) {
-          const fieldDef = globalFields[fieldName];
-          if (fieldDef?.type !== 'array' || !fieldDef?.items?.properties) continue;
-
-          // Convert camelCase field name to snake_case for table name
-          const snakeCaseFieldName = toSnakeCase(fieldName);
-          const relationTableName = `global_${globalSlug}_${snakeCaseFieldName}`;
-          const relationTable = schema[relationTableName as keyof typeof schema];
-
-          if (!relationTable) continue;
-
-          // Get existing items from database
-          const existingItems = await tx
-            .select()
-            .from(relationTable)
-            .where(eq((relationTable as any).global_id, finalItemId));
-
-          // Create maps for efficient lookup
-          const existingItemsMap = new Map(existingItems.map((item: any) => [item.id, item]));
-          const newItemsMap = new Map(arrayItems.map((item: any) => [item.id, item]));
-
-          // Find items to delete (exist in DB but not in new array)
-          const itemsToDelete = existingItems.filter((item: any) => !newItemsMap.has(item.id));
-
-          // Delete removed items + their nested file relation rows
-          for (const item of itemsToDelete) {
-            await clearArrayRowFiles(
-              tx,
-              relationTableName,
-              (item as any).id,
-              fieldDef.items.properties
-            );
-            await tx.delete(relationTable).where(eq((relationTable as any).id, item.id));
-          }
-
-          // Update or insert items
-          for (let i = 0; i < arrayItems.length; i++) {
-            const item = arrayItems[i];
-            const existingItem = existingItemsMap.get(item.id);
-            const arrayItemId = item.id || generateUUID();
-
-            if (existingItem) {
-              // Update existing item with new sort order and any changed data
-              const updateData: Record<string, any> = {
-                sort: i,
-                updated_at: getCurrentTimestamp()
-              };
-
-              // Add field properties that might have changed (skip file types — handled separately)
-              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
-                if ((propDef as any).type === 'file') return;
-                updateData[propKey] = item[propKey] || null;
-              });
-
-              await tx
-                .update(relationTable)
-                .set(updateData)
-                .where(eq((relationTable as any).id, item.id));
-            } else {
-              // Insert new item
-              const insertData: Record<string, any> = {
-                id: arrayItemId,
-                global_id: finalItemId,
-                sort: i,
-                created_at: getCurrentTimestamp(),
-                updated_at: getCurrentTimestamp()
-              };
-
-              // Add field properties (skip file types — handled separately)
-              Object.entries(fieldDef.items.properties).forEach(([propKey, propDef]) => {
-                if ((propDef as any).type === 'file') return;
-                insertData[propKey] = item[propKey] || null;
-              });
-
-              await tx.insert(relationTable).values(insertData);
-            }
-
-            await syncArrayRowFiles(
-              tx,
-              relationTableName,
-              arrayItemId,
-              fieldDef.items.properties,
-              item,
-              'global'
-            );
-          }
-        }
-      });
-
-      // Handle tag fields for global item - outside transaction to avoid locks
-      for (const [fieldName, tags] of Object.entries(tagFields)) {
-        try {
-          const tagNames = tags
-            .map((tag: any) =>
-              typeof tag === 'object' ? tag.name || tag.value || String(tag) : String(tag)
-            )
-            .filter(Boolean);
-
-          // Use direct service call to avoid circular dependency
-          await TagService.tagEntity(`global_${globalSlug}`, finalItemId, tagNames);
-        } catch (error) {
-          log.error(`Failed to save tags for field ${fieldName}`, {}, error as Error);
-        }
-      }
-
-      // Handle single file fields outside transaction to avoid locking main row
-      for (const [fieldName, fileValue] of Object.entries(fileFields)) {
-        try {
-          const snake = toSnakeCase(fieldName);
-          const relationTableName = `global_${globalSlug}_${snake}`;
-          const relationTable = (schema as any)[relationTableName];
-
-          if (!relationTable) {
-            log.warn(`File relation table not found: ${relationTableName}`, {
-              fieldName,
-              globalSlug,
-              snake,
-              availableTables: Object.keys(schema).filter((key) =>
-                key.includes(`global_${globalSlug}`)
-              )
-            });
-            continue;
-          }
-
-          let fileId: any = fileValue;
-          if (Array.isArray(fileId) && fileId.length > 0) {
-            fileId = fileId[0]?.id || fileId[0] || null;
-          } else if (typeof fileId === 'object' && fileId !== null) {
-            fileId = (fileId as any).id || null;
-          }
-
-          log.debug(`Processing file field ${fieldName}`, {
-            relationTableName,
-            fileId,
-            originalValue: fileValue,
-            finalItemId
-          });
-
-          // Clear existing
-          await (db as any)
-            .delete(relationTable)
-            .where(
-              and(
-                eq((relationTable as any).parent_id, finalItemId),
-                eq((relationTable as any).parent_type, 'global')
-              )
-            );
-
-          if (fileId) {
-            const insertData = {
-              id: generateUUID(),
-              parent_id: finalItemId,
-              parent_type: 'global',
-              file_id: fileId,
-              sort: 0,
-              created_at: getCurrentTimestamp()
-            };
-
-            log.debug(`Inserting file relation`, { relationTableName, insertData });
-
-            await (db as any).insert(relationTable).values(insertData);
-
-            log.info(`Successfully saved file field ${fieldName}`, {
-              relationTableName,
-              fileId,
-              itemId: finalItemId
-            });
-          } else {
-            log.debug(`No file ID provided for ${fieldName}, skipping insertion`);
-          }
-        } catch (error) {
-          log.error(
-            `Failed to save file field ${fieldName}`,
-            {
-              fieldName,
-              globalSlug,
-              relationTableName: `global_${globalSlug}_${toSnakeCase(fieldName)}`,
-              fileValue,
-              finalItemId
-            },
-            error as Error
-          );
-        }
-      }
-
-      await SearchIndexService.onSaveSafe('global', globalSlug, finalItemId);
-
-      return { success: true, itemId: finalItemId };
-    } catch (error) {
-      log.error('Error updating repeatable global', {}, error as Error);
-      return { success: false, error: 'Failed to update global' };
-    }
+    const [canCreate, canUpdate] = await Promise.all([
+      locals.security.hasPermission('create', 'content'),
+      locals.security.hasPermission('update', 'content')
+    ]);
+    return await saveGlobalItem({
+      globalSlug,
+      itemId,
+      data,
+      user: locals.user ? { id: locals.user.id } : null,
+      canCreate,
+      canUpdate
+    });
   }
 );
 
@@ -1259,10 +875,13 @@ export const bulkUpdateGlobalItems = command(
   'unchecked',
   async ({
     globalSlug,
-    items
+    items,
+    locale
   }: {
     globalSlug: string;
     items: Array<{ id: string; tags?: any[]; [key: string]: any }>;
+    /** For localized globals — defaults to `content.defaultLocale`. */
+    locale?: string;
   }) => {
     const { locals } = getRequestEvent();
 
@@ -1274,24 +893,48 @@ export const bulkUpdateGlobalItems = command(
       return { success: false, error: 'Global slug and items array are required' };
     }
 
-    // Check if user can update globals
-    const canUpdate = await locals.security.hasPermission('update', 'content');
-
+    const [canCreate, canUpdate] = await Promise.all([
+      locals.security.hasPermission('create', 'content'),
+      locals.security.hasPermission('update', 'content')
+    ]);
     if (!canUpdate) {
-      return {
-        success: false,
-        error: 'You do not have permission to update content'
-      };
+      return { success: false, error: 'You do not have permission to update content' };
     }
 
     try {
-      // Get global definition from database
       const globalTypeRow = await db.query.globalTypes.findFirst({
         where: eq(schema.globalTypes.slug, globalSlug)
       });
 
       if (!globalTypeRow || globalTypeRow.data_type !== 'repeatable') {
         return { success: false, error: 'Invalid global type' };
+      }
+
+      // For localized globals, route each item through the persister so the
+      // identity/content split + locale row upserts happen correctly. The
+      // inline SQL below is only used for non-localized globals because that
+      // path was hot-tuned and we don't want to regress its performance.
+      const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
+      if (isLocalized) {
+        let errored: string | null = null;
+        for (const rawItem of items) {
+          const { id: rawId, ...rest } = rawItem;
+          const id = !rawId || String(rawId).startsWith('temp-') ? generateUUID() : rawId;
+          const result = await saveGlobalItem({
+            globalSlug,
+            itemId: id,
+            data: rest,
+            user: { id: locals.user.id },
+            canCreate,
+            canUpdate,
+            locale
+          });
+          if (!result.success && !errored) {
+            errored = result.error ?? 'Failed to update item';
+          }
+        }
+        if (errored) return { success: false, error: errored };
+        return { success: true };
       }
 
       const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];

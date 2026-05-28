@@ -7,6 +7,7 @@ import { db } from 'sailorcms/core/db/index.server';
 import { eq, isNotNull, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { files as filesTable } from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
 import { log } from 'sailorcms/core/utils/logger';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 import { RevisionsService } from 'sailorcms/core/services/revisions.server';
@@ -27,9 +28,22 @@ export const purgeCollectionItem = command(
       if (!table) {
         return { success: false, error: `Collection '${collectionSlug}' not found` };
       }
+      const isLocalized =
+        (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
+      // For localized collections the `_locales` sibling holds a FK back to
+      // main; SQLite blocks the main DELETE until those rows go. Drop them
+      // first within the same transaction so the purge stays atomic.
+      if (isLocalized) {
+        const localesTable = schema[
+          `collection_${collectionSlug}_locales` as keyof typeof schema
+        ] as any;
+        if (localesTable) {
+          await db.delete(localesTable).where(eq(localesTable[`${collectionSlug}_id`], itemId));
+        }
+      }
       // Only purge rows that are already soft-deleted — protects against the
       // recovery UI being used to nuke live items.
-      const result = await db
+      await db
         .delete(table)
         .where(and(eq((table as any).id, itemId), isNotNull((table as any).deleted_at)));
       await SearchIndexService.onDeleteSafe('collection', collectionSlug, itemId);
@@ -61,6 +75,13 @@ export const purgeGlobalItem = command(
       const table = schema[`global_${globalSlug}` as keyof typeof schema];
       if (!table) {
         return { success: false, error: `Global '${globalSlug}' not found` };
+      }
+      const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
+      if (isLocalized) {
+        const localesTable = schema[`global_${globalSlug}_locales` as keyof typeof schema] as any;
+        if (localesTable) {
+          await db.delete(localesTable).where(eq(localesTable[`${globalSlug}_id`], itemId));
+        }
       }
       await db
         .delete(table)
