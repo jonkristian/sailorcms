@@ -4,6 +4,8 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.8.0] - 22 May 2026
+
 ### Added
 
 - **`entityLabelJoin(kind, slug)` in `sailorcms/utils/data/entity-label.server`** — shared JOIN + COALESCE primitive for resolving the display title / `updated_at` / `last_modified_by` of any collection or global, picking the editable copy from `_locales` for localized kinds. Recovery list (collections + globals) and dashboard recent-activity feed go through it; future audit / list / sidebar-preview surfaces shouldn't re-derive the localized split.
