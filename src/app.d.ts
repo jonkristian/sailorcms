@@ -16,6 +16,13 @@ declare global {
       security: {
         hasPermission: (action: string, resource: string) => Promise<boolean>;
       };
+      /**
+       * Resolved content locale for the current request (BCP-47, e.g. `'nb-NO'`).
+       * Stamped by `handleSailorHooks` when `resolveContentLocale` is configured
+       * and the resolver returned a non-null value. Undefined for admin routes
+       * (which use paraglide for UI locale) and for unconfigured projects.
+       */
+      contentLocale?: string;
     }
     // interface PageData {}
     // interface PageState {}

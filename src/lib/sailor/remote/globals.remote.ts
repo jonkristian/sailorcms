@@ -1,7 +1,9 @@
 import { command } from '$app/server';
 import { db } from 'sailorcms/core/db/index.server';
-import { asc, desc } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
+import { getContentSettings } from 'sailorcms/utils/data/collections';
 
 /**
  * Get items from a global table for relation fields
@@ -20,16 +22,45 @@ export const getGlobalItems = command('unchecked', async ({ slug }: { slug: stri
       return { success: false, error: `Global table for '${slug}' not found` };
     }
 
-    const result = await db
-      .select({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        id: (globalTable as any).id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        title: (globalTable as any).title
-      })
-      .from(globalTable)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .orderBy(asc((globalTable as any).sort), desc((globalTable as any).created_at));
+    // For localized globals, title + sort live on `_locales` (and main's
+    // copies may have been dropped by `doctor --fix`). Pull them via JOIN at
+    // the default locale; otherwise use main directly.
+    const isLocalized = (fieldConfigurations as any).globals?.[slug]?.localized === true;
+    const localesTable = isLocalized
+      ? (schema[`global_${slug}_locales` as keyof typeof schema] as any)
+      : null;
+    const defaultLocale = isLocalized ? getContentSettings().defaultLocale : null;
+
+    const result =
+      isLocalized && localesTable && defaultLocale
+        ? await db
+            .select({
+              id: (globalTable as any).id,
+              title: localesTable.title
+            })
+            .from(globalTable)
+            .innerJoin(
+              localesTable,
+              and(
+                eq(localesTable[`${slug}_id`], (globalTable as any).id),
+                eq(localesTable.locale, defaultLocale)
+              )
+            )
+            .orderBy(asc(localesTable.sort), desc((globalTable as any).created_at))
+        : await db
+            .select({
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              id: (globalTable as any).id,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              title: (globalTable as any).title
+            })
+            .from(globalTable)
+            .orderBy(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              asc((globalTable as any).sort),
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              desc((globalTable as any).created_at)
+            );
 
     const items = result.map((row: any) => ({
       id: row.id,

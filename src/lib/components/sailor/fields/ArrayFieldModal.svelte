@@ -21,19 +21,15 @@
     itemIndex: number;
   } = $props();
 
-  // Editable copy of the source item — `$state` (not `$derived`) so local
-  // edits via `handleFieldChange` aren't blown away every time the parent
-  // re-renders. Re-seed from `item` on each open via `onOpenChange` rather
-  // than reacting via $effect.
-  let formData: Record<string, any> = $state({ ...(item || {}) });
+  // Editable copy of the source item. `$derived` seeds from `item` initially
+  // and re-seeds when `item`'s reference changes (e.g. dialog reopened on a
+  // different row). Local edits via `handleFieldChange` reassign `formData`
+  // — that override persists until the next `item` change.
+  let formData: Record<string, any> = $derived({ ...(item || {}) });
 
-  // Handle dialog open/close events
+  // Handle dialog close (the seeding part is handled by `$derived` above).
   function handleOpenChange(open: boolean) {
-    if (open) {
-      formData = { ...(item || {}) };
-    } else {
-      onClose();
-    }
+    if (!open) onClose();
   }
 
   function handleSave() {

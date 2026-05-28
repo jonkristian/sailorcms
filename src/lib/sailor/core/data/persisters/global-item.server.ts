@@ -43,7 +43,7 @@ export interface SaveGlobalItemOptions {
    * Locale override for localized globals. Resolution order:
    *   1. This argument
    *   2. `data.locale` (so form payloads can carry it)
-   *   3. `content.defaultLocale` from settings
+   *   3. `content.i18n.default` from settings
    */
   locale?: string;
 }
@@ -154,7 +154,7 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
     if (isLocalized && !currentLocale) {
       return {
         success: false,
-        error: `saveGlobalItem('${globalSlug}'): no locale resolved. Pass data.locale or set content.defaultLocale.`
+        error: `saveGlobalItem('${globalSlug}'): no locale resolved. Pass data.locale or set content.i18n.default.`
       };
     }
 

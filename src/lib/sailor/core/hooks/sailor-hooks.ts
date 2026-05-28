@@ -129,13 +129,42 @@ async function checkRouteAccess(pathname: string, user: User | null | undefined)
 
 type MaybePromise<T> = T | Promise<T>;
 
+export interface SailorHookOptions {
+  /**
+   * Resolve the public-site content locale for the current request. Called
+   * for non-admin routes; should return a BCP-47 content locale (e.g.
+   * `'nb-NO'`) or `null` if the route isn't a localized public path.
+   *
+   * When non-null is returned, sailor:
+   *   1. Stamps `event.locals.contentLocale` for downstream loaders.
+   *   2. Rewrites `<html lang="...">` to the resolved locale on the response.
+   *
+   * Typical use with sailor's URL-alias helpers:
+   * ```ts
+   * import { urlToContentLocale } from 'sailorcms/utils/data';
+   *
+   * handleSailorHooks(event, resolve, {
+   *   resolveContentLocale: (event) => {
+   *     const seg = event.url.pathname.split('/')[1];
+   *     return urlToContentLocale(seg);
+   *   }
+   * });
+   * ```
+   *
+   * Admin routes (`/sailor/*`) ignore this — they use paraglide for their
+   * UI locale.
+   */
+  resolveContentLocale?: (event: RequestEvent) => string | null;
+}
+
 /**
  * Complete Sailor hooks handler - handles auth, logging, ACL, everything
  * Single entry point for hooks.server.ts
  */
 export async function handleSailorHooks(
   event: RequestEvent,
-  resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>
+  resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>,
+  options?: SailorHookOptions
 ): Promise<Response> {
   // Initialize database on first request
   await ensureDatabaseInitialized();
@@ -146,13 +175,14 @@ export async function handleSailorHooks(
       return await auth.handler(event.request);
     }
 
-    return handleSailorRequest(event, resolve);
+    return handleSailorRequest(event, resolve, options);
   });
 }
 
 async function handleSailorRequest(
   event: RequestEvent,
-  resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>
+  resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>,
+  options?: SailorHookOptions
 ): Promise<Response> {
   // Get session for other routes
   const session = await auth.api.getSession({
@@ -267,19 +297,37 @@ async function handleSailorRequest(
 
   // Stamp the admin tree's `<html lang>` from the active paraglide locale so
   // the admin UI's lang attribute tracks the user's language toggle (screen
-  // readers, browser translation). Public-site `<html lang>` is the
-  // consumer's responsibility — set it in `app.html` (static sites) or via
-  // their own transformPageChunk (dynamic per-route language).
+  // readers, browser translation). Public-site `<html lang>` is resolved via
+  // the optional `resolveContentLocale` hook option — when set, sailor
+  // mirrors the resolved BCP-47 locale into `event.locals.contentLocale` AND
+  // rewrites `<html lang>` on the response. Consumers without the hook
+  // option keep owning their public-site lang attribute via `app.html` or
+  // their own `transformPageChunk`.
   const isAdminRoute = event.url.pathname.startsWith('/sailor');
+
+  let publicLangForHtml: string | null = null;
+  if (!isAdminRoute && options?.resolveContentLocale) {
+    try {
+      const resolved = options.resolveContentLocale(event);
+      if (resolved) {
+        event.locals.contentLocale = resolved;
+        publicLangForHtml = resolved;
+      }
+    } catch (err) {
+      log.warn('resolveContentLocale threw — falling back to no content locale', { error: err });
+    }
+  }
+
+  const langForHtml = isAdminRoute ? locale : publicLangForHtml;
   const response = await localeStore.run(locale, () =>
     resolve(
       event,
-      isAdminRoute
+      langForHtml
         ? {
             transformPageChunk: ({ html }) =>
               html.replace(/<html(\s+[^>]*)?>/, (_match, attrs) => {
                 const cleaned = (attrs ?? '').replace(/\s+lang="[^"]*"/i, '');
-                return `<html lang="${locale}"${cleaned}>`;
+                return `<html lang="${langForHtml}"${cleaned}>`;
               })
           }
         : undefined

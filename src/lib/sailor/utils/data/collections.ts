@@ -45,12 +45,67 @@ function isLocalizedCollection(slug: string): boolean {
  * resolution rules — keeps the localized read shape consistent everywhere.
  */
 export function getContentSettings() {
-  const s = (generatedSettings as any).settings?.content ?? {};
+  const i18n = (generatedSettings as any).settings?.content?.i18n ?? {};
   return {
-    locales: s.locales as string[] | undefined,
-    defaultLocale: s.defaultLocale as string | undefined,
-    fallback: (s.fallback as 'default' | 'strict' | undefined) ?? 'default'
+    locales: i18n.locales as string[] | undefined,
+    defaultLocale: i18n.default as string | undefined,
+    fallback: (i18n.fallback as 'default' | 'strict' | undefined) ?? 'default',
+    urlAliases: (i18n.urlAliases as Record<string, string> | undefined) ?? {}
   };
+}
+
+/**
+ * Configured content locales (e.g. `['en', 'nb-NO']`) — convenience wrapper
+ * over `getContentSettings().locales`. Empty array if i18n isn't configured.
+ * Use for language switchers, sitemap loops, hreflang generation.
+ */
+export function getContentLocales(): string[] {
+  return getContentSettings().locales ?? [];
+}
+
+/**
+ * URL segments for the configured content locales, applying
+ * `content.i18n.urlAliases`. A locale without an alias uses its BCP-47
+ * code unchanged. Example: with `locales: ['en', 'nb-NO']` and
+ * `urlAliases: { 'nb-NO': 'no' }`, returns `['en', 'no']`.
+ *
+ * Use for `params` matchers, navigation menus, sitemap loops — anywhere
+ * you need the URL form rather than the content code.
+ */
+export function getUrlLangs(): string[] {
+  const { locales, urlAliases } = getContentSettings();
+  if (!locales) return [];
+  return locales.map((l) => urlAliases[l] ?? l);
+}
+
+/**
+ * Convert a URL segment (e.g. `'no'`) to the BCP-47 content locale
+ * (e.g. `'nb-NO'`). Returns the input unchanged if no alias matches —
+ * which is the right behavior when the URL segment IS the content code
+ * (e.g. `'en'` maps to `'en'` whether aliased or not).
+ *
+ * Returns `null` if the input doesn't match any configured locale (after
+ * alias resolution) — useful for param matchers / 404-on-unknown-lang.
+ */
+export function urlToContentLocale(urlLang: string): string | null {
+  const { locales, urlAliases } = getContentSettings();
+  if (!locales) return null;
+  // Build reverse lookup once: alias → content code
+  for (const [content, alias] of Object.entries(urlAliases)) {
+    if (alias === urlLang) {
+      return locales.includes(content) ? content : null;
+    }
+  }
+  // No alias matched — check if the URL segment IS a content code.
+  return locales.includes(urlLang) ? urlLang : null;
+}
+
+/**
+ * Convert a BCP-47 content locale (e.g. `'nb-NO'`) to its URL segment
+ * (e.g. `'no'`). Returns the locale unchanged if no alias exists.
+ */
+export function contentToUrlLang(contentLocale: string): string {
+  return getContentSettings().urlAliases[contentLocale] ?? contentLocale;
 }
 
 /**
@@ -174,7 +229,7 @@ export interface CollectionsOptions {
   // Localization (only meaningful for collections declared `localized: true`)
   /**
    * BCP-47 locale to fetch (e.g. `'en'`, `'nb-NO'`). Defaults to
-   * `content.defaultLocale` from settings when unset. Ignored for
+   * `content.i18n.default` from settings when unset. Ignored for
    * non-localized collections.
    */
   locale?: string;
@@ -182,7 +237,7 @@ export interface CollectionsOptions {
    * Behavior when the requested locale has no row for an item:
    * - `'default'`: return the default-locale row marked `_localeFallback`.
    * - `'strict'`: return null (single-item) or omit (multi-item).
-   * Defaults to `content.fallback` from settings, then `'default'`.
+   * Defaults to `content.i18n.fallback` from settings, then `'default'`.
    */
   fallback?: 'default' | 'strict';
 }
@@ -527,12 +582,23 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
 
   if (!requestedLocale) {
     console.error(
-      `getCollections('${collectionSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale in templates/settings.ts.`
+      `getCollections('${collectionSlug}', ...): no locale resolved. Pass { locale } or set content.i18n.default in templates/settings.ts.`
     );
     return null;
   }
 
   const fkField = `${collectionSlug}_id`;
+
+  // Only pull identity columns from main — content lives canonically on
+  // `_locales` and gets overridden in the flatten anyway. Avoids referencing
+  // main content columns that `doctor --fix` may have dropped after migration.
+  const mainIdentity = {
+    id: (mainTable as any).id,
+    created_at: (mainTable as any).created_at,
+    deleted_at: (mainTable as any).deleted_at,
+    deleted_by: (mainTable as any).deleted_by,
+    author: (mainTable as any).author
+  };
 
   const runQuery = async (resolveLocale: string) => {
     const conditions = [liveOnly(mainTable), eq(localesTable.locale, resolveLocale)];
@@ -541,7 +607,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     if (status !== 'all') conditions.push(eq(localesTable.status, status));
 
     return db
-      .select({ main: mainTable, locale: localesTable })
+      .select({ main: mainIdentity, locale: localesTable })
       .from(mainTable)
       .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
       .where(and(...conditions))
@@ -837,7 +903,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
   const requestedLocale = locale ?? defaultLocale;
   if (!requestedLocale) {
     console.error(
-      `getCollections('${collectionSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale.`
+      `getCollections('${collectionSlug}', ...): no locale resolved. Pass { locale } or set content.i18n.default.`
     );
     return { items: [], total: 0, hasMore: false };
   }
@@ -896,6 +962,17 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
 
   const whereClause = and(...whereConditions);
 
+  // Only identity from main — content lives canonically on `_locales`.
+  // Avoids referencing main content columns that `doctor --fix` may have
+  // dropped after migration.
+  const mainIdentity = {
+    id: (mainTable as any).id,
+    created_at: (mainTable as any).created_at,
+    deleted_at: (mainTable as any).deleted_at,
+    deleted_by: (mainTable as any).deleted_by,
+    author: (mainTable as any).author
+  };
+
   // Count via the JOIN — `count()` over the joined row count gives us the
   // total items matching the filter, same semantics as the non-localized path.
   const countPromise = db
@@ -906,7 +983,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
 
   // Items query
   let itemsQuery: any = db
-    .select({ main: mainTable, locale: localesTable })
+    .select({ main: mainIdentity, locale: localesTable })
     .from(mainTable)
     .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
     .where(whereClause);

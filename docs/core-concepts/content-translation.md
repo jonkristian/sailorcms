@@ -21,16 +21,18 @@ In `src/lib/sailor/templates/settings.ts`:
 export const settings: SailorSettings = {
   // ...
   content: {
-    locales: ['en', 'nb-NO'], // BCP-47 codes for available content locales
-    defaultLocale: 'en', // used for prefill, fallback, migration backfill
-    fallback: 'default' // 'default' | 'strict' — see §5
+    i18n: {
+      locales: ['en', 'nb-NO'], // BCP-47 codes for available content locales
+      default: 'en', // used for prefill, fallback, migration backfill
+      fallback: 'default' // 'default' | 'strict' — see §5
+    }
   }
 };
 ```
 
-- If `content.locales` is unset, Paraglide's `locales` are used.
-- If `content.defaultLocale` is unset, Paraglide's `baseLocale` is used.
-- Adding a locale to `content.locales` is a settings change only — no schema migration. Existing items gain support for the new locale; editors translate one at a time, prefilled from the default.
+- If `content.i18n.locales` is unset, Paraglide's `locales` are used.
+- If `content.i18n.default` is unset, Paraglide's `baseLocale` is used.
+- Adding a locale to `content.i18n.locales` is a settings change only — no schema migration. Existing items gain support for the new locale; editors translate one at a time, prefilled from the default.
 - Removing a locale is also a settings change — existing `_locales` rows for the removed locale stay in the DB (data-preservation default). Cleanup is queued for a future `sailor content:purge-locale <code>` CLI.
 
 ---
@@ -117,7 +119,7 @@ Resolution:
 2. If no `_locales` row for the requested locale and `fallback === 'default'`: return the default-locale row with a `_localeFallback: 'en'` marker so the consumer can render an indicator.
 3. If `fallback === 'strict'`: omit / return null.
 
-If `locale` is unset, `content.defaultLocale` from settings is used.
+If `locale` is unset, `content.i18n.default` from settings is used.
 
 For non-localized collections, `locale` / `fallback` are ignored.
 
@@ -141,7 +143,7 @@ For your public site, build per-locale URLs from `_locales.slug` and emit `<link
 1. Set `localized: true` in the template.
 2. Run `npx sailor db:update`.
 3. The auto-migrator (`cli/tools/db-i18n-migrator.js`) runs after drizzle-kit's migrations:
-   - Emits one `_locales` row per existing main row at `content.defaultLocale`, copying every column that exists on both tables.
+   - Emits one `_locales` row per existing main row at `content.i18n.default`, copying every column that exists on both tables.
    - Re-points child-table FK columns (arrays, files, m2m junctions) from `main.id` → `_locales.id` for every migrated row.
    - Rewrites any legacy `<base>_locales` `taggable_type` rows to the unified `<base>` convention.
    - Idempotent — re-running is a no-op.
@@ -167,11 +169,122 @@ The fix is opt-in and intentionally separated from `db:update` — drops are des
 
 ---
 
-## 8. Limitations & queued follow-ups
+## 8. Path-prefix routing recipe (public site)
+
+The most common public-site shape is one URL segment per language: `/no/...`, `/en/...`. Sailor doesn't enforce a routing pattern, but ships helpers and a hook option that make the typical setup mostly settings-driven.
+
+### Settings — URL aliases
+
+Content codes follow BCP-47 (`'nb-NO'`); URL aliases let the public site use friendlier segments (`'no'`):
+
+```ts
+// templates/settings.ts
+content: {
+  i18n: {
+    locales: ['en', 'nb-NO'],
+    default: 'en',
+    fallback: 'default',
+    urlAliases: { 'nb-NO': 'no' } // optional; defaults to BCP-47 codes
+  }
+}
+```
+
+With this, `getUrlLangs()` returns `['en', 'no']`, `urlToContentLocale('no')` returns `'nb-NO'`, and `contentToUrlLang('nb-NO')` returns `'no'`. Locales without an alias use their BCP-47 code unchanged.
+
+### Param matcher
+
+```ts
+// src/params/lang.ts
+import type { ParamMatcher } from '@sveltejs/kit';
+import { urlToContentLocale } from 'sailorcms/utils/data';
+
+export const match: ParamMatcher = (param) => urlToContentLocale(param) !== null;
+```
+
+Then route folders use `[lang=lang]` and `params.lang` is guaranteed to be a configured URL segment.
+
+### Hook — stamp `<html lang>` + `event.locals.contentLocale`
+
+```ts
+// src/hooks.server.ts
+import { type Handle } from '@sveltejs/kit';
+import { handleSailorHooks } from 'sailorcms/core/hooks/sailor-hooks';
+import { urlToContentLocale } from 'sailorcms/utils/data';
+
+export const handle: Handle = ({ event, resolve }) =>
+  handleSailorHooks(event, resolve, {
+    resolveContentLocale: (event) => {
+      // Skip admin tree — paraglide handles its own locale there.
+      if (event.url.pathname.startsWith('/sailor')) return null;
+      const seg = event.url.pathname.split('/')[1];
+      return urlToContentLocale(seg);
+    }
+  });
+```
+
+This:
+
+- Stamps `event.locals.contentLocale = 'nb-NO'` for downstream loaders.
+- Rewrites `<html lang="nb-NO">` on the response — correct BCP-47 value for SEO / screen readers.
+
+### Loader — thread `locale`
+
+```ts
+// src/routes/(site)/[lang=lang]/pages/[slug]/+page.server.ts
+import { getCollections } from 'sailorcms/utils/data';
+import { urlToContentLocale } from 'sailorcms/utils/data';
+
+export const load = async ({ params }) => {
+  const locale = urlToContentLocale(params.lang)!; // matcher guarantees this
+  const page = await getCollections('pages', {
+    itemSlug: params.slug,
+    locale,
+    includeTranslations: true // for the language switcher below
+  });
+  return { page, locale };
+};
+```
+
+> Note: until an "implicit locale via `event.locals.contentLocale`" pickup lands in `getCollections`, the `locale` arg has to be threaded explicitly. The matcher + hook plumbing above is the boilerplate-light path today.
+
+### Language switcher
+
+```svelte
+<!-- src/routes/(site)/[lang=lang]/+layout.svelte -->
+<script>
+  import { page } from '$app/state';
+  import LanguageSwitcher from 'sailorcms/components/sailor/site/LanguageSwitcher.svelte';
+
+  let { data, children } = $props();
+</script>
+
+<LanguageSwitcher
+  translations={data.page?.translations ?? []}
+  currentLocale={data.locale}
+  buildHref={(locale, translation, urlLang) =>
+    translation ? `/${urlLang}/pages/${translation.slug}` : `/${urlLang}`}
+/>
+
+{@render children?.()}
+```
+
+`buildHref`'s third arg (`urlLang`) is the URL form (alias applied). The first arg (`locale`) stays BCP-47 so you can pass it through to other APIs. `translation` is the row from `includeTranslations: true` — present means a real translation exists; `null` means missing (consumer decides whether to omit, link to home, or render a disabled chip).
+
+### What this gives you
+
+- One settings block defines locales + URL form.
+- One matcher line, one hook block, one switcher component.
+- `<html lang>` is correct on every public page automatically.
+- Switcher deep-links to the per-locale slug when translations exist, falls back gracefully when they don't.
+
+---
+
+## 9. Limitations & queued follow-ups
 
 - **Flat globals** (`dataType: 'flat'`) aren't localized — open an issue if you have a use case (the core mechanism would work; we deferred to keep v1 scope tight).
 - **Core `files` and `tags` tables** stay single-language. Per-usage `alt_override` on file junctions is per-locale already (junction FKs to `_locales.id`); tag selections are per-locale too. What's not yet translatable: file metadata in the media library (`alt`, `title`, `description`) and tag labels themselves. `files_locales` / `tags_locales` are queued.
 - **Removing a locale** doesn't auto-purge `_locales` rows for that locale — queued `sailor content:purge-locale <code>` CLI.
 - **Staleness indicator** — comparing each translation's `updated_at` against the default-locale row's `updated_at` to flag "may need update" siblings in the locale switcher — queued.
 - **Cross-locale revisions UI** — revisions are correctly scoped per translation; the History dialog shows one stream at a time. Per-item history is split across N translations; merging chronologically with locale labels is queued.
-- **Public site `hreflang` helper** — consumer-side concern; a small `<HreflangLinks item={...} />` helper is queued.
+- **`<HreflangLinks item={...} />` helper** — wraps `includeTranslations` + `contentToUrlLang` into ready-to-paste `<link rel="alternate" hreflang>` markup for `<svelte:head>`. Queued.
+- **Implicit locale pickup in `getCollections` / `getGlobals`** — today the `locale` arg has to be threaded through every loader. A `getCollectionsFor(event, slug, options)` variant that reads `event.locals.contentLocale` is queued; the existing signatures stay unchanged for backward compat.

@@ -276,7 +276,7 @@ async function loadLocalizedList({
   const { defaultLocale } = getContentSettings();
   if (!defaultLocale) {
     throw new Error(
-      `Localized collection '${slug}' needs content.defaultLocale set in templates/settings.ts`
+      `Localized collection '${slug}' needs content.i18n.default set in templates/settings.ts`
     );
   }
 
@@ -310,8 +310,12 @@ async function loadLocalizedList({
 
   const whereClause = and(...whereConditions);
 
-  // Sort column lives on main (created_at) or locales (everything else).
-  const sortCol = (collectionTable as any)[sortBy] ?? localesTable[sortBy];
+  // Sort column: prefer `_locales` (canonical for localized columns), fall
+  // back to main for identity-only columns like `created_at`. Inverted from
+  // "main first" because doctor --fix drops shadowed main columns — Drizzle's
+  // schema view still lists them, so the old "main first" lookup resolved to
+  // a column that no longer exists in the DB.
+  const sortCol = localesTable[sortBy] ?? (collectionTable as any)[sortBy];
   const orderBy = sortCol
     ? sortOrder === 'asc'
       ? asc(sortCol)

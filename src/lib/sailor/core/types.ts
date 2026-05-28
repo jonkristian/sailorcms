@@ -335,7 +335,7 @@ export type CollectionDefinition = {
    * editable fields (text, files, relations, tags, blocks) become per-locale,
    * and editors translate via the locale switcher on the edit page.
    *
-   * Requires `content.locales` configured in `settings.ts`. Default `false`.
+   * Requires `content.i18n.locales` configured in `settings.ts`. Default `false`.
    * Adding this flag to an existing collection triggers a one-shot data
    * migration on the next `db:update` (CLI prompt confirms).
    */
@@ -394,7 +394,7 @@ export type GlobalDefinition = {
    *     collections; each item gets `_locales` rows per language. Editor sees
    *     a list, opens an item, switches locale on the edit page.
    *
-   * Requires `content.locales` configured in `settings.ts`. Default `false`.
+   * Requires `content.i18n.locales` configured in `settings.ts`. Default `false`.
    * Adding to an existing global with data triggers the Phase 1c migration
    * detector — back up first.
    */

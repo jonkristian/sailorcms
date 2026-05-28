@@ -84,9 +84,16 @@ export function entityLabelJoin(kind: EntityKind, slug: string): EntityLabelJoin
 
   const canJoin = !!(localesTable && defaultLocale);
 
-  const titleCol = table.title ?? sql<string | null>`NULL`;
-  const updatedCol = table.updated_at ?? sql<Date | null>`NULL`;
-  const lastModifiedCol = table.last_modified_by ?? sql<string | null>`NULL`;
+  // Non-localized: read from main. Localized + can-join: read from `_locales`
+  // directly (don't COALESCE down to main — those columns may have been
+  // dropped by `doctor --fix`, which would break the SQL).
+  const titleCol = canJoin ? localesTable.title : (table.title ?? sql<string | null>`NULL`);
+  const updatedCol = canJoin
+    ? localesTable.updated_at
+    : (table.updated_at ?? sql<Date | null>`NULL`);
+  const lastModifiedCol = canJoin
+    ? localesTable.last_modified_by
+    : (table.last_modified_by ?? sql<string | null>`NULL`);
 
   return {
     table,
@@ -97,12 +104,8 @@ export function entityLabelJoin(kind: EntityKind, slug: string): EntityLabelJoin
     joinCondition: canJoin
       ? and(eq(localesTable[fkField], table.id), eq(localesTable.locale, defaultLocale))!
       : null,
-    title: canJoin ? sql<string | null>`COALESCE(${localesTable.title}, ${titleCol})` : titleCol,
-    updated_at: canJoin
-      ? sql<Date | null>`COALESCE(${localesTable.updated_at}, ${updatedCol})`
-      : updatedCol,
-    last_modified_by: canJoin
-      ? sql<string | null>`COALESCE(${localesTable.last_modified_by}, ${lastModifiedCol})`
-      : lastModifiedCol
+    title: titleCol,
+    updated_at: updatedCol,
+    last_modified_by: lastModifiedCol
   };
 }

@@ -62,7 +62,7 @@ async function resolveLocaleScope(
   const currentLocale = locale || defaultLocale;
   if (!currentLocale) {
     throw new Error(
-      `Localized global '${globalSlug}' needs content.defaultLocale set in templates/settings.ts`
+      `Localized global '${globalSlug}' needs content.i18n.default set in templates/settings.ts`
     );
   }
 
@@ -165,7 +165,7 @@ export const updateGlobalItemTags = command(
     globalSlug: string;
     itemId: string;
     tags: string[];
-    /** For localized globals — defaults to `content.defaultLocale`. */
+    /** For localized globals — defaults to `content.i18n.default`. */
     locale?: string;
   }) => {
     if (!globalSlug || !itemId || !Array.isArray(tags)) {
@@ -207,7 +207,7 @@ export const addGlobalItemTags = command(
     globalSlug: string;
     itemId: string;
     tags: string[];
-    /** For localized globals — defaults to `content.defaultLocale`. */
+    /** For localized globals — defaults to `content.i18n.default`. */
     locale?: string;
   }) => {
     if (!globalSlug || !itemId || !Array.isArray(tags) || tags.length === 0) {
@@ -253,7 +253,7 @@ export const removeGlobalItemTags = command(
     globalSlug: string;
     itemId: string;
     tags: string[];
-    /** For localized globals — defaults to `content.defaultLocale`. */
+    /** For localized globals — defaults to `content.i18n.default`. */
     locale?: string;
   }) => {
     if (!globalSlug || !itemId || !Array.isArray(tags) || tags.length === 0) {
@@ -364,7 +364,7 @@ export const updateGlobalItemStatus = command(
     globalSlug: string;
     itemId: string;
     status: string;
-    /** For localized globals — defaults to `content.defaultLocale`. Status lives on `_locales` for localized globals (per-translation publish state). */
+    /** For localized globals — defaults to `content.i18n.default`. Status lives on `_locales` for localized globals (per-translation publish state). */
     locale?: string;
   }) => {
     const { locals } = getRequestEvent();
@@ -398,7 +398,7 @@ export const updateGlobalItemStatus = command(
         if (!currentLocale) {
           return {
             success: false,
-            error: `Localized global '${globalSlug}' needs content.defaultLocale set in templates/settings.ts`
+            error: `Localized global '${globalSlug}' needs content.i18n.default set in templates/settings.ts`
           };
         }
         const localesTable = (schema as any)[`global_${globalSlug}_locales`];
@@ -449,7 +449,7 @@ export const reorderGlobalItems = command(
   }: {
     globalSlug: string;
     items: Array<{ id: string; parent_id?: string | null }>;
-    /** For localized globals — defaults to `content.defaultLocale`. Sort + parent_id live on `_locales` (per-locale tree structure). */
+    /** For localized globals — defaults to `content.i18n.default`. Sort + parent_id live on `_locales` (per-locale tree structure). */
     locale?: string;
   }) => {
     const { locals } = getRequestEvent();
@@ -480,7 +480,7 @@ export const reorderGlobalItems = command(
         if (!currentLocale) {
           return {
             success: false,
-            error: `Localized global '${globalSlug}' needs content.defaultLocale set in templates/settings.ts`
+            error: `Localized global '${globalSlug}' needs content.i18n.default set in templates/settings.ts`
           };
         }
         const localesTable = (schema as any)[`global_${globalSlug}_locales`];
@@ -880,7 +880,7 @@ export const bulkUpdateGlobalItems = command(
   }: {
     globalSlug: string;
     items: Array<{ id: string; tags?: any[]; [key: string]: any }>;
-    /** For localized globals — defaults to `content.defaultLocale`. */
+    /** For localized globals — defaults to `content.i18n.default`. */
     locale?: string;
   }) => {
     const { locals } = getRequestEvent();

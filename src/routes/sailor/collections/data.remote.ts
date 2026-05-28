@@ -49,7 +49,7 @@ async function resolveLocaleScope(
   const currentLocale = locale || defaultLocale;
   if (!currentLocale) {
     throw new Error(
-      `Localized collection '${collectionSlug}' needs content.defaultLocale set in templates/settings.ts`
+      `Localized collection '${collectionSlug}' needs content.i18n.default set in templates/settings.ts`
     );
   }
 
@@ -394,7 +394,7 @@ export const updateCollectionItemsSort = command(
   }: {
     collectionSlug: string;
     updates: Array<{ id: string; sort: number }>;
-    /** For localized collections — defaults to `content.defaultLocale`. Sort lives on `_locales` (per-locale tree). */
+    /** For localized collections — defaults to `content.i18n.default`. Sort lives on `_locales` (per-locale tree). */
     locale?: string;
   }) => {
     const { locals } = getRequestEvent();
@@ -425,7 +425,7 @@ export const updateCollectionItemsSort = command(
         if (!currentLocale) {
           return {
             success: false,
-            error: `Localized collection '${collectionSlug}' needs content.defaultLocale set in templates/settings.ts`
+            error: `Localized collection '${collectionSlug}' needs content.i18n.default set in templates/settings.ts`
           };
         }
         const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
@@ -492,7 +492,7 @@ export const updateCollectionItemNesting = command(
     itemId: string;
     parentId: string | null;
     newIndex: number;
-    /** For localized collections — defaults to `content.defaultLocale`. parent_id + sort live on `_locales`. */
+    /** For localized collections — defaults to `content.i18n.default`. parent_id + sort live on `_locales`. */
     locale?: string;
   }) => {
     const { locals } = getRequestEvent();
@@ -534,7 +534,7 @@ export const updateCollectionItemNesting = command(
         if (!currentLocale) {
           return {
             success: false,
-            error: `Localized collection '${collectionSlug}' needs content.defaultLocale set`
+            error: `Localized collection '${collectionSlug}' needs content.i18n.default set`
           };
         }
         const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
@@ -638,7 +638,7 @@ export const updateCollectionItemTags = command(
     collectionSlug: string;
     itemId: string;
     tags: string[];
-    /** For localized collections — defaults to `content.defaultLocale`. */
+    /** For localized collections — defaults to `content.i18n.default`. */
     locale?: string;
   }) => {
     if (!collectionSlug || !itemId || !Array.isArray(tags)) {

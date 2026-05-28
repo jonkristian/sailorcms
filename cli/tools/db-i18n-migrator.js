@@ -4,7 +4,7 @@
 // For each pending entity:
 //
 //   1. Seed `_locales` with one row per main row, copying every column that
-//      exists in both tables. The seed row is locked to `content.defaultLocale`.
+//      exists in both tables. The seed row is locked to `content.i18n.default`.
 //   2. Re-point child tables (arrays, files, m2m junctions) so their FK
 //      columns reference the new `_locales` row id instead of main.id.
 //   3. Rewrite `taggables.taggable_type` from `<base>_locales` → `<base>` so
@@ -163,8 +163,16 @@ async function seedLocales(db, m, defaultLocale) {
 }
 
 /**
- * Re-point child tables (arrays, files, junctions) from main.id → _locales.id.
- * For each main id that we just seeded, UPDATE the child rows that reference it.
+ * Re-point child tables (arrays, files, junctions, blocks) from main.id →
+ * _locales.id. For each main id that we just seeded, UPDATE the child rows
+ * that reference it.
+ *
+ * Blocks need a separate enumeration path: they don't appear under the
+ * collection template's `fields`, they live in their own `templates/blocks/`
+ * directory and attach via a per-collection FK column `block_<type>.collection_id`.
+ * Without this pass, post-migration block reads (`block_loader` keyed on
+ * `_locales.id`) return zero rows and the page renders empty. Collections
+ * only — globals don't have blocks.
  */
 async function repointChildren(db, m, mapping, def) {
   if (mapping.size === 0) return;
@@ -181,6 +189,24 @@ async function repointChildren(db, m, mapping, def) {
       tasks.push({ table: `${childPrefix}_${snake}`, col: 'parent_id' });
     } else if (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many') {
       tasks.push({ table: `junction_${m.slug}_${snake}`, col: fkColumn });
+    }
+  }
+
+  // Blocks (collections only, when enabled). Walk every `block_*` table that
+  // actually has a `collection_id` column — that excludes `block_types` (the
+  // type registry) and nested block tables like `block_features_features`
+  // (which use `parent_id` to hang off their parent block row, not
+  // `collection_id`). The WHERE clause scopes to only this collection's items
+  // via their main ids.
+  if (m.kind === 'collection' && def.options?.blocks) {
+    const blockTablesRes = await db.run(
+      sql.raw(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'block_%'`)
+    );
+    for (const row of blockTablesRes.rows || []) {
+      const cols = await tableColumns(db, row.name);
+      if (cols.includes('collection_id')) {
+        tasks.push({ table: row.name, col: 'collection_id' });
+      }
     }
   }
 
@@ -216,10 +242,10 @@ export async function runI18nMigrations(targetDir, pendingMigrations) {
   if (!db) return;
 
   const settings = await loadSettings(targetDir);
-  const defaultLocale = settings.content?.defaultLocale;
+  const defaultLocale = settings.content?.i18n?.default;
   if (!defaultLocale) {
     throw new Error(
-      'i18n migration: `content.defaultLocale` is not set in templates/settings.ts. ' +
+      'i18n migration: `content.i18n.default` is not set in templates/settings.ts. ' +
         'Set it before flipping a populated entity to `localized: true`.'
     );
   }

@@ -38,7 +38,7 @@ export interface SaveCollectionItemOptions {
    * resolves the active locale in this order:
    *   1. This `locale` argument
    *   2. `formData.locale` (so form submissions can carry it)
-   *   3. `content.defaultLocale` from settings
+   *   3. `content.i18n.default` from settings
    * Non-localized collections ignore the value.
    */
   locale?: string;
@@ -221,7 +221,7 @@ export async function saveCollectionItem(
 
         if (!currentLocale) {
           throw new Error(
-            `saveCollectionItem('${collectionSlug}'): no locale resolved. Pass formData.locale or set content.defaultLocale.`
+            `saveCollectionItem('${collectionSlug}'): no locale resolved. Pass formData.locale or set content.i18n.default.`
           );
         }
 
@@ -890,10 +890,23 @@ export async function saveCollectionItem(
     // Return the persisted row so the client can re-hydrate without a full
     // route reload. For localized collections the canonical content lives on
     // `_locales` — joining main + locales (and letting locales overwrite on
-    // key collision) yields the same shape the loader produces.
-    const [mainRow] = await db
-      .select()
-      .from(collectionTable)
+    // key collision) yields the same shape the loader produces. Pull only
+    // identity from main when localized; main content columns may have been
+    // dropped by `doctor --fix`.
+    const localizedMainIdentity = isLocalized
+      ? {
+          id: (collectionTable as any).id,
+          created_at: (collectionTable as any).created_at,
+          deleted_at: (collectionTable as any).deleted_at,
+          deleted_by: (collectionTable as any).deleted_by,
+          author: (collectionTable as any).author
+        }
+      : null;
+    const [mainRow] = await (
+      localizedMainIdentity
+        ? db.select(localizedMainIdentity).from(collectionTable)
+        : db.select().from(collectionTable)
+    )
       .where(eq((collectionTable as any).id, result.itemId))
       .limit(1);
     let savedRow: any = mainRow;

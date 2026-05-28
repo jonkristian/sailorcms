@@ -734,7 +734,11 @@ export class WordPressImportService {
         delete postData._featuredImageFileId;
         delete postData._categoriesToCreate;
 
-        // Insert the post with slug handling based on options
+        // Insert the post with slug handling based on options.
+        // TODO: WordPress import assumes a non-localized target collection.
+        // For localized collections, `main.slug` may have been dropped by
+        // `doctor --fix` (slug lives on `_locales`). Adding localized-aware
+        // imports is a separate feature.
         try {
           const collectionTable =
             schema[`collection_${options.collectionSlug}` as keyof typeof schema];

@@ -139,7 +139,7 @@ export interface GlobalsOptions {
   user?: User | null; // User context for ACL filtering
 
   // Localization (only meaningful for globals declared `localized: true`)
-  /** BCP-47 locale to fetch; defaults to `content.defaultLocale` from settings. */
+  /** BCP-47 locale to fetch; defaults to `content.i18n.default` from settings. */
   locale?: string;
   /** Behavior when the requested locale has no row for an item: `'default'` returns the default-locale row marked `_localeFallback`; `'strict'` returns null/omits. */
   fallback?: 'default' | 'strict';
@@ -421,16 +421,25 @@ async function handleSingletonLocalizedGlobal<T extends GlobalTypes = GlobalType
   const requestedLocale = locale ?? defaultLocale;
   if (!requestedLocale) {
     console.error(
-      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale.`
+      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.i18n.default.`
     );
     return null;
   }
 
   const fkField = `${globalSlug}_id`;
 
+  // Only pull identity from main — content lives canonically on `_locales`.
+  // Avoids referencing columns that `doctor --fix` may have dropped.
+  const mainIdentity = {
+    id: (mainTable as any).id,
+    created_at: (mainTable as any).created_at,
+    deleted_at: (mainTable as any).deleted_at,
+    deleted_by: (mainTable as any).deleted_by
+  };
+
   const runQuery = async (resolveLocale: string) =>
     db
-      .select({ main: mainTable, locale: localesTable })
+      .select({ main: mainIdentity, locale: localesTable })
       .from(mainTable)
       .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
       .where(
@@ -522,12 +531,21 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
   const requestedLocale = locale ?? defaultLocale;
   if (!requestedLocale) {
     console.error(
-      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.defaultLocale.`
+      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.i18n.default.`
     );
     return null;
   }
 
   const fkField = `${globalSlug}_id`;
+
+  // Only pull identity from main — content lives canonically on `_locales`.
+  // Avoids referencing columns that `doctor --fix` may have dropped.
+  const mainIdentity = {
+    id: (mainTable as any).id,
+    created_at: (mainTable as any).created_at,
+    deleted_at: (mainTable as any).deleted_at,
+    deleted_by: (mainTable as any).deleted_by
+  };
 
   const runQuery = async (resolveLocale: string) => {
     const conditions: any[] = [liveOnly(mainTable), eq(localesTable.locale, resolveLocale)];
@@ -537,7 +555,7 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
       conditions.push(eq(localesTable.status, status));
     }
     return db
-      .select({ main: mainTable, locale: localesTable })
+      .select({ main: mainIdentity, locale: localesTable })
       .from(mainTable)
       .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
       .where(and(...conditions))

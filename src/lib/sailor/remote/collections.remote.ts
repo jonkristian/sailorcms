@@ -1,8 +1,10 @@
 import { command, query } from '$app/server';
 import { db } from 'sailorcms/core/db/index.server';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
+import { fieldConfigurations } from '$sailor/generated/fields';
 import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
+import { getContentSettings } from 'sailorcms/utils/data/collections';
 
 /**
  * Find a non-colliding slug for a given collection/global table.
@@ -50,16 +52,46 @@ export const getCollectionItems = command(
         return { success: false, error: `Collection table for '${collection}' not found` };
       }
 
-      const result = await db
-        .select({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          id: (collectionTable as any).id,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          title: (collectionTable as any).title
-        })
-        .from(collectionTable)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .orderBy(asc((collectionTable as any).sort), desc((collectionTable as any).created_at));
+      // For localized collections, title + sort live on `_locales` (and main's
+      // copies may have been dropped by `doctor --fix`). Pull them via JOIN at
+      // the default locale; otherwise use main directly.
+      const isLocalized =
+        (fieldConfigurations as any).collections?.[collection]?.localized === true;
+      const localesTable = isLocalized
+        ? (schema[`collection_${collection}_locales` as keyof typeof schema] as any)
+        : null;
+      const defaultLocale = isLocalized ? getContentSettings().defaultLocale : null;
+
+      const result =
+        isLocalized && localesTable && defaultLocale
+          ? await db
+              .select({
+                id: (collectionTable as any).id,
+                title: localesTable.title
+              })
+              .from(collectionTable)
+              .innerJoin(
+                localesTable,
+                and(
+                  eq(localesTable[`${collection}_id`], (collectionTable as any).id),
+                  eq(localesTable.locale, defaultLocale)
+                )
+              )
+              .orderBy(asc(localesTable.sort), desc((collectionTable as any).created_at))
+          : await db
+              .select({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                id: (collectionTable as any).id,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                title: (collectionTable as any).title
+              })
+              .from(collectionTable)
+              .orderBy(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                asc((collectionTable as any).sort),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                desc((collectionTable as any).created_at)
+              );
 
       const items = result.map((row: any) => ({
         id: row.id,

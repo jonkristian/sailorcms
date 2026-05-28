@@ -186,7 +186,7 @@ export class SearchIndexService {
    *   - Pass a specific locale → reindex just that translation's row
    *     (what the save handler does after a single-locale save).
    *   - Pass `undefined` → reindex every translation that exists in
-   *     `content.locales` (full rebuild path).
+   *     `content.i18n.locales` (full rebuild path).
    */
   static async reindexEntity(
     entityType: EntityType,

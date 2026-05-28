@@ -53,7 +53,7 @@ export interface LoadCollectionItemOptions {
   /**
    * Locale for localized collections. Resolution order:
    *   1. This argument
-   *   2. `content.defaultLocale` from settings
+   *   2. `content.i18n.default` from settings
    * Non-localized collections ignore the value.
    */
   locale?: string;
@@ -168,7 +168,7 @@ export async function loadCollectionItem(
 
   if (isLocalized && (!contentLocales || contentLocales.length === 0 || !defaultLocale)) {
     const err = new Error(
-      `Collection '${slug}' is marked \`localized: true\` but \`content.locales\` / \`content.defaultLocale\` aren't configured in \`templates/settings.ts\`. Add e.g. \`content: { locales: ['en', 'nb-NO'], defaultLocale: 'en' }\`.`
+      `Collection '${slug}' is marked \`localized: true\` but \`content.i18n.locales\` / \`content.i18n.default\` aren't configured in \`templates/settings.ts\`. Add e.g. \`content: { i18n: { locales: ['en', 'nb-NO'], default: 'en' } }\`.`
     );
     throw err;
   }
@@ -181,9 +181,27 @@ export async function loadCollectionItem(
   // work alongside /collections/posts/<uuid>. For localized collections the
   // slug lives on the `_locales` sibling — join to find it. Both URL forms
   // continue to work post-resolve (no auto-canonicalization).
-  let existingItems = await db
-    .select()
-    .from(collectionTable)
+  // For localized collections, only pull identity from main — content lives
+  // canonically on `_locales` and is fetched separately below. Safe set:
+  // columns doctor --fix won't drop. That's id/created_at/deleted_at/deleted_by
+  // (in doctor's I18N_MAIN_KEEP) + author (main-only, not on _locales so
+  // doctor doesn't touch it). NOT safe: updated_at, last_modified_by — both
+  // live on _locales too and get dropped from main.
+  const localizedMainIdentity = isLocalized
+    ? {
+        id: (collectionTable as any).id,
+        created_at: (collectionTable as any).created_at,
+        deleted_at: (collectionTable as any).deleted_at,
+        deleted_by: (collectionTable as any).deleted_by,
+        author: (collectionTable as any).author
+      }
+    : null;
+
+  let existingItems = await (
+    localizedMainIdentity
+      ? db.select(localizedMainIdentity).from(collectionTable)
+      : db.select().from(collectionTable)
+  )
     .where(eq((collectionTable as any).id, itemId))
     .limit(1);
 
@@ -206,9 +224,11 @@ export async function loadCollectionItem(
     }
     if (resolvedId) {
       itemId = resolvedId;
-      existingItems = await db
-        .select()
-        .from(collectionTable)
+      existingItems = await (
+        localizedMainIdentity
+          ? db.select(localizedMainIdentity).from(collectionTable)
+          : db.select().from(collectionTable)
+      )
         .where(eq((collectionTable as any).id, itemId))
         .limit(1);
     }

@@ -4,6 +4,35 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.8.1] - 28 May 2026
+
+### Added
+
+- **`includeTranslations: true` option on `getCollections` / `getGlobals`** — attaches per-item `translations: [{ locale, slug, status }]`. Opt-in, one extra query per item. Always empty for non-localized entities.
+- **`getContentSettings()` + `getContentLocales()` exported from `sailorcms/utils/data`** — public access to configured locales + default + fallback for language switchers, sitemaps, hreflang.
+- **`<LanguageSwitcher>` consumer-site component** at `components/sailor/site/LanguageSwitcher.svelte` — semantic `<a hreflang>` list, `Intl.DisplayNames` labels, `aria-current="page"`, takes `translations` + `currentLocale` + `buildHref` callback.
+- **`resolveReadLocale` strict gate** — when `fallback: 'strict'` + >1 configured content locales + no `locale` passed, the read throws instead of silently serving the default. Forces explicit thread-through on multilingual routes; default mode unchanged.
+- **URL aliases (`content.i18n.urlAliases`)** + helpers — settings map content locales to URL segments (`{ 'nb-NO': 'no' }` gives `/no/...` URLs while content stays tagged `nb-NO`). New `getUrlLangs()`, `urlToContentLocale(seg)`, `contentToUrlLang(locale)` helpers in `sailorcms/utils/data` (also re-exported). Locales without an alias use their BCP-47 code unchanged.
+- **`resolveContentLocale` option on `handleSailorHooks`** — when supplied, the hook stamps `event.locals.contentLocale` for downstream loaders and rewrites `<html lang="...">` on the public-site response. Admin tree unchanged (still paraglide-driven). Removes the per-consumer `transformPageChunk` boilerplate for the path-prefix routing pattern.
+- **`docs/core-concepts/content-translation.md` §8 "Path-prefix routing recipe"** — copy-pasteable walkthrough: URL-aliases settings → `params/lang` matcher → `handleSailorHooks` resolver → loader threading → `<LanguageSwitcher>` with deep-linked alternates.
+
+### Changed (breaking for 0.8.0 adopters)
+
+- **Settings shape: `content.i18n.{locales, default, fallback}`** — was `content.{locales, defaultLocale, fallback}`. Cleaner namespacing. Migrate `templates/settings.ts` manually; no auto-migration.
+- **`<LanguageSwitcher>` `buildHref` callback gained a third positional arg `urlLang`** — receives the alias-applied URL segment (`'no'` when `urlAliases: { 'nb-NO': 'no' }`). Existing two-arg callers keep working unchanged; new callers should use `urlLang` for path building so URL-alias config is respected automatically.
+
+### Fixed
+
+- **Localized reads broke after `doctor --fix`** — Drizzle `.select({ main: mainTable, ... })` expanded to all main columns including ones doctor dropped (`title`, `slug`, `status`, `updated_at`, `sort`, `parent_id`, content), so the SELECT failed with `no such column` at runtime. Scoped every localized read's main SELECT to identity-only (`id`, `created_at`, `deleted_at`, `deleted_by`, plus `author` for collections); content stays canonical on `_locales` and is fetched separately. Affected: `utils/data/{collections,globals}.ts`, `core/data/loaders/{collection,global}-{item,list}.server.ts`, persisters, `entityLabelJoin`, and `remote/{collections,globals}.remote.ts` relation-field pickers.
+- **i18n migrator missed `block_*.collection_id`** — flipping a blocks-enabled collection to `localized: true` left blocks pointing at `main.id` while the loader expected `_locales.id`; pages rendered empty after migration. `repointChildren()` now walks every `block_*` table with a `collection_id` column and updates them alongside arrays / files / m2m junctions.
+- **Localized list `sortBy` resolved to dropped main column** — `(main as any)[sortBy] ?? localesTable[sortBy]` picked `main.sort` (dropped by doctor) over `_locales.sort` (canonical). Inverted priority — fixes 500 on `/sailor/collections/<slug>` for nestable localized collections post-cleanup.
+- **`entityLabelJoin` `COALESCE(_locales.col, main.col)` referenced dropped main columns** — recovery list / dashboard recent-activity / future audit surfaces failed when doctor had run. Now reads `title` / `updated_at` / `last_modified_by` straight from `_locales` for localized entities; non-localized path unchanged.
+- **Admin item-route load swallowed the original error** — `/sailor/collections/[slug]/+page.server.ts` catch now logs `err` before re-throwing the generic 500. Diagnoses bubble to the dev terminal instead of being lost.
+
+### Known limitations
+
+- **WordPress import doesn't support localized target collections** — slug lookup against `main.slug` fails when doctor dropped it. Marked with a `TODO` in `core/services/wordpress-import.server.ts`; importing into a localized collection isn't a supported path in this release.
+
 ## [0.8.0] - 22 May 2026
 
 ### Added

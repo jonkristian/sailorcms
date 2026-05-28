@@ -21,7 +21,7 @@ export interface LoadGlobalsForListOptions {
   slug: string;
   page?: number;
   pageSize?: number;
-  /** Locale for localized globals; defaults to `content.defaultLocale`. */
+  /** Locale for localized globals; defaults to `content.i18n.default`. */
   locale?: string;
 }
 
@@ -91,7 +91,7 @@ export async function loadGlobalsForList(
   const { locales: contentLocales, defaultLocale } = getContentSettings();
   if (isLocalized && (!contentLocales || contentLocales.length === 0 || !defaultLocale)) {
     throw new Error(
-      `Global '${slug}' is marked \`localized: true\` but \`content.locales\` / \`content.defaultLocale\` aren't configured in \`templates/settings.ts\`. Add e.g. \`content: { locales: ['en', 'nb-NO'], defaultLocale: 'en' }\`.`
+      `Global '${slug}' is marked \`localized: true\` but \`content.i18n.locales\` / \`content.i18n.default\` aren't configured in \`templates/settings.ts\`. Add e.g. \`content: { i18n: { locales: ['en', 'nb-NO'], default: 'en' } }\`.`
     );
   }
   const currentLocale: string | null = isLocalized ? locale || defaultLocale || null : null;
@@ -112,11 +112,25 @@ export async function loadGlobalsForList(
 
   const globalTable = schema[`global_${slug}` as keyof typeof schema];
 
+  // For localized globals, only pull identity from main — content lives on
+  // `_locales` and is merged below. Safe set: doctor --fix keeps these.
+  const localizedMainIdentity =
+    isLocalized && globalTable
+      ? {
+          id: (globalTable as any).id,
+          created_at: (globalTable as any).created_at,
+          deleted_at: (globalTable as any).deleted_at,
+          deleted_by: (globalTable as any).deleted_by
+        }
+      : null;
+
   if (isFlat) {
     if (globalTable) {
-      let result: any[] = await db
-        .select()
-        .from(globalTable)
+      let result: any[] = await (
+        localizedMainIdentity
+          ? db.select(localizedMainIdentity).from(globalTable)
+          : db.select().from(globalTable)
+      )
         .where(and(eq((globalTable as any).id, slug), liveOnly(globalTable)))
         .limit(1);
 

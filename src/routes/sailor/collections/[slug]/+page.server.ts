@@ -28,6 +28,7 @@ export const load = async ({ params, locals, url }: any) => {
     if (err && (err as any).notFound) {
       throw error(404, (err as Error).message);
     }
+    console.error(`Failed to fetch collection items for '${slug}':`, err);
     throw error(500, 'Failed to fetch collection items');
   }
 

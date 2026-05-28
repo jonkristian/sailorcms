@@ -4,6 +4,11 @@
 // Collection utilities
 export {
   getCollections,
+  getContentSettings,
+  getContentLocales,
+  getUrlLangs,
+  urlToContentLocale,
+  contentToUrlLang,
   type CollectionItem,
   type CollectionsOptions,
   type CollectionsMultipleResult,

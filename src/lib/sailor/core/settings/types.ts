@@ -76,12 +76,12 @@ export interface RoleSettings {
 }
 
 // Content / i18n Settings
-export interface ContentSettings {
+export interface ContentI18nSettings {
   /**
    * Available locales for content translation, e.g. `['en', 'nb-NO']`.
    * Defaults to paraglide's configured locales when unset.
    *
-   * Only meaningful for collections opted in via `localized: true`. Adding a
+   * Only meaningful for entities opted in via `localized: true`. Adding a
    * locale here lets editors create translations in that locale; existing
    * items are translated lazily on first edit.
    */
@@ -94,7 +94,7 @@ export interface ContentSettings {
    *
    * Defaults to paraglide's `baseLocale` when unset.
    */
-  defaultLocale?: string;
+  default?: string;
 
   /**
    * Read-time fallback when a requested locale has no row for an item.
@@ -104,9 +104,32 @@ export interface ContentSettings {
    * - `'strict'`: omit the item from results. Good for URL resolvers that
    *   should 404 on missing translations to avoid duplicate-content SEO.
    *
-   * Per-read override via `getCollection({ fallback: ... })`. Defaults to `'default'`.
+   * Per-read override via `getCollections({ fallback: ... })`. Defaults to `'default'`.
    */
   fallback?: 'default' | 'strict';
+
+  /**
+   * Optional URL aliases mapping content locale codes to URL segments.
+   *
+   * Content codes are BCP-47 (e.g. `'nb-NO'`); URL aliases let the public
+   * site use a friendlier form (e.g. `'no'`). Sailor's URL helpers
+   * (`urlToContentLocale`, `contentToUrlLang`, `getUrlLangs`,
+   * `<LanguageSwitcher>`) all respect this map.
+   *
+   * Example:
+   * ```ts
+   * urlAliases: { 'nb-NO': 'no' }
+   * ```
+   * gives the site `/no/...` URLs while content stays tagged `nb-NO`.
+   *
+   * Locales without an alias use their BCP-47 code as the URL segment.
+   * No effect on admin routes (which never use URL aliases).
+   */
+  urlAliases?: Record<string, string>;
+}
+
+export interface ContentSettings {
+  i18n?: ContentI18nSettings;
 }
 
 // Main Settings Interface

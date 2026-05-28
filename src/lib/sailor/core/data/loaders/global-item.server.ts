@@ -23,7 +23,7 @@ export interface LoadGlobalItemOptions {
   /** Required for repeatable globals; ignored for flat (uses slug as id). */
   itemId?: string;
   user: { id: string } | null;
-  /** Locale for localized globals; defaults to `content.defaultLocale`. */
+  /** Locale for localized globals; defaults to `content.i18n.default`. */
   locale?: string;
 }
 
@@ -89,7 +89,7 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
 
   if (isLocalized && (!contentLocales || contentLocales.length === 0 || !defaultLocale)) {
     throw new Error(
-      `Global '${slug}' is marked \`localized: true\` but \`content.locales\` / \`content.defaultLocale\` aren't configured in \`templates/settings.ts\`.`
+      `Global '${slug}' is marked \`localized: true\` but \`content.i18n.locales\` / \`content.i18n.default\` aren't configured in \`templates/settings.ts\`.`
     );
   }
 
@@ -112,9 +112,26 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
     throw err;
   }
 
+  // For localized globals, only pull identity from main — content lives
+  // canonically on `_locales` and is merged below. Safe set: id/created_at/
+  // deleted_at/deleted_by (doctor --fix keeps). NOT safe: updated_at,
+  // last_modified_by, content columns — all dropped from main by doctor.
+  const localizedMainIdentity = isLocalized
+    ? {
+        id: (globalTable as any).id,
+        created_at: (globalTable as any).created_at,
+        deleted_at: (globalTable as any).deleted_at,
+        deleted_by: (globalTable as any).deleted_by
+      }
+    : null;
+
   if (isFlat) {
     // For singletons, try to get the single item (any ID)
-    const existingItems = await db.select().from(globalTable).limit(1);
+    const existingItems = await (
+      localizedMainIdentity
+        ? db.select(localizedMainIdentity).from(globalTable)
+        : db.select().from(globalTable)
+    ).limit(1);
 
     if (existingItems.length === 0) {
       // Auto-instantiate the singleton with default values — preserves the
@@ -192,9 +209,11 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
   } else {
     // Repeatable: try to get the specific item by ID, then by slug for
     // pretty-URL support (e.g. /sailor/globals/menus/main-menu).
-    let existingItems = await db
-      .select()
-      .from(globalTable)
+    let existingItems = await (
+      localizedMainIdentity
+        ? db.select(localizedMainIdentity).from(globalTable)
+        : db.select().from(globalTable)
+    )
       .where(eq((globalTable as any).id, itemId))
       .limit(1);
 
@@ -217,9 +236,11 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
       }
       if (resolvedId) {
         itemId = resolvedId;
-        existingItems = await db
-          .select()
-          .from(globalTable)
+        existingItems = await (
+          localizedMainIdentity
+            ? db.select(localizedMainIdentity).from(globalTable)
+            : db.select().from(globalTable)
+        )
           .where(eq((globalTable as any).id, itemId))
           .limit(1);
       }
