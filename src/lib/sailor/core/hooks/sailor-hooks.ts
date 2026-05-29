@@ -133,20 +133,26 @@ export interface SailorHookOptions {
   /**
    * Resolve the public-site content locale for the current request. Called
    * for non-admin routes; should return a BCP-47 content locale (e.g.
-   * `'nb-NO'`) or `null` if the route isn't a localized public path.
+   * `'nb-NO'`) or a falsy value (null / undefined) if the route isn't a
+   * localized public path.
    *
-   * When non-null is returned, sailor:
+   * Returns `string | null | undefined` so consumers can chain sailor helpers
+   * without casting — both `urlToContentLocale` (returns `string | null`) and
+   * `getContentSettings().defaultLocale` (returns `string | undefined`) flow
+   * through naturally.
+   *
+   * When a non-falsy value is returned, sailor:
    *   1. Stamps `event.locals.contentLocale` for downstream loaders.
    *   2. Rewrites `<html lang="...">` to the resolved locale on the response.
    *
    * Typical use with sailor's URL-alias helpers:
    * ```ts
-   * import { urlToContentLocale } from 'sailorcms/utils/data';
+   * import { urlToContentLocale, getContentSettings } from 'sailorcms/utils/i18n';
    *
    * handleSailorHooks(event, resolve, {
    *   resolveContentLocale: (event) => {
    *     const seg = event.url.pathname.split('/')[1];
-   *     return urlToContentLocale(seg);
+   *     return urlToContentLocale(seg) ?? getContentSettings().defaultLocale;
    *   }
    * });
    * ```
@@ -154,7 +160,7 @@ export interface SailorHookOptions {
    * Admin routes (`/sailor/*`) ignore this — they use paraglide for their
    * UI locale.
    */
-  resolveContentLocale?: (event: RequestEvent) => string | null;
+  resolveContentLocale?: (event: RequestEvent) => string | null | undefined;
 }
 
 /**
@@ -312,6 +318,10 @@ async function handleSailorRequest(
       if (resolved) {
         event.locals.contentLocale = resolved;
         publicLangForHtml = resolved;
+        // Note: SvelteKit's `event.depends()` is only available on load
+        // function events, not on hook events — so the dep tag has to be
+        // registered by the consumer inside their `load()` via
+        // `dependsOnContentLocale(event)`. The hook can't pre-stamp it.
       }
     } catch (err) {
       log.warn('resolveContentLocale threw — falling back to no content locale', { error: err });

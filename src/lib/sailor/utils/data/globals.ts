@@ -110,6 +110,13 @@ export interface GlobalsOptions {
   withRelations?: boolean; // Include items relation for relational globals (default: true)
   withTags?: boolean; // Include tags for the global (default: false)
   loadFullFileObjects?: boolean; // Load full file objects vs just IDs (default: false)
+  /**
+   * Attach `translations: Array<{ locale, slug, status }>` to each returned
+   * item — one entry per row in `<global>_locales` for that item. Use for
+   * language switchers, hreflang generation, sitemaps. Opt-in: costs one
+   * extra query per item. Always empty for non-localized globals.
+   */
+  includeTranslations?: boolean;
   // Content visibility filter applied to repeatable globals (the top-level
   // rows), AND propagated to relation targets (a global field pointing at a
   // collection). Defaults to 'published' so the public site never picks up
@@ -231,6 +238,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
     withRelations = true,
     withTags = false,
     loadFullFileObjects = false,
+    includeTranslations = false,
     status = 'published',
     groupBy,
     orderBy = 'sort',
@@ -276,6 +284,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
           withRelations,
           withTags,
           loadFullFileObjects,
+          includeTranslations,
           status,
           locale,
           fallback
@@ -285,12 +294,13 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
         withRelations,
         withTags,
         loadFullFileObjects,
+        includeTranslations,
         status
       });
     }
 
-    // Repeatable globals. Multi-item localized reads aren't wired yet — fail
-    // loud rather than returning bad results. Phase 2b equivalent for globals.
+    // Repeatable globals — localized branch routes to single-item or
+    // multi-item handler depending on whether the caller asked for one item.
     if (isLocalized) {
       if (isSingleQuery) {
         return await handleRepeatableLocalizedGlobalSingle<T>(globalSlug, globalType, {
@@ -299,17 +309,33 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
           withRelations,
           withTags,
           loadFullFileObjects,
+          includeTranslations,
           status,
           locale,
           fallback,
           user: _user
         });
       }
-      // Multi-item localized repeatable — defer (mirrors collections Phase 2b
-      // staging; bring up when needed).
-      throw new Error(
-        `getGlobals('${globalSlug}', ...): multi-item reads on localized repeatable globals aren't wired yet. Use { itemId } or { itemSlug } in the meantime.`
-      );
+      return await handleRepeatableLocalizedGlobalMulti<T>(globalSlug, globalType, {
+        parentId,
+        siblingOf,
+        excludeCurrent,
+        withRelations,
+        withTags,
+        loadFullFileObjects,
+        includeTranslations,
+        status,
+        groupBy,
+        orderBy,
+        order,
+        limit,
+        offset,
+        baseUrl,
+        currentPage,
+        locale,
+        fallback,
+        user: _user
+      });
     }
 
     // Handle repeatable globals
@@ -323,6 +349,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
       withRelations,
       withTags,
       loadFullFileObjects,
+      includeTranslations,
       status,
       groupBy,
       orderBy,
@@ -354,10 +381,11 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    includeTranslations: boolean;
     status: RelationStatus;
   }
 ): Promise<GlobalsSingleResult<T>> {
-  const { withRelations, withTags, loadFullFileObjects, status } = options;
+  const { withRelations, withTags, loadFullFileObjects, includeTranslations, status } = options;
 
   const globalTable = schema[`global_${globalSlug}` as keyof typeof schema];
   if (!globalTable) {
@@ -381,6 +409,7 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations,
     withTags,
     loadFullFileObjects,
+    includeTranslations,
     status
   });
 
@@ -399,12 +428,21 @@ async function handleSingletonLocalizedGlobal<T extends GlobalTypes = GlobalType
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    includeTranslations: boolean;
     status: RelationStatus;
     locale?: string;
     fallback?: 'default' | 'strict';
   }
 ): Promise<GlobalsSingleResult<T>> {
-  const { withRelations, withTags, loadFullFileObjects, status, locale, fallback } = options;
+  const {
+    withRelations,
+    withTags,
+    loadFullFileObjects,
+    includeTranslations,
+    status,
+    locale,
+    fallback
+  } = options;
 
   const mainTableName = `global_${globalSlug}`;
   const localesTableName = `${mainTableName}_locales`;
@@ -428,18 +466,9 @@ async function handleSingletonLocalizedGlobal<T extends GlobalTypes = GlobalType
 
   const fkField = `${globalSlug}_id`;
 
-  // Only pull identity from main — content lives canonically on `_locales`.
-  // Avoids referencing columns that `doctor --fix` may have dropped.
-  const mainIdentity = {
-    id: (mainTable as any).id,
-    created_at: (mainTable as any).created_at,
-    deleted_at: (mainTable as any).deleted_at,
-    deleted_by: (mainTable as any).deleted_by
-  };
-
   const runQuery = async (resolveLocale: string) =>
     db
-      .select({ main: mainIdentity, locale: localesTable })
+      .select({ main: mainTable, locale: localesTable })
       .from(mainTable)
       .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
       .where(
@@ -480,6 +509,7 @@ async function handleSingletonLocalizedGlobal<T extends GlobalTypes = GlobalType
     withRelations,
     withTags,
     loadFullFileObjects,
+    includeTranslations,
     status
   });
 
@@ -499,6 +529,7 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    includeTranslations: boolean;
     status: RelationStatus;
     locale?: string;
     fallback?: 'default' | 'strict';
@@ -511,6 +542,7 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
     withRelations,
     withTags,
     loadFullFileObjects,
+    includeTranslations,
     status,
     locale,
     fallback
@@ -538,15 +570,6 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
 
   const fkField = `${globalSlug}_id`;
 
-  // Only pull identity from main — content lives canonically on `_locales`.
-  // Avoids referencing columns that `doctor --fix` may have dropped.
-  const mainIdentity = {
-    id: (mainTable as any).id,
-    created_at: (mainTable as any).created_at,
-    deleted_at: (mainTable as any).deleted_at,
-    deleted_by: (mainTable as any).deleted_by
-  };
-
   const runQuery = async (resolveLocale: string) => {
     const conditions: any[] = [liveOnly(mainTable), eq(localesTable.locale, resolveLocale)];
     if (itemId) conditions.push(eq(mainTable.id, itemId));
@@ -555,7 +578,7 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
       conditions.push(eq(localesTable.status, status));
     }
     return db
-      .select({ main: mainIdentity, locale: localesTable })
+      .select({ main: mainTable, locale: localesTable })
       .from(mainTable)
       .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
       .where(and(...conditions))
@@ -586,8 +609,204 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
     withRelations,
     withTags,
     loadFullFileObjects,
+    includeTranslations,
     status
   });
+}
+
+/**
+ * Multi-item read for a localized repeatable global. Mirrors the collection
+ * multi-item localized path: INNER JOIN main + `_locales` filtered by the
+ * requested locale — items without a translation in that locale are omitted
+ * from the list (strict semantics; single-item path honors `fallback`).
+ *
+ * `status` / `parent_id` / `sort` live on `_locales` for localized globals,
+ * so filters and ordering target the locale table when present. Pagination +
+ * grouping mirror `handleRepeatableGlobal`.
+ */
+async function handleRepeatableLocalizedGlobalMulti<T extends GlobalTypes = GlobalTypes>(
+  globalSlug: string,
+  globalType: any,
+  options: {
+    parentId?: string;
+    siblingOf?: string;
+    excludeCurrent: boolean;
+    withRelations: boolean;
+    withTags: boolean;
+    loadFullFileObjects: boolean;
+    includeTranslations: boolean;
+    status: RelationStatus;
+    groupBy?: string;
+    orderBy: string;
+    order: 'asc' | 'desc';
+    limit?: number;
+    offset: number;
+    baseUrl?: string;
+    currentPage?: number;
+    locale?: string;
+    fallback?: 'default' | 'strict';
+    user?: User | null;
+  }
+): Promise<GlobalsMultipleResult<T>> {
+  const {
+    parentId,
+    siblingOf,
+    excludeCurrent,
+    withRelations,
+    withTags,
+    loadFullFileObjects,
+    includeTranslations,
+    status,
+    groupBy,
+    orderBy,
+    order,
+    limit,
+    offset,
+    baseUrl,
+    currentPage,
+    locale,
+    fallback
+  } = options;
+
+  const mainTableName = `global_${globalSlug}`;
+  const localesTableName = `${mainTableName}_locales`;
+  const mainTable = (schema as any)[mainTableName];
+  const localesTable = (schema as any)[localesTableName];
+
+  if (!mainTable || !localesTable) {
+    console.warn(`Localized global '${globalSlug}' is missing tables. Run 'npx sailor db:update'.`);
+    return { items: [], total: 0, hasMore: false };
+  }
+
+  const { defaultLocale, fallback: settingsFallback } = getContentSettings();
+  // fallback is destructured but only used for symmetry with single-item path;
+  // multi-item localized uses INNER JOIN (no per-row fallback to default).
+  void (fallback ?? settingsFallback);
+  const requestedLocale = locale ?? defaultLocale;
+  if (!requestedLocale) {
+    console.error(
+      `getGlobals('${globalSlug}', ...): no locale resolved. Pass { locale } or set content.i18n.default.`
+    );
+    return { items: [], total: 0, hasMore: false };
+  }
+
+  const fkField = `${globalSlug}_id`;
+
+  const whereConditions: any[] = [liveOnly(mainTable), eq(localesTable.locale, requestedLocale)];
+
+  // Status / parent_id live on `_locales` for localized — guarded by column
+  // presence because some globals omit them (flat-shaped templates).
+  if (status !== 'all' && localesTable.status) {
+    whereConditions.push(eq(localesTable.status, status));
+  }
+  if (parentId && localesTable.parent_id) {
+    whereConditions.push(eq(localesTable.parent_id, parentId));
+  }
+
+  if (siblingOf && localesTable.parent_id) {
+    const siblingRow = await db
+      .select({ parent_id: localesTable.parent_id })
+      .from(mainTable)
+      .innerJoin(
+        localesTable,
+        and(
+          eq(localesTable[fkField], (mainTable as any).id),
+          eq(localesTable.locale, requestedLocale)
+        )
+      )
+      .where(eq((mainTable as any).id, siblingOf))
+      .limit(1);
+    if (siblingRow.length > 0 && siblingRow[0].parent_id) {
+      whereConditions.push(eq(localesTable.parent_id, siblingRow[0].parent_id));
+      if (excludeCurrent) {
+        whereConditions.push(ne((mainTable as any).id, siblingOf));
+      }
+    } else {
+      whereConditions.push(sql`1 = 0`);
+    }
+  }
+
+  const whereClause = and(...whereConditions);
+
+  // Parallel count + items, same pattern as collections.
+  const countPromise = db
+    .select({ count: count() })
+    .from(mainTable)
+    .innerJoin(localesTable, eq(localesTable[fkField], (mainTable as any).id))
+    .where(whereClause);
+
+  let itemsQuery: any = db
+    .select({ main: mainTable, locale: localesTable })
+    .from(mainTable)
+    .innerJoin(localesTable, eq(localesTable[fkField], (mainTable as any).id))
+    .where(whereClause);
+
+  // Ordering: column might live on main (created_at) or `_locales` (sort,
+  // updated_at, slug, status). Pick whichever table has it; skip if neither.
+  if (orderBy) {
+    const onMain = (mainTable as any)[orderBy];
+    const onLocale = (localesTable as any)[orderBy];
+    const targetCol = onMain ?? onLocale;
+    if (targetCol) {
+      const orderFn = order === 'desc' ? desc : asc;
+      itemsQuery = itemsQuery.orderBy(orderFn(targetCol));
+    }
+  }
+
+  if (limit) itemsQuery = itemsQuery.limit(limit).offset(offset);
+
+  const [countResult, rows] = await Promise.all([countPromise, itemsQuery]);
+  const total = Number(countResult[0]?.count ?? 0);
+
+  // Flatten {main, locale} rows. Identity comes from main; editable content
+  // from locale. `_localeId` exposed for child loaders that anchor on it.
+  const flatItems: any[] = (rows as any[]).map((row) => {
+    const mainRow = row.main;
+    const localeRow = row.locale;
+    const { id: localeRowId, [fkField]: _ignoredFk, ...localeContent } = localeRow as any;
+    return {
+      ...mainRow,
+      ...localeContent,
+      _localeId: localeRowId
+    };
+  });
+
+  const enrichedItems = await Promise.all(
+    flatItems.map((item) =>
+      enrichGlobalItem<T>(item, globalSlug, globalType, {
+        withRelations,
+        withTags,
+        loadFullFileObjects,
+        includeTranslations,
+        status
+      })
+    )
+  );
+
+  const result: GlobalsMultipleResult<T> = {
+    items: enrichedItems,
+    total,
+    hasMore: limit ? offset + enrichedItems.length < total : false
+  };
+
+  if (limit && baseUrl) {
+    const pageNum = currentPage || Math.floor(offset / limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    result.pagination = {
+      page: pageNum,
+      pageSize: limit,
+      totalItems: total,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPreviousPage: pageNum > 1
+    };
+  }
+
+  if (groupBy) {
+    result.grouped = groupItemsByField(enrichedItems, groupBy);
+  }
+
+  return result;
 }
 
 /**
@@ -606,6 +825,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    includeTranslations: boolean;
     status: RelationStatus;
     groupBy?: string;
     orderBy: string;
@@ -627,6 +847,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     withRelations,
     withTags,
     loadFullFileObjects,
+    includeTranslations,
     status,
     groupBy,
     orderBy,
@@ -713,6 +934,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
       withRelations,
       withTags,
       loadFullFileObjects,
+      includeTranslations,
       status
     });
     return item;
@@ -733,6 +955,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
         withRelations,
         withTags,
         loadFullFileObjects,
+        includeTranslations,
         status
       })
     )
@@ -766,6 +989,39 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
 }
 
 /**
+ * Per-item translations enrichment for globals. One row per (item × locale)
+ * in `<global>_locales`. Cheap single query keyed on the FK. Returns an
+ * empty array for non-localized globals. `slug` / `status` columns may not
+ * exist on every locales table (slug is optional on flat globals; status
+ * defaults from CORE_FIELDS for repeatable) — defensively project only
+ * what's present.
+ */
+async function loadGlobalTranslations(
+  itemId: string,
+  globalSlug: string
+): Promise<Array<{ locale: string; slug: string | null; status: string | null }>> {
+  if (!isLocalizedGlobal(globalSlug)) return [];
+  const localesTable = (schema as any)[`global_${globalSlug}_locales`];
+  if (!localesTable) return [];
+  const projection: Record<string, any> = { locale: localesTable.locale };
+  if (localesTable.slug) projection.slug = localesTable.slug;
+  if (localesTable.status) projection.status = localesTable.status;
+  try {
+    const rows = await db
+      .select(projection)
+      .from(localesTable)
+      .where(eq(localesTable[`${globalSlug}_id`], itemId));
+    return rows.map((r: any) => ({
+      locale: r.locale,
+      slug: r.slug ?? null,
+      status: r.status ?? null
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Enrich a single global item with relations, tags, and data
  */
 async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
@@ -776,10 +1032,11 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
     withRelations: boolean;
     withTags: boolean;
     loadFullFileObjects: boolean;
+    includeTranslations?: boolean;
     status: RelationStatus;
   }
 ): Promise<T> {
-  const { withRelations, withTags, loadFullFileObjects, status } = options;
+  const { withRelations, withTags, loadFullFileObjects, includeTranslations, status } = options;
 
   const enrichedItem: any = {
     ...item,
@@ -841,6 +1098,10 @@ async function enrichGlobalItem<T extends GlobalTypes = GlobalTypes>(
     } catch (err) {
       console.warn(`Failed to load global data for '${globalSlug}':`, err);
     }
+  }
+
+  if (includeTranslations) {
+    enrichedItem.translations = await loadGlobalTranslations(enrichedItem.id, globalSlug);
   }
 
   return enrichedItem as T;

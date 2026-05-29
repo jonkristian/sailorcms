@@ -1,9 +1,12 @@
 // Global table generator - handles repeatable, single, and flat globals
 
 export class GlobalGenerator {
-  constructor(tableGenerator, stringUtils) {
+  constructor(tableGenerator, stringUtils, opts = {}) {
     this.tableGen = tableGenerator;
     this.toSnakeCase = stringUtils.toSnakeCase;
+    // Slugs currently in the transitional (mid-flip) state: emit relaxed full
+    // main + _locales for these. Others get steady-state (identity-only main).
+    this.transitionalLocalized = opts.transitionalLocalized ?? new Set();
   }
 
   /**
@@ -56,14 +59,19 @@ export class GlobalGenerator {
     const tables = [];
     const entityInfo = { type: 'global', slug: globalSlug };
 
-    // Main: full shape, same as non-localized — but content columns are
-    // emitted nullable + non-unique (`relaxed: true`). They go vestigial
-    // once `_locales` is the canonical store; SQLite refuses
-    // `ALTER TABLE ADD COLUMN NOT NULL` without default on a populated
-    // table, so relaxing here lets the localized flip apply cleanly.
-    const mainTable = this.createMainGlobalTable(globalSlug, definition, coreFields, entityInfo, {
-      relaxed: true
-    });
+    const isTransitional = this.transitionalLocalized.has(globalSlug);
+
+    // Main table emission:
+    //   - Transitional (mid-flip, one cycle): relaxed full shape so the
+    //     data-copy migrator has main columns to read from.
+    //   - Steady-state (default): identity-only main. `_locales` is the sole
+    //     canonical content store; drizzle's journal records the column drops
+    //     as ordinary migrations — no doctor `--fix`, no drift.
+    const mainTable = isTransitional
+      ? this.createMainGlobalTable(globalSlug, definition, coreFields, entityInfo, {
+          relaxed: true
+        })
+      : this.createIdentityOnlyMainTable(globalSlug, entityInfo);
     tables.push(mainTable);
 
     // Locales sibling: canonical per-locale content store.
@@ -200,6 +208,23 @@ export class GlobalGenerator {
     const tableFields = this.buildMainTableFields(allFields, definition, tableName, opts);
 
     return this.tableGen.createMainTable(tableName, tableFields, entityInfo, undefined, opts);
+  }
+
+  /**
+   * Identity-only main table for a localized global in steady state.
+   * Mirrors the collection version — id + audit columns only. No `author`
+   * because globals (unlike collections) don't carry that field in their
+   * main shape. Editable content lives entirely on `_locales`.
+   */
+  createIdentityOnlyMainTable(globalSlug, entityInfo) {
+    const tableName = `global_${globalSlug}`;
+    const fields = {
+      id: this.tableGen.getPrimaryKeyField(),
+      created_at: this.tableGen.getTimestampField(),
+      deleted_at: this.tableGen.getNullableTimestampField(),
+      deleted_by: this.tableGen.getTextField()
+    };
+    return this.tableGen.createMainTable(tableName, fields, entityInfo);
   }
 
   /**

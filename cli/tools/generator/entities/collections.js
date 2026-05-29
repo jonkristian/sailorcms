@@ -1,9 +1,12 @@
 // Collection table generator - handles content collections like posts, pages, products
 
 export class CollectionGenerator {
-  constructor(tableGenerator, stringUtils) {
+  constructor(tableGenerator, stringUtils, opts = {}) {
     this.tableGen = tableGenerator;
     this.toSnakeCase = stringUtils.toSnakeCase;
+    // Slugs currently in the transitional (mid-flip) state: emit relaxed full
+    // main + _locales for these. Others get steady-state (identity-only main).
+    this.transitionalLocalized = opts.transitionalLocalized ?? new Set();
   }
 
   /**
@@ -73,20 +76,21 @@ export class CollectionGenerator {
     const tables = [];
     const entityInfo = { type: 'collection', slug: collectionSlug };
 
-    // Main: full shape, same as non-localized — but content columns are
-    // emitted nullable + non-unique (`relaxed: true`). They go vestigial
-    // once `_locales` is the canonical store; the seed copy from the data
-    // migrator may also collide on slug uniqueness across pre-existing
-    // rows. SQLite refuses `ALTER TABLE ADD COLUMN NOT NULL` without
-    // default on a populated table, so relaxing here lets the flip apply
-    // cleanly.
-    const mainTable = this.createMainCollectionTable(
-      collectionSlug,
-      definition,
-      coreFields,
-      entityInfo,
-      { relaxed: true }
-    );
+    const isTransitional = this.transitionalLocalized.has(collectionSlug);
+
+    // Main table emission:
+    //   - Transitional (mid-flip, set by `db:update` for one cycle): emit the
+    //     relaxed full shape so the in-progress data-copy migrator has main
+    //     columns to read from. SQLite refuses `ALTER TABLE ADD COLUMN NOT NULL`
+    //     on populated rows; relaxing the constraints lets the flip apply.
+    //   - Steady-state (default): emit identity-only main. `_locales` is the
+    //     sole canonical content store. Drizzle's journal records the column
+    //     drops as ordinary migrations — no doctor `--fix`, no drift.
+    const mainTable = isTransitional
+      ? this.createMainCollectionTable(collectionSlug, definition, coreFields, entityInfo, {
+          relaxed: true
+        })
+      : this.createIdentityOnlyMainTable(collectionSlug, entityInfo);
     tables.push(mainTable);
 
     // Locales sibling: the canonical per-locale content store.
@@ -211,6 +215,29 @@ export class CollectionGenerator {
     const tableFields = this.buildMainTableFields(allFields, definition, opts);
 
     return this.tableGen.createMainTable(tableName, tableFields, entityInfo, undefined, opts);
+  }
+
+  /**
+   * Identity-only main table for a localized collection in steady state.
+   * Holds the per-item identity fields (id + audit columns + author) — every
+   * editable / translatable field lives on the `_locales` sibling. This is
+   * what drizzle's journal sees as canonical for localized collections after
+   * the initial flip migrator has finished moving data.
+   */
+  createIdentityOnlyMainTable(collectionSlug, entityInfo) {
+    const tableName = `collection_${collectionSlug}`;
+    const fields = {
+      id: this.tableGen.getPrimaryKeyField(),
+      created_at: this.tableGen.getTimestampField(),
+      deleted_at: this.tableGen.getNullableTimestampField(),
+      deleted_by: this.tableGen.getTextField(),
+      // `author` is per-item (original creator) and stays on main — same as
+      // collections.js MAIN_ONLY treatment. Other audit fields like
+      // `updated_at` / `last_modified_by` are per-translation and live on
+      // `_locales`.
+      author: this.tableGen.getTextField()
+    };
+    return this.tableGen.createMainTable(tableName, fields, entityInfo);
   }
 
   /**

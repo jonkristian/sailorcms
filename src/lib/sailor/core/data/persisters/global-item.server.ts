@@ -23,7 +23,7 @@ import { SearchIndexService } from '../../services/search-index.server';
 import { toSnakeCase } from '../../utils/string';
 import { getCurrentTimestamp } from '../../utils/date';
 import { syncArrayRowFiles, clearArrayRowFiles } from './array-row-files.server';
-import { getContentSettings } from '../../../utils/data/collections';
+import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
 
 export interface SaveGlobalItemOptions {

@@ -7,7 +7,7 @@ import { globalDefinitions } from '$sailor/templates/globals';
 import { blockDefinitions } from '$sailor/templates/blocks';
 import type { FieldDefinition } from '../types';
 import { readGlobal, readCollection } from './data-read.server';
-import { getContentSettings } from 'sailorcms/utils/data/collections';
+import { getContentSettings } from 'sailorcms/core/settings/i18n';
 import { TagService } from './tag.server';
 
 // Resolved lazily so the file typechecks even before `npx sailor db:update`

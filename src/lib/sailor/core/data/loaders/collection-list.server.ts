@@ -12,7 +12,7 @@ import { db } from '../../db/index.server';
 import { eq, desc, asc, count, and, or, sql, inArray } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
-import { getContentSettings } from '../../../utils/data/collections';
+import { getContentSettings } from '../../settings/i18n';
 import { liveOnly } from '../../db/soft-delete';
 import type { Pagination } from '../../types';
 

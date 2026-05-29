@@ -198,10 +198,12 @@ With this, `getUrlLangs()` returns `['en', 'no']`, `urlToContentLocale('no')` re
 ```ts
 // src/params/lang.ts
 import type { ParamMatcher } from '@sveltejs/kit';
-import { urlToContentLocale, contentToUrlLang, getContentSettings } from 'sailorcms/utils/data';
+// IMPORTANT: import from `sailorcms/utils/i18n`, not `sailorcms/utils/data`.
+// Param matchers ship to the client too; the data/ entry pulls in `db` (→ dotenv → process)
+// which crashes in the browser. `utils/i18n` is the pure, client-safe helper module.
+import { urlToContentLocale, contentToUrlLang, getDefaultLocale } from 'sailorcms/utils/i18n';
 
-const { defaultLocale } = getContentSettings();
-const defaultUrlLang = defaultLocale ? contentToUrlLang(defaultLocale) : '';
+const defaultUrlLang = contentToUrlLang(getDefaultLocale());
 
 export const match: ParamMatcher = (param) => {
   if (param === defaultUrlLang) return false; // default serves at root, not /en/...
@@ -249,19 +251,40 @@ export const handle: Handle = ({ event, resolve }) =>
   });
 ```
 
-Result: `event.locals.contentLocale` is always set on public routes, and `<html lang="...">` is rewritten to the BCP-47 form for SEO / screen readers.
+Result: `event.locals.contentLocale` is always set on public routes, and `<html lang="...">` is rewritten to the BCP-47 form for SEO / screen readers on the initial HTML response.
+
+### TypeScript: ship sailor's `App.Locals` augmentation
+
+So `event.locals.user` / `.security` / `.contentLocale` are typed in every load function without manual repetition, reference sailor's bundled augmentation from your project's `src/app.d.ts`:
+
+```ts
+// src/app.d.ts
+/// <reference types="sailorcms/app" />
+export {};
+```
+
+That's the whole file (or add to your existing one). Sailor's `app.d.ts` declares the `App.Locals` shape sailor's hooks stamp.
 
 ### Loader — read locale from `[[lang]]` or fall back to default
 
 ```ts
 // src/routes/(site)/[[lang=lang]]/pages/[slug]/+page.server.ts
-import { getCollections, urlToContentLocale, getContentSettings } from 'sailorcms/utils/data';
+import {
+  getCollections,
+  urlToContentLocale,
+  getDefaultLocale,
+  dependsOnContentLocale
+} from 'sailorcms/utils/data';
 
-export const load = async ({ params }) => {
-  const locale =
-    (params.lang && urlToContentLocale(params.lang)) ?? getContentSettings().defaultLocale!;
+export const load = async (event) => {
+  // Subscribe this load to "content locale changed" — SvelteKit re-runs it
+  // when navigating between locale prefixes (e.g. `/about` → `/no/about`).
+  // Replaces the historical `void event.params.lang;` workaround.
+  dependsOnContentLocale(event);
+
+  const locale = (event.params.lang && urlToContentLocale(event.params.lang)) ?? getDefaultLocale();
   const page = await getCollections('pages', {
-    itemSlug: params.slug,
+    itemSlug: event.params.slug,
     locale,
     includeTranslations: true // for the language switcher below
   });
@@ -271,30 +294,88 @@ export const load = async ({ params }) => {
 
 > Note: until an "implicit locale via `event.locals.contentLocale`" pickup lands in `getCollections`, the `locale` arg has to be threaded explicitly. The hook above stamps `event.locals.contentLocale` so you can also read it from there if you prefer.
 
+### SPA navigation: keep `<html lang>` in sync
+
+`<html lang>` is on the static document — Sailor's `transformPageChunk` only fires on full page loads, so client-side navigation between locales doesn't update it. Add this to the localized layout so the attribute tracks `data.locale` on SPA nav too:
+
+```svelte
+<!-- src/routes/(site)/[[lang=lang]]/+layout.svelte -->
+<svelte:html lang={data.locale} />
+```
+
+`<svelte:html>` (Svelte 5+) lets you set attributes on the document's `<html>` element from inside the app tree. Reactive — no `$effect` needed.
+
 ### Language switcher — omits prefix for the default locale
 
 ```svelte
 <!-- src/routes/(site)/[[lang=lang]]/+layout.svelte -->
 <script>
+  import { page } from '$app/state';
   import LanguageSwitcher from 'sailorcms/components/sailor/site/LanguageSwitcher.svelte';
-  import { getContentSettings } from 'sailorcms/utils/data';
+  // Use `utils/i18n` (client-safe) — `utils/data` would drag in db/dotenv.
+  import {
+    extractTranslations,
+    getContentLocales,
+    getContentSettings,
+    getDefaultLocale,
+    urlToContentLocale,
+    watchContentLocale
+  } from 'sailorcms/utils/i18n';
 
   let { data, children } = $props();
-  const { defaultLocale } = getContentSettings();
+  const locales = getContentLocales();
+  const { urlAliases } = getContentSettings();
+  const defaultLocale = getDefaultLocale();
+
+  // Bridges server-side initial-load `<html lang>` (set via transformPageChunk
+  // in handleSailorHooks) with client-side SPA nav: updates document.documentElement.lang
+  // AND invalidates `CONTENT_LOCALE_DEP` on locale-prefix change. Loaders that
+  // call `dependsOnContentLocale(event)` will re-run.
+  watchContentLocale((pathname) => {
+    const seg = pathname.split('/')[1];
+    return urlToContentLocale(seg) ?? defaultLocale;
+  });
+
+  // Walks `page.data` to find the first `translations` array (handles the
+  // `data.page.translations` / `data.post.translations` / `data.home.translations`
+  // variations from different route loaders). Returns `[]` when none — switcher
+  // renders the locale chips in "all missing" state, which `hideIfNoTranslations`
+  // can hide entirely if you prefer.
+  const translations = $derived(extractTranslations(page.data));
 </script>
 
 <LanguageSwitcher
-  translations={data.page?.translations ?? []}
+  {translations}
   currentLocale={data.locale}
-  buildHref={(locale, translation, urlLang) => {
-    const isDefault = locale === defaultLocale;
-    const prefix = isDefault ? '' : `/${urlLang}`;
-    if (translation) return `${prefix}/pages/${translation.slug}`;
-    return prefix || '/'; // home fallback
-  }}
+  {locales}
+  {urlAliases}
+  {defaultLocale}
+  routeShape="flat"
 />
 
 {@render children?.()}
+```
+
+`routeShape="flat"` tells the switcher to auto-detect the current section from `page.url.pathname` and compute hrefs via `buildLocaleHref` internally — no `buildHref` callback needed for `/[section]/[slug]` URLs. For nested sections or custom URL shapes, leave `routeShape` unset and pass `buildHref` directly.
+
+### Paginated-list `baseUrl`
+
+For paginated reads (`getCollections('posts', { baseUrl, limit, currentPage })`), the same `buildLocaleHref` helper drops in — pass `translation: null` to get just the section-root URL with the correct locale prefix:
+
+```ts
+import { buildLocaleHref, getDefaultLocale } from 'sailorcms/utils/i18n';
+
+const locale = ...; // resolved earlier in the loader
+const baseUrl = buildLocaleHref({
+  locale,
+  translation: null,
+  section: 'blog',
+  defaultLocale: getDefaultLocale()
+});
+// Yields '/blog' for default locale, '/no/blog' for non-default. No hand-rolled
+// `locale === defaultLocale ? '/blog' : '/${urlLang}/blog'` ternary.
+
+const result = await getCollections('posts', { limit: 10, currentPage: 1, baseUrl, locale });
 ```
 
 `buildHref`'s third arg (`urlLang`) is the URL form (alias applied). The first arg (`locale`) stays BCP-47. `translation` is the row from `includeTranslations: true` — present means a real translation exists; `null` means missing (consumer decides whether to omit, link to home, or render a disabled chip).

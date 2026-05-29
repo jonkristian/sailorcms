@@ -584,20 +584,17 @@ async function checkI18nVestigialColumns(targetDir) {
     id: 'i18n:vestigial-main-columns',
     label: 'Localized main tables: vestigial content columns',
     ok: false,
-    message: `${findings.length} localized main table(s) carry content columns shadowed by _locales\n${detail.join('\n')}`,
-    fixable: true,
-    fix: async () => {
-      for (const f of findings) {
-        for (const col of f.vestigial) {
-          try {
-            await db.run(sql.raw(`ALTER TABLE "${f.mainTable}" DROP COLUMN "${col}"`));
-            console.log(`  🗑  ${f.mainTable}: dropped "${col}"`);
-          } catch (err) {
-            console.error(`  ✗ ${f.mainTable}: failed to drop "${col}" — ${err?.message || err}`);
-          }
-        }
-      }
-    }
+    // Informational only — fixable: false. db:update's two-phase flow now
+    // drops vestigial columns as part of regular drizzle migrations (recorded
+    // in __drizzle_migrations), so this check should only find anything on
+    // databases that pre-date the two-phase landing OR were partially
+    // migrated. The remedy is `npx sailor db:update` (re-runs phase 2),
+    // not an out-of-band DROP — that's what caused the schema-drift loop
+    // we're moving away from. Detail kept for debugging visibility.
+    message:
+      `${findings.length} localized main table(s) carry content columns shadowed by _locales\n${detail.join('\n')}\n` +
+      `    Remedy: re-run \`npx sailor db:update\` — phase 2 will drop these via a normal drizzle migration.`,
+    fixable: false
   };
 }
 

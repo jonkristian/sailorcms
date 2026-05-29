@@ -9,7 +9,6 @@ import type { BreadcrumbItem } from '../types';
 import { getCollectionType } from 'sailorcms/core/utils/db.server';
 import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
-import * as generatedSettings from '$sailor/generated/settings';
 import { getGlobals } from './globals';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
@@ -21,6 +20,11 @@ import {
 import { assertAccess, AccessDeniedError } from './access';
 import { parseDate, groupItemsByField } from './internal';
 import { TagService } from 'sailorcms/core/services/tag.server';
+// Internal use of the pure i18n config helper. Re-export below makes it part
+// of this module's public surface for back-compat with existing server-side
+// imports (`sailorcms/utils/data/collections`); client-bundled callers
+// should import from `sailorcms/utils/i18n` instead.
+import { getContentSettings as getContentSettingsInternal } from 'sailorcms/core/settings/i18n';
 
 /**
  * True if the consumer marked this collection `localized: true` in its
@@ -31,82 +35,23 @@ function isLocalizedCollection(slug: string): boolean {
   return (fieldConfigurations as any).collections?.[slug]?.localized === true;
 }
 
-/**
- * Resolve the project's content i18n config from `templates/settings.ts`.
- * Sync read of the generated module — no DB hit, no async cost per read.
- *
- * Content locales are deliberately decoupled from paraglide's admin-UI
- * locales: a project can run the admin in English while authoring content
- * in 10 languages, or vice versa. So both `locales` and `defaultLocale`
- * must come from `content` in settings — there's no paraglide fallback.
- * Read paths fail loud when `localized: true` is used without these set.
- *
- * Exported (not just file-local) so admin route loaders use the same
- * resolution rules — keeps the localized read shape consistent everywhere.
- */
-export function getContentSettings() {
-  const i18n = (generatedSettings as any).settings?.content?.i18n ?? {};
-  return {
-    locales: i18n.locales as string[] | undefined,
-    defaultLocale: i18n.default as string | undefined,
-    fallback: (i18n.fallback as 'default' | 'strict' | undefined) ?? 'default',
-    urlAliases: (i18n.urlAliases as Record<string, string> | undefined) ?? {}
-  };
-}
-
-/**
- * Configured content locales (e.g. `['en', 'nb-NO']`) — convenience wrapper
- * over `getContentSettings().locales`. Empty array if i18n isn't configured.
- * Use for language switchers, sitemap loops, hreflang generation.
- */
-export function getContentLocales(): string[] {
-  return getContentSettings().locales ?? [];
-}
-
-/**
- * URL segments for the configured content locales, applying
- * `content.i18n.urlAliases`. A locale without an alias uses its BCP-47
- * code unchanged. Example: with `locales: ['en', 'nb-NO']` and
- * `urlAliases: { 'nb-NO': 'no' }`, returns `['en', 'no']`.
- *
- * Use for `params` matchers, navigation menus, sitemap loops — anywhere
- * you need the URL form rather than the content code.
- */
-export function getUrlLangs(): string[] {
-  const { locales, urlAliases } = getContentSettings();
-  if (!locales) return [];
-  return locales.map((l) => urlAliases[l] ?? l);
-}
-
-/**
- * Convert a URL segment (e.g. `'no'`) to the BCP-47 content locale
- * (e.g. `'nb-NO'`). Returns the input unchanged if no alias matches —
- * which is the right behavior when the URL segment IS the content code
- * (e.g. `'en'` maps to `'en'` whether aliased or not).
- *
- * Returns `null` if the input doesn't match any configured locale (after
- * alias resolution) — useful for param matchers / 404-on-unknown-lang.
- */
-export function urlToContentLocale(urlLang: string): string | null {
-  const { locales, urlAliases } = getContentSettings();
-  if (!locales) return null;
-  // Build reverse lookup once: alias → content code
-  for (const [content, alias] of Object.entries(urlAliases)) {
-    if (alias === urlLang) {
-      return locales.includes(content) ? content : null;
-    }
-  }
-  // No alias matched — check if the URL segment IS a content code.
-  return locales.includes(urlLang) ? urlLang : null;
-}
-
-/**
- * Convert a BCP-47 content locale (e.g. `'nb-NO'`) to its URL segment
- * (e.g. `'no'`). Returns the locale unchanged if no alias exists.
- */
-export function contentToUrlLang(contentLocale: string): string {
-  return getContentSettings().urlAliases[contentLocale] ?? contentLocale;
-}
+// Re-export the pure i18n config helpers from their canonical home in
+// `core/settings/i18n`. Server-side callers can keep importing from here;
+// client-bundled callers should import from `sailorcms/utils/i18n` to
+// avoid pulling in this module's `db` dependency chain.
+export {
+  getContentSettings,
+  getContentLocales,
+  getDefaultLocale,
+  getUrlLangs,
+  urlToContentLocale,
+  contentToUrlLang,
+  buildLocaleHref,
+  extractTranslations,
+  dependsOnContentLocale,
+  CONTENT_LOCALE_DEP,
+  type BuildLocaleHrefOptions
+} from 'sailorcms/core/settings/i18n';
 
 /**
  * Load all fields (files, arrays, relations) for a collection
@@ -204,6 +149,14 @@ export interface CollectionsOptions {
   includeBlocks?: boolean; // Default: true
   includeBreadcrumbs?: boolean; // Generate breadcrumb navigation (default: false)
   includeAuthors?: boolean; // Populate author details (default: false)
+  /**
+   * Attach `translations: Array<{ locale, slug, status }>` to each returned
+   * item — one entry per row in `<collection>_locales` for that item. Use for
+   * language switchers, `<link rel="alternate" hreflang>` generation, sitemaps.
+   * Opt-in: costs one extra query per item. Always empty for non-localized
+   * collections.
+   */
+  includeTranslations?: boolean;
 
   // Filtering and ordering
   orderBy?: string; // Default: 'created_at'
@@ -355,6 +308,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
     includeBlocks = true,
     includeBreadcrumbs = false,
     includeAuthors = false,
+    includeTranslations = false,
     orderBy = 'created_at',
     order = 'desc',
     groupBy,
@@ -402,6 +356,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
           includeBlocks,
           includeBreadcrumbs,
           includeAuthors,
+          includeTranslations,
           user,
           locale,
           fallback
@@ -414,6 +369,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
         includeBlocks,
         includeBreadcrumbs,
         includeAuthors,
+        includeTranslations,
         user
       });
     }
@@ -428,6 +384,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
         includeBlocks,
         includeBreadcrumbs,
         includeAuthors,
+        includeTranslations,
         orderBy,
         order,
         groupBy,
@@ -450,6 +407,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
       includeBlocks,
       includeBreadcrumbs,
       includeAuthors,
+      includeTranslations,
       orderBy,
       order,
       groupBy,
@@ -484,11 +442,20 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
     includeBlocks: boolean;
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
+    includeTranslations: boolean;
     user?: User | null;
   }
 ): Promise<CollectionsSingleResult<T>> {
-  const { itemSlug, itemId, status, includeBlocks, includeBreadcrumbs, includeAuthors, user } =
-    options;
+  const {
+    itemSlug,
+    itemId,
+    status,
+    includeBlocks,
+    includeBreadcrumbs,
+    includeAuthors,
+    includeTranslations,
+    user
+  } = options;
 
   const whereConditions = [liveOnly(table)];
 
@@ -514,6 +481,7 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
     includeBlocks,
     includeBreadcrumbs,
     includeAuthors,
+    includeTranslations,
     status: status as RelationStatus
   });
 
@@ -548,6 +516,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     includeBlocks: boolean;
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
+    includeTranslations: boolean;
     user?: User | null;
     locale?: string;
     fallback?: 'default' | 'strict';
@@ -560,6 +529,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     includeBlocks,
     includeBreadcrumbs,
     includeAuthors,
+    includeTranslations,
     locale,
     fallback
   } = options;
@@ -576,7 +546,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     return null;
   }
 
-  const { defaultLocale, fallback: settingsFallback } = getContentSettings();
+  const { defaultLocale, fallback: settingsFallback } = getContentSettingsInternal();
   const fallbackMode = fallback ?? settingsFallback;
   const requestedLocale = locale ?? defaultLocale;
 
@@ -589,17 +559,6 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
 
   const fkField = `${collectionSlug}_id`;
 
-  // Only pull identity columns from main — content lives canonically on
-  // `_locales` and gets overridden in the flatten anyway. Avoids referencing
-  // main content columns that `doctor --fix` may have dropped after migration.
-  const mainIdentity = {
-    id: (mainTable as any).id,
-    created_at: (mainTable as any).created_at,
-    deleted_at: (mainTable as any).deleted_at,
-    deleted_by: (mainTable as any).deleted_by,
-    author: (mainTable as any).author
-  };
-
   const runQuery = async (resolveLocale: string) => {
     const conditions = [liveOnly(mainTable), eq(localesTable.locale, resolveLocale)];
     if (itemSlug) conditions.push(eq(localesTable.slug, itemSlug));
@@ -607,7 +566,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     if (status !== 'all') conditions.push(eq(localesTable.status, status));
 
     return db
-      .select({ main: mainIdentity, locale: localesTable })
+      .select({ main: mainTable, locale: localesTable })
       .from(mainTable)
       .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
       .where(and(...conditions))
@@ -649,6 +608,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     includeBlocks,
     includeBreadcrumbs,
     includeAuthors,
+    includeTranslations,
     status: status as RelationStatus
   });
 
@@ -669,6 +629,7 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
     includeBlocks: boolean;
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
+    includeTranslations: boolean;
     orderBy: string;
     order: 'asc' | 'desc';
     groupBy?: string;
@@ -691,6 +652,7 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
     includeBlocks,
     includeBreadcrumbs,
     includeAuthors,
+    includeTranslations,
     orderBy,
     order,
     groupBy,
@@ -790,6 +752,7 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
         includeBlocks,
         includeBreadcrumbs,
         includeAuthors,
+        includeTranslations,
         status: status as RelationStatus
       })
     )
@@ -851,6 +814,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
     includeBlocks: boolean;
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
+    includeTranslations: boolean;
     orderBy: string;
     order: 'asc' | 'desc';
     groupBy?: string;
@@ -876,6 +840,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
     includeBlocks,
     includeBreadcrumbs,
     includeAuthors,
+    includeTranslations,
     orderBy,
     order,
     groupBy,
@@ -899,7 +864,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
     return { items: [], total: 0, hasMore: false };
   }
 
-  const { defaultLocale } = getContentSettings();
+  const { defaultLocale } = getContentSettingsInternal();
   const requestedLocale = locale ?? defaultLocale;
   if (!requestedLocale) {
     console.error(
@@ -962,17 +927,6 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
 
   const whereClause = and(...whereConditions);
 
-  // Only identity from main — content lives canonically on `_locales`.
-  // Avoids referencing main content columns that `doctor --fix` may have
-  // dropped after migration.
-  const mainIdentity = {
-    id: (mainTable as any).id,
-    created_at: (mainTable as any).created_at,
-    deleted_at: (mainTable as any).deleted_at,
-    deleted_by: (mainTable as any).deleted_by,
-    author: (mainTable as any).author
-  };
-
   // Count via the JOIN — `count()` over the joined row count gives us the
   // total items matching the filter, same semantics as the non-localized path.
   const countPromise = db
@@ -983,7 +937,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
 
   // Items query
   let itemsQuery: any = db
-    .select({ main: mainIdentity, locale: localesTable })
+    .select({ main: mainTable, locale: localesTable })
     .from(mainTable)
     .innerJoin(localesTable, eq(localesTable[fkField], mainTable.id))
     .where(whereClause);
@@ -1033,6 +987,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
         includeBlocks,
         includeBreadcrumbs,
         includeAuthors,
+        includeTranslations,
         status: status as RelationStatus
       })
     )
@@ -1065,6 +1020,33 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
 }
 
 /**
+ * Per-item translations enrichment. One row per (item × locale) in
+ * `<collection>_locales`. Cheap single query keyed on the indexed FK.
+ * Always returns empty for non-localized collections.
+ */
+async function loadCollectionTranslations(
+  itemId: string,
+  collectionSlug: string
+): Promise<Array<{ locale: string; slug: string | null; status: string | null }>> {
+  if (!isLocalizedCollection(collectionSlug)) return [];
+  const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
+  if (!localesTable) return [];
+  try {
+    const rows = await db
+      .select({
+        locale: localesTable.locale,
+        slug: localesTable.slug,
+        status: localesTable.status
+      })
+      .from(localesTable)
+      .where(eq(localesTable[`${collectionSlug}_id`], itemId));
+    return rows as Array<{ locale: string; slug: string | null; status: string | null }>;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Enrich a single collection item with blocks, breadcrumbs, authors, etc.
  */
 async function enrichCollectionItem(
@@ -1074,10 +1056,17 @@ async function enrichCollectionItem(
     includeBlocks: boolean;
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
+    includeTranslations?: boolean;
     status?: RelationStatus;
   }
 ): Promise<CollectionItem> {
-  const { includeBlocks, includeBreadcrumbs, includeAuthors, status = 'published' } = options;
+  const {
+    includeBlocks,
+    includeBreadcrumbs,
+    includeAuthors,
+    includeTranslations = false,
+    status = 'published'
+  } = options;
 
   const enrichedItem = { ...item } as CollectionItem;
 
@@ -1128,6 +1117,13 @@ async function enrichCollectionItem(
   enrichedItem.url = url;
   if (includeBreadcrumbs) {
     enrichedItem.breadcrumbs = breadcrumbs;
+  }
+
+  if (includeTranslations) {
+    (enrichedItem as any).translations = await loadCollectionTranslations(
+      enrichedItem.id,
+      collectionSlug
+    );
   }
 
   return enrichedItem;

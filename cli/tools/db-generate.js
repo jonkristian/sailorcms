@@ -100,11 +100,25 @@ async function generateSchema() {
     pathToFileURL(path.join(__dirname, 'generator/schema.js')).href
   );
 
+  // `SAILOR_TRANSITIONAL_LOCALIZED` is the env-var hook used by `db:update`'s
+  // two-phase flip flow. Comma-separated entity slugs in this set get the
+  // transitional schema (relaxed full main + _locales) so the data-copy
+  // migrator has somewhere to read from; entities not in the set get the
+  // steady-state shape (identity-only main + _locales). Empty / unset means
+  // all localized entities emit in steady state.
+  const transitionalLocalized = new Set(
+    (process.env.SAILOR_TRANSITIONAL_LOCALIZED ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+
   const generator = new SchemaGenerator(
     adapter,
     { globalDefinitions, collectionDefinitions, blockDefinitions },
     { CORE_FIELDS, BLOCK_CORE_FIELDS, SEO_FIELDS },
-    { toSnakeCase }
+    { toSnakeCase },
+    { transitionalLocalized }
   );
 
   const schemaContent = await generator.generateSchema();

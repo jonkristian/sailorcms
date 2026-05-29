@@ -31,12 +31,12 @@ nav_sort: case_insensitive
 # Let Just the Docs handle syntax highlighting with its defaults
 
 # Footer
-footer_content: 'Copyright &copy; {{ "now" | date: "%Y" }} Sailor CMS. Distributed under the <a href="https://github.com/jonkristian/sailor-cms/blob/master/LICENSE">MIT License</a>.'
+footer_content: 'Copyright &copy; {{ "now" | date: "%Y" }} Sailor CMS. Distributed under the <a href="https://github.com/jonkristian/sailorcms/blob/master/LICENSE">MIT License</a>.'
 
 # Just the Docs specific settings
 aux_links:
   'GitHub Repository':
-    - 'https://github.com/jonkristian/sailor-cms'
+    - 'https://github.com/jonkristian/sailorcms'
 
 # Enable copy code button
 enable_copy_code_button: true

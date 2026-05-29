@@ -20,30 +20,11 @@ import { loadFileFields } from './file-loader';
 import { loadFileFields as loadNestedFileFields } from '../../../utils/data/loaders/file-loader';
 import { toSnakeCase } from '../../utils/string';
 import { resolveRevisionsKeep } from '../../services/revisions.server';
-import { getContentSettings } from '../../../utils/data/collections';
+import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
 import { randomUUID } from 'crypto';
 
-/**
- * Recursively assign fresh UUIDs to any nested array-of-row values on an
- * object. Used on the localized-prefill path so cloned rows save as new
- * inserts (the persister's `INSERT OR REPLACE` would otherwise relocate
- * existing rows away from the source translation). Walks plain objects +
- * arrays; primitives / dates / null are left alone. Caller is responsible
- * for assigning the top-level object's id.
- */
-function reidNestedRows(obj: any): void {
-  if (!obj || typeof obj !== 'object') return;
-  for (const value of Object.values(obj)) {
-    if (!Array.isArray(value)) continue;
-    for (const row of value) {
-      if (row && typeof row === 'object' && !Array.isArray(row)) {
-        (row as any).id = randomUUID();
-        reidNestedRows(row);
-      }
-    }
-  }
-}
+import { reidNestedRows } from '../i18n-prefill.server';
 
 export interface LoadCollectionItemOptions {
   slug: string;
@@ -181,27 +162,9 @@ export async function loadCollectionItem(
   // work alongside /collections/posts/<uuid>. For localized collections the
   // slug lives on the `_locales` sibling — join to find it. Both URL forms
   // continue to work post-resolve (no auto-canonicalization).
-  // For localized collections, only pull identity from main — content lives
-  // canonically on `_locales` and is fetched separately below. Safe set:
-  // columns doctor --fix won't drop. That's id/created_at/deleted_at/deleted_by
-  // (in doctor's I18N_MAIN_KEEP) + author (main-only, not on _locales so
-  // doctor doesn't touch it). NOT safe: updated_at, last_modified_by — both
-  // live on _locales too and get dropped from main.
-  const localizedMainIdentity = isLocalized
-    ? {
-        id: (collectionTable as any).id,
-        created_at: (collectionTable as any).created_at,
-        deleted_at: (collectionTable as any).deleted_at,
-        deleted_by: (collectionTable as any).deleted_by,
-        author: (collectionTable as any).author
-      }
-    : null;
-
-  let existingItems = await (
-    localizedMainIdentity
-      ? db.select(localizedMainIdentity).from(collectionTable)
-      : db.select().from(collectionTable)
-  )
+  let existingItems = await db
+    .select()
+    .from(collectionTable)
     .where(eq((collectionTable as any).id, itemId))
     .limit(1);
 
@@ -224,11 +187,9 @@ export async function loadCollectionItem(
     }
     if (resolvedId) {
       itemId = resolvedId;
-      existingItems = await (
-        localizedMainIdentity
-          ? db.select(localizedMainIdentity).from(collectionTable)
-          : db.select().from(collectionTable)
-      )
+      existingItems = await db
+        .select()
+        .from(collectionTable)
         .where(eq((collectionTable as any).id, itemId))
         .limit(1);
     }

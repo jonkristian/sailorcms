@@ -9,10 +9,20 @@ import { CollectionGenerator } from './entities/collections.js';
 import { BlockGenerator } from './entities/blocks.js';
 
 export class SchemaGenerator {
-  constructor(adapter, definitions, coreFields, stringUtils) {
+  constructor(adapter, definitions, coreFields, stringUtils, opts = {}) {
     this.adapter = adapter;
     this.definitions = definitions;
     this.coreFields = coreFields;
+
+    // Localized entities currently mid-flip: emit the "transitional" shape
+    // (relaxed full main + _locales) for these so the data-copy migrator has
+    // somewhere to read from. Entities NOT in this set get the steady-state
+    // shape (identity-only main + _locales) — which is what drizzle's journal
+    // sees as canonical, eliminating the doctor --fix → schema-drift cycle.
+    // Populated by `db:update` from its detector results; empty in steady state.
+    const transitionalArg = opts.transitionalLocalized;
+    this.transitionalLocalized =
+      transitionalArg instanceof Set ? transitionalArg : new Set(transitionalArg ?? []);
 
     // Core components
     this.metadata = new MetadataCollector();
@@ -20,9 +30,14 @@ export class SchemaGenerator {
     this.relationGen = new RelationGenerator(this.metadata);
     this.coreGen = new CoreGenerator(adapter, this.getUserRoles());
 
-    // Entity generators
-    this.globalGen = new GlobalGenerator(this.tableGen, stringUtils);
-    this.collectionGen = new CollectionGenerator(this.tableGen, stringUtils);
+    // Entity generators — passed the transitional set so they branch
+    // between transitional and steady-state shapes per entity.
+    this.globalGen = new GlobalGenerator(this.tableGen, stringUtils, {
+      transitionalLocalized: this.transitionalLocalized
+    });
+    this.collectionGen = new CollectionGenerator(this.tableGen, stringUtils, {
+      transitionalLocalized: this.transitionalLocalized
+    });
     this.blockGen = new BlockGenerator(this.tableGen, stringUtils);
 
     // Storage for generated tables

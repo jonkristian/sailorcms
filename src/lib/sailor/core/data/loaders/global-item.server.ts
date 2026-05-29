@@ -16,7 +16,8 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import { eq, and, asc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getCurrentTimestamp } from '../../utils/date';
-import { getContentSettings } from '../../../utils/data/collections';
+import { getContentSettings } from '../../settings/i18n';
+import { reidNestedRows } from '../i18n-prefill.server';
 
 export interface LoadGlobalItemOptions {
   slug: string;
@@ -112,26 +113,9 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
     throw err;
   }
 
-  // For localized globals, only pull identity from main — content lives
-  // canonically on `_locales` and is merged below. Safe set: id/created_at/
-  // deleted_at/deleted_by (doctor --fix keeps). NOT safe: updated_at,
-  // last_modified_by, content columns — all dropped from main by doctor.
-  const localizedMainIdentity = isLocalized
-    ? {
-        id: (globalTable as any).id,
-        created_at: (globalTable as any).created_at,
-        deleted_at: (globalTable as any).deleted_at,
-        deleted_by: (globalTable as any).deleted_by
-      }
-    : null;
-
   if (isFlat) {
     // For singletons, try to get the single item (any ID)
-    const existingItems = await (
-      localizedMainIdentity
-        ? db.select(localizedMainIdentity).from(globalTable)
-        : db.select().from(globalTable)
-    ).limit(1);
+    const existingItems = await db.select().from(globalTable).limit(1);
 
     if (existingItems.length === 0) {
       // Auto-instantiate the singleton with default values — preserves the
@@ -209,11 +193,9 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
   } else {
     // Repeatable: try to get the specific item by ID, then by slug for
     // pretty-URL support (e.g. /sailor/globals/menus/main-menu).
-    let existingItems = await (
-      localizedMainIdentity
-        ? db.select(localizedMainIdentity).from(globalTable)
-        : db.select().from(globalTable)
-    )
+    let existingItems = await db
+      .select()
+      .from(globalTable)
       .where(eq((globalTable as any).id, itemId))
       .limit(1);
 
@@ -236,11 +218,9 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
       }
       if (resolvedId) {
         itemId = resolvedId;
-        existingItems = await (
-          localizedMainIdentity
-            ? db.select(localizedMainIdentity).from(globalTable)
-            : db.select().from(globalTable)
-        )
+        existingItems = await db
+          .select()
+          .from(globalTable)
           .where(eq((globalTable as any).id, itemId))
           .limit(1);
       }
@@ -378,6 +358,29 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
             }
           } catch {
             // Leave as id on failure
+          }
+        }
+      }
+    }
+  }
+
+  // Localized-prefill path: array/file rows just loaded came from the
+  // source-locale's `_locales.id` and still carry their original row ids.
+  // On save, the persister would `INSERT OR REPLACE` those rows under the
+  // new translation's `_locales.id` — moving them off the source (or
+  // producing duplicates depending on FK shape). Assign fresh UUIDs so the
+  // save treats each row as a new insert and the source translation keeps
+  // its own. Done in the loader (not by dropping ids and letting the
+  // persister fill in) so the form has stable keys for {#each} between
+  // load and save.
+  if ((item as any)._localePrefilledFrom) {
+    for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {
+      const fd: any = fieldDef;
+      if (fd?.type === 'array' && Array.isArray((item as any)[fieldName])) {
+        for (const row of (item as any)[fieldName]) {
+          if (row && typeof row === 'object') {
+            row.id = randomUUID();
+            reidNestedRows(row);
           }
         }
       }

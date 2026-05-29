@@ -94,15 +94,24 @@ export async function extractSEO(
   item: SEOItemInput,
   options: {
     siteName?: string;
-    /** BCP-47 — pass `siteConfig.lang` from `getSiteSettings()`. Emitted as og:locale (xx_YY). */
+    /** BCP-47 — pass `siteConfig.lang` from `getSiteSettings()`. The static
+     *  site language; used as the og:locale fallback when `contentLocale`
+     *  isn't provided (i.e. on non-localized sites). */
     siteLang?: string;
+    /** BCP-47 content locale for the current request (e.g. `'nb-NO'`). On
+     *  localized public sites pass `event.locals.contentLocale` (or the
+     *  page-data equivalent) so og:locale matches what the visitor actually
+     *  sees — without this, og:locale would always emit the static `siteLang`
+     *  and crawlers tag every page with the same language regardless of which
+     *  translation rendered. Takes precedence over `siteLang` for og:locale. */
+    contentLocale?: string;
     /** og:type — defaults to 'website'. Pass 'article' for blog posts; the helper then auto-derives published_time / modified_time / tags from the item. */
     ogType?: string;
     /** Author display name surfaced as `<meta name=author>` and `article:author`. Pass explicitly — sailor never reads the item's `author` column for this, because that column tracks who last edited the row (which a migration or admin fix can desync from who actually wrote it). */
     authorName?: string;
   } = {}
 ): Promise<SEOData> {
-  const { siteName, siteLang, ogType = 'website', authorName } = options;
+  const { siteName, siteLang, contentLocale, ogType = 'website', authorName } = options;
 
   // Title with fallbacks: meta_title > title
   let title = item.meta_title || item.title || 'Untitled';
@@ -144,7 +153,10 @@ export async function extractSEO(
     canonical,
     noindex: item.noindex === true,
     siteName,
-    siteLang,
+    // `contentLocale` (request-specific, per-translation) wins over `siteLang`
+    // (static admin setting). Localized sites get correct per-page og:locale;
+    // non-localized sites keep the existing behavior via siteLang fallback.
+    siteLang: contentLocale || siteLang,
     ogType,
     publishedTime,
     modifiedTime,

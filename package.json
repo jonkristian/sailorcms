@@ -27,6 +27,7 @@
   },
   "exports": {
     "./package.json": "./package.json",
+    "./app": "./src/lib/sailor/app.d.ts",
     "./assets/*": "./src/lib/sailor/assets/*",
     "./composables/*": "./src/lib/sailor/composables/*",
     "./components/sailor/*": "./src/lib/components/sailor/*",
@@ -77,6 +78,7 @@
     "./utils/content": "./src/lib/sailor/utils/content/index.ts",
     "./utils/data": "./src/lib/sailor/utils/data/index.ts",
     "./utils/files": "./src/lib/sailor/utils/files/index.ts",
+    "./utils/i18n": "./src/lib/sailor/utils/i18n.ts",
     "./utils/ui": "./src/lib/sailor/utils/ui/index.ts",
     "./styles/*": "./src/lib/sailor/styles/*"
   },

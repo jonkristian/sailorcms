@@ -58,26 +58,48 @@ export function registerDbUpdate(program) {
         }
 
         // Capture entities that just flipped to `localized: true` but don't
-        // yet have a `_locales` sibling — we hand this list off to the i18n
-        // migrator AFTER drizzle creates `_locales`. Captured before
-        // schema regeneration so the detector sees the pre-migration shape.
+        // yet have a `_locales` sibling. These need the transitional schema
+        // shape (relaxed full main + _locales) emitted in phase 1 so the
+        // data-copy migrator has main columns to read from; phase 2 then
+        // drops the now-vestigial columns via a regular drizzle migration.
         const pendingLocalizations = await detectLocalizedMigrations(targetDir);
         if (pendingLocalizations && pendingLocalizations.length > 0) {
           printPendingMigrations(pendingLocalizations);
         }
 
+        // ── Phase 1: transitional shape + data copy (only if flipping) ────
+        // Skipped entirely in steady state — no flips means no phase 1 work.
+        if (pendingLocalizations && pendingLocalizations.length > 0) {
+          const transitionalSlugs = pendingLocalizations.map((m) => m.slug).join(',');
+          process.env.SAILOR_TRANSITIONAL_LOCALIZED = transitionalSlugs;
+          try {
+            console.log('🔁 Phase 1/2: applying transitional schema for flipping entities…');
+            await generateSchema(targetDir);
+            execSync('npx drizzle-kit generate --config=drizzle.config.ts', {
+              cwd: targetDir,
+              stdio: 'inherit'
+            });
+            await runMigrations(targetDir);
+            // _locales now exists with relaxed-full main still intact — copy
+            // main rows over and re-point child tables. Idempotent.
+            await runI18nMigrations(targetDir, pendingLocalizations);
+          } finally {
+            delete process.env.SAILOR_TRANSITIONAL_LOCALIZED;
+          }
+          console.log('🔁 Phase 2/2: applying steady-state schema (drops vestigial cols)…');
+        }
+
+        // ── Phase 2: steady-state schema (identity-only main for localized) ─
+        // Always runs. For entities that just went through phase 1, drizzle
+        // sees a DROP COLUMN diff and applies it normally (recorded in
+        // __drizzle_migrations — no drift, no doctor --fix needed). For
+        // already-steady entities, drizzle-kit produces no migration.
         await generateSchema(targetDir);
         execSync('npx drizzle-kit generate --config=drizzle.config.ts', {
           cwd: targetDir,
           stdio: 'inherit'
         });
         await runMigrations(targetDir);
-
-        // Now that `_locales` tables exist, copy main rows over and re-point
-        // child tables. Idempotent — a re-run is a no-op.
-        if (pendingLocalizations && pendingLocalizations.length > 0) {
-          await runI18nMigrations(targetDir, pendingLocalizations);
-        }
 
         const pkgSeeder = path.join(
           targetDir,

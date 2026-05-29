@@ -13,7 +13,7 @@ import { TagService } from '../../services/tag.server';
 import { toSnakeCase } from '../../utils/string';
 import { liveOnly } from '../../db/soft-delete';
 import { loadFileFields } from '../../../utils/data/loaders/file-loader';
-import { getContentSettings } from '../../../utils/data/collections';
+import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
 import type { Pagination } from '../../types';
 
@@ -112,25 +112,11 @@ export async function loadGlobalsForList(
 
   const globalTable = schema[`global_${slug}` as keyof typeof schema];
 
-  // For localized globals, only pull identity from main — content lives on
-  // `_locales` and is merged below. Safe set: doctor --fix keeps these.
-  const localizedMainIdentity =
-    isLocalized && globalTable
-      ? {
-          id: (globalTable as any).id,
-          created_at: (globalTable as any).created_at,
-          deleted_at: (globalTable as any).deleted_at,
-          deleted_by: (globalTable as any).deleted_by
-        }
-      : null;
-
   if (isFlat) {
     if (globalTable) {
-      let result: any[] = await (
-        localizedMainIdentity
-          ? db.select(localizedMainIdentity).from(globalTable)
-          : db.select().from(globalTable)
-      )
+      let result: any[] = await db
+        .select()
+        .from(globalTable)
         .where(and(eq((globalTable as any).id, slug), liveOnly(globalTable)))
         .limit(1);
 
