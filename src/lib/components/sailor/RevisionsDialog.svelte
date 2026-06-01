@@ -12,6 +12,19 @@
 
   type Revision = {
     id: string;
+    /** Row the snapshot writes back into. For localized collections this is
+     *  a `_locales` row id (per-translation history); for non-localized,
+     *  the main row id. Used to gate restore — only the currently-active
+     *  locale's rows are restorable in one click; siblings show but are
+     *  disabled with a hint, because writing a `nb-NO` snapshot into the
+     *  active `en` row would clobber the wrong content. */
+    entity_id: string;
+    /** BCP-47 locale of this revision when the entity is localized; `null`
+     *  for non-localized collections. When set, the dialog labels the row
+     *  with its locale chip and scopes the diff against the latest
+     *  same-locale peer (not the cross-locale latest, which would compare
+     *  apples to oranges). */
+    locale: string | null;
     created_at: Date | string;
     created_by_id: string | null;
     created_by_name: string | null;
@@ -25,10 +38,17 @@
   // by the parent's server load, so navigation and diff are zero-fetch.
   let {
     revisions,
+    activeLocale = null,
     onClose,
     onRestore
   }: {
     revisions: Revision[];
+    /** BCP-47 locale currently being edited in the parent page. When the
+     *  selected revision's `locale` doesn't match, the restore button is
+     *  disabled — admins switch translations via the editor's existing
+     *  locale switcher to restore a sibling. `null` for non-localized
+     *  collections (no gating). */
+    activeLocale?: string | null;
     onClose: () => void;
     onRestore: (data: Record<string, unknown>) => Promise<boolean | void>;
   } = $props();
@@ -40,8 +60,25 @@
   const total = $derived(revisions.length);
   const canGoNewer = $derived(currentIndex > 0);
   const canGoOlder = $derived(currentIndex < total - 1);
-  const isLatest = $derived(currentIndex === 0);
-  const latest = $derived<Revision | null>(revisions[0] ?? null);
+  // "Latest" is scoped per-locale on a merged stream so the diff stays
+  // meaningful — comparing a `nb-NO` revision to the cross-locale newest
+  // would diff a Norwegian payload against an English one. For non-localized
+  // (locale === null), behavior is unchanged: peer is revisions[0].
+  const latest = $derived<Revision | null>(
+    current
+      ? current.locale == null
+        ? (revisions[0] ?? null)
+        : (revisions.find((r) => r.locale === current.locale) ?? null)
+      : null
+  );
+  const isLatest = $derived(!!current && !!latest && current.id === latest.id);
+  // Restore writes the snapshot into the currently-active locale's row, so
+  // cross-locale restore would clobber the wrong translation. Disable when
+  // the selected revision belongs to a different locale; admins switch
+  // translations via the editor's locale switcher to restore a sibling.
+  const restoreLocaleMismatch = $derived(
+    !!current && activeLocale != null && current.locale != null && current.locale !== activeLocale
+  );
 
   // Unified diff lines: when viewing the latest there are no changes so this
   // collapses to a single "unchanged" chunk == plain highlighted source. Any
@@ -150,6 +187,13 @@
             {#if total === 0}
               {m.revisions_empty()}
             {:else if current}
+              {#if current.locale}
+                <span
+                  class="bg-muted text-foreground/80 mr-1 inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] uppercase"
+                  data-locale={current.locale}
+                  aria-label={`Locale: ${current.locale}`}>{current.locale}</span
+                >
+              {/if}
               {fullTimestamp(current.created_at)} · {formatRelativeTime(
                 current.created_at,
                 getUserLocale()
@@ -208,7 +252,12 @@
     <Dialog.Footer class="flex gap-2">
       <Button variant="outline" onclick={onClose} disabled={restoring}>{m.common_close()}</Button>
       {#if total > 0 && current && !isLatest}
-        <Button onclick={handleRestore} disabled={restoring}>
+        {#if restoreLocaleMismatch}
+          <span class="text-muted-foreground self-center text-xs"
+            >{m.revisions_restore_switch_locale({ locale: current.locale ?? '' })}</span
+          >
+        {/if}
+        <Button onclick={handleRestore} disabled={restoring || restoreLocaleMismatch}>
           {#if restoring}
             <div
               class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"

@@ -24,7 +24,10 @@ import { TagService } from 'sailorcms/core/services/tag.server';
 // of this module's public surface for back-compat with existing server-side
 // imports (`sailorcms/utils/data/collections`); client-bundled callers
 // should import from `sailorcms/utils/i18n` instead.
-import { getContentSettings as getContentSettingsInternal } from 'sailorcms/core/settings/i18n';
+import {
+  getContentSettings as getContentSettingsInternal,
+  buildLocaleHref as buildLocaleHrefInternal
+} from 'sailorcms/core/settings/i18n';
 
 /**
  * True if the consumer marked this collection `localized: true` in its
@@ -47,6 +50,9 @@ export {
   urlToContentLocale,
   contentToUrlLang,
   buildLocaleHref,
+  buildLocaleHomeHref,
+  buildLocalePath,
+  defaultLangParamMatcher,
   extractTranslations,
   dependsOnContentLocale,
   CONTENT_LOCALE_DEP,
@@ -150,11 +156,13 @@ export interface CollectionsOptions {
   includeBreadcrumbs?: boolean; // Generate breadcrumb navigation (default: false)
   includeAuthors?: boolean; // Populate author details (default: false)
   /**
-   * Attach `translations: Array<{ locale, slug, status }>` to each returned
-   * item — one entry per row in `<collection>_locales` for that item. Use for
-   * language switchers, `<link rel="alternate" hreflang>` generation, sitemaps.
-   * Opt-in: costs one extra query per item. Always empty for non-localized
-   * collections.
+   * Attach `translations: Array<{ locale, slug, status, updated_at }>` to
+   * each returned item — one entry per row in `<collection>_locales` for
+   * that item. Use for language switchers, `<link rel="alternate" hreflang>`
+   * generation, sitemaps, and staleness comparison (each translation's
+   * `updated_at` against the default locale's tells you whether a sibling
+   * may be out of date). Opt-in: costs one extra query per item. Always
+   * empty for non-localized collections.
    */
   includeTranslations?: boolean;
 
@@ -168,6 +176,21 @@ export interface CollectionsOptions {
   // Pagination URL generation
   baseUrl?: string;
   currentPage?: number;
+  /**
+   * Sugar over `baseUrl` for localized list routes. Pass the *unprefixed*
+   * route pattern (e.g. `'/blog'`) and pagination URLs get the correct
+   * locale prefix applied based on `urlStrategy` + resolved `locale` —
+   * `/blog?page=2` for the default locale under `'default-at-root'`,
+   * `/no/blog?page=2` for non-default (or every locale under `'symmetric'`).
+   *
+   * Equivalent to `baseUrl: buildLocaleHref({ locale, translation: null,
+   * section: 'blog' })`. Explicit `baseUrl` always wins. Reads
+   * `urlStrategy`/`defaultLocale`/`urlAliases` from settings.
+   *
+   * No-op when i18n isn't configured (`baseUrl` falls back to `routePattern`
+   * unchanged) — safe to leave on a non-localized collection's call.
+   */
+  routePattern?: string;
 
   // Relationship filtering
   whereRelated?: {
@@ -188,7 +211,8 @@ export interface CollectionsOptions {
   locale?: string;
   /**
    * Behavior when the requested locale has no row for an item:
-   * - `'default'`: return the default-locale row marked `_localeFallback`.
+   * - `'default'`: return the default-locale row with `isFallback: true` and
+   *   `requestedLocale: <asked-for code>` so consumers can render a banner.
    * - `'strict'`: return null (single-item) or omit (multi-item).
    * Defaults to `content.i18n.fallback` from settings, then `'default'`.
    */
@@ -278,6 +302,74 @@ export async function getCollections<T extends CollectionTypes = CollectionTypes
 }
 
 /**
+ * Sugar over `getCollections` that pulls `locale` and `user` off `event` so
+ * localized loaders don't have to thread either through manually. Picks:
+ *
+ *   - `locale` from `options.locale` ?? `event.locals.contentLocale` ??
+ *     `getContentSettings().defaultLocale`
+ *   - `user` from `options.user` ?? `event.locals.user ?? null`
+ *
+ * Also stamps `event.depends('sailor:content-locale')` automatically so the
+ * load re-runs on locale-prefix navigation (paired with `watchContentLocale`
+ * in your client layout). No need to call `dependsOnContentLocale(event)`
+ * separately.
+ *
+ * Use in localized route loaders:
+ *
+ * ```ts
+ * // src/routes/(site)/[[lang=lang]]/pages/[slug]/+page.server.ts
+ * import { getCollectionsFor } from 'sailorcms/utils/data';
+ *
+ * export const load = async (event) => {
+ *   const page = await getCollectionsFor(event, 'pages', {
+ *     itemSlug: event.params.slug,
+ *     includeTranslations: true
+ *   });
+ *   return { page };
+ * };
+ * ```
+ *
+ * Existing `getCollections(slug, opts)` stays — for unchanged behavior or
+ * non-localized reads. `getCollectionsFor` is the sugar for the "this is a
+ * request-scoped read" common case.
+ */
+export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  collectionSlug: string,
+  options: CollectionsOptions & { itemSlug: string }
+): Promise<CollectionsSingleResult<T>>;
+export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  collectionSlug: string,
+  options: CollectionsOptions & { itemId: string }
+): Promise<CollectionsSingleResult<T>>;
+export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  collectionSlug: string,
+  options?: CollectionsOptions
+): Promise<CollectionsMultipleResult<T>>;
+export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  collectionSlug: string,
+  options?: CollectionsOptions
+): Promise<CollectionsSingleResult<T> | CollectionsMultipleResult<T>> {
+  // Best-effort depends() — only available on load events, not all RequestEvent
+  // variants (handlers, hooks). Silently skipped where unavailable.
+  if (typeof event.depends === 'function') {
+    try {
+      event.depends('sailor:content-locale');
+    } catch {
+      // depends() may throw if called outside a load context — ignore.
+    }
+  }
+  return getCollections<T>(collectionSlug, {
+    ...options,
+    locale: options?.locale ?? event.locals.contentLocale,
+    user: options?.user ?? (event.locals.user as any) ?? null
+  });
+}
+
+/**
  * Framework-internal read for collections. Skips the type-level `access` rule
  * because the caller is the framework itself (search index rebuild, hooks,
  * cron jobs) and has no user context to authenticate as. Re-exported from
@@ -316,6 +408,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
     offset = 0,
     baseUrl,
     currentPage,
+    routePattern,
     whereRelated,
     user,
     locale,
@@ -325,6 +418,26 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
   // Determine if this is a single item query
   const isSingleQuery = !!(itemSlug || itemId);
   const isLocalized = isLocalizedCollection(collectionSlug);
+
+  // Resolve baseUrl from routePattern when explicit baseUrl wasn't passed.
+  // Locale-prefix is applied via buildLocaleHref so paginated URLs respect
+  // the configured urlStrategy without consumers hand-building `locale ===
+  // defaultLocale ? '/blog' : '/${urlLang}/blog'` ternaries.
+  let resolvedBaseUrl = baseUrl;
+  if (!resolvedBaseUrl && routePattern) {
+    const { defaultLocale } = getContentSettingsInternal();
+    if (defaultLocale) {
+      const section = routePattern.replace(/^\/+/, '') || undefined;
+      resolvedBaseUrl = buildLocaleHrefInternal({
+        locale: locale ?? defaultLocale,
+        translation: null,
+        section
+      });
+    } else {
+      // No i18n configured — pass routePattern through unchanged.
+      resolvedBaseUrl = routePattern;
+    }
+  }
 
   try {
     // Get the table dynamically from schema
@@ -390,7 +503,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
         groupBy,
         limit,
         offset,
-        baseUrl,
+        baseUrl: resolvedBaseUrl,
         currentPage,
         whereRelated,
         user,
@@ -413,7 +526,7 @@ async function _loadCollectionImpl<T extends CollectionTypes = CollectionTypes>(
       groupBy,
       limit,
       offset,
-      baseUrl,
+      baseUrl: resolvedBaseUrl,
       currentPage,
       whereRelated,
       user
@@ -501,8 +614,11 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
  *     `parent_id` queries (junctions FK to `_locales.id` for localized
  *     collections — see Phase 1b generator).
  *   - `locale`: the resolved locale code that backed this row.
- *   - `_localeFallback` (optional): set when the row came from the default
- *     locale because the requested one had no translation.
+ *   - `isFallback` (optional, `true`): set when the row came from the
+ *     default locale because the requested one had no translation.
+ *   - `requestedLocale` (optional): what the caller asked for, when
+ *     `isFallback` is set — pair them to render banners like
+ *     "Translation for {requestedLocale} pending".
  *
  * `item.id` is always the **main** row id so consumers can pass it back to
  * other utilities (`getCollections({ itemId })`) language-agnostically.
@@ -602,7 +718,10 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     ...localeContent,
     _localeId: localeRowId
   };
-  if (fellBack) flat._localeFallback = requestedLocale;
+  if (fellBack) {
+    flat.isFallback = true;
+    flat.requestedLocale = requestedLocale;
+  }
 
   const item = await enrichCollectionItem(flat, collectionSlug, {
     includeBlocks,
@@ -1027,7 +1146,14 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
 async function loadCollectionTranslations(
   itemId: string,
   collectionSlug: string
-): Promise<Array<{ locale: string; slug: string | null; status: string | null }>> {
+): Promise<
+  Array<{
+    locale: string;
+    slug: string | null;
+    status: string | null;
+    updated_at: Date | string | null;
+  }>
+> {
   if (!isLocalizedCollection(collectionSlug)) return [];
   const localesTable = (schema as any)[`collection_${collectionSlug}_locales`];
   if (!localesTable) return [];
@@ -1036,11 +1162,17 @@ async function loadCollectionTranslations(
       .select({
         locale: localesTable.locale,
         slug: localesTable.slug,
-        status: localesTable.status
+        status: localesTable.status,
+        updated_at: localesTable.updated_at
       })
       .from(localesTable)
       .where(eq(localesTable[`${collectionSlug}_id`], itemId));
-    return rows as Array<{ locale: string; slug: string | null; status: string | null }>;
+    return rows as Array<{
+      locale: string;
+      slug: string | null;
+      status: string | null;
+      updated_at: Date | string | null;
+    }>;
   } catch {
     return [];
   }

@@ -109,9 +109,21 @@ export async function extractSEO(
     ogType?: string;
     /** Author display name surfaced as `<meta name=author>` and `article:author`. Pass explicitly — sailor never reads the item's `author` column for this, because that column tracks who last edited the row (which a migration or admin fix can desync from who actually wrote it). */
     authorName?: string;
+    /** Absolute URL of the current page (e.g. `${origin}${url.pathname}`). Used as the canonical fallback when `item.canonical_url` is empty so localized pages don't share a single canonical with the default locale's URL — a silent SEO bug otherwise. */
+    currentUrl?: string;
+    /** Sibling translations of the current item — the same array passed to `<LanguageSwitcher>` / `<HreflangLinks>`. Drafts and the current locale are filtered out; the rest become `og:locale:alternate` tags. */
+    translations?: Array<{ locale: string; status?: string | null }>;
   } = {}
 ): Promise<SEOData> {
-  const { siteName, siteLang, contentLocale, ogType = 'website', authorName } = options;
+  const {
+    siteName,
+    siteLang,
+    contentLocale,
+    ogType = 'website',
+    authorName,
+    currentUrl,
+    translations
+  } = options;
 
   // Title with fallbacks: meta_title > title
   let title = item.meta_title || item.title || 'Untitled';
@@ -132,11 +144,27 @@ export async function extractSEO(
     (await fileToUrl(item.featured_image)) ||
     (await fileToUrl(item.image));
 
-  // Canonical URL: only emit if the consumer explicitly filled the
-  // `canonical_url` field. Auto-generation from slug + baseUrl was removed
-  // because cross-domain or duplicate-content sites don't want a
-  // self-canonical baked in by default.
-  const canonical = item.canonical_url;
+  // Canonical URL: prefer the consumer's explicit `canonical_url`, fall back
+  // to `currentUrl` (the absolute URL of the current request). Without the
+  // fallback, localized pages share the default locale's canonical or emit
+  // nothing — both are silent SEO bugs (Google collapses duplicates or
+  // can't pick a representative). Pass nothing to keep the old opt-in
+  // behavior; cross-domain / duplicate-content sites that don't want a
+  // self-canonical baked in should just omit `currentUrl`.
+  const canonical = item.canonical_url || currentUrl;
+
+  // og:locale:alternate — one per OTHER published translation. Pass the same
+  // array fed to <LanguageSwitcher>/<HreflangLinks>; drafts and the current
+  // locale are filtered here so the metaTags blob stays consistent with the
+  // hreflang tags emitted by the component.
+  let localeAlternates: string[] | undefined;
+  if (translations && translations.length) {
+    const current = contentLocale || siteLang;
+    const others = translations
+      .filter((t) => t.status !== 'draft' && t.locale !== current)
+      .map((t) => t.locale);
+    if (others.length) localeAlternates = others;
+  }
 
   // Article-specific enrichment — only meaningful when og:type === 'article'.
   // Always extracted (cheap) but only the meta-tag emitter gates on ogType.
@@ -157,6 +185,7 @@ export async function extractSEO(
     // (static admin setting). Localized sites get correct per-page og:locale;
     // non-localized sites keep the existing behavior via siteLang fallback.
     siteLang: contentLocale || siteLang,
+    localeAlternates,
     ogType,
     publishedTime,
     modifiedTime,
@@ -228,6 +257,14 @@ export function generateMetaTags(seo: SEOData): string {
     tags.push(
       `<meta property="og:locale" content="${escapeHtml(seo.siteLang.replace('-', '_'))}" />`
     );
+  }
+
+  if (seo.localeAlternates) {
+    for (const locale of seo.localeAlternates) {
+      tags.push(
+        `<meta property="og:locale:alternate" content="${escapeHtml(locale.replace('-', '_'))}" />`
+      );
+    }
   }
 
   // article:* — only meaningful when og:type === 'article'

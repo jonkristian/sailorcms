@@ -4,6 +4,7 @@
 // Collection utilities
 export {
   getCollections,
+  getCollectionsFor,
   getContentSettings,
   getContentLocales,
   getDefaultLocale,
@@ -11,6 +12,9 @@ export {
   urlToContentLocale,
   contentToUrlLang,
   buildLocaleHref,
+  buildLocaleHomeHref,
+  buildLocalePath,
+  defaultLangParamMatcher,
   extractTranslations,
   dependsOnContentLocale,
   CONTENT_LOCALE_DEP,
@@ -24,6 +28,7 @@ export {
 // Global utilities
 export {
   getGlobals,
+  getGlobalsFor,
   createGlobalItem,
   getAvailableGlobalTypes,
   globalTypeExists,
@@ -36,6 +41,10 @@ export {
 
 // Block utilities
 export { loadBlocksForCollection, type BlockWithRelations } from './blocks';
+
+// Home page
+export { getHomeItem, getHomeItemFor } from './home';
+export { getHomeConfig } from '../../core/settings/home';
 
 // Access control — exported so consumers can `instanceof`-check the error
 // in their +page.server.ts and render a 403 instead of a 500.

@@ -5,7 +5,8 @@
 // in `db` which breaks the client bundle.
 
 import { afterNavigate, invalidate } from '$app/navigation';
-import { CONTENT_LOCALE_DEP } from '../core/settings/i18n';
+import { page } from '$app/state';
+import { CONTENT_LOCALE_DEP, extractTranslations } from '../core/settings/i18n';
 
 export {
   getContentSettings,
@@ -15,11 +16,16 @@ export {
   urlToContentLocale,
   contentToUrlLang,
   buildLocaleHref,
+  buildLocaleHomeHref,
+  buildLocalePath,
+  defaultLangParamMatcher,
   extractTranslations,
   dependsOnContentLocale,
   CONTENT_LOCALE_DEP,
   type BuildLocaleHrefOptions
 } from '../core/settings/i18n';
+
+export { getHomeConfig } from '../core/settings/home';
 
 /**
  * One-call bridge between sailor's server-side i18n machinery and the
@@ -71,4 +77,36 @@ export function watchContentLocale(
       void invalidate(CONTENT_LOCALE_DEP);
     }
   });
+}
+
+/**
+ * Reactive accessor for the current request's content translations. Reads
+ * `page.data` via `$app/state` and runs `extractTranslations` on it —
+ * use this in a Svelte component to skip the `$derived(extractTranslations(...))`
+ * wiring:
+ *
+ * ```svelte
+ * <script>
+ *   import { getCurrentTranslations } from 'sailorcms/utils/i18n';
+ * </script>
+ *
+ * <LanguageSwitcher translations={getCurrentTranslations()} ... />
+ * ```
+ *
+ * Because `page` is a reactive proxy and the call reads `page.data`, Svelte's
+ * template reactivity re-evaluates this whenever the page-data changes — so
+ * `translations` stays in sync with route navigation without an explicit
+ * `$derived` wrapper.
+ *
+ * Client + universal — meaningful only inside Svelte component scope. For
+ * server load functions, use `extractTranslations(data)` directly with your
+ * own data shape.
+ */
+export function getCurrentTranslations(): Array<{
+  locale: string;
+  slug: string | null;
+  status: string | null;
+  updated_at?: Date | string | null;
+}> {
+  return extractTranslations(page.data);
 }

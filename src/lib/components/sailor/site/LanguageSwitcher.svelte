@@ -7,6 +7,12 @@
     locale: string;
     slug: string | null;
     status: string | null;
+    /** Last-modified timestamp of this `_locales` row. When provided
+     *  alongside `defaultLocale`, the switcher marks a chip stale (via
+     *  `data-stale`) if its `updated_at` is older than the default
+     *  locale's — i.e., the source has changed since this translation
+     *  was last updated. Comes through `includeTranslations: true`. */
+    updated_at?: Date | string | null;
   };
 </script>
 
@@ -52,6 +58,12 @@
      *  to omit the lang prefix (default-at-root strategy). Pass
      *  `getDefaultLocale()` from `sailorcms/utils/i18n`. */
     defaultLocale?: string;
+    /** URL strategy for `routeShape: 'flat'` href computation. Defaults to
+     *  `'default-at-root'`. Pass `getContentSettings().urlStrategy` from
+     *  `sailorcms/utils/i18n` to wire the project's declared setting through
+     *  — the component doesn't read settings itself (same workspace-context
+     *  reason as `locales` / `urlAliases`). */
+    urlStrategy?: 'default-at-root' | 'symmetric';
     /** Build the href for a given locale. Third arg is the URL form
      *  (`urlAliases` applied, e.g. `'no'` for `'nb-NO'`) — use it for path
      *  building. `locale` stays the BCP-47 code; `translation` is the row
@@ -96,6 +108,7 @@
     urlAliases = {},
     routeShape,
     defaultLocale,
+    urlStrategy = 'default-at-root',
     buildHref,
     labelFor,
     shortLabelFor,
@@ -137,7 +150,7 @@
       // instead of `/` when home is rendered.
       translation: section ? translation : null,
       section,
-      strategy: 'default-at-root',
+      strategy: urlStrategy,
       defaultLocale,
       urlAliases
     } satisfies BuildLocaleHrefOptions);
@@ -175,8 +188,25 @@
     return '';
   }
 
+  /** Compute a translation's staleness against the default locale's row.
+   *  A translation is stale when its `updated_at` is strictly older than
+   *  the default's — i.e., the source has been edited since this
+   *  translation was last touched. Returns `false` when either timestamp
+   *  is missing (can't decide), when there's no `defaultLocale`, or for
+   *  the default locale's own row (the source can't be stale relative to
+   *  itself). */
+  function isStale(translation: Translation, defaultTranslation: Translation | null): boolean {
+    if (!defaultLocale || !defaultTranslation) return false;
+    if (translation.locale === defaultLocale) return false;
+    const a = translation.updated_at;
+    const b = defaultTranslation.updated_at;
+    if (!a || !b) return false;
+    return new Date(a).getTime() < new Date(b).getTime();
+  }
+
   const items = $derived.by(() => {
     const byLocale = new Map(translations.map((t) => [t.locale, t]));
+    const defaultTranslation = defaultLocale ? (byLocale.get(defaultLocale) ?? null) : null;
     const source = showMissing && locales.length > 0 ? locales : translations.map((t) => t.locale);
     const label = labelFor ?? defaultLabelFor;
     const shortLabel = shortLabelFor ?? defaultShortLabelFor;
@@ -196,7 +226,8 @@
         label: compact ? shortLabel(locale) : label(locale),
         flag: showFlags ? flag(locale) : '',
         isCurrent: locale === currentLocale,
-        isAvailable: !!translation
+        isAvailable: !!translation,
+        isStale: translation ? isStale(translation, defaultTranslation) : false
       };
     });
   });
@@ -217,6 +248,7 @@
           aria-current={item.isCurrent ? 'page' : undefined}
           data-locale={item.locale}
           data-available={item.isAvailable}
+          data-stale={item.isStale ? '' : undefined}
         >
           {#if item.flag}<span class="sailor-language-switcher__flag" aria-hidden="true"
               >{item.flag}</span

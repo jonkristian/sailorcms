@@ -10,7 +10,7 @@
 // primitive.
 
 import { db } from '../../db/index.server';
-import { sql, eq, and, desc } from 'drizzle-orm';
+import { sql, eq, and, desc, inArray } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
 import { getCurrentTimestamp } from '../../utils/date';
@@ -42,6 +42,15 @@ export interface LoadCollectionItemOptions {
 
 export interface LoadedCollectionItemRevision {
   id: string;
+  /** Row this revision restores into. For localized collections this is a
+   *  `_locales` row id (per-translation history); for non-localized, the
+   *  main row id. The restore handler scopes by this — restoring a `nb-NO`
+   *  revision never clobbers `en` content. */
+  entity_id: string;
+  /** BCP-47 locale tag when the revision belongs to a translation; `null`
+   *  for non-localized collections. Used by the History dialog to label
+   *  rows when the stream merges multiple locales. */
+  locale: string | null;
   created_at: Date;
   created_by_id: string | null;
   created_by_name: string | null;
@@ -529,20 +538,45 @@ export async function loadCollectionItem(
     }
   }
 
-  // Revisions are scoped to the row the save handler wrote: for localized
-  // collections that's the `_locales` row (per-translation history); for
-  // non-localized it's the main row.
-  const revisionEntityId = (page as any)._localeId ?? page.id;
+  // For localized collections, look up every sibling `_locales` row id/locale
+  // for this parent — feeds both `translatedLocales` (the switcher) AND the
+  // cross-locale revisions stream below. One query, two consumers.
+  let translatedLocales: string[] = [];
+  let localeRowMap: Map<string, string> = new Map(); // entity_id → locale
+  if (isLocalized && !isNewItem && localesTable) {
+    try {
+      const rows = await db
+        .select({ id: (localesTable as any).id, locale: localesTable.locale })
+        .from(localesTable)
+        .where(eq(localesTable[`${slug}_id`], itemId));
+      translatedLocales = rows.map((r: any) => r.locale as string);
+      localeRowMap = new Map(rows.map((r: any) => [r.id as string, r.locale as string]));
+    } catch (err) {
+      log.warn('Failed to load translated locales', { slug, id: itemId, err });
+    }
+  }
+
+  // Revisions are scoped per-row: for localized collections, one stream per
+  // `_locales` row (each translation owns its history — restoring the nb-NO
+  // revision never clobbers en content). The History dialog merges them
+  // chronologically here so admins see the full per-item story in one place;
+  // each row carries its own `entity_id` so the restore handler stays scoped.
+  const revisionEntityIds = isLocalized
+    ? Array.from(localeRowMap.keys())
+    : page.id
+      ? [String(page.id)]
+      : [];
   let revisions: LoadedCollectionItemRevision[] = [];
   if (
     !isNewItem &&
-    revisionEntityId &&
+    revisionEntityIds.length > 0 &&
     resolveRevisionsKeep(collectionDefinition.options?.revisions) !== null
   ) {
     try {
       const rows = await db
         .select({
           id: schema.revisions.id,
+          entity_id: schema.revisions.entity_id,
           data: schema.revisions.data,
           created_at: schema.revisions.created_at,
           created_by_id: schema.revisions.created_by,
@@ -554,7 +588,9 @@ export async function loadCollectionItem(
         .where(
           and(
             eq(schema.revisions.entity_type, `collection:${slug}`),
-            eq(schema.revisions.entity_id, String(revisionEntityId))
+            revisionEntityIds.length === 1
+              ? eq(schema.revisions.entity_id, revisionEntityIds[0])
+              : inArray(schema.revisions.entity_id, revisionEntityIds)
           )
         )
         .orderBy(desc(schema.revisions.created_at))
@@ -569,6 +605,8 @@ export async function loadCollectionItem(
         }
         return {
           id: r.id,
+          entity_id: r.entity_id,
+          locale: isLocalized ? (localeRowMap.get(r.entity_id) ?? null) : null,
           created_at: r.created_at as Date,
           created_by_id: r.created_by_id,
           created_by_name: r.created_by_name,
@@ -578,20 +616,6 @@ export async function loadCollectionItem(
       });
     } catch (err) {
       log.error('Failed to load revisions for page', { slug, id: page.id }, err as Error);
-    }
-  }
-
-  // Translated locales for the switcher
-  let translatedLocales: string[] = [];
-  if (isLocalized && !isNewItem && localesTable) {
-    try {
-      const rows = await db
-        .select({ locale: localesTable.locale })
-        .from(localesTable)
-        .where(eq(localesTable[`${slug}_id`], itemId));
-      translatedLocales = rows.map((r: any) => r.locale as string);
-    } catch (err) {
-      log.warn('Failed to load translated locales', { slug, id: itemId, err });
     }
   }
 

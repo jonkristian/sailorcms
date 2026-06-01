@@ -3,6 +3,7 @@ import { sql, and, or, eq, desc, asc, inArray, type SQL } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { getCollections } from './collections';
 import { getGlobals } from './globals';
+import { getContentSettings, buildLocaleHref } from '../../core/settings/i18n';
 import { ensureFtsReady } from 'sailorcms/core/services/search-index.server';
 import { collectionDefinitions } from '$sailor/templates/collections';
 import { globalDefinitions } from '$sailor/templates/globals';
@@ -45,6 +46,13 @@ export interface SearchOptions {
   // Populate `pagination` in the result when both `limit` and `baseUrl` are provided.
   baseUrl?: string;
   currentPage?: number;
+  /**
+   * Sugar over `baseUrl` for localized search routes. Pass `'/search'` and
+   * pagination URLs get the locale-correct prefix applied via `urlStrategy`.
+   * Same semantics as `CollectionsOptions.routePattern`. Explicit `baseUrl`
+   * always wins; no-op when i18n isn't configured.
+   */
+  routePattern?: string;
 }
 
 export interface SearchResultItem {
@@ -97,8 +105,25 @@ export async function search(query: string, options: SearchOptions = {}): Promis
     user,
     locale,
     baseUrl,
-    currentPage
+    currentPage,
+    routePattern
   } = options;
+
+  // routePattern → baseUrl derivation, same shape as getCollections.
+  let resolvedBaseUrl = baseUrl;
+  if (!resolvedBaseUrl && routePattern) {
+    const { defaultLocale } = getContentSettings();
+    if (defaultLocale) {
+      const section = routePattern.replace(/^\/+/, '') || undefined;
+      resolvedBaseUrl = buildLocaleHref({
+        locale: locale ?? defaultLocale,
+        translation: null,
+        section
+      });
+    } else {
+      resolvedBaseUrl = routePattern;
+    }
+  }
   const table = (schema as any).searchIndex;
   if (!table) {
     console.error('search(): search_index table missing from schema. Run `npx sailor db:update`.');
@@ -179,7 +204,7 @@ export async function search(query: string, options: SearchOptions = {}): Promis
     hasMore: offset + page.length < total
   };
 
-  if (limit && baseUrl) {
+  if (limit && resolvedBaseUrl) {
     const pageNum = currentPage || Math.floor(offset / limit) + 1;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     result.pagination = {

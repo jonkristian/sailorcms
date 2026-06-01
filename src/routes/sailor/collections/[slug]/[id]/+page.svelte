@@ -582,6 +582,7 @@
       {#if revisionsEnabled && revisionsDialogOpen}
         <RevisionsDialog
           revisions={(data.revisions ?? []) as any}
+          activeLocale={data.currentLocale ?? null}
           onClose={() => (revisionsDialogOpen = false)}
           onRestore={handleRestoreRevision}
         />

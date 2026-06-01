@@ -1,6 +1,6 @@
 import { db } from '../db/index.server';
 import { revisions } from '$sailor/generated/schema';
-import { and, desc, eq, notInArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
 import { generateUUID } from '../utils/common';
 
 export const DEFAULT_REVISION_KEEP = 50;
@@ -73,14 +73,24 @@ export const RevisionsService = {
   async list({
     entityType,
     entityId,
+    entityIds,
     limit = 50,
     offset = 0
   }: {
     entityType: RevisionEntityType;
-    entityId: string;
+    /** Either a single entity id (back-compat) or an array of ids for a
+     *  merged stream — used by the localized History dialog to surface a
+     *  parent item's revisions across all its sibling `_locales` rows in
+     *  one chronological list. Each returned row carries its own
+     *  `entity_id`, so a per-row restore stays scoped to the translation
+     *  the revision belongs to. */
+    entityId?: string;
+    entityIds?: string[];
     limit?: number;
     offset?: number;
   }): Promise<RevisionSummary[]> {
+    const ids = entityIds ?? (entityId ? [entityId] : []);
+    if (ids.length === 0) return [];
     const rows = await db
       .select({
         id: revisions.id,
@@ -90,7 +100,12 @@ export const RevisionsService = {
         created_at: revisions.created_at
       })
       .from(revisions)
-      .where(and(eq(revisions.entity_type, entityType), eq(revisions.entity_id, entityId)))
+      .where(
+        and(
+          eq(revisions.entity_type, entityType),
+          ids.length === 1 ? eq(revisions.entity_id, ids[0]) : inArray(revisions.entity_id, ids)
+        )
+      )
       .orderBy(desc(revisions.created_at))
       .limit(limit)
       .offset(offset);

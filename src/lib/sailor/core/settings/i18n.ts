@@ -21,7 +21,9 @@ export function getContentSettings() {
     locales: i18n.locales as string[] | undefined,
     defaultLocale: i18n.default as string | undefined,
     fallback: (i18n.fallback as 'default' | 'strict' | undefined) ?? 'default',
-    urlAliases: (i18n.urlAliases as Record<string, string> | undefined) ?? {}
+    urlAliases: (i18n.urlAliases as Record<string, string> | undefined) ?? {},
+    urlStrategy:
+      (i18n.urlStrategy as 'default-at-root' | 'symmetric' | undefined) ?? 'default-at-root'
   };
 }
 
@@ -143,14 +145,21 @@ export interface BuildLocaleHrefOptions {
 }
 
 export function buildLocaleHref(opts: BuildLocaleHrefOptions): string {
+  const settings = getContentSettings();
   const {
     locale,
     translation,
     section,
-    strategy = 'default-at-root',
-    defaultLocale = getDefaultLocale(),
-    urlAliases = getContentSettings().urlAliases
+    strategy = settings.urlStrategy,
+    defaultLocale = settings.defaultLocale,
+    urlAliases = settings.urlAliases
   } = opts;
+
+  if (!defaultLocale) {
+    throw new Error(
+      'buildLocaleHref: no defaultLocale resolved. Set content.i18n.default in templates/settings.ts or pass defaultLocale explicitly.'
+    );
+  }
 
   const urlLang = urlAliases[locale] ?? locale;
   const isDefaultAtRoot = strategy === 'default-at-root' && locale === defaultLocale;
@@ -163,6 +172,102 @@ export function buildLocaleHref(opts: BuildLocaleHrefOptions): string {
   }
   return section ? `${prefix}/${section}/${slug}` : `${prefix}/${slug}`;
 }
+
+/**
+ * Build the home/brand link for a target locale — `'/'` for the default
+ * locale under `'default-at-root'`, `'/<urlLang>'` otherwise.
+ *
+ * One-liner sugar over `buildLocaleHref({ locale, translation: null })`.
+ * Use in your layout's brand link, footer logo, anywhere you'd write
+ * `lang === defaultLocale ? '/' : '/' + lang` by hand:
+ *
+ * ```svelte
+ * <a href={buildLocaleHomeHref(data.locale)}>Logo</a>
+ * ```
+ *
+ * Reads `urlStrategy` / `defaultLocale` / `urlAliases` from settings.
+ */
+export function buildLocaleHomeHref(locale: string): string {
+  return buildLocaleHref({ locale, translation: null });
+}
+
+/**
+ * Prefix a literal URL path with the locale's URL form. Use for one-off
+ * links where you have a complete path string (e.g. a back-link, a related
+ * post, an array of menu URLs) and don't want to decompose it into
+ * `{ section, slug, translation }` just to feed `buildLocaleHref`:
+ *
+ * ```ts
+ * buildLocalePath('/blog/' + slug, locale)
+ * // → '/blog/<slug>' for default-locale under default-at-root
+ * // → '/no/blog/<slug>' otherwise
+ * ```
+ *
+ * Honors `urlStrategy` / `defaultLocale` / `urlAliases` from settings the
+ * same way `buildLocaleHref` does. The path is treated as a literal URL —
+ * `'/blog'` emits `/blog`, NOT `/blog/blog`. Use `buildLocaleHref` when you
+ * have a translation row and want the slug substituted; use this when the
+ * path is already final.
+ */
+export function buildLocalePath(
+  path: string,
+  locale: string,
+  opts?: {
+    strategy?: 'default-at-root' | 'symmetric';
+    defaultLocale?: string;
+    urlAliases?: Record<string, string>;
+  }
+): string {
+  const settings = getContentSettings();
+  const strategy = opts?.strategy ?? settings.urlStrategy;
+  const defaultLocale = opts?.defaultLocale ?? settings.defaultLocale;
+  const urlAliases = opts?.urlAliases ?? settings.urlAliases;
+
+  if (!defaultLocale) {
+    throw new Error(
+      'buildLocalePath: no defaultLocale resolved. Set content.i18n.default in templates/settings.ts or pass defaultLocale explicitly.'
+    );
+  }
+
+  const urlLang = urlAliases[locale] ?? locale;
+  const isDefaultAtRoot = strategy === 'default-at-root' && locale === defaultLocale;
+  const prefix = isDefaultAtRoot ? '' : `/${urlLang}`;
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const body = normalized === '/' ? '' : normalized;
+  return `${prefix}${body}` || '/';
+}
+
+/**
+ * Default `lang` param matcher for SvelteKit, strategy-aware.
+ *
+ * Reads `content.i18n.urlStrategy` from settings:
+ *   - `'default-at-root'` (default): refuses the default locale's URL form so
+ *     `/about` is the only valid URL for default-locale pages (avoids the
+ *     `/en/about` duplicate-content trap).
+ *   - `'symmetric'`: accepts every configured URL form including the default.
+ *
+ * Drop into `src/params/lang.ts`:
+ *
+ * ```ts
+ * import type { ParamMatcher } from '@sveltejs/kit';
+ * import { defaultLangParamMatcher } from 'sailorcms/utils/i18n';
+ *
+ * export const match: ParamMatcher = defaultLangParamMatcher;
+ * ```
+ *
+ * Replaces the hand-rolled matcher from docs §8 — same behavior, one line.
+ */
+export const defaultLangParamMatcher = (param: string): boolean => {
+  const settings = getContentSettings();
+  const strategy = settings.urlStrategy;
+  const defaultUrl = settings.defaultLocale
+    ? (settings.urlAliases[settings.defaultLocale] ?? settings.defaultLocale)
+    : '';
+  if (strategy === 'default-at-root' && param === defaultUrl) {
+    return false;
+  }
+  return urlToContentLocale(param) !== null;
+};
 
 /**
  * Dependency tag used by sailor to signal "this request's resolved content
@@ -193,9 +298,12 @@ export const CONTENT_LOCALE_DEP = 'sailor:content-locale';
  * const translations = $derived(extractTranslations(page.data));
  * ```
  */
-export function extractTranslations(
-  data: Record<string, any> | null | undefined
-): Array<{ locale: string; slug: string | null; status: string | null }> {
+export function extractTranslations(data: Record<string, any> | null | undefined): Array<{
+  locale: string;
+  slug: string | null;
+  status: string | null;
+  updated_at?: Date | string | null;
+}> {
   if (!data || typeof data !== 'object') return [];
   // Top-level direct property — the simplest convention for loaders that
   // want to feed the switcher independent of any specific item key.

@@ -116,7 +116,7 @@ const post = await getCollections<Post>('posts', {
 Resolution:
 
 1. JOIN main + `_locales` WHERE `_locales.locale = ?` AND `_locales.status` matches.
-2. If no `_locales` row for the requested locale and `fallback === 'default'`: return the default-locale row with a `_localeFallback: 'en'` marker so the consumer can render an indicator.
+2. If no `_locales` row for the requested locale and `fallback === 'default'`: return the default-locale row stamped `isFallback: true` + `requestedLocale: <asked-for code>` so the consumer can render a "translation pending" banner.
 3. If `fallback === 'strict'`: omit / return null.
 
 If `locale` is unset, `content.i18n.default` from settings is used.
@@ -186,12 +186,15 @@ content: {
     locales: ['en', 'nb-NO'],
     default: 'en',
     fallback: 'default',
-    urlAliases: { 'nb-NO': 'no' } // optional; defaults to BCP-47 codes
+    urlAliases: { 'nb-NO': 'no' },        // optional; defaults to BCP-47 codes
+    urlStrategy: 'default-at-root'        // optional; default. See box above for trade-off.
   }
 }
 ```
 
 With this, `getUrlLangs()` returns `['en', 'no']`, `urlToContentLocale('no')` returns `'nb-NO'`, and `contentToUrlLang('nb-NO')` returns `'no'`. Locales without an alias use their BCP-47 code unchanged.
+
+`urlStrategy` is declared here so the same value drives `buildLocaleHref`, `buildLocaleHomeHref`, the param matcher, and `<LanguageSwitcher>` — change the strategy in one place and the public URL shape follows. Omit to get `'default-at-root'`.
 
 ### Param matcher — accept non-default URL forms only
 
@@ -201,17 +204,12 @@ import type { ParamMatcher } from '@sveltejs/kit';
 // IMPORTANT: import from `sailorcms/utils/i18n`, not `sailorcms/utils/data`.
 // Param matchers ship to the client too; the data/ entry pulls in `db` (→ dotenv → process)
 // which crashes in the browser. `utils/i18n` is the pure, client-safe helper module.
-import { urlToContentLocale, contentToUrlLang, getDefaultLocale } from 'sailorcms/utils/i18n';
+import { defaultLangParamMatcher } from 'sailorcms/utils/i18n';
 
-const defaultUrlLang = contentToUrlLang(getDefaultLocale());
-
-export const match: ParamMatcher = (param) => {
-  if (param === defaultUrlLang) return false; // default serves at root, not /en/...
-  return urlToContentLocale(param) !== null;
-};
+export const match: ParamMatcher = defaultLangParamMatcher;
 ```
 
-Refusing the default's URL form here keeps `/about` as the only valid URL for default-locale pages and prevents `/en/about` from quietly serving duplicate content (search engines penalize that).
+`defaultLangParamMatcher` reads `content.i18n.urlStrategy` from settings — under `'default-at-root'` it refuses the default's URL form so `/about` is the only valid URL for default-locale pages (prevents `/en/about` from quietly serving duplicate content; search engines penalize that); under `'symmetric'` it accepts every configured form. Hand-roll your own matcher only if the bundled rule doesn't fit (multi-tenant subdomains, locale on a non-first segment, etc.).
 
 ### Route layout — optional `[[lang]]` segment
 
@@ -265,34 +263,38 @@ export {};
 
 That's the whole file (or add to your existing one). Sailor's `app.d.ts` declares the `App.Locals` shape sailor's hooks stamp.
 
-### Loader — read locale from `[[lang]]` or fall back to default
+### Loader — `getCollectionsFor(event, slug)`
 
 ```ts
 // src/routes/(site)/[[lang=lang]]/pages/[slug]/+page.server.ts
-import {
-  getCollections,
-  urlToContentLocale,
-  getDefaultLocale,
-  dependsOnContentLocale
-} from 'sailorcms/utils/data';
+import { getCollectionsFor } from 'sailorcms/utils/data';
 
 export const load = async (event) => {
-  // Subscribe this load to "content locale changed" — SvelteKit re-runs it
-  // when navigating between locale prefixes (e.g. `/about` → `/no/about`).
-  // Replaces the historical `void event.params.lang;` workaround.
-  dependsOnContentLocale(event);
-
-  const locale = (event.params.lang && urlToContentLocale(event.params.lang)) ?? getDefaultLocale();
-  const page = await getCollections('pages', {
+  // `getCollectionsFor` picks `locale` off `event.locals.contentLocale` (set
+  // by the hook above), pulls `user` off `event.locals.user`, AND stamps the
+  // `'sailor:content-locale'` dependency tag so SvelteKit re-runs this load
+  // on locale-prefix navigation. Equivalent to:
+  //
+  //   dependsOnContentLocale(event);
+  //   const locale = (event.params.lang && urlToContentLocale(event.params.lang))
+  //     ?? getDefaultLocale();
+  //   const page = await getCollections('pages', { ..., locale, user });
+  //
+  // Three lines of ceremony collapsed into one call. `getGlobalsFor` exists
+  // for localized globals (menus, settings, etc.) with the same shape.
+  const page = await getCollectionsFor(event, 'pages', {
     itemSlug: event.params.slug,
-    locale,
     includeTranslations: true // for the language switcher below
   });
-  return { page, locale };
+  return { page };
 };
 ```
 
-> Note: until an "implicit locale via `event.locals.contentLocale`" pickup lands in `getCollections`, the `locale` arg has to be threaded explicitly. The hook above stamps `event.locals.contentLocale` so you can also read it from there if you prefer.
+> Override the picked-up locale by passing `locale` explicitly in `options` —
+> `getCollectionsFor` only fills it in when missing. Same for `user`. The
+> plain `getCollections(slug, options)` and `getGlobals(slug, options)`
+> entry points stay unchanged for non-localized reads and request-less
+> callers (cron jobs, scripts).
 
 ### SPA navigation: keep `<html lang>` in sync
 
@@ -310,13 +312,12 @@ export const load = async (event) => {
 ```svelte
 <!-- src/routes/(site)/[[lang=lang]]/+layout.svelte -->
 <script>
-  import { page } from '$app/state';
   import LanguageSwitcher from 'sailorcms/components/sailor/site/LanguageSwitcher.svelte';
   // Use `utils/i18n` (client-safe) — `utils/data` would drag in db/dotenv.
   import {
-    extractTranslations,
     getContentLocales,
     getContentSettings,
+    getCurrentTranslations,
     getDefaultLocale,
     urlToContentLocale,
     watchContentLocale
@@ -324,31 +325,25 @@ export const load = async (event) => {
 
   let { data, children } = $props();
   const locales = getContentLocales();
-  const { urlAliases } = getContentSettings();
+  const { urlAliases, urlStrategy } = getContentSettings();
   const defaultLocale = getDefaultLocale();
 
   // Bridges server-side initial-load `<html lang>` (set via transformPageChunk
   // in handleSailorHooks) with client-side SPA nav: updates document.documentElement.lang
   // AND invalidates `CONTENT_LOCALE_DEP` on locale-prefix change. Loaders that
-  // call `dependsOnContentLocale(event)` will re-run.
+  // used `getCollectionsFor` / `dependsOnContentLocale(event)` will re-run.
   watchContentLocale((pathname) => {
     const seg = pathname.split('/')[1];
     return urlToContentLocale(seg) ?? defaultLocale;
   });
-
-  // Walks `page.data` to find the first `translations` array (handles the
-  // `data.page.translations` / `data.post.translations` / `data.home.translations`
-  // variations from different route loaders). Returns `[]` when none — switcher
-  // renders the locale chips in "all missing" state, which `hideIfNoTranslations`
-  // can hide entirely if you prefer.
-  const translations = $derived(extractTranslations(page.data));
 </script>
 
 <LanguageSwitcher
-  {translations}
+  translations={getCurrentTranslations()}
   currentLocale={data.locale}
   {locales}
   {urlAliases}
+  {urlStrategy}
   {defaultLocale}
   routeShape="flat"
 />
@@ -356,29 +351,185 @@ export const load = async (event) => {
 {@render children?.()}
 ```
 
+`getCurrentTranslations()` walks `page.data` for the first `translations` array — handles the `data.page.translations` / `data.post.translations` / `data.home.translations` variations from different route loaders automatically. Returns `[]` when none — the switcher renders in "all missing" state, which `hideIfNoTranslations` can collapse to nothing if you prefer.
+
 `routeShape="flat"` tells the switcher to auto-detect the current section from `page.url.pathname` and compute hrefs via `buildLocaleHref` internally — no `buildHref` callback needed for `/[section]/[slug]` URLs. For nested sections or custom URL shapes, leave `routeShape` unset and pass `buildHref` directly.
 
-### Paginated-list `baseUrl`
+### Per-locale links — `buildLocaleHomeHref` and `buildLocaleHref`
 
-For paginated reads (`getCollections('posts', { baseUrl, limit, currentPage })`), the same `buildLocaleHref` helper drops in — pass `translation: null` to get just the section-root URL with the correct locale prefix:
+`buildLocaleHomeHref(locale)` returns the brand/home link — `/` under default-at-root for the default locale, `/<urlLang>` otherwise. Use it for footer logos, header brand links, anywhere you used to write `locale === defaultLocale ? '/' : '/' + locale` by hand:
+
+```svelte
+<script>
+  import { buildLocaleHomeHref } from 'sailorcms/utils/i18n';
+</script>
+
+<a href={buildLocaleHomeHref(data.locale)}>Brand</a>
+```
+
+For paginated reads, pass `routePattern: '/blog'` to `getCollectionsFor` — `baseUrl` derives automatically from the resolved locale + the configured `urlStrategy`:
 
 ```ts
-import { buildLocaleHref, getDefaultLocale } from 'sailorcms/utils/i18n';
+// src/routes/(site)/[[lang=lang]]/blog/+page.server.ts
+import { getCollectionsFor } from 'sailorcms/utils/data';
 
-const locale = ...; // resolved earlier in the loader
-const baseUrl = buildLocaleHref({
-  locale,
-  translation: null,
-  section: 'blog',
-  defaultLocale: getDefaultLocale()
-});
-// Yields '/blog' for default locale, '/no/blog' for non-default. No hand-rolled
-// `locale === defaultLocale ? '/blog' : '/${urlLang}/blog'` ternary.
+export const load = async (event) => {
+  const posts = await getCollectionsFor(event, 'posts', {
+    limit: 10,
+    currentPage: Number(event.url.searchParams.get('page') ?? 1),
+    routePattern: '/blog'
+  });
+  // baseUrl resolves to '/blog' for the default locale under 'default-at-root',
+  // '/no/blog' for non-default. No hand-built ternary.
+  return { posts };
+};
+```
 
-const result = await getCollections('posts', { limit: 10, currentPage: 1, baseUrl, locale });
+Explicit `baseUrl` still wins when you need a route shape `buildLocaleHref` can't model. For non-paginated, per-item URL construction (link lists, brand link, item href in templates) reach for `buildLocaleHref` / `buildLocaleHomeHref` / `buildLocalePath` directly:
+
+```ts
+import { buildLocaleHref, buildLocaleHomeHref, buildLocalePath } from 'sailorcms/utils/i18n';
+
+const url = buildLocaleHref({ locale, translation: post.translation, section: 'blog' });
+const home = buildLocaleHomeHref(locale);
+const related = buildLocalePath('/blog/' + post.slug, locale); // literal path, no translation lookup
 ```
 
 `buildHref`'s third arg (`urlLang`) is the URL form (alias applied). The first arg (`locale`) stays BCP-47. `translation` is the row from `includeTranslations: true` — present means a real translation exists; `null` means missing (consumer decides whether to omit, link to home, or render a disabled chip).
+
+Use `buildLocaleHref` when you have a translation row and want sailor to substitute its slug; use `buildLocalePath` when the path is already final (an array of menu URLs, a back-link computed elsewhere, a path string that doesn't decompose cleanly into section + slug).
+
+### SEO — `<HreflangLinks>`
+
+Search engines pick the right language version when each translated URL carries `<link rel="alternate" hreflang>` markup pointing at its siblings. Drop the bundled component into your localized layout — it goes through `<svelte:head>` internally, so render it inline anywhere in the template:
+
+```svelte
+<!-- src/routes/(site)/[[lang=lang]]/+layout.svelte -->
+<script>
+  import HreflangLinks from 'sailorcms/components/sailor/site/HreflangLinks.svelte';
+  import {
+    getCurrentTranslations,
+    getContentSettings,
+    getDefaultLocale
+  } from 'sailorcms/utils/i18n';
+
+  let { data } = $props();
+  const { urlAliases, urlStrategy } = getContentSettings();
+  const defaultLocale = getDefaultLocale();
+</script>
+
+<HreflangLinks
+  translations={getCurrentTranslations()}
+  {defaultLocale}
+  {urlAliases}
+  {urlStrategy}
+  section="blog"
+/>
+```
+
+`section` is the same prop you'd pass to `buildLocaleHref` for the current route shape — `'blog'` for `/blog/[slug]`, `'pages'` for `/pages/[slug]`, omit for top-level pages whose URL is just `/<slug>`. Component emits one `<link>` per published translation (drafts skipped) plus a `<link hreflang="x-default">` pointing at the default-locale URL. `origin` defaults to `page.url.origin` — override only if you need a canonical origin different from the request (CDN preview environments, etc.).
+
+For the **home route**, pass `routeShape="home"` instead of `section` — every alternate becomes the locale root (`/` or `/<urlLang>`), regardless of any slug the home row carries:
+
+```svelte
+<HreflangLinks
+  translations={getCurrentTranslations()}
+  {defaultLocale}
+  {urlAliases}
+  {urlStrategy}
+  routeShape="home"
+/>
+```
+
+For nested sections or custom URL shapes, pass `buildHref` directly (same callback shape as `<LanguageSwitcher>`).
+
+### Home page — `content.home` + `getHomeItem`
+
+Declare which collection item IS the homepage once in `templates/settings.ts`; sitemap, hreflang, and the home route all consult that single declaration:
+
+```ts
+// templates/settings.ts
+content: {
+  home: { collectionSlug: 'pages', itemSlug: 'home' },
+  i18n: { locales: ['en', 'nb-NO'], default: 'en' }
+}
+```
+
+Then the home `+page.server.ts` is one call:
+
+```ts
+import { getHomeItemFor } from 'sailorcms/utils/data';
+import { error } from '@sveltejs/kit';
+
+export const load = async (event) => {
+  const home = await getHomeItemFor(event, {
+    includeTranslations: true,
+    includeBlocks: true
+  });
+  if (!home) error(404, 'No home item configured');
+  return { home };
+};
+```
+
+`getHomeItemFor(event, opts?)` resolves the configured collection + slug into a real row using the request's `event.locals.contentLocale` and stamps the `'sailor:content-locale'` dependency tag. Use `getHomeItem(opts?)` outside a request context (cron, scripts) — same shape, no event.
+
+The pure config reader `getHomeConfig()` (client-safe, from `sailorcms/utils/i18n`) returns the `{ collectionSlug, itemSlug } | null` declaration without hitting the DB. Use it when you only need to branch on "is a home item configured?" (sitemap auto-detection, hreflang home shortcuts).
+
+Slug renames break the declaration silently — bookkeeping the editor needs to know about. The queued DB-backed "Set as homepage" admin toggle (writes itemId, not slug) will supersede this static declaration when set.
+
+### Sitemap — `generateLocalizedSitemap`
+
+Drop this into `src/routes/sitemap.xml/+server.ts`:
+
+```ts
+import { generateLocalizedSitemap } from 'sailorcms/utils/site';
+
+export const GET = async ({ url }) => {
+  const xml = await generateLocalizedSitemap({
+    origin: url.origin,
+    collections: [
+      { slug: 'pages', routePattern: '/' },
+      { slug: 'posts', routePattern: '/blog' }
+    ]
+  });
+  return new Response(xml, {
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' }
+  });
+};
+```
+
+For each collection the helper reads all `status: 'published'` items via `getCollections(..., { includeTranslations: true })` and emits one `<url>` per available translation (Google's pattern: every language version carries the full `xhtml:link` alternate set including `x-default`). Non-localized collections collapse to one plain `<url>` per item. Per-collection `limit` (default 50,000) caps reads; for sites exceeding that, split into multiple sitemaps via your own sitemap index. Safe to call when i18n isn't configured — falls back to a single-locale sitemap.
+
+**Home page item.** When `content.home` is declared in `templates/settings.ts`, the matching item auto-emits at the locale root (`/`, `/no`) with full hreflang alternates — no `homeSlug` argument needed. Pass `homeSlug` per-collection only to override (e.g. point the sitemap at a different home item than the route, or opt out by setting `homeSlug: undefined`). Drop any matching `extraUrls: [{ path: '/' }]` entry — the home is now part of the collection enumeration. If you leave both, same-`<loc>` entries are deduped automatically (the localized version with full alternates wins).
+
+**Strict mode — `strictTranslations: true`.** By default the sitemap emits a `<url>` for every translation that has a `_locales` row, even when the row is empty (no slug filled in). For home items in particular this means `/en` shows up as soon as EN is a configured locale, regardless of whether any EN content has been written — handy as a "this locale is coming" crawler signal under `fallback: 'default'`, but misleading if your site doesn't want to advertise unfinished content. Pass `strictTranslations: true` to require a non-null slug on every translation (the home carve-out is dropped) — only locales with actual content emit URLs.
+
+> As your translation set stabilizes (you're past the mid-rollout phase and don't want placeholder URLs in Search Console), set `strictTranslations: true`. Same word, same intent as `fallback: 'strict'` on the data loaders — "only emit what's real."
+
+`extraUrls` is for static localized pages that aren't backed by a collection (a hand-written contact form, etc.) — pass `localized: true` to fan out to every configured locale.
+
+### robots.txt — `generateRobotsTxt`
+
+Symmetric with the sitemap helper — drop into `src/routes/robots.txt/+server.ts`:
+
+```ts
+import { generateRobotsTxt } from 'sailorcms/utils/site';
+import { getSiteSettings } from 'sailorcms/utils/index';
+
+export const GET = async ({ url }) => {
+  const site = await getSiteSettings();
+  return new Response(
+    generateRobotsTxt({
+      origin: site.siteUrl ?? url.origin,
+      sitemap: '/sitemap.xml',
+      disallow: ['/sailor'] // keep the admin out of crawl indexes
+    }),
+    { headers: { 'Content-Type': 'text/plain' } }
+  );
+};
+```
+
+The `Sitemap:` line is stamped absolute (robots.txt requires it). `allow` / `disallow` accept path patterns. Pass an array to `sitemap` for multi-sitemap setups (one `Sitemap:` line per entry). `extra` lets you append raw lines (`Crawl-delay`, custom directives) without bloating the named options.
 
 ### What this gives you
 
@@ -399,4 +550,3 @@ const result = await getCollections('posts', { limit: 10, currentPage: 1, baseUr
 - **Staleness indicator** — comparing each translation's `updated_at` against the default-locale row's `updated_at` to flag "may need update" siblings in the locale switcher — queued.
 - **Cross-locale revisions UI** — revisions are correctly scoped per translation; the History dialog shows one stream at a time. Per-item history is split across N translations; merging chronologically with locale labels is queued.
 - **`<HreflangLinks item={...} />` helper** — wraps `includeTranslations` + `contentToUrlLang` into ready-to-paste `<link rel="alternate" hreflang>` markup for `<svelte:head>`. Queued.
-- **Implicit locale pickup in `getCollections` / `getGlobals`** — today the `locale` arg has to be threaded through every loader. A `getCollectionsFor(event, slug, options)` variant that reads `event.locals.contentLocale` is queued; the existing signatures stay unchanged for backward compat.

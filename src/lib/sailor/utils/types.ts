@@ -78,6 +78,8 @@ export interface SEOData {
   siteName?: string;
   /** BCP-47 language tag for og:locale (emitted as xx_YY). Pulled from site.lang. */
   siteLang?: string;
+  /** Other BCP-47 locales available for this page — each emits one `og:locale:alternate` tag. */
+  localeAlternates?: string[];
   /** og:type — defaults to 'website'; pass 'article' for blog posts and similar. */
   ogType?: string;
   /** ISO 8601 — emitted as article:published_time when og:type is 'article'. */

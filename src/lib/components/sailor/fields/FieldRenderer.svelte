@@ -28,8 +28,9 @@
   import { Input } from 'sailorcms/components/ui/input/index.js';
   import * as InputGroup from 'sailorcms/components/ui/input-group/index.js';
   import { Label } from 'sailorcms/components/ui/label/index.js';
-  import { RefreshCw } from '@lucide/svelte';
+  import { RefreshCw, Home } from '@lucide/svelte';
   import { slugify } from 'sailorcms/core/utils/common';
+  import { getHomeConfig } from 'sailorcms/utils/i18n';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { getUniqueSlug } from 'sailorcms/remote/collections.remote.js';
@@ -56,6 +57,19 @@
 
   // Check if this is a slug field
   let isSlugField = $derived(fieldKey === 'slug' || field.title?.toLowerCase().includes('slug'));
+
+  // Light "this item is the homepage" badge — fires when the current slug
+  // matches `content.home.itemSlug` AND the collection matches the configured
+  // home collection. Match-by-slug only flags the default-locale row (which
+  // is the slug homeConfig actually references), so sibling-locale editors
+  // don't get a misleading chip.
+  let homeConfig = $derived(getHomeConfig());
+  let isHomeItem = $derived(
+    isSlugField &&
+      !!homeConfig &&
+      entityType === `collection_${homeConfig.collectionSlug}` &&
+      value === homeConfig.itemSlug
+  );
 
   // Function to generate slug from title
   async function generateSlugFromTitle() {
@@ -281,6 +295,15 @@
             </InputGroup.Button>
           </InputGroup.Addon>
         </InputGroup.Root>
+        {#if isHomeItem}
+          <p
+            class="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-xs"
+            title={m.field_slug_is_homepage_help()}
+          >
+            <Home class="h-3 w-3" />
+            {m.field_slug_is_homepage()}
+          </p>
+        {/if}
       {:else if field.type === 'wysiwyg' && wysiwygModule}
         {#await wysiwygModule}
           <div class="flex items-center justify-center rounded-lg border p-8">

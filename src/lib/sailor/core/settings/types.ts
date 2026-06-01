@@ -126,10 +126,60 @@ export interface ContentI18nSettings {
    * No effect on admin routes (which never use URL aliases).
    */
   urlAliases?: Record<string, string>;
+
+  /**
+   * Which URL shape your public site uses for content locales.
+   *
+   * - `'default-at-root'` (default) — the default locale serves at `/` and
+   *   non-default locales are prefixed (`/no/...`). SEO-safe migration
+   *   path: existing URLs on an established site stay unchanged, only new
+   *   non-default locales get a prefix. See §8 of the content-translation
+   *   guide for the full recipe.
+   * - `'symmetric'` — every locale gets a prefix (`/en/...`, `/no/...`).
+   *   Use only for greenfield projects where you've never had unprefixed
+   *   URLs — flipping an established site to this rewrites every URL
+   *   (broken backlinks, redirect chains, search-ranking reset).
+   *
+   * Settings declaration; helpers (`buildLocaleHref`, `<LanguageSwitcher
+   * routeShape="flat">`, `getCollectionsFor` with `routePattern`) read
+   * from here so the strategy is encoded in one place. Default:
+   * `'default-at-root'`.
+   */
+  urlStrategy?: 'default-at-root' | 'symmetric';
+}
+
+/**
+ * Declare which collection item IS the site's home page. Lets the sitemap,
+ * `<HreflangLinks routeShape="home">`, and `getHomeItem()` resolve to it
+ * automatically instead of every consumer hand-wiring `itemSlug: 'home'` in
+ * multiple places.
+ *
+ * Example:
+ * ```ts
+ * content: {
+ *   home: { collectionSlug: 'pages', itemSlug: 'home' },
+ *   i18n: { ... }
+ * }
+ * ```
+ *
+ * `itemSlug` is the slug of the item in the chosen collection (per-locale
+ * for localized collections — the slug resolves against the default locale's
+ * `_locales` row; sibling translations are picked up via the usual locale
+ * resolution). Slug renames break this — the queued DB-backed "Set as
+ * homepage" admin toggle stores `itemId` instead and supersedes this static
+ * declaration when set.
+ */
+export interface ContentHomeSettings {
+  /** Slug of the collection that holds the home item (e.g. `'pages'`). */
+  collectionSlug: string;
+  /** Slug of the item inside that collection that renders at `/`. For
+   *  localized collections this is the default-locale slug. */
+  itemSlug: string;
 }
 
 export interface ContentSettings {
   i18n?: ContentI18nSettings;
+  home?: ContentHomeSettings;
 }
 
 // Main Settings Interface

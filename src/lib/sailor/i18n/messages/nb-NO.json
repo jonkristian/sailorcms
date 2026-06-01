@@ -75,6 +75,7 @@
   "revisions_older": "Eldre",
   "revisions_newer": "Nyere",
   "revisions_restore_button": "Gjenopprett denne versjonen",
+  "revisions_restore_switch_locale": "Bytt til {locale} for å gjenopprette",
   "revisions_restore_success": "Revisjon gjenopprettet",
   "revisions_restore_failed": "Kunne ikke gjenopprette revisjon",
   "revisions_aria_older": "Eldre revisjon",
@@ -710,6 +711,8 @@
   "field_wysiwyg_loading": "Laster rik tekst-editor…",
   "field_wysiwyg_load_failed": "Kunne ikke laste rik tekst-editor",
   "field_slug_generate_title": "Generer slug fra tittel",
+  "field_slug_is_homepage": "Forside",
+  "field_slug_is_homepage_help": "Dette elementet er satt opp som forside i templates/settings.ts. Hvis du endrer slug-en, brytes erklæringen til templates/settings.ts oppdateres.",
   "toast_slug_generated": "Slug generert fra tittel",
   "toast_slug_generated_unique": "Slug generert fra tittel (suffiks lagt til for å unngå konflikt)",
 

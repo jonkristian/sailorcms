@@ -21,7 +21,7 @@ import {
 } from './loaders/relation-loader';
 import { assertAccess, AccessDeniedError } from './access';
 import { parseDate, groupItemsByField } from './internal';
-import { getContentSettings } from './collections';
+import { getContentSettings, buildLocaleHref } from './collections';
 
 /**
  * True if the consumer marked this global `localized: true` in its template.
@@ -111,10 +111,13 @@ export interface GlobalsOptions {
   withTags?: boolean; // Include tags for the global (default: false)
   loadFullFileObjects?: boolean; // Load full file objects vs just IDs (default: false)
   /**
-   * Attach `translations: Array<{ locale, slug, status }>` to each returned
-   * item — one entry per row in `<global>_locales` for that item. Use for
-   * language switchers, hreflang generation, sitemaps. Opt-in: costs one
-   * extra query per item. Always empty for non-localized globals.
+   * Attach `translations: Array<{ locale, slug, status, updated_at }>` to
+   * each returned item — one entry per row in `<global>_locales` for that
+   * item. Use for language switchers, hreflang generation, sitemaps, and
+   * staleness comparison (each translation's `updated_at` against the
+   * default locale's tells you whether a sibling may be out of date).
+   * Opt-in: costs one extra query per item. Always empty for non-localized
+   * globals.
    */
   includeTranslations?: boolean;
   // Content visibility filter applied to repeatable globals (the top-level
@@ -135,6 +138,13 @@ export interface GlobalsOptions {
   // Populate `pagination` on the result when both `limit` and `baseUrl` are provided.
   baseUrl?: string;
   currentPage?: number;
+  /**
+   * Sugar over `baseUrl` for localized list routes — pass `'/projects'`
+   * and pagination URLs get the locale-correct prefix applied via
+   * `urlStrategy`. See `CollectionsOptions.routePattern`. Explicit
+   * `baseUrl` always wins; no-op when i18n isn't configured.
+   */
+  routePattern?: string;
 
   // Relationship filtering
   whereRelated?: {
@@ -148,7 +158,7 @@ export interface GlobalsOptions {
   // Localization (only meaningful for globals declared `localized: true`)
   /** BCP-47 locale to fetch; defaults to `content.i18n.default` from settings. */
   locale?: string;
-  /** Behavior when the requested locale has no row for an item: `'default'` returns the default-locale row marked `_localeFallback`; `'strict'` returns null/omits. */
+  /** Behavior when the requested locale has no row for an item: `'default'` returns the default-locale row stamped `isFallback: true` + `requestedLocale: <asked-for code>` so consumers can render a banner; `'strict'` returns null/omits. */
   fallback?: 'default' | 'strict';
 }
 
@@ -209,6 +219,56 @@ export async function getGlobals<T extends GlobalTypes = GlobalTypes>(
 }
 
 /**
+ * Sugar over `getGlobals` that pulls `locale` and `user` off `event` —
+ * mirror of `getCollectionsFor`. See its docstring for the rationale +
+ * dependency-tag behavior. Use in localized route loaders to skip the
+ * `const locale = ... ?? getDefaultLocale()` + `dependsOnContentLocale`
+ * ceremony.
+ *
+ * ```ts
+ * import { getGlobalsFor } from 'sailorcms/utils/data';
+ *
+ * export const load = async (event) => {
+ *   const menu = await getGlobalsFor(event, 'menus', { itemSlug: 'main' });
+ *   return { menu };
+ * };
+ * ```
+ */
+export async function getGlobalsFor<T extends GlobalTypes = GlobalTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  globalSlug: string,
+  options: GlobalsOptions & { itemSlug: string }
+): Promise<GlobalsSingleResult<T>>;
+export async function getGlobalsFor<T extends GlobalTypes = GlobalTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  globalSlug: string,
+  options: GlobalsOptions & { itemId: string }
+): Promise<GlobalsSingleResult<T>>;
+export async function getGlobalsFor<T extends GlobalTypes = GlobalTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  globalSlug: string,
+  options?: GlobalsOptions
+): Promise<GlobalsMultipleResult<T>>;
+export async function getGlobalsFor<T extends GlobalTypes = GlobalTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  globalSlug: string,
+  options?: GlobalsOptions
+): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
+  if (typeof event.depends === 'function') {
+    try {
+      event.depends('sailor:content-locale');
+    } catch {
+      // depends() may throw outside a load context — ignore.
+    }
+  }
+  return getGlobals<T>(globalSlug, {
+    ...options,
+    locale: options?.locale ?? event.locals.contentLocale,
+    user: options?.user ?? (event.locals.user as any) ?? null
+  });
+}
+
+/**
  * Framework-internal read for globals. Skips the type-level `access` rule
  * because the caller is the framework itself (search index rebuild, hooks,
  * cron jobs) and has no user context to authenticate as. Re-exported from
@@ -247,6 +307,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
     offset = 0,
     baseUrl,
     currentPage,
+    routePattern,
     user: _user, // Reserved for future ACL implementation
     locale,
     fallback
@@ -255,6 +316,23 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
   // Determine if this is a single item query
   const isSingleQuery = !!(itemSlug || itemId);
   const isLocalized = isLocalizedGlobal(globalSlug);
+
+  // routePattern → baseUrl derivation, same shape as collections — see
+  // `_loadCollectionImpl` for the rationale.
+  let resolvedBaseUrl = baseUrl;
+  if (!resolvedBaseUrl && routePattern) {
+    const { defaultLocale } = getContentSettings();
+    if (defaultLocale) {
+      const section = routePattern.replace(/^\/+/, '') || undefined;
+      resolvedBaseUrl = buildLocaleHref({
+        locale: locale ?? defaultLocale,
+        translation: null,
+        section
+      });
+    } else {
+      resolvedBaseUrl = routePattern;
+    }
+  }
 
   try {
     // Get global type definition
@@ -330,7 +408,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
         order,
         limit,
         offset,
-        baseUrl,
+        baseUrl: resolvedBaseUrl,
         currentPage,
         locale,
         fallback,
@@ -356,7 +434,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
       order,
       limit,
       offset,
-      baseUrl,
+      baseUrl: resolvedBaseUrl,
       currentPage,
       user: _user
     });
@@ -503,7 +581,10 @@ async function handleSingletonLocalizedGlobal<T extends GlobalTypes = GlobalType
     ...localeContent,
     _localeId: localeRowId
   };
-  if (fellBack) flat._localeFallback = requestedLocale;
+  if (fellBack) {
+    flat.isFallback = true;
+    flat.requestedLocale = requestedLocale;
+  }
 
   const enriched = await enrichGlobalItem<T>(flat, globalSlug, globalType, {
     withRelations,
@@ -603,7 +684,10 @@ async function handleRepeatableLocalizedGlobalSingle<T extends GlobalTypes = Glo
   const localeRow = row.locale;
   const { id: localeRowId, [fkField]: _ignored, ...localeContent } = localeRow;
   const flat: any = { ...mainRow, ...localeContent, _localeId: localeRowId };
-  if (fellBack) flat._localeFallback = requestedLocale;
+  if (fellBack) {
+    flat.isFallback = true;
+    flat.requestedLocale = requestedLocale;
+  }
 
   return enrichGlobalItem<T>(flat, globalSlug, globalType, {
     withRelations,
@@ -999,13 +1083,21 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
 async function loadGlobalTranslations(
   itemId: string,
   globalSlug: string
-): Promise<Array<{ locale: string; slug: string | null; status: string | null }>> {
+): Promise<
+  Array<{
+    locale: string;
+    slug: string | null;
+    status: string | null;
+    updated_at: Date | string | null;
+  }>
+> {
   if (!isLocalizedGlobal(globalSlug)) return [];
   const localesTable = (schema as any)[`global_${globalSlug}_locales`];
   if (!localesTable) return [];
   const projection: Record<string, any> = { locale: localesTable.locale };
   if (localesTable.slug) projection.slug = localesTable.slug;
   if (localesTable.status) projection.status = localesTable.status;
+  if (localesTable.updated_at) projection.updated_at = localesTable.updated_at;
   try {
     const rows = await db
       .select(projection)
@@ -1014,7 +1106,8 @@ async function loadGlobalTranslations(
     return rows.map((r: any) => ({
       locale: r.locale,
       slug: r.slug ?? null,
-      status: r.status ?? null
+      status: r.status ?? null,
+      updated_at: r.updated_at ?? null
     }));
   } catch {
     return [];

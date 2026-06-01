@@ -75,6 +75,7 @@
   "revisions_older": "Older",
   "revisions_newer": "Newer",
   "revisions_restore_button": "Restore this version",
+  "revisions_restore_switch_locale": "Switch to {locale} to restore",
   "revisions_restore_success": "Revision restored",
   "revisions_restore_failed": "Failed to restore revision",
   "revisions_aria_older": "Older revision",
@@ -710,6 +711,8 @@
   "field_wysiwyg_loading": "Loading rich text editor…",
   "field_wysiwyg_load_failed": "Failed to load rich text editor",
   "field_slug_generate_title": "Generate slug from title",
+  "field_slug_is_homepage": "Homepage",
+  "field_slug_is_homepage_help": "This item is configured as the site homepage in templates/settings.ts. Renaming this slug breaks the declaration until settings is updated.",
   "toast_slug_generated": "Slug generated from title",
   "toast_slug_generated_unique": "Slug generated from title (suffixed to avoid a conflict)",
 
