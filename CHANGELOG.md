@@ -4,6 +4,8 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.9.0] - 09 June 2026
+
 ### Added
 
 - **Block grouping** — wrap blocks into layout containers in the collection editor: a block's group icon wraps it in a group, drag others in (one level deep, per-locale). Opt-in via `settings.ts` `blocks.groups` (declare it to enable) — with developer-defined `fields` (same field format as blocks). Render on the frontend with `getBlockTree()` / `isBlockGroup()`; optional `blockGroupAttrs()` (`sailorcms/utils/blocks`) maps a group's config to `data-*` attributes for CSS-driven layout (mechanical, no baked-in styling).
