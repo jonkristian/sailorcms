@@ -1,6 +1,7 @@
 import { db } from '../../db/index.server';
 import { sql } from 'drizzle-orm';
 import { log } from '../../utils/logger';
+import { childTableName } from '../../utils/string';
 
 /**
  * Core file loader for admin UI
@@ -22,7 +23,9 @@ export async function loadFileFields(
       // on the item; non-localized callers leave it undefined and we fall
       // back to `item.id` (= main row id) unchanged.
       try {
-        const fileTableName = `${tablePrefix}_${fieldName}`;
+        // Relation tables are snake_cased by the generator — a camelCase field
+        // key (coverMobile) maps to collection_x_cover_mobile, not _coverMobile.
+        const fileTableName = childTableName(tablePrefix, fieldName);
         const parentId = item._localeId ?? item.id;
         const fileResult = await db.run(
           sql`SELECT file_id FROM ${sql.identifier(fileTableName)}

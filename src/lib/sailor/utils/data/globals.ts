@@ -8,9 +8,9 @@ import type { GlobalTypes } from '$sailor/generated/types';
 import type { Pagination } from 'sailorcms/core/types';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
+import { runTemplateHook } from 'sailorcms/core/hooks/template-hooks';
 import { generateUUID } from 'sailorcms/core/utils/common';
 import { globalDefinitions } from '$sailor/templates/globals';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
 import { log } from 'sailorcms/core/utils/logger';
 import { loadFileFields } from './loaders/file-loader';
 import { loadArrayFields } from './loaders/array-loader';
@@ -478,7 +478,21 @@ async function handleSingletonGlobal<T extends GlobalTypes = GlobalTypes>(
     .limit(1);
 
   if (globalResult.length === 0) {
-    console.warn(`Global data for '${globalSlug}' not found`);
+    // Distinguish "not created yet" from the id≠slug footgun: a flat global is a
+    // singleton keyed by id == slug, so a row with any other id is invisible to
+    // this lookup. Surface that explicitly rather than a vague "not found".
+    const mismatched = await db
+      .select({ id: (globalTable as any).id })
+      .from(globalTable)
+      .where(ne((globalTable as any).id, globalSlug))
+      .limit(1);
+    if (mismatched.length > 0) {
+      console.warn(
+        `Flat global '${globalSlug}': a row exists with id '${mismatched[0].id}', but singleton globals must be keyed by slug (row id = slug) — so it's invisible to getGlobals('${globalSlug}'). Fix the row id; run 'npx sailor doctor' (globals:flat-id-mismatch) to locate it.`
+      );
+    } else {
+      console.warn(`Global data for '${globalSlug}' not found`);
+    }
     return null;
   }
 
@@ -1264,8 +1278,9 @@ export interface CreateGlobalItemResult {
  * Does NOT enforce the global's `access.roles` — this helper is intended for
  * trusted server contexts that have already validated input (e.g. a
  * `+server.ts` route after CAPTCHA verification). Singleton globals
- * (`dataType: 'flat'`) are not supported — those upsert against a known id
- * and should go through the admin save path.
+ * (`dataType: 'flat'`) and localized globals (`localized: true`) are not
+ * supported — singletons upsert against a known id, and localized writes
+ * need to land on `_locales` rows; both should go through the admin save path.
  *
  * @example
  * ```ts
@@ -1289,6 +1304,11 @@ export async function createGlobalItem(
       `createGlobalItem does not support singleton globals (slug='${slug}'); use the admin save path for these`
     );
   }
+  if (isLocalizedGlobal(slug)) {
+    throw new Error(
+      `createGlobalItem does not support localized globals (slug='${slug}'); the public-endpoint shape doesn't carry a locale or write to _locales rows`
+    );
+  }
 
   const table = (schema as Record<string, any>)[`global_${slug}`];
   if (!table) throw new Error(`Generated table 'global_${slug}' not found`);
@@ -1304,6 +1324,22 @@ export async function createGlobalItem(
 
   await db.insert(table).values(insertData);
   await SearchIndexService.onSaveSafe('global', slug, id);
+
+  // Fire the template's `afterCreate` hook for the public-endpoint case
+  // (form submissions, signup feeds). `ctx.user` is null — we don't have a
+  // session here; the consumer can derive from `ctx.item.author` if they
+  // need the id. The hook runner traps + logs; failures never propagate
+  // back into the caller's response.
+  if (def.hooks?.afterCreate) {
+    const [savedRow] = await db.select().from(table).where(eq(table.id, id)).limit(1);
+    await runTemplateHook('afterCreate', def.hooks, {
+      item: savedRow ?? insertData,
+      slug,
+      kind: 'global',
+      user: null,
+      log
+    });
+  }
 
   return { id };
 }

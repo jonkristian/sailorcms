@@ -215,7 +215,7 @@
         </div>
       {/if}
     {/if}
-    <form onsubmit={handleSubmit} class="flex h-[calc(100vh-12rem)] gap-6">
+    <form onsubmit={handleSubmit} class="flex flex-col gap-6 md:h-[calc(100vh-12rem)] md:flex-row">
       <!-- Main Content Area -->
       <div class="flex flex-1 flex-col">
         <!-- Header Fields -->
@@ -339,9 +339,10 @@
         {/if}
       </div>
 
-      <!-- Right Sidebar -->
-      <div class="bg-background w-80 border-l">
-        <div class="h-full overflow-y-auto p-4 pt-4">
+      <!-- Right Sidebar — desktop: 320px right column with left border.
+           Mobile (<md): inline below the main content, full width, top border. -->
+      <div class="bg-background border-t md:w-80 md:border-t-0 md:border-l">
+        <div class="overflow-y-auto p-4 pt-4 md:h-full">
           <div class="space-y-6">
             <!-- Sidebar Fields -->
             {#if sidebarFields.length > 0}

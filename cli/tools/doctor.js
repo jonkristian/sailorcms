@@ -598,6 +598,185 @@ async function checkI18nVestigialColumns(targetDir) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// i18n orphan-locale check
+//
+// Removing a locale from `content.i18n.locales` is intentionally non-destructive
+// (data preservation). This check surfaces drift between configured locales
+// and `_locales` rows actually in the DB — the remedy is the destructive
+// `npx sailor content:purge-locale <code>` CLI, not an auto-fix.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadConfiguredLocales(targetDir) {
+  const settingsPath = path.join(targetDir, 'src', 'lib', 'sailor', 'templates', 'settings.ts');
+  if (!existsSync(settingsPath)) return null;
+  try {
+    const mod = await import(pathToFileURL(settingsPath).href);
+    const settings = mod.settings ?? mod.default ?? {};
+    const locales = settings?.content?.i18n?.locales;
+    return Array.isArray(locales) ? locales : null;
+  } catch {
+    return null;
+  }
+}
+
+async function distinctLocalesInTable(db, tableName) {
+  try {
+    const r = await db.run(sql.raw(`SELECT DISTINCT locale FROM "${tableName}"`));
+    return (r.rows || []).map((row) => row.locale).filter((v) => typeof v === 'string' && v);
+  } catch {
+    return [];
+  }
+}
+
+async function checkI18nOrphanLocales(targetDir) {
+  const entities = await loadLocalizedEntities(targetDir);
+  if (entities.length === 0) {
+    return {
+      id: 'i18n:orphan-locales',
+      label: 'Localized _locales rows with codes outside content.i18n.locales',
+      ok: true,
+      message: 'no localized entities — skipping',
+      fixable: false
+    };
+  }
+
+  const configured = await loadConfiguredLocales(targetDir);
+  if (!configured) {
+    return {
+      id: 'i18n:orphan-locales',
+      label: 'Localized _locales rows with codes outside content.i18n.locales',
+      ok: true,
+      message: 'content.i18n.locales not readable from settings.ts — skipping',
+      fixable: false
+    };
+  }
+
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id: 'i18n:orphan-locales',
+      label: 'Localized _locales rows with codes outside content.i18n.locales',
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+
+  const configuredSet = new Set(configured);
+  const orphansByLocale = new Map(); // locale → Array<{ kind, slug, table }>
+
+  for (const e of entities) {
+    const mainTable = `${e.kind === 'collection' ? 'collection_' : 'global_'}${e.slug}`;
+    const localesTable = `${mainTable}_locales`;
+    if (!(await tableExistsForDoctor(db, localesTable))) continue;
+
+    const present = await distinctLocalesInTable(db, localesTable);
+    for (const code of present) {
+      if (configuredSet.has(code)) continue;
+      const bucket = orphansByLocale.get(code) ?? [];
+      bucket.push({ ...e, table: localesTable });
+      orphansByLocale.set(code, bucket);
+    }
+  }
+
+  if (orphansByLocale.size === 0) {
+    return {
+      id: 'i18n:orphan-locales',
+      label: 'Localized _locales rows with codes outside content.i18n.locales',
+      ok: true,
+      message: 'no orphan locale rows',
+      fixable: false
+    };
+  }
+
+  const detail = [];
+  for (const [code, entries] of orphansByLocale) {
+    const labels = entries.map((e) => `${e.kind}:${e.slug}`).join(', ');
+    detail.push(`    '${code}' — in: ${labels}`);
+  }
+
+  return {
+    id: 'i18n:orphan-locales',
+    label: 'Localized _locales rows with codes outside content.i18n.locales',
+    ok: false,
+    message:
+      `${orphansByLocale.size} locale code(s) present in DB but missing from content.i18n.locales\n${detail.join('\n')}\n` +
+      `    Remedy: \`npx sailor content:purge-locale <code>\` per orphan locale (destructive — review first).`,
+    fixable: false
+  };
+}
+
+// Flat (singleton) globals are keyed by convention: the single row's `id` must
+// equal the global's `slug`. `getGlobals('<slug>')` looks the row up by that id,
+// so a seeded/imported row with a different id silently resolves to null. This
+// surfaces those mismatches (the fix — rewriting a PK + repointing child FKs —
+// is left manual).
+async function loadFlatGlobals(targetDir) {
+  const out = [];
+  const dir = path.join(targetDir, 'src', 'lib', 'sailor', 'templates', 'globals');
+  if (!existsSync(dir)) return out;
+  const files = readdirSync(dir).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
+  for (const file of files) {
+    const mod = await import(pathToFileURL(path.join(dir, file)).href);
+    for (const exp of Object.values(mod)) {
+      if (
+        exp &&
+        typeof exp === 'object' &&
+        typeof exp.slug === 'string' &&
+        exp.dataType === 'flat'
+      ) {
+        out.push({ slug: exp.slug });
+      }
+    }
+  }
+  return out;
+}
+
+async function checkFlatGlobalIdMismatch(targetDir) {
+  const id = 'globals:flat-id-mismatch';
+  const label = 'Flat (singleton) global rows whose id ≠ slug';
+  const flats = await loadFlatGlobals(targetDir);
+  if (flats.length === 0) {
+    return { id, label, ok: true, message: 'no flat globals — skipping', fixable: false };
+  }
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+
+  const offenders = [];
+  for (const g of flats) {
+    const table = `global_${g.slug}`;
+    if (!(await tableExistsForDoctor(db, table))) continue;
+    const r = await db.run(sql.raw(`SELECT id FROM "${table}" WHERE id <> '${g.slug}'`));
+    for (const row of r.rows || []) offenders.push({ slug: g.slug, rowId: row.id });
+  }
+
+  if (offenders.length === 0) {
+    return { id, label, ok: true, message: 'all flat global rows keyed by slug', fixable: false };
+  }
+
+  const detail = offenders
+    .map((o) => `    global '${o.slug}' — row id '${o.rowId}' (expected '${o.slug}')`)
+    .join('\n');
+  return {
+    id,
+    label,
+    ok: false,
+    message:
+      `${offenders.length} flat global row(s) whose id ≠ slug — \`getGlobals('<slug>')\` resolves to null for these\n${detail}\n` +
+      `    A flat global is a singleton: its row id must equal its slug. Re-seed/import with id = slug (or update the row id + any child-table FKs).`,
+    fixable: false
+  };
+}
+
 const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
@@ -607,7 +786,9 @@ const CHECKS = [
   checkNestedAcorn,
   checkNestedSailorcmsDeps,
   checkDbLocked,
-  checkI18nVestigialColumns
+  checkI18nVestigialColumns,
+  checkI18nOrphanLocales,
+  checkFlatGlobalIdMismatch
 ];
 
 // Tiny ANSI color helpers. Respects NO_COLOR (https://no-color.org/) and

@@ -16,9 +16,10 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import { getCurrentTimestamp } from '../../utils/date';
 import { TagService } from '../../services/tag.server';
 import { loadBlockFields } from '../../content/blocks.server';
+import { blockGroupsEnabled } from '$sailor/generated/block-groups';
 import { loadFileFields } from './file-loader';
 import { loadFileFields as loadNestedFileFields } from '../../../utils/data/loaders/file-loader';
-import { toSnakeCase } from '../../utils/string';
+import { toSnakeCase, childTableName } from '../../utils/string';
 import { resolveRevisionsKeep } from '../../services/revisions.server';
 import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
@@ -74,6 +75,7 @@ export interface LoadCollectionItemResult {
   effectiveFields: Record<string, any>;
   availableBlocks: any[];
   blocks: any[];
+  blockGroups: any[];
   hasBlocks: boolean;
   // Localization
   localized: boolean;
@@ -207,6 +209,7 @@ export async function loadCollectionItem(
   let page: Record<string, any>;
   let isNewItem = false;
   const blocks: any[] = [];
+  const blockGroups: any[] = [];
 
   if (existingItems.length === 0) {
     isNewItem = true;
@@ -391,7 +394,7 @@ export async function loadCollectionItem(
     for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {
       if ((fieldDef as any).type === 'array') {
         try {
-          const arrayTableName = `${tablePrefix}_${fieldName}`;
+          const arrayTableName = childTableName(tablePrefix, fieldName);
           const arrayResult = await db.run(
             sql`SELECT * FROM ${sql.identifier(arrayTableName)} WHERE collection_id = ${entityId} ORDER BY "sort"`
           );
@@ -417,7 +420,7 @@ export async function loadCollectionItem(
 
       if (fileKeys.length === 0) continue;
 
-      const arrayTableName = `${tablePrefix}_${toSnakeCase(fieldName)}`;
+      const arrayTableName = childTableName(tablePrefix, fieldName);
       const rows = (page[fieldName] as any[]) || [];
       for (const row of rows) {
         for (const [k, snakeK] of fileKeys) {
@@ -459,7 +462,7 @@ export async function loadCollectionItem(
           for (const [fieldName] of fileFields) {
             try {
               const fileResult = await db.run(
-                sql`SELECT file_id FROM ${sql.identifier(`block_${blockSlug}_${fieldName}`)} WHERE parent_id = ${block.id} AND (parent_type = 'block' OR parent_type IS NULL OR parent_type = '') ORDER BY "sort"`
+                sql`SELECT file_id FROM ${sql.identifier(childTableName(`block_${blockSlug}`, fieldName))} WHERE parent_id = ${block.id} AND (parent_type = 'block' OR parent_type IS NULL OR parent_type = '') ORDER BY "sort"`
               );
               fileRelations[fieldName] = fileResult.rows.map((row: any) => row.file_id);
             } catch {
@@ -483,6 +486,21 @@ export async function loadCollectionItem(
 
     // Sort by sort
     blocks.sort((a, b) => a.data.sort - b.data.sort);
+
+    // Block groups: structural containers scoped by collection_id (the
+    // `_locales` row id for localized collections). Returned flat alongside
+    // blocks; the editor reassembles the tree from each block's group_id.
+    // Skipped entirely when the feature is disabled (no block_groups table).
+    if (blockGroupsEnabled) {
+      try {
+        const groupsResult = await db.run(
+          sql`SELECT * FROM ${sql.identifier('block_groups')} WHERE collection_id = ${entityId} AND deleted_at IS NULL ORDER BY "sort"`
+        );
+        blockGroups.push(...groupsResult.rows);
+      } catch {
+        log.warn('block_groups table not available yet, skipping');
+      }
+    }
   }
 
   // Prefill-from-default-locale clones content as a starting draft for the
@@ -494,10 +512,24 @@ export async function loadCollectionItem(
   // dropping ids and letting the persister fill in) so the form has stable
   // keys for {#each} / drag-reorder between load and save.
   if ((page as any)._localePrefilledFrom) {
+    // Re-ID groups first and build an old→new map so child blocks can repoint
+    // their group_id to the freshly-cloned group rows.
+    const groupIdRemap = new Map<string, string>();
+    for (const group of blockGroups) {
+      const newGroupId = randomUUID();
+      if (group.id) groupIdRemap.set(String(group.id), newGroupId);
+      group.id = newGroupId;
+    }
     for (const block of blocks) {
       const newId = randomUUID();
       block.id = newId;
-      if (block.data && typeof block.data === 'object') (block.data as any).id = newId;
+      if (block.data && typeof block.data === 'object') {
+        (block.data as any).id = newId;
+        const oldGroupId = (block.data as any).group_id;
+        if (oldGroupId && groupIdRemap.has(String(oldGroupId))) {
+          (block.data as any).group_id = groupIdRemap.get(String(oldGroupId));
+        }
+      }
       reidNestedRows(block.data);
     }
     for (const fieldName of Object.keys(collectionDefinition.fields || {})) {
@@ -626,6 +658,7 @@ export async function loadCollectionItem(
     effectiveFields,
     availableBlocks: Object.values(availableBlocks),
     blocks,
+    blockGroups,
     hasBlocks: collectionDefinition.options?.blocks !== false,
     localized: isLocalized,
     availableLocales,

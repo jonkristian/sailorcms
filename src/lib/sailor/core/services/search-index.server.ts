@@ -423,6 +423,78 @@ export class SearchIndexService {
   }
 
   /**
+   * Operational snapshot of the search index. Used by the admin health UI
+   * to show "what's indexed and when was it last touched" so operators can
+   * tell at a glance whether the index is current.
+   *
+   * Returns total row count, per-entity breakdown, per-locale breakdown,
+   * the most-recent updated_at across the whole index, and the FTS
+   * availability flag (FTS5 may be unavailable on non-SQLite backends).
+   */
+  static async getHealth(): Promise<{
+    totalRows: number;
+    lastUpdatedAt: Date | null;
+    ftsAvailable: boolean;
+    perEntity: Array<{
+      entityType: EntityType;
+      entityName: string;
+      count: number;
+      lastUpdatedAt: Date | null;
+      searchableInTemplate: boolean;
+    }>;
+    perLocale: Array<{ locale: string | null; count: number }>;
+  }> {
+    const table = getTable();
+
+    const totalRowsRow: any = await db.all(sql`SELECT COUNT(*) AS n FROM ${table}`);
+    const totalRows = Number(totalRowsRow?.[0]?.n ?? 0);
+
+    const lastRow: any = await db.all(sql`SELECT MAX(updated_at) AS t FROM ${table}`);
+    const lastRaw = lastRow?.[0]?.t;
+    const lastUpdatedAt = lastRaw ? new Date(lastRaw) : null;
+
+    const perEntityRaw: any = await db.all(sql`
+      SELECT entity_type, entity_name, COUNT(*) AS count, MAX(updated_at) AS last
+      FROM ${table}
+      GROUP BY entity_type, entity_name
+      ORDER BY entity_type, entity_name
+    `);
+    const perEntity = (perEntityRaw ?? []).map((r: any) => {
+      const entityType = r.entity_type as EntityType;
+      const entityName = String(r.entity_name);
+      const def =
+        entityType === 'collection'
+          ? (collectionDefinitions as Record<string, any>)[entityName]
+          : (globalDefinitions as Record<string, any>)[entityName];
+      // Public allowlist: defaults to true unless explicitly opted out.
+      // (Matches the indexer's behavior — searchable: false means skip.)
+      const searchableInTemplate = def?.options?.searchable !== false;
+      return {
+        entityType,
+        entityName,
+        count: Number(r.count ?? 0),
+        lastUpdatedAt: r.last ? new Date(r.last) : null,
+        searchableInTemplate
+      };
+    });
+
+    const perLocaleRaw: any = await db.all(sql`
+      SELECT locale, COUNT(*) AS count
+      FROM ${table}
+      GROUP BY locale
+      ORDER BY locale
+    `);
+    const perLocale = (perLocaleRaw ?? []).map((r: any) => ({
+      locale: r.locale ?? null,
+      count: Number(r.count ?? 0)
+    }));
+
+    const ftsAvailable = await ensureFtsReady();
+
+    return { totalRows, lastUpdatedAt, ftsAvailable, perEntity, perLocale };
+  }
+
+  /**
    * Non-throwing wrappers for save/delete hook points. Index maintenance is
    * secondary to content writes — a failure here should never break the user's
    * save, just log.
@@ -483,30 +555,29 @@ function buildEntry(
 ): SearchIndexEntry {
   const parts: string[] = [];
 
-  // Top-level text fields from the template
-  const topFields = collectTextFieldNames(def.fields ?? {});
-  for (const f of topFields) {
-    const v = item[f];
-    if (typeof v === 'string') parts.push(stripToPlainText(v));
-  }
+  // Walk the template's fields and pull every searchable bit of text — top-
+  // level strings, array-row strings, file metadata (alt/title/description),
+  // relation target labels (title/name/label). The hydrated item shape comes
+  // from readCollection/readGlobal which auto-hydrate arrays, files, and
+  // relations, so we don't have to re-query here.
+  collectSearchableText(def.fields ?? {}, item, parts);
 
-  // Always include title/slug if present even if not explicitly typed
+  // Always include title/slug if present even if not explicitly typed. Skip when
+  // the template declares them as fields — collectSearchableText already pulled
+  // them, and pushing again double-weights those terms in the FTS body.
   for (const coreField of ['title', 'slug']) {
-    if (topFields.includes(coreField)) continue;
+    if ((def.fields ?? {})[coreField]) continue;
     const v = item[coreField];
     if (typeof v === 'string') parts.push(v);
   }
 
-  // Blocks (collections only, when enabled)
+  // Blocks (collections only, when enabled) — walk each block's field schema
+  // the same way as top-level fields.
   if (entityType === 'collection' && def.options?.blocks && Array.isArray(item.blocks)) {
     for (const block of item.blocks) {
       const blockDef = (blockDefinitions as Record<string, any>)[block.blockType];
       if (!blockDef) continue;
-      const blockFields = collectTextFieldNames(blockDef.fields ?? {});
-      for (const f of blockFields) {
-        const v = block[f];
-        if (typeof v === 'string') parts.push(stripToPlainText(v));
-      }
+      collectSearchableText(blockDef.fields ?? {}, block, parts);
       const blockTags = blockTagsByBlockId[block.id];
       if (blockTags?.length) parts.push(blockTags.join(' '));
     }
@@ -660,6 +731,90 @@ function collectTextFieldNames(fields: Record<string, FieldDefinition>): string[
     if (!type || TEXT_FIELD_TYPES.has(type)) out.push(name);
   }
   return out;
+}
+
+// File metadata keys folded into the index. Match `core` table columns on
+// `files` — those are the only per-file fields editors can set with text
+// they'd want to search by. Filename (`name`) is intentionally excluded:
+// UUID-prefixed storage filenames pollute results without helping discovery.
+const FILE_TEXT_KEYS = ['alt', 'title', 'description'];
+
+// Relation target keys probed in order — first one that hits wins, so we
+// don't double-index the same label under multiple keys. Most templates name
+// their display field one of these; templates that don't will silently miss
+// (acceptable — they can add the wanted field key to the target template).
+const RELATION_LABEL_KEYS = ['title', 'name', 'label'];
+
+/**
+ * Recursively collect searchable text from a hydrated item against its
+ * template field schema. Pushes plain-text fragments into `out` (the caller
+ * joins + strips at the end).
+ *
+ * Walks four field-type families:
+ *   - text-ish (string/text/textarea/wysiwyg/email/link) — push the value
+ *   - array — recurse into each row using `field.items.properties`
+ *   - file  — push `alt` / `title` / `description` from each hydrated file
+ *   - relation — push the first matching `title` / `name` / `label` key
+ *                from each hydrated target
+ *
+ * Untyped fields are treated as text-ish (matches the pre-extension behavior
+ * for `title: { position: 'main' }` style declarations).
+ */
+function collectSearchableText(
+  fields: Record<string, FieldDefinition>,
+  source: Record<string, any>,
+  out: string[]
+): void {
+  for (const [name, field] of Object.entries(fields)) {
+    const type = field?.type;
+    const value = source?.[name];
+
+    if (!type || TEXT_FIELD_TYPES.has(type)) {
+      if (typeof value === 'string') out.push(stripToPlainText(value));
+      continue;
+    }
+
+    if (type === 'array' && Array.isArray(value)) {
+      const itemFields = (field as any).items?.properties as
+        | Record<string, FieldDefinition>
+        | undefined;
+      if (itemFields) {
+        for (const row of value) {
+          if (row && typeof row === 'object') {
+            collectSearchableText(itemFields, row, out);
+          }
+        }
+      }
+      continue;
+    }
+
+    if (type === 'file') {
+      const files = Array.isArray(value) ? value : value ? [value] : [];
+      for (const f of files) {
+        if (!f || typeof f !== 'object') continue;
+        for (const key of FILE_TEXT_KEYS) {
+          const v = (f as any)[key];
+          if (typeof v === 'string' && v.trim()) out.push(v);
+        }
+      }
+      continue;
+    }
+
+    if (type === 'relation') {
+      const targets = Array.isArray(value) ? value : value ? [value] : [];
+      for (const t of targets) {
+        if (!t || typeof t !== 'object') continue;
+        for (const key of RELATION_LABEL_KEYS) {
+          const v = (t as any)[key];
+          if (typeof v === 'string' && v.trim()) {
+            out.push(v);
+            break;
+          }
+        }
+      }
+      continue;
+    }
+  }
 }
 
 function stripToPlainText(source: string): string {

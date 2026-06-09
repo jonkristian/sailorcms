@@ -7,6 +7,7 @@ import { taggables } from '$sailor/generated/schema';
 import crypto from 'crypto';
 import { getCurrentTimestamp, getCurrentTimestampSeconds } from '../utils/date';
 import { generateSlug } from '../utils/common';
+import { childTableName } from '../utils/string';
 import { ensureUniqueSlug } from '../utils/slug';
 
 // WordPress REST API Response Interfaces
@@ -856,7 +857,10 @@ export class WordPressImportService {
         ) {
           try {
             const fieldName = fieldMappings.featured_image.trim();
-            const relationTableName = `collection_${options.collectionSlug}_${fieldName}`;
+            const relationTableName = childTableName(
+              `collection_${options.collectionSlug}`,
+              fieldName
+            );
             const relationTable = schema[relationTableName as keyof typeof schema];
 
             // All file fields use relation tables

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown, Trash2, GripVertical, Edit } from '@lucide/svelte';
+  import { ChevronDown, Trash2, GripVertical, Edit, Group } from '@lucide/svelte';
   import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { slide } from 'svelte/transition';
@@ -13,6 +13,7 @@
     open = $bindable(true),
     onToggle,
     onEdit,
+    onGroup,
     onRemove,
     showRemove = true,
     dragAttributes = {},
@@ -32,6 +33,7 @@
     open?: boolean;
     onToggle?: () => void;
     onEdit?: () => void;
+    onGroup?: () => void;
     onRemove?: () => void;
     showRemove?: boolean;
     dragAttributes?: Record<string, any>;
@@ -165,6 +167,21 @@
           class="text-muted-foreground hover:text-foreground size-8 cursor-pointer"
         >
           <Edit class="h-4 w-4" />
+        </Button>
+      {/if}
+      {#if onGroup}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onclick={(e) => {
+            e.stopPropagation();
+            onGroup();
+          }}
+          class="text-muted-foreground hover:text-foreground size-8 cursor-pointer"
+          aria-label={m.block_group_wrap_block()}
+        >
+          <Group class="h-4 w-4" />
         </Button>
       {/if}
       {#if showRemove}

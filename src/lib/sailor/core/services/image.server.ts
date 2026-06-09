@@ -541,6 +541,47 @@ export class ImageProcessor {
     }
   }
 
+  /**
+   * Generate cached variants for an image at every width declared in
+   * `storage.images.prewarmBreakpoints`. Designed to run fire-and-forget
+   * right after upload — first-paint of a fresh image hits the 302 fast
+   * path instead of cold Sharp.
+   *
+   * Errors per-breakpoint are caught + logged; we don't propagate so the
+   * upload response is unaffected. Returns counts for callers that want
+   * to log a summary.
+   *
+   * Skips silently if `prewarmBreakpoints` is unset / empty (zero-cost
+   * when not configured).
+   */
+  static async prewarmImageVariants(imagePath: string): Promise<{ ok: number; failed: number }> {
+    const settings = await getSettings();
+    const breakpoints = settings.storage?.images?.prewarmBreakpoints;
+    if (!Array.isArray(breakpoints) || breakpoints.length === 0) {
+      return { ok: 0, failed: 0 };
+    }
+
+    let ok = 0;
+    let failed = 0;
+    // Sequential — Sharp is CPU-heavy and parallelism risks pegging cores
+    // during a multi-file batch upload (4 images × 4 breakpoints = 16
+    // concurrent Sharp instances on a parallel branch). Sequential keeps
+    // pressure predictable while still moving every variant into cache.
+    for (const width of breakpoints) {
+      try {
+        await this.getProcessedImage(imagePath, { width });
+        ok++;
+      } catch (err) {
+        failed++;
+        console.warn(
+          `prewarm variant w=${width} for ${imagePath} failed:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+    return { ok, failed };
+  }
+
   // Get image URL with transformation parameters using SvelteKit's URLSearchParams
   static async getImageUrl(
     imagePath: string,
@@ -635,6 +676,288 @@ export class ImageProcessor {
     } while (continuationToken);
 
     return removed;
+  }
+
+  /**
+   * Purge every cached variant generated from a specific source image. Walks
+   * the cache and deletes any entry whose key contains the path-hash for
+   * that file. Wired into the file-delete path so cache doesn't leak after
+   * a file is removed.
+   *
+   * `file.path` and `file.url` are both hashed (the transform endpoint may
+   * have resolved either form depending on storage backend), so we catch
+   * variants generated from either resolution. Memory + exists caches are
+   * also cleared for matching keys.
+   *
+   * Returns the count of variants removed for caller logging.
+   */
+  static async purgeVariantsForFile(file: {
+    path?: string | null;
+    url?: string | null;
+  }): Promise<{ removed: number }> {
+    const candidates = new Set<string>();
+    if (file.path) candidates.add(file.path);
+    if (file.url) candidates.add(file.url);
+    if (candidates.size === 0) return { removed: 0 };
+
+    // Each candidate path produces a distinct hash; collect them all so we
+    // catch variants regardless of which resolution generated them.
+    const hashes = new Set<string>();
+    for (const p of candidates) {
+      hashes.add(createHash('sha1').update(p).digest('hex').slice(0, 10));
+    }
+
+    const nameMatches = (name: string): boolean => {
+      for (const h of hashes) {
+        // Hash is sandwiched between underscores in the cache key
+        // (`{baseName}_{pathHash}_{size}_q{quality}{position}.{format}`).
+        if (name.includes(`_${h}_`)) return true;
+      }
+      return false;
+    };
+
+    const { provider } = await this.getCacheConfig();
+    const { LocalStorageProvider } = await import('./storage-provider.server');
+
+    let removed = 0;
+    if (provider instanceof LocalStorageProvider) {
+      const cacheDir = await this.getCacheDir();
+      if (existsSync(cacheDir)) {
+        for (const name of await readdir(cacheDir)) {
+          if (!nameMatches(name)) continue;
+          try {
+            await unlink(join(cacheDir, name));
+            removed++;
+          } catch {
+            // ignore unlink races
+          }
+        }
+      }
+    } else {
+      removed = await this.purgeS3CacheMatching(nameMatches);
+    }
+
+    // Drop in-memory entries that match. Cache key is the cachePath sans
+    // extension + dir prefix, so we just need to scan keys.
+    for (const key of Array.from(this.memoryCache.keys())) {
+      for (const h of hashes) {
+        if (key.includes(`_${h}_`)) {
+          this.memoryCache.delete(key);
+          break;
+        }
+      }
+    }
+    for (const path of Array.from(this.existsCache.keys())) {
+      for (const h of hashes) {
+        if (path.includes(`_${h}_`)) {
+          this.existsCache.delete(path);
+          break;
+        }
+      }
+    }
+
+    return { removed };
+  }
+
+  // S3 variant of selective purge — filter cache/ objects by key name and
+  // delete in batches. Mirrors purgeS3Cache but with a predicate.
+  private static async purgeS3CacheMatching(
+    nameMatches: (name: string) => boolean
+  ): Promise<number> {
+    const settings = await getSettings();
+    const s3Config = settings.storage?.providers?.s3;
+    if (!s3Config) return 0;
+
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+    if (!accessKeyId || !secretAccessKey) return 0;
+
+    const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } =
+      await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      region: s3Config.region,
+      credentials: { accessKeyId, secretAccessKey },
+      endpoint: s3Config.endpoint,
+      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
+    });
+
+    let removed = 0;
+    let continuationToken: string | undefined;
+    do {
+      const list = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: s3Config.bucket,
+          Prefix: 'cache/',
+          ContinuationToken: continuationToken
+        })
+      );
+      const keys =
+        list.Contents?.filter((o) => o.Key && nameMatches(basename(o.Key))).map((o) => ({
+          Key: o.Key!
+        })) ?? [];
+      if (keys.length) {
+        await s3.send(
+          new DeleteObjectsCommand({
+            Bucket: s3Config.bucket,
+            Delete: { Objects: keys, Quiet: true }
+          })
+        );
+        removed += keys.length;
+      }
+      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return removed;
+  }
+
+  /**
+   * Enforce `cache.maxSize` — walks the cache, sums total size, and prunes
+   * oldest-first until under the limit. Idempotent + safe to run repeatedly
+   * (no-op when under the limit). Designed for periodic invocation via the
+   * `sailor cache:sweep` CLI or a cron job.
+   *
+   * Returns `{ removed, freedBytes, beforeBytes, limit }` for caller logging.
+   * If the cache size can't be determined (provider error) or no limit is
+   * configured, returns zeros without throwing.
+   */
+  static async enforceCacheMaxSize(): Promise<{
+    removed: number;
+    freedBytes: number;
+    beforeBytes: number;
+    limit: number;
+  }> {
+    const settings = await getSettings();
+    // Env override wins so ops can tighten via deploy without a settings push.
+    const limitStr = process.env.CACHE_MAX_SIZE || settings.cache?.maxSize;
+    if (!limitStr) return { removed: 0, freedBytes: 0, beforeBytes: 0, limit: 0 };
+
+    let limit = 0;
+    try {
+      const { parseFileSize } = await import('../settings/index');
+      limit = parseFileSize(limitStr);
+    } catch {
+      return { removed: 0, freedBytes: 0, beforeBytes: 0, limit: 0 };
+    }
+    if (!limit) return { removed: 0, freedBytes: 0, beforeBytes: 0, limit: 0 };
+
+    const { provider } = await this.getCacheConfig();
+    const { LocalStorageProvider } = await import('./storage-provider.server');
+    const isLocal = provider instanceof LocalStorageProvider;
+
+    // entries: { key, size, mtimeMs } — sorted ascending = oldest first
+    const entries: Array<{ key: string; size: number; mtimeMs: number }> = isLocal
+      ? await this.listLocalCacheEntries()
+      : await this.listS3CacheEntries();
+
+    const beforeBytes = entries.reduce((sum, e) => sum + e.size, 0);
+    if (beforeBytes <= limit) {
+      return { removed: 0, freedBytes: 0, beforeBytes, limit };
+    }
+
+    entries.sort((a, b) => a.mtimeMs - b.mtimeMs);
+
+    let removed = 0;
+    let freedBytes = 0;
+    let currentSize = beforeBytes;
+    for (const e of entries) {
+      if (currentSize <= limit) break;
+      try {
+        if (isLocal) {
+          await unlink(e.key);
+        } else {
+          await this.deleteS3CacheKey(e.key);
+        }
+        currentSize -= e.size;
+        freedBytes += e.size;
+        removed++;
+        // Match in-memory cache by basename (without ext); these are best-effort.
+        const baseKey = basename(e.key, extname(e.key));
+        this.memoryCache.delete(baseKey);
+      } catch {
+        // ignore failures — leave the entry, move on
+      }
+    }
+
+    return { removed, freedBytes, beforeBytes, limit };
+  }
+
+  private static async listLocalCacheEntries(): Promise<
+    Array<{ key: string; size: number; mtimeMs: number }>
+  > {
+    const cacheDir = await this.getCacheDir();
+    if (!existsSync(cacheDir)) return [];
+    const { stat } = await import('fs/promises');
+    const names = await readdir(cacheDir);
+    const out: Array<{ key: string; size: number; mtimeMs: number }> = [];
+    for (const name of names) {
+      const full = join(cacheDir, name);
+      try {
+        const s = await stat(full);
+        if (s.isFile()) out.push({ key: full, size: s.size, mtimeMs: s.mtimeMs });
+      } catch {
+        // ignore — race with concurrent delete
+      }
+    }
+    return out;
+  }
+
+  private static async listS3CacheEntries(): Promise<
+    Array<{ key: string; size: number; mtimeMs: number }>
+  > {
+    const settings = await getSettings();
+    const s3Config = settings.storage?.providers?.s3;
+    if (!s3Config) return [];
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+    if (!accessKeyId || !secretAccessKey) return [];
+
+    const { S3Client, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      region: s3Config.region,
+      credentials: { accessKeyId, secretAccessKey },
+      endpoint: s3Config.endpoint,
+      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
+    });
+
+    const out: Array<{ key: string; size: number; mtimeMs: number }> = [];
+    let continuationToken: string | undefined;
+    do {
+      const list = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: s3Config.bucket,
+          Prefix: 'cache/',
+          ContinuationToken: continuationToken
+        })
+      );
+      for (const o of list.Contents ?? []) {
+        if (!o.Key) continue;
+        out.push({
+          key: o.Key,
+          size: o.Size ?? 0,
+          mtimeMs: o.LastModified ? o.LastModified.getTime() : 0
+        });
+      }
+      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return out;
+  }
+
+  private static async deleteS3CacheKey(key: string): Promise<void> {
+    const settings = await getSettings();
+    const s3Config = settings.storage?.providers?.s3;
+    if (!s3Config) return;
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+    if (!accessKeyId || !secretAccessKey) return;
+
+    const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      region: s3Config.region,
+      credentials: { accessKeyId, secretAccessKey },
+      endpoint: s3Config.endpoint,
+      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
+    });
+    await s3.send(new DeleteObjectCommand({ Bucket: s3Config.bucket, Key: key }));
   }
 
   // Get cache statistics

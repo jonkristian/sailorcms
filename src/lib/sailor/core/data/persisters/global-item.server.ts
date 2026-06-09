@@ -16,6 +16,7 @@ import { db } from '../../db/index.server';
 import { eq, and, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
+import { globalDefinitions } from '$sailor/templates/globals';
 import { generateUUID, slugify, normalizeRelationId } from '../../utils/common';
 import { ensureUniqueSlug } from '../../utils/slug';
 import { TagService } from '../../services/tag.server';
@@ -25,6 +26,7 @@ import { getCurrentTimestamp } from '../../utils/date';
 import { syncArrayRowFiles, clearArrayRowFiles } from './array-row-files.server';
 import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
+import { runTemplateHook, type TemplateHookUser } from '../../hooks/template-hooks';
 
 export interface SaveGlobalItemOptions {
   globalSlug: string;
@@ -35,8 +37,13 @@ export interface SaveGlobalItemOptions {
    */
   itemId?: string;
   data: Record<string, any>;
-  /** Pre-resolved user from the request context. */
-  user: { id: string } | null;
+  /**
+   * Pre-resolved user from the request context. `email` / `name` / `role`
+   * are optional — passing the full shape forwards real values to template
+   * lifecycle hooks (`ctx.user`); passing only `{ id }` is backwards-compat
+   * but leaves hook ctx fields empty.
+   */
+  user: TemplateHookUser | { id: string } | null;
   canCreate: boolean;
   canUpdate: boolean;
   /**
@@ -159,6 +166,11 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
     }
 
     let entityId: string = itemId;
+    // Whether this save is a CREATE vs UPDATE — tracked in the outer scope
+    // so the post-tx hook firing knows which event to dispatch. For
+    // localized globals, each translation save is a discrete event: a new
+    // `_locales` row counts as CREATE even if the main row pre-existed.
+    let wasCreate = false;
     // Child tables anchor on `global_<slug>` for both modes. For localized
     // rows the FK columns reference the `_locales` row id (`entityId`
     // post-upsert).
@@ -236,6 +248,7 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
             .where(eq(localesTable.id, entityId));
         } else {
           entityId = generateUUID();
+          wasCreate = true;
           await tx.insert(localesTable).values({
             id: entityId,
             [fkField]: itemId,
@@ -301,6 +314,7 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
           }
         } else {
           if (!canCreate) throw new Error('You do not have permission to create content');
+          wasCreate = true;
 
           // Resolve author (only repeatable globals have author by default;
           // flat globals' main row was traditionally written with author too,
@@ -428,11 +442,7 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
     const tagTaggableType = `global_${globalSlug}`;
     for (const [fieldName, tags] of Object.entries(tagFields)) {
       try {
-        const tagNames = tags
-          .map((tag: any) =>
-            typeof tag === 'object' ? tag.name || tag.value || String(tag) : String(tag)
-          )
-          .filter(Boolean);
+        const tagNames = TagService.toTagNames(tags);
         await TagService.tagEntity(tagTaggableType, entityId, tagNames);
       } catch (error) {
         log.error(`Failed to save tags for field ${fieldName}`, {}, error as Error);
@@ -487,6 +497,43 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
 
     // Search reindex — pass locale so the right translation's row gets updated.
     await SearchIndexService.onSaveSafe('global', globalSlug, itemId, currentLocale ?? undefined);
+
+    // Template lifecycle hook. Same contract as the collection persister:
+    // fires after every post-tx side-effect (search reindex, tags, files);
+    // for localized globals each translation save fires its own event with
+    // `ctx.locale` set. Never throws — runner traps + logs.
+    const hooksDecl = (globalDefinitions as Record<string, any>)[globalSlug]?.hooks;
+    if (hooksDecl) {
+      const [mainRow] = await db
+        .select()
+        .from(globalTable)
+        .where(eq((globalTable as any).id, itemId))
+        .limit(1);
+      let savedRow: any = mainRow;
+      if (isLocalized && localesTable && entityId) {
+        const [localeRow] = await db
+          .select()
+          .from(localesTable)
+          .where(eq((localesTable as any).id, entityId))
+          .limit(1);
+        if (localeRow) {
+          savedRow = { ...mainRow, ...localeRow, id: mainRow.id, _localeId: localeRow.id };
+        }
+      }
+      await runTemplateHook(wasCreate ? 'afterCreate' : 'afterUpdate', hooksDecl, {
+        item: savedRow,
+        slug: globalSlug,
+        kind: 'global',
+        user: {
+          id: user.id,
+          email: (user as TemplateHookUser).email ?? '',
+          name: (user as TemplateHookUser).name ?? '',
+          role: (user as TemplateHookUser).role ?? ''
+        },
+        locale: currentLocale ?? undefined,
+        log
+      });
+    }
 
     return { success: true, itemId, entityId };
   } catch (error) {

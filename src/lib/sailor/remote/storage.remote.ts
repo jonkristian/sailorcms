@@ -65,3 +65,28 @@ export const purgeImageCache = command('unchecked', async () => {
     };
   }
 });
+
+/**
+ * Enforce `cache.maxSize` — walks the cache and prunes oldest-first until
+ * under the limit. Idempotent (no-op when already under). Same auth gate as
+ * `purgeImageCache`. Returns `{ removed, freedBytes, beforeBytes, limit }`
+ * so the admin UI can show a "freed X / Y MB" message.
+ */
+export const enforceImageCacheSize = command('unchecked', async () => {
+  const { locals } = getRequestEvent();
+  if (!locals.user) throw error(401, 'Unauthorized');
+  if (!(await locals.security.hasPermission('update', 'settings'))) {
+    throw error(403, 'Forbidden');
+  }
+
+  try {
+    const result = await ImageProcessor.enforceCacheMaxSize();
+    return { success: true as const, ...result };
+  } catch (e) {
+    console.error('Image cache enforce-size failed:', e);
+    return {
+      success: false as const,
+      error: e instanceof Error ? e.message : 'Failed to enforce image cache size'
+    };
+  }
+});

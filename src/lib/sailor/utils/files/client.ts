@@ -4,6 +4,27 @@ import {
 } from 'sailorcms/core/files/file';
 import type { ResponsiveImageData } from '../types';
 
+/**
+ * Accepted shapes for a file reference: a path/id string, a CMS file-field
+ * object (`{ id | path | url }`), or an array of either (multiple-file fields).
+ * Lets `getImage` take a field value directly — no `field.id` / first-of-array
+ * unwrapping at the call site.
+ */
+export type FileRef =
+  | string
+  | { id?: string; path?: string; url?: string; [k: string]: any }
+  | Array<string | { id?: string; path?: string; url?: string; [k: string]: any }>
+  | null
+  | undefined;
+
+/** Resolve any {@link FileRef} to a single path/id string (first item for arrays). */
+export function resolveFileRef(ref: FileRef): string {
+  if (!ref) return '';
+  if (Array.isArray(ref)) return resolveFileRef(ref[0]);
+  if (typeof ref === 'string') return ref;
+  return ref.id || ref.path || ref.url || '';
+}
+
 // Default responsive breakpoints - can be overridden with setDefaultBreakpoints()
 
 /**
@@ -141,7 +162,7 @@ export function getDefaultBreakpoints(): number[] {
 
 // Function overloads for better TypeScript support
 export function getImage(
-  filePathOrId: string,
+  filePathOrId: FileRef,
   options: FileTransformOptions & {
     html: true;
     alt?: string;
@@ -154,7 +175,7 @@ export function getImage(
 ): string;
 
 export function getImage(
-  filePathOrId: string,
+  filePathOrId: FileRef,
   options?: FileTransformOptions & {
     html?: false;
     widths?: number[];
@@ -164,7 +185,7 @@ export function getImage(
 ): ResponsiveImageData;
 
 export function getImage(
-  filePathOrId: string,
+  fileRef: FileRef,
   options: FileTransformOptions & {
     // HTML generation
     html?: boolean;
@@ -177,6 +198,9 @@ export function getImage(
     sizes?: string;
   } = {}
 ): string | ResponsiveImageData {
+  // Accept a path/id string, a file-field object, or an array (multiple) — the
+  // rest of the function works with the resolved single path/id string.
+  const filePathOrId = resolveFileRef(fileRef);
   const {
     html,
     alt,

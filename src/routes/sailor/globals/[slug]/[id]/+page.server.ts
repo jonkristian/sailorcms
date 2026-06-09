@@ -91,7 +91,7 @@ export const actions = {
       globalSlug: params.slug,
       itemId: params.id,
       data,
-      user: { id: locals.user.id },
+      user: locals.user,
       canCreate,
       canUpdate
     });

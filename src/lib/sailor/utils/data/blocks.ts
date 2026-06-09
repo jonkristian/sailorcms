@@ -1,8 +1,8 @@
 import { db } from 'sailorcms/core/db/index.server';
-import { sql, eq, asc, desc, and } from 'drizzle-orm';
+import { sql, eq, asc, desc, and, isNull } from 'drizzle-orm';
 import { blockTypes as blockTypesTable, files, globalTypes } from '$sailor/generated/schema';
 import * as schema from '$sailor/generated/schema';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { blockGroupsEnabled } from '$sailor/generated/block-groups';
 import { log } from 'sailorcms/core/utils/logger';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { loadFileFields } from './loaders/file-loader';
@@ -13,15 +13,18 @@ import {
   type RelationStatus
 } from './loaders/relation-loader';
 
-export interface BlockWithRelations {
-  id: string;
-  blockType: string;
-  collection_id: string;
-  sort: number;
-  created_at: Date;
-  updated_at: Date;
-  [key: string]: any; // Dynamic fields from the block
-}
+// Pure block types + the `isBlockGroup` guard live in the client-safe
+// `utils/blocks.ts` (this module pulls in `db`). Imported for internal use and
+// re-exported so existing `sailorcms/utils/data/blocks` imports keep working —
+// but import them from `sailorcms/utils/blocks` in `.svelte` components to avoid
+// bundling server code.
+import {
+  isBlockGroup,
+  type BlockWithRelations,
+  type BlockGroupNode,
+  type BlockOrGroup
+} from '../blocks';
+export { isBlockGroup, type BlockWithRelations, type BlockGroupNode, type BlockOrGroup };
 
 export interface LoadBlocksOptions {
   collectionId?: string;
@@ -138,6 +141,80 @@ export async function loadBlocksForCollection(
 ): Promise<BlockWithRelations[]> {
   return loadBlocks({ ...options, collectionId });
 }
+
+/**
+ * Load a collection's blocks assembled into the grouping tree: an ordered list
+ * of root items where each is either a block or a group container. Groups carry
+ * their normalized layout columns plus an ordered `blocks` array of children.
+ * Blocks whose `group_id` points at a missing/deleted group fall back to root.
+ *
+ * Render with the client-safe `isBlockGroup` guard + `blockGroupAttrs`
+ * (both from `sailorcms/utils/blocks`):
+ *
+ * @example
+ * ```svelte
+ * {#each await getBlockTree(page.id) as node}
+ *   {#if isBlockGroup(node)}
+ *     <div class="group" {...blockGroupAttrs(node)}>
+ *       {#each node.blocks as b}<MyBlock block={b} />{/each}
+ *     </div>
+ *   {:else}
+ *     <MyBlock block={node} />
+ *   {/if}
+ * {/each}
+ * ```
+ */
+export async function loadGroupedBlocksForCollection(
+  collectionId: string,
+  options: Omit<LoadBlocksOptions, 'collectionId'> = {}
+): Promise<BlockOrGroup[]> {
+  const blocks = await loadBlocksForCollection(collectionId, options);
+  if (!blockGroupsEnabled) return blocks;
+
+  let groupRows: any[] = [];
+  try {
+    groupRows = await db
+      .select()
+      .from(schema.blockGroups)
+      .where(
+        and(
+          eq(schema.blockGroups.collection_id, collectionId),
+          isNull(schema.blockGroups.deleted_at)
+        )
+      )
+      .orderBy(asc(schema.blockGroups.sort));
+  } catch (err) {
+    log.warn('block_groups not available; returning flat blocks', { err });
+    return blocks;
+  }
+
+  if (groupRows.length === 0) return blocks;
+
+  const groupIds = new Set(groupRows.map((g) => g.id));
+  const childrenByGroup = new Map<string, BlockWithRelations[]>();
+  const rootBlocks: BlockWithRelations[] = [];
+  for (const b of blocks) {
+    const gid = b.group_id;
+    if (gid && groupIds.has(gid)) {
+      const arr = childrenByGroup.get(gid) || [];
+      arr.push(b);
+      childrenByGroup.set(gid, arr);
+    } else {
+      rootBlocks.push(b);
+    }
+  }
+
+  const groupNodes: BlockGroupNode[] = groupRows.map((g) => ({
+    ...g,
+    _type: 'group',
+    blocks: (childrenByGroup.get(g.id) || []).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+  }));
+
+  return [...rootBlocks, ...groupNodes].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+}
+
+/** Alias: shorter name for the grouped block tree. */
+export const getBlockTree = loadGroupedBlocksForCollection;
 
 /**
  * Load blocks with optional filtering and relations

@@ -18,7 +18,7 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import { getCurrentTimestamp, getCurrentTimestampSeconds } from 'sailorcms/core/utils/date';
 import { generateUUID, normalizeRelationId, slugify } from 'sailorcms/core/utils/common';
 import { ensureUniqueSlug } from 'sailorcms/core/utils/slug';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { toSnakeCase, childTableName } from 'sailorcms/core/utils/string';
 import { log } from 'sailorcms/core/utils/logger';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 import {
@@ -27,6 +27,42 @@ import {
 } from 'sailorcms/core/data/persisters/array-row-files.server';
 import { saveGlobalItem } from 'sailorcms/core/data/persisters/global-item.server';
 import { getContentSettings } from 'sailorcms/utils/data/collections';
+
+/**
+ * Persist a global's non-scalar relation data inside a transaction: top-level
+ * file fields (relation tables, via syncArrayRowFiles) + many-to-many fields
+ * (junction tables, FK `global_id`, declared `through` honored). Shared by the
+ * relational single-item and repeatable bulk save paths so they can't drift —
+ * the bulk path previously persisted files but silently dropped m2m. Tags are
+ * handled post-tx by each caller (they run outside the write lock).
+ */
+async function persistGlobalRelations(
+  tx: any,
+  globalSlug: string,
+  itemId: string,
+  globalFields: Record<string, any>,
+  data: Record<string, any>
+): Promise<void> {
+  await syncArrayRowFiles(tx, `global_${globalSlug}`, itemId, globalFields, data, 'global');
+
+  for (const [key, def] of Object.entries(globalFields)) {
+    const fd = def as any;
+    if (fd?.type !== 'relation' || fd?.relation?.type !== 'many-to-many') continue;
+    const junctionTableName = fd.relation?.through || childTableName(`junction_${globalSlug}`, key);
+    if (!(schema as any)[junctionTableName]) continue;
+    await tx.run(sql`DELETE FROM ${sql.identifier(junctionTableName)} WHERE global_id = ${itemId}`);
+    const raw = (data as any)[key];
+    const values = Array.isArray(raw) ? raw : [];
+    for (const v of values) {
+      const targetId = typeof v === 'object' && v ? v.id : v;
+      if (!targetId) continue;
+      await tx.run(sql`
+        INSERT INTO ${sql.identifier(junctionTableName)} (id, global_id, target_id, created_at, updated_at)
+        VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
+      `);
+    }
+  }
+}
 
 /**
  * For the tag/status commands below — given a global slug + main row id, look
@@ -542,7 +578,7 @@ export const updateFlatGlobal = command(
     return await saveGlobalItem({
       globalSlug,
       data,
-      user: locals.user ? { id: locals.user.id } : null,
+      user: locals.user ?? null,
       canCreate,
       canUpdate
     });
@@ -572,7 +608,7 @@ export const updateRepeatableGlobal = command(
       globalSlug,
       itemId,
       data,
-      user: locals.user ? { id: locals.user.id } : null,
+      user: locals.user ?? null,
       canCreate,
       canUpdate
     });
@@ -631,8 +667,9 @@ export const updateRelationalGlobal = command(
 
       Object.entries(data).forEach(([key, value]) => {
         const fieldDef = globalFields[key];
+        if (!fieldDef) return; // only persist fields that exist in schema
 
-        if (fieldDef?.type === 'array') {
+        if (fieldDef.type === 'array') {
           // Parse array data
           try {
             arrayFields[key] = Array.isArray(value)
@@ -644,8 +681,17 @@ export const updateRelationalGlobal = command(
             log.warn(`Failed to parse array field ${key}`, { value, error });
             arrayFields[key] = [];
           }
-        } else if (fieldDef) {
-          // Only persist fields that exist in schema
+        } else if (
+          fieldDef.type === 'file' ||
+          fieldDef.type === 'tags' ||
+          (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
+        ) {
+          // Not scalar columns: file fields live in `global_<slug>_<field>`
+          // relation tables (written after upsert via syncArrayRowFiles); tags
+          // and many-to-many relations live in their own join tables. Skipping
+          // them here keeps them out of the scalar UPDATE/INSERT that would
+          // otherwise crash with "no such column".
+        } else {
           regularFields[key] = value;
         }
       });
@@ -856,7 +902,30 @@ export const updateRelationalGlobal = command(
             );
           }
         }
+
+        // Non-scalar relation data (top-level files + many-to-many junctions).
+        await persistGlobalRelations(tx, globalSlug, finalItemId, globalFields, data);
       });
+
+      // Tags fields are excluded from the scalar write (they live in the
+      // polymorphic `taggables` table). Persist each `type: 'tags'` field here —
+      // before reindex so tag terms are included. Done outside the tx to avoid
+      // holding a write lock across the tag service.
+      for (const [key, def] of Object.entries(globalFields)) {
+        if ((def as any)?.type !== 'tags') continue;
+        const raw = (data as any)[key];
+        if (raw === undefined) continue;
+        const tagNames = TagService.toTagNames(raw);
+        try {
+          await TagService.tagEntity(`global_${globalSlug}`, finalItemId, tagNames);
+        } catch (err) {
+          log.error(
+            `Failed to save tags for global '${globalSlug}' field '${key}'`,
+            {},
+            err as Error
+          );
+        }
+      }
 
       await SearchIndexService.onSaveSafe('global', globalSlug, finalItemId);
 
@@ -910,6 +979,17 @@ export const bulkUpdateGlobalItems = command(
         return { success: false, error: 'Invalid global type' };
       }
 
+      // Field schema for this global — lets us keep non-scalar field types out of
+      // the scalar UPDATE/INSERT (file/array/tags/many-to-many have their own
+      // tables, not columns). Mirrors the single-item path.
+      const globalFields = JSON.parse(globalTypeRow.schema);
+      const isNonScalarField = (key: string): boolean => {
+        const fd = globalFields[key];
+        if (!fd) return false;
+        if (fd.type === 'file' || fd.type === 'array' || fd.type === 'tags') return true;
+        return fd.type === 'relation' && fd.relation?.type === 'many-to-many';
+      };
+
       // For localized globals, route each item through the persister so the
       // identity/content split + locale row upserts happen correctly. The
       // inline SQL below is only used for non-localized globals because that
@@ -924,7 +1004,7 @@ export const bulkUpdateGlobalItems = command(
             globalSlug,
             itemId: id,
             data: rest,
-            user: { id: locals.user.id },
+            user: locals.user,
             canCreate,
             canUpdate,
             locale
@@ -976,7 +1056,7 @@ export const bulkUpdateGlobalItems = command(
                     'last_modified_by',
                     'created_at',
                     'updated_at'
-                  ].includes(key)
+                  ].includes(key) && !isNonScalarField(key)
               )
             );
             const updateFields = Object.keys(filteredData).filter(
@@ -1009,7 +1089,7 @@ export const bulkUpdateGlobalItems = command(
                     'last_modified_by',
                     'created_at',
                     'updated_at'
-                  ].includes(key)
+                  ].includes(key) && !isNonScalarField(key)
               )
             );
             const insertFields = [
@@ -1040,6 +1120,10 @@ export const bulkUpdateGlobalItems = command(
                   )})`
             );
           }
+
+          // Non-scalar relation data (files + many-to-many) — same path as the
+          // single-item save, so bulk no longer drops m2m.
+          await persistGlobalRelations(tx, globalSlug, id, globalFields, item);
         }
       });
 
@@ -1047,9 +1131,7 @@ export const bulkUpdateGlobalItems = command(
       for (const item of items) {
         if (item.tags && Array.isArray(item.tags)) {
           try {
-            const tagNames = item.tags
-              .map((tag: any) => (typeof tag === 'object' ? tag.name : String(tag)))
-              .filter(Boolean);
+            const tagNames = TagService.toTagNames(item.tags);
 
             // Use direct service call to avoid circular dependency
             await TagService.tagEntity(`global_${globalSlug}`, item.id, tagNames);

@@ -217,6 +217,9 @@ export class BlockGenerator {
     const fields = {
       id: this.tableGen.getPrimaryKeyField(),
       collection_id: this.tableGen.getTextField({ notNull: true }),
+      // Nullable link to a block_groups row. null = root-level block; otherwise
+      // the containing group. Read relative to its container together with sort.
+      group_id: this.tableGen.getTextField(),
       sort: this.tableGen.getIntegerField({ notNull: true, default: 0 }),
       created_at: this.tableGen.getTimestampField(),
       updated_at: this.tableGen.getTimestampField(),

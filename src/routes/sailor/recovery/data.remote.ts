@@ -12,6 +12,7 @@ import { log } from 'sailorcms/core/utils/logger';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 import { RevisionsService } from 'sailorcms/core/services/revisions.server';
 import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
+import { ImageProcessor } from 'sailorcms/core/services/image.server';
 
 export const purgeCollectionItem = command(
   'unchecked',
@@ -104,9 +105,10 @@ export const purgeFile = command('unchecked', async ({ fileId }: { fileId: strin
     return { success: false, error: 'You do not have permission to purge files' };
   }
   try {
-    // Look up the path so we can drop the blob too. Only purge soft-deleted.
+    // Look up path + url so we can drop the blob AND purge cached variants.
+    // Only purge soft-deleted rows.
     const rows = await db
-      .select({ path: filesTable.path })
+      .select({ path: filesTable.path, url: filesTable.url })
       .from(filesTable)
       .where(and(eq(filesTable.id, fileId), isNotNull(filesTable.deleted_at)))
       .limit(1);
@@ -115,7 +117,7 @@ export const purgeFile = command('unchecked', async ({ fileId }: { fileId: strin
       return { success: false, error: 'File not found in recovery' };
     }
 
-    const path = rows[0].path;
+    const { path, url } = rows[0];
     try {
       const provider = await StorageProviderFactory.getProvider();
       const ok = await provider.deleteFile(path);
@@ -127,6 +129,20 @@ export const purgeFile = command('unchecked', async ({ fileId }: { fileId: strin
       log.warn('Storage error during file purge — proceeding with DB delete', {
         path,
         error: storageErr
+      });
+    }
+
+    // Purge cached image variants generated from this file's path/url. Cache
+    // entries are keyed by a hash of the source path; without this they'd
+    // outlive the file forever (R2 grows unbounded on busy sites). Failure
+    // here is logged but doesn't block the DB delete.
+    try {
+      const { removed } = await ImageProcessor.purgeVariantsForFile({ path, url });
+      if (removed > 0) log.info('Purged cached variants on file delete', { fileId, removed });
+    } catch (cacheErr) {
+      log.warn('Cache purge failed during file delete — variants will linger', {
+        fileId,
+        error: cacheErr
       });
     }
 

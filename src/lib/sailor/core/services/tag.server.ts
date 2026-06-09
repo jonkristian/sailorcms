@@ -30,6 +30,25 @@ export interface TagWithUsage extends Tag {
 
 export class TagService {
   /**
+   * Normalize a raw tags-field value into a clean list of tag-name strings.
+   * Accepts the shapes the editor/forms produce: strings, `{ name }` / `{ value }`
+   * objects, or a mix; non-string/non-named entries are dropped. Single source
+   * for the unwrap that the collection + global save paths all need.
+   */
+  static toTagNames(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((t: any) =>
+        typeof t === 'object' && t !== null
+          ? t.name || t.value || undefined
+          : typeof t === 'string'
+            ? t
+            : undefined
+      )
+      .filter(Boolean) as string[];
+  }
+
+  /**
    * Create a new tag
    */
   static async createTag(data: CreateTagData): Promise<Tag> {

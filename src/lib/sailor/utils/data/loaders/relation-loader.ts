@@ -3,7 +3,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import { log } from 'sailorcms/core/utils/logger';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { childTableName } from 'sailorcms/core/utils/string';
 import { loadFileFields } from './file-loader';
 import { loadArrayFields } from './array-loader';
 
@@ -221,9 +221,7 @@ export async function loadManyToManyRelations(
 
     if (typedFieldDef.type === 'relation' && typedFieldDef.relation?.type === 'many-to-many') {
       try {
-        // Junction table naming with snake_case
-        const snakeCaseFieldName = toSnakeCase(fieldName);
-        const junctionTableName = `junction_${junctionTablePrefix}_${snakeCaseFieldName}`;
+        const junctionTableName = childTableName(`junction_${junctionTablePrefix}`, fieldName);
         const junctionTable = schema[junctionTableName as keyof typeof schema];
 
         if (!junctionTable) {

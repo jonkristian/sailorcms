@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { generateUUID } from 'sailorcms/core/utils/common';
 import { getCurrentTimestampSeconds } from 'sailorcms/core/utils/date';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
+import { childTableName } from 'sailorcms/core/utils/string';
 
 export type ArrayRowParentType = 'global' | 'collection' | 'block';
 
@@ -45,7 +45,7 @@ export async function syncArrayRowFiles(
   for (const [propKey, propDef] of Object.entries(itemsProperties)) {
     if ((propDef as any).type !== 'file') continue;
 
-    const fileTableName = `${arrayTableName}_${toSnakeCase(propKey)}`;
+    const fileTableName = childTableName(arrayTableName, propKey);
     if (!(schema as any)[fileTableName]) continue;
 
     await tx.run(sql`
@@ -76,7 +76,7 @@ export async function clearArrayRowFiles(
 ): Promise<void> {
   for (const [propKey, propDef] of Object.entries(itemsProperties)) {
     if ((propDef as any).type !== 'file') continue;
-    const fileTableName = `${arrayTableName}_${toSnakeCase(propKey)}`;
+    const fileTableName = childTableName(arrayTableName, propKey);
     if (!(schema as any)[fileTableName]) continue;
     await tx.run(sql`
       DELETE FROM ${sql.identifier(fileTableName)}
@@ -99,7 +99,7 @@ export async function clearArrayRowFilesByParent(
 ): Promise<void> {
   for (const [propKey, propDef] of Object.entries(itemsProperties)) {
     if ((propDef as any).type !== 'file') continue;
-    const fileTableName = `${arrayTableName}_${toSnakeCase(propKey)}`;
+    const fileTableName = childTableName(arrayTableName, propKey);
     if (!(schema as any)[fileTableName]) continue;
     await tx.run(sql`
       DELETE FROM ${sql.identifier(fileTableName)}

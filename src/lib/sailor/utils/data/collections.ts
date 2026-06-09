@@ -1,8 +1,13 @@
 import { db } from 'sailorcms/core/db/index.server';
 import { sql, ne, eq, and, asc, desc, count, inArray } from 'drizzle-orm';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
-import { loadBlocksForCollection, type BlockWithRelations } from './blocks';
-import { toSnakeCase } from 'sailorcms/core/utils/string';
+import {
+  loadBlocksForCollection,
+  loadGroupedBlocksForCollection,
+  type BlockWithRelations,
+  type BlockOrGroup
+} from './blocks';
+import { childTableName } from 'sailorcms/core/utils/string';
 import type { CollectionTypes } from '$sailor/generated/types';
 import type { Pagination } from 'sailorcms/core/types';
 import type { BreadcrumbItem } from '../types';
@@ -136,7 +141,9 @@ type User = {
 export type CollectionItem = {
   url: string; // Auto-generated URL for the item
   breadcrumbs?: BreadcrumbItem[]; // Auto-generated breadcrumb trail
-  blocks?: BlockWithRelations[];
+  // Flat list with `includeBlocks: true`; the grouping tree (blocks + group
+  // nodes) with `includeBlocks: 'grouped'`. BlockOrGroup covers both.
+  blocks?: BlockOrGroup[];
   [key: string]: any; // Dynamic fields from the collection
 };
 
@@ -152,7 +159,7 @@ export interface CollectionsOptions {
 
   // Content options
   status?: 'published' | 'draft' | 'all'; // Default: 'published'
-  includeBlocks?: boolean; // Default: true
+  includeBlocks?: boolean | 'grouped'; // true = flat blocks, 'grouped' = grouping tree (default: true)
   includeBreadcrumbs?: boolean; // Generate breadcrumb navigation (default: false)
   includeAuthors?: boolean; // Populate author details (default: false)
   /**
@@ -552,7 +559,7 @@ async function handleSingleCollectionItem<T extends CollectionTypes = Collection
     itemSlug?: string;
     itemId?: string;
     status: string;
-    includeBlocks: boolean;
+    includeBlocks: boolean | 'grouped';
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
     includeTranslations: boolean;
@@ -629,7 +636,7 @@ async function handleSingleLocalizedCollectionItem<T extends CollectionTypes = C
     itemSlug?: string;
     itemId?: string;
     status: string;
-    includeBlocks: boolean;
+    includeBlocks: boolean | 'grouped';
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
     includeTranslations: boolean;
@@ -745,7 +752,7 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
     siblingOf?: string;
     excludeCurrent: boolean;
     status: string;
-    includeBlocks: boolean;
+    includeBlocks: boolean | 'grouped';
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
     includeTranslations: boolean;
@@ -930,7 +937,7 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
     siblingOf?: string;
     excludeCurrent: boolean;
     status: string;
-    includeBlocks: boolean;
+    includeBlocks: boolean | 'grouped';
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
     includeTranslations: boolean;
@@ -1185,7 +1192,7 @@ async function enrichCollectionItem(
   item: any,
   collectionSlug: string,
   options: {
-    includeBlocks: boolean;
+    includeBlocks: boolean | 'grouped';
     includeBreadcrumbs: boolean;
     includeAuthors: boolean;
     includeTranslations?: boolean;
@@ -1221,7 +1228,12 @@ async function enrichCollectionItem(
   // so pass `_localeId` when present and fall through to the main id otherwise.
   if (includeBlocks) {
     const blockParentId = (enrichedItem as any)._localeId ?? enrichedItem.id;
-    enrichedItem.blocks = await loadBlocksForCollection(blockParentId, { status });
+    // `includeBlocks: 'grouped'` returns the block-grouping tree (blocks + group
+    // nodes with `.blocks` children) on `.blocks`; `true` keeps the flat list.
+    enrichedItem.blocks =
+      includeBlocks === 'grouped'
+        ? await loadGroupedBlocksForCollection(blockParentId, { status })
+        : await loadBlocksForCollection(blockParentId, { status });
   }
 
   // Populate user references if requested
@@ -1453,7 +1465,7 @@ async function buildRelationshipSubquery(
   // row id; callers (`buildRelationshipSubquery`) account for that when
   // joining back.
   const junctionBase = collectionSlug;
-  let throughTableName = `junction_${junctionBase}_${toSnakeCase(relationField)}`;
+  let throughTableName = childTableName(`junction_${junctionBase}`, relationField);
   let throughTable = schema[throughTableName as keyof typeof schema];
 
   // If the standard naming doesn't work, try alternative naming patterns

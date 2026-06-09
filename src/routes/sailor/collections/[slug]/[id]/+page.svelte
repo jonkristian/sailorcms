@@ -21,7 +21,17 @@
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
   import { addBlock, updateBlockContent, removeBlock } from 'sailorcms/core/content/blocks';
+  import {
+    toDndItems,
+    fromDndItems,
+    buildGroupsFromPage,
+    makeGroup,
+    groupsToPayload,
+    type EditorGroup
+  } from 'sailorcms/core/content/block-groups';
+  import { blockGroupsEnabled } from '$sailor/generated/block-groups';
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import BlockGroupContainer from 'sailorcms/components/sailor/BlockGroupContainer.svelte';
   import SEOFields from 'sailorcms/components/sailor/SEOFields.svelte';
   import RevisionsDialog from 'sailorcms/components/sailor/RevisionsDialog.svelte';
   import OverlayLoader from 'sailorcms/components/sailor/OverlayLoader.svelte';
@@ -67,7 +77,9 @@
       const content: Record<string, any> = {};
 
       Object.keys(blockData).forEach((key) => {
-        if (!['id', 'collection_id', 'created_at', 'updated_at', 'sort'].includes(key)) {
+        if (
+          !['id', 'collection_id', 'group_id', 'created_at', 'updated_at', 'sort'].includes(key)
+        ) {
           content[key] = blockData[key];
         }
       });
@@ -111,6 +123,7 @@
         id: block.id,
         blockType: block.blockType,
         content,
+        group_id: blockData.group_id ?? null,
         sort: blockData.sort,
         blockSchema
       };
@@ -167,6 +180,7 @@
       await invalidateAll();
       formData = buildFormData(data.page);
       blocks = buildBlocksFromPage(data.page);
+      groups = buildGroupsFromPage(data.page);
       userChanges = {};
       blocksChanged = false;
       toast.success(m.revisions_restore_success());
@@ -210,9 +224,11 @@
         blocks: blocks.map((block: any) => ({
           id: block.id,
           blockType: block.blockType,
+          group_id: block.group_id ?? null,
           sort: block.sort,
           content: block.content
-        }))
+        })),
+        blockGroups: groupsToPayload(groups)
       };
 
       // Add SEO fields if SEO is enabled
@@ -298,23 +314,21 @@
 
   // svelte-ignore state_referenced_locally
   let blocks = $state(untrack(() => buildBlocksFromPage(data.page)));
+  // svelte-ignore state_referenced_locally
+  let groups = $state<EditorGroup[]>(untrack(() => buildGroupsFromPage(data.page)));
 
   // Initialize available blocks from data
   let availableBlocks = $derived(data.availableBlocks || []);
 
-  // Create drag-and-drop data
-  let dragDropData = $derived(
-    (blocks || []).map((block: any) => ({
-      id: block.id,
-      name:
-        availableBlocks?.find((b: { slug: string; name: string }) => b.slug === block.blockType)
-          ?.name || block.blockType,
-      description: block.content?.title || '',
-      sort: block.sort,
-      blockType: block.blockType,
-      content: block.content
-    }))
-  );
+  // Merge blocks + groups into the single flat list the nestable DnD consumes
+  // (block.parent_id = its group id). See core/content/block-groups.ts.
+  let dragDropData = $derived(toDndItems(blocks, groups, availableBlocks));
+
+  // Only blocks may be nested, and only into groups — never group-in-group,
+  // never a block accepting children.
+  function canAcceptChild(dragged: FlatItem, target: FlatItem): boolean {
+    return (dragged as any).kind === 'block' && (target as any).kind === 'group';
+  }
 
   // Track form changes for unsaved changes warning
   let userChanges: Record<string, any> = $state({});
@@ -334,6 +348,7 @@
       lastLoadedLocale = data.currentLocale;
       formData = buildFormData(data.page);
       blocks = buildBlocksFromPage(data.page);
+      groups = buildGroupsFromPage(data.page);
       userChanges = {};
       blocksChanged = false;
     }
@@ -443,29 +458,52 @@
     blockStates.set(id, !blockStates.get(id));
   }
 
-  // Handle drag and drop data changes
+  // Handle drag and drop data changes — split the flat list back into blocks
+  // (with group_id + container-relative sort) and groups.
   function handleDragDropDataChange(updatedData: FlatItem[]) {
-    // Update blocks with new order
-    const updatedBlocks = updatedData.map((item, index) => {
-      const originalBlock = blocks.find((b: any) => b.id === item.id);
-      return {
-        ...originalBlock,
-        sort: index
-      };
-    });
-
-    // Update local state immediately for responsive UI
-    blocks = updatedBlocks.map((block) => ({
-      id: block.id!,
-      blockType: block.blockType!,
+    const next = fromDndItems(updatedData, blocks as any, groups);
+    blocks = next.blocks.map((block) => ({
+      ...block,
       content: block.content || {},
-      sort: block.sort!,
       blockSchema:
-        (block as any).blockSchema ||
-        availableBlocks.find((b) => b.slug === block.blockType)?.fields
+        block.blockSchema || availableBlocks.find((b) => b.slug === block.blockType)?.fields
     }));
+    groups = next.groups;
     blocksChanged = true;
   }
+
+  // Wrap a single (ungrouped) block in a fresh group: the group takes the
+  // block's root position, the block becomes its first child. Other blocks are
+  // then dragged in.
+  function handleGroupBlock(blockId: string) {
+    const block = blocks.find((b: any) => b.id === blockId);
+    if (!block || block.group_id) return;
+    const newGroup = makeGroup(block.sort ?? 0);
+    blocks = blocks.map((b: any) =>
+      b.id === blockId ? { ...b, group_id: newGroup.id, sort: 0 } : b
+    );
+    groups = [...groups, newGroup];
+    blocksChanged = true;
+  }
+
+  function handleGroupConfigChange(groupId: string, patch: Record<string, any>) {
+    groups = groups.map((g) => (g.id === groupId ? { ...g, ...patch } : g));
+    blocksChanged = true;
+  }
+
+  function handleRemoveGroup(groupId: string) {
+    // Orphan children back to root rather than deleting them with the group.
+    blocks = blocks.map((b: any) => (b.group_id === groupId ? { ...b, group_id: null } : b));
+    groups = groups.filter((g) => g.id !== groupId);
+    blocksChanged = true;
+  }
+
+  // Group rendering is a real DOM wrapper (see <Blocks nestedGroups>): the outer
+  // wrapper holds the header + an inner grid container around the child blocks.
+  // The dashed border lives on the outer wrapper; spacing is container `gap`.
+  const isGroupNode = (node: any) => node?.kind === 'group';
+  const groupOuterClass = () =>
+    'rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-3 flex flex-col gap-3';
 
   // Split fields by UI position using Svelte 5 runes
   const mainFields = $derived(
@@ -524,7 +562,7 @@
 </svelte:head>
 
 <OverlayLoader>
-  <div class="flex gap-6 px-6">
+  <div class="flex flex-col gap-6 px-6 md:flex-row">
     <!-- Main Content Area -->
     <div class="flex flex-1 flex-col">
       <!-- Locale switcher (only for localized collections). Each pill links to
@@ -720,13 +758,22 @@
         <!-- Blocks Area -->
         <div class="flex-1">
           <div class="pt-2">
-            {#if blocks.length > 0}
+            {#if blocks.length > 0 || groups.length > 0}
               <Blocks
                 data={dragDropData}
                 onDataChange={handleDragDropDataChange}
                 onRemove={handleRemoveBlock}
                 onBulkDelete={handleBulkDeleteBlocks}
                 showSelection={true}
+                showSelectionControls={false}
+                nestable={true}
+                {canAcceptChild}
+                indentNested={false}
+                listClass="relative grid gap-4"
+                nestedGroups={blockGroupsEnabled}
+                {isGroupNode}
+                {groupOuterClass}
+                groupInnerClass="grid gap-3"
               >
                 {#snippet children({
                   node,
@@ -740,51 +787,63 @@
                   isDragging?: boolean;
                 })}
                   {@const item = dragDropData.find((item: FlatItem) => item.id === node.id)}
-                  {@const blockTemplate = availableBlocks.find(
-                    (b: { slug: string; name: string }) => b.slug === item?.blockType
-                  )}
-                  <DraggableCard
-                    title={blockTemplate?.name || item?.blockType}
-                    subtitle={getDisplayTitle(item?.content || {}, blockTemplate || {})}
-                    open={blockStates.get(item?.id || '') ?? true}
-                    onToggle={() => toggleBlockCollapse(item?.id || '')}
-                    onRemove={() => handleDelete(item?.id || '')}
-                    dragAttributes={dragHandleAttributes}
-                    {isDragging}
-                    showSelection={true}
-                    isSelected={selectedBlocks.has(item?.id || '')}
-                    onSelectNode={(checked) => handleSelectBlock(item?.id || '', checked)}
-                  >
-                    {#snippet children()}
-                      {#if availableBlocks.find((b: { slug: string; fields: unknown }) => b.slug === item?.blockType)?.fields}
-                        {@const blockSchema = availableBlocks.find(
-                          (b: { slug: string; fields: unknown }) => b.slug === item?.blockType
-                        )?.fields}
-                        <div class="space-y-6">
-                          {#each Object.entries(blockSchema || {}) as [fieldKey, fieldConfig]}
-                            {@const config = fieldConfig as Record<string, any>}
-                            {#if !config.hidden}
-                              <FieldRenderer
-                                field={config}
-                                value={item?.content[fieldKey]}
-                                {fieldKey}
-                                titleValue={fieldKey === 'slug' ? formData.title : null}
-                                entityType="collection_{data.slug}"
-                                onChange={(value) => {
-                                  const newContent = { ...item?.content, [fieldKey]: value };
-                                  handleUpdateBlockContent(item?.id || '', newContent);
-                                }}
-                              />
-                            {/if}
-                          {/each}
-                        </div>
-                      {:else}
-                        <p class="text-muted-foreground text-sm">
-                          {m.editor_blocks_no_fields()}
-                        </p>
-                      {/if}
+                  {#if (item as any)?.kind === 'group'}
+                    <BlockGroupContainer
+                      group={item as any}
+                      dragAttributes={dragHandleAttributes}
+                      {isDragging}
+                      childCount={blocks.filter((b: any) => b.group_id === item?.id).length}
+                      onConfigChange={(patch) => handleGroupConfigChange(item?.id || '', patch)}
+                      onRemove={() => handleRemoveGroup(item?.id || '')}
+                    />
+                  {:else}
+                    {@const blockTemplate = availableBlocks.find(
+                      (b: { slug: string; name: string }) => b.slug === item?.blockType
+                    )}
+                    {@const blockSchema = (blockTemplate as any)?.fields || {}}
+                    {@const visibleEntries = Object.entries(blockSchema).filter(
+                      ([, c]) => !(c as Record<string, any>).hidden
+                    )}
+                    {@const rawTitle = getDisplayTitle(item?.content || {}, blockTemplate || {})}
+                    {#snippet blockFields()}
+                      <div class="space-y-6">
+                        {#each visibleEntries as [fieldKey, fieldConfig]}
+                          {@const config = fieldConfig as Record<string, any>}
+                          <FieldRenderer
+                            field={config}
+                            value={item?.content[fieldKey]}
+                            {fieldKey}
+                            titleValue={fieldKey === 'slug' ? formData.title : null}
+                            entityType="collection_{data.slug}"
+                            onChange={(value) => {
+                              const newContent = { ...item?.content, [fieldKey]: value };
+                              handleUpdateBlockContent(item?.id || '', newContent);
+                            }}
+                          />
+                        {/each}
+                      </div>
                     {/snippet}
-                  </DraggableCard>
+                    <DraggableCard
+                      title={blockTemplate?.name || item?.blockType}
+                      subtitle={visibleEntries.length === 0
+                        ? m.editor_blocks_placeholder()
+                        : !rawTitle || rawTitle === 'Untitled'
+                          ? ''
+                          : rawTitle}
+                      open={blockStates.get(item?.id || '') ?? true}
+                      onToggle={() => toggleBlockCollapse(item?.id || '')}
+                      onRemove={() => handleDelete(item?.id || '')}
+                      onGroup={blockGroupsEnabled && !item?.parent_id
+                        ? () => handleGroupBlock(item?.id || '')
+                        : undefined}
+                      dragAttributes={dragHandleAttributes}
+                      {isDragging}
+                      showSelection={true}
+                      isSelected={selectedBlocks.has(item?.id || '')}
+                      onSelectNode={(checked) => handleSelectBlock(item?.id || '', checked)}
+                      children={visibleEntries.length ? blockFields : undefined}
+                    />
+                  {/if}
                 {/snippet}
               </Blocks>
             {:else}
@@ -878,11 +937,12 @@
       {/if}
     </div>
 
-    <!-- Right Sidebar -->
+    <!-- Right Sidebar — desktop: sticky 320px right column with border.
+         Mobile (<md): inline below the main content, full width, top border. -->
     <div
-      class="bg-background sticky top-[var(--header-height)] h-[calc(100vh-var(--header-height))] w-80 border-l"
+      class="bg-background border-t md:sticky md:top-[var(--header-height)] md:h-[calc(100vh-var(--header-height))] md:w-80 md:border-t-0 md:border-l"
     >
-      <div class="h-full overflow-y-auto p-4 pt-4">
+      <div class="overflow-y-auto p-4 pt-4 md:h-full">
         <form
           id="collection-form"
           onsubmit={(e) => {

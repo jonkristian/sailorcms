@@ -116,7 +116,11 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
   });
 
   return {
-    page: { ...loaded.page, blocks: loaded.blocks } as CollectionTypes[keyof CollectionTypes] & {
+    page: {
+      ...loaded.page,
+      blocks: loaded.blocks,
+      blockGroups: loaded.blockGroups
+    } as CollectionTypes[keyof CollectionTypes] & {
       blocks: BlockTypes[keyof BlockTypes][];
     } & Record<string, any>,
     isNewItem: loaded.isNewItem,

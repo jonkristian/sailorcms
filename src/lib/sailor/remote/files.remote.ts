@@ -12,6 +12,7 @@ import { type FileType } from 'sailorcms/core/files/file.server';
 import { getSettings, parseFileSize } from 'sailorcms/core/settings/index';
 import { repairFileURLs } from 'sailorcms/scripts/repair-file-urls';
 import { generateUUID } from 'sailorcms/core/utils/common';
+import { ImageProcessor } from 'sailorcms/core/services/image.server';
 
 /**
  * Delete files
@@ -289,6 +290,26 @@ export const uploadFiles = command(
           };
 
           await db.insert(filesTable).values(fileRecord);
+
+          // Pre-warm responsive variants for images so first-paint hits the
+          // 302 redirect path instead of cold Sharp. Fire-and-forget — we
+          // don't want to delay the upload response by 4×Sharp passes, and
+          // failures here aren't user-facing. Skips silently if
+          // `storage.images.prewarmBreakpoints` is unset.
+          if (fileRecord.mime_type?.startsWith('image/')) {
+            const fullImagePath =
+              fileRecord.path && fileRecord.path.startsWith('static/')
+                ? fileRecord.path
+                : fileRecord.url || fileRecord.path;
+            if (fullImagePath) {
+              void ImageProcessor.prewarmImageVariants(fullImagePath).catch((err) => {
+                console.warn(
+                  `prewarm dispatch failed for ${fileRecord.name}:`,
+                  err instanceof Error ? err.message : err
+                );
+              });
+            }
+          }
 
           uploadResults.push(fileRecord as FileType);
         } catch (err) {

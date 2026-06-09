@@ -4,6 +4,34 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Block grouping** — wrap blocks into layout containers in the collection editor: a block's group icon wraps it in a group, drag others in (one level deep, per-locale). Opt-in via `settings.ts` `blocks.groups` (declare it to enable) — with developer-defined `fields` (same field format as blocks). Render on the frontend with `getBlockTree()` / `isBlockGroup()`; optional `blockGroupAttrs()` (`sailorcms/utils/blocks`) maps a group's config to `data-*` attributes for CSS-driven layout (mechanical, no baked-in styling).
+- **`color` field type** — swatch + hex input; usable in any template or group field.
+- **Block editor: placeholder blocks** — a block with no visible (non-hidden) fields renders as a flat header labelled "Placeholder" instead of an empty padded card; block subtitle is hidden when it would be "Untitled".
+- **`getCollections({ includeBlocks: 'grouped' })`** — each item's `.blocks` is the block-grouping tree (blocks + group nodes) instead of the flat list, so a slug-based route gets grouped blocks in one call (no separate `getBlockTree`). `true` stays flat.
+- **`getImage(fileRef, opts)` accepts a file-field value** — pass a file-field object or array directly (not just an id/path); resolves to the first file's id. Drops `getImage(field.id)` / first-of-array boilerplate. New `resolveFileRef()` helper exported from `sailorcms/utils/files`.
+- **`sailor content:purge-locale <code>`** — destructive cleanup CLI for a locale that's been removed from `content.i18n.locales`. Deletes every `_locales` row matching the code across localized collections + globals, sweeps orphan `taggables` (polymorphic — no FK cascade), and clears matching `search_index` + FTS rows. Refuses to touch the default locale, and refuses if the locale is still listed in settings (override with `--force`). Interactive by default (re-type the code to confirm); `--yes` for non-interactive runs.
+- **`doctor` `i18n:orphan-locales` check** — surfaces `_locales` rows whose locale code is no longer in `content.i18n.locales`. Read-only (no `--fix`); the remedy is `content:purge-locale`.
+- **`doctor` `globals:flat-id-mismatch` check** — flags flat (singleton) global rows whose `id` ≠ `slug` (which makes `getGlobals('<slug>')` silently return null). Read-only; the runtime warning now names the convention too.
+- **Template lifecycle hooks (v1)** — collection/global templates can declare `hooks: { afterCreate, afterUpdate }` to react to saves (mail, webhooks, cache invalidation, cross-entity sync). Depth-guarded; failures isolated. See `docs/core-concepts/template-hooks.md`.
+- **Search index deep coverage** — the indexer now walks array rows, file metadata (alt/title/description), and relation target labels (title/name/label), not just top-level strings — so search hits content nested in blocks/arrays/relations.
+- **Image variant pre-warm on upload** — `storage.images.prewarmBreakpoints` generates responsive variants fire-and-forget after upload, so the first request isn't a cold transform. Zero-cost when unset.
+- **Image cache hygiene** — per-file variant purge when a file is deleted (recovery purge), plus `enforceImageCacheSize` (a `cache.maxSize` sweeper) with a button in storage settings. Works for local + S3 caches.
+- **Search index health UI** — `/sailor/settings/search` shows total indexed rows, FTS availability, and per-entity / per-locale breakdowns, with a rebuild button (`getSearchIndexHealth` / `reindexSearchIndex` remotes).
+- **Mobile responsiveness** — pagination, the settings nav (mobile drawer), and the collection/global edit-page sidebars now lay out correctly at 375px.
+- **Generator freshness dev-warning** — `ensureGeneratedFreshness()` logs a one-shot dev warning when `templates/` is newer than `generated/schema.ts` (forgot to run `db:update`). No-op in production.
+- **ESLint guard for public-site components** — `components/sailor/site/**` may not import `$sailor/generated/*` (in sibling-link dev that alias resolves to sailor's own workspace, not the consumer's).
+
+### Fixed
+
+- **Globals dropped top-level file fields on save** — file fields (e.g. a testimonial `avatar`) were written as scalar columns (`no such column`); now persisted to their `global_<slug>_<field>` relation tables in both the single-item and bulk save paths.
+- **camelCase file/array field keys silently skipped** — load + save built child-table names from the raw field key, but the generator snake_cases them, so `coverMobile` → `…_coverMobile` (doesn't exist) and the value was dropped with no error. Snake-cased the lookups across both item loaders, the shared file loader, the collection persister (incl. block files), and the WordPress importer.
+- **Global `tags` + many-to-many fields dropped on save** — excluded from the scalar write (correct) but never written to their `taggables` / junction tables; now persisted on both the single-item and bulk save paths (which shared the gap).
+- **Search indexed `title`/`slug` twice** — when a template declares them as explicit fields, the deep-coverage refactor double-counted them in the FTS body (skewed relevance). Restored the dedup guard.
+- **Boolean group settings reloaded unchecked** — `block_groups` rows read via raw SQL return int `1/0`; `BooleanField` now accepts those (not just `true`/`'true'`).
+- **`createGlobalItem` rejects localized globals** — was silently inserting a main row + indexing it without locale, leaving the item invisible to search and disconnected from the `_locales` machinery. Now throws with the same `dataType: 'flat'` / `localized: true` symmetry the JSDoc already implied.
+
 ## [0.8.2] - 01 June 2026
 
 ### Added

@@ -235,6 +235,130 @@ export { heroBlock as hero } from './hero';
 export { galleryBlock as gallery } from './gallery';
 ```
 
+### Block Grouping
+
+Any blocks-enabled collection can group blocks into containers. A group is a
+structural wrapper carrying its own settings; each block stores a nullable
+`group_id` (the group's uuid — `null` = root). Grouping is **always available**
+when `blocks: true`; nothing to declare per-collection.
+
+In the editor, click the **group icon** on any block to wrap it in a new group,
+then drag other blocks into that group. A group holds blocks one level deep (no
+group-in-group). The group's gear icon opens its settings. Group structure is
+**per-locale** for localized collections, matching how blocks are stored.
+
+#### Configuring group settings
+
+Block groups are configured in **`settings.ts`** under `blocks.groups` — they're
+a core feature you turn on/off and shape, not user content templates.
+
+- **Opt-in** — declaring the `blocks.groups` block enables the feature. Omit it
+  (or set `enabled: false`) and it's off entirely: no `block_groups` table, no
+  editor grouping UI, flat public reads.
+- **`fields`** — what a group can configure, **developer-defined**, using the
+  same field-definition format as blocks (types: `string`, `number`, `boolean`,
+  `select`, `color`). These become columns on the `block_groups` table and render
+  in the settings popover via `FieldRenderer`. Omit to use Sailor's default
+  layout set.
+
+```typescript
+// src/lib/sailor/templates/settings.ts
+export const settings: Partial<CMSSettings> = {
+  blocks: {
+    groups: {
+      enabled: true,
+      fields: {
+        layout: {
+          type: 'select',
+          label: 'Layout',
+          default: 'stack',
+          options: [
+            { label: 'Stack', value: 'stack' },
+            { label: 'Grid', value: 'grid' },
+            { label: 'Flex', value: 'flex' }
+          ]
+        },
+        gap: { type: 'string', label: 'Gap' },
+        background: { type: 'color', label: 'Background' }
+      }
+    }
+  }
+};
+```
+
+Run `npx sailor db:update` after changing `fields` (keys are snake_case column
+names).
+
+#### Rendering on the frontend
+
+`getBlockTree(page.id)` (alias of `loadGroupedBlocksForCollection`) returns the
+ordered list of root items — each is either a block or a group node. Groups carry
+your configured keys plus a `blocks` array of children. Sailor imposes no group
+markup or styling; render groups however your design system dictates.
+
+`blockGroupAttrs(group)` (`sailorcms/utils/blocks`) is an optional mechanical aid:
+it maps the group's configured values onto spreadable `data-*` attributes (derived
+from your fields), so you write the visual mapping **once in CSS** instead of
+per-render. It bakes in no styling — all decisions stay in your stylesheet.
+
+```svelte
+<script lang="ts">
+  import { getBlockTree } from 'sailorcms/utils/data/blocks';
+  import { isBlockGroup, blockGroupAttrs } from 'sailorcms/utils/blocks';
+  import MyBlock from '$lib/blocks/MyBlock.svelte';
+
+  let { page } = $props();
+  const tree = await getBlockTree(page.id);
+</script>
+
+{#each tree as node}
+  {#if isBlockGroup(node)}
+    <div class="group" {...blockGroupAttrs(node)}>
+      {#each node.blocks as b}<MyBlock block={b} />{/each}
+    </div>
+  {:else}
+    <MyBlock block={node} />
+  {/if}
+{/each}
+```
+
+```css
+.group[data-layout='grid'] {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 1), 1fr);
+}
+.group[data-layout='flex'] {
+  display: flex;
+}
+.group[data-columns='2'] {
+  --cols: 2;
+}
+.group[data-gap='4'] {
+  gap: 1rem;
+}
+.group[data-padding='large'] {
+  padding: 4rem;
+}
+@media (max-width: 640px) {
+  .group {
+    grid-template-columns: 1fr;
+  }
+}
+```
+
+From a **slug-based route** you usually don't have the item id yet — fetch the
+item and its grouped tree in one call with `getCollections`, which exposes each
+item's `.url` (so you don't derive the permalink yourself):
+
+```ts
+const [page] = await getCollections('pages', { itemSlug: slug, includeBlocks: 'grouped' });
+// page.blocks is now the tree (blocks + group nodes); page.url is the permalink
+```
+
+`includeBlocks: true` keeps `.blocks` flat (back-compat); `'grouped'` makes it
+the tree. `loadBlocksForCollection` / `getBlockTree` remain for when you already
+have the item id.
+
 ## Globals
 
 Site-wide settings and repeatable content.

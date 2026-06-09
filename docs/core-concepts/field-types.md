@@ -117,6 +117,18 @@ Dropdown with predefined options.
 }
 ```
 
+### Color
+
+A color swatch picker paired with a hex input. Stored as a hex string.
+
+```typescript
+{
+  type: 'color',
+  label: 'Background',
+  default: '#ffffff'
+}
+```
+
 ## File Fields
 
 ### File Upload

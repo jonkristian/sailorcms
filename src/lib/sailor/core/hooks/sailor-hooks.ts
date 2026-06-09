@@ -16,6 +16,7 @@ import {
   type Locale
 } from '$sailor/i18n/paraglide/runtime';
 import { resolvePreferences } from 'sailorcms/core/utils/user-preferences';
+import { ensureGeneratedFreshness } from 'sailorcms/core/utils/generator-freshness';
 
 // Per-request locale via the official Paraglide pattern: we own a single
 // AsyncLocalStorage, override `getLocale()` once at module load to read from
@@ -174,6 +175,11 @@ export async function handleSailorHooks(
 ): Promise<Response> {
   // Initialize database on first request
   await ensureDatabaseInitialized();
+
+  // Dev-only: warn once if templates/ is newer than generated/ — catches the
+  // "I edited a template, why isn't my change taking effect?" loop before
+  // the user has to dig for it. Cached + production-skipped internally.
+  void ensureGeneratedFreshness();
 
   return handleSailorLogging(event, async () => {
     // Handle auth API routes

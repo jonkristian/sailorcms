@@ -22,9 +22,10 @@
   const { data }: { data: PageData } = $props();
 
   import { repairFileUrls, checkFiles, importFiles } from 'sailorcms/remote/files.remote.js';
-  import { purgeImageCache } from 'sailorcms/remote/storage.remote.js';
+  import { purgeImageCache, enforceImageCacheSize } from 'sailorcms/remote/storage.remote.js';
 
   let isPurging = $state(false);
+  let isEnforcing = $state(false);
 
   async function purgeCache() {
     if (!confirm(m.settings_storage_image_cache_confirm())) return;
@@ -35,6 +36,40 @@
       toast.success(m.settings_storage_image_cache_purged({ count: result.removed }));
     } else {
       toast.error(result.error || m.settings_storage_image_cache_failed());
+    }
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+
+  async function enforceCacheSize() {
+    isEnforcing = true;
+    const result = await enforceImageCacheSize({});
+    isEnforcing = false;
+    if (result.success) {
+      if (result.limit === 0) {
+        toast.error(m.settings_storage_image_cache_enforce_no_limit());
+      } else if (result.removed === 0) {
+        toast.success(
+          m.settings_storage_image_cache_enforce_under_limit({
+            size: formatBytes(result.beforeBytes),
+            limit: formatBytes(result.limit)
+          })
+        );
+      } else {
+        toast.success(
+          m.settings_storage_image_cache_enforce_pruned({
+            count: result.removed,
+            freed: formatBytes(result.freedBytes)
+          })
+        );
+      }
+    } else {
+      toast.error(result.error || m.settings_storage_image_cache_enforce_failed());
     }
   }
 
@@ -371,13 +406,21 @@
           </Card.Description>
         </Card.Header>
         <Card.Content class="flex-1" />
-        <Card.Footer>
+        <Card.Footer class="flex gap-2">
           <Button variant="outline" onclick={purgeCache} disabled={isPurging}>
             {#if isPurging}
               <Loader2 class="mr-2 h-4 w-4 animate-spin" />
               {m.settings_storage_image_cache_purging()}
             {:else}
               {m.settings_storage_image_cache_button()}
+            {/if}
+          </Button>
+          <Button variant="outline" onclick={enforceCacheSize} disabled={isEnforcing}>
+            {#if isEnforcing}
+              <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+              {m.settings_storage_image_cache_enforce_running()}
+            {:else}
+              {m.settings_storage_image_cache_enforce_button()}
             {/if}
           </Button>
         </Card.Footer>

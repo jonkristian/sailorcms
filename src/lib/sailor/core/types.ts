@@ -1,6 +1,8 @@
 // Core type definitions for Sailor CMS
 // This file contains all shared type definitions used across collections, blocks, and globals
 
+import type { TemplateHooks } from './hooks/template-hooks';
+
 // Polymorphic user reference type - can be ID string or populated user object
 export type UserReference =
   | string
@@ -21,6 +23,7 @@ export type FieldType =
   | 'email'
   | 'link'
   | 'select'
+  | 'color'
   | 'relation'
   | 'array'
   | 'object'
@@ -341,6 +344,14 @@ export type CollectionDefinition = {
    */
   localized?: boolean;
   fields: Record<string, FieldDefinition>;
+  /**
+   * Template lifecycle hooks. Fire after the corresponding write commits;
+   * see {@link TemplateHooks} for the contract (after-only in v1, depth-
+   * guarded, never throws — failure is logged + dev-mode console.warn'd).
+   * Killer cases: submission-form mail notifications, external search
+   * reindex, CDN cache invalidation, webhook fan-out.
+   */
+  hooks?: TemplateHooks;
   options?: {
     titleField?: string; // Field to use as title for display
     seo?: boolean; // Automatically add SEO fields to this collection
@@ -399,6 +410,13 @@ export type GlobalDefinition = {
    * detector — back up first.
    */
   localized?: boolean;
+  /**
+   * Template lifecycle hooks. Fire after the corresponding write commits;
+   * see {@link TemplateHooks} for the contract. Same shape as
+   * {@link CollectionDefinition.hooks} — also fires from `createGlobalItem`
+   * for public-endpoint inserts (form submissions).
+   */
+  hooks?: TemplateHooks;
   // Data behavior options
   options?: {
     sortable?: boolean; // enable manual sorting in UI

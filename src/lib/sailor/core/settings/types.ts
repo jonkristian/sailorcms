@@ -45,6 +45,20 @@ export interface ImageConfig {
 
   // Responsive image settings
   breakpoints?: number[]; // Default responsive breakpoints
+
+  /**
+   * Image widths (px) to pre-generate variants for after an image upload
+   * completes. Without this, the first request for each size pays the cold
+   * Sharp cost; pre-warming pushes that cost to upload-time so editor flows
+   * land on the 302 redirect path.
+   *
+   * Runs fire-and-forget after the upload row is inserted — failures don't
+   * fail the upload. Leave undefined / empty to skip pre-warming.
+   *
+   * Example: `[375, 768, 1200, 1600]` mirrors the responsive `breakpoints`
+   * default. Use a subset if upload bandwidth/CPU is constrained.
+   */
+  prewarmBreakpoints?: number[];
 }
 
 export interface UploadConfig {
@@ -182,6 +196,21 @@ export interface ContentSettings {
   home?: ContentHomeSettings;
 }
 
+// Block group settings. `enabled` (default true) gates the whole feature — the
+// `block_groups` table, the editor grouping UI, and grouped public reads.
+// `fields` are the developer-defined group config (same field-definition format
+// as blocks); omit to use the core default layout set. Field defs are kept loose
+// here (Record<string, any>) to avoid a settings→types field-definition import
+// cycle; the generator validates them as it builds columns.
+export interface BlockGroupSettings {
+  enabled?: boolean;
+  fields?: Record<string, any>;
+}
+
+export interface BlocksSettings {
+  groups?: BlockGroupSettings;
+}
+
 // Main Settings Interface
 export interface CMSSettings {
   storage: StorageSettings;
@@ -189,4 +218,5 @@ export interface CMSSettings {
   system: SystemSettings;
   roles?: RoleSettings;
   content?: ContentSettings;
+  blocks?: BlocksSettings;
 }

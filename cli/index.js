@@ -17,6 +17,7 @@ import { registerDbRepairTimestamps } from './tools/db-repair-timestamps.js';
 import { registerDbRepair } from './tools/db-repair.js';
 import { registerDoctor } from './tools/doctor.js';
 import { registerSyncUi } from './tools/sync-ui.js';
+import { registerContentPurgeLocale } from './tools/content-purge-locale.js';
 
 // Load environment variables and start CLI
 (async () => {
@@ -60,6 +61,9 @@ import { registerSyncUi } from './tools/sync-ui.js';
 
   // search:* — index management
   registerSearchReindex(program);
+
+  // content:* — content lifecycle (locale purge, etc.)
+  registerContentPurgeLocale(program);
 
   // users:* — user/role management
   registerUserCommands(program);

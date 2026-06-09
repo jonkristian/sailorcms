@@ -50,6 +50,68 @@ export const settings: Partial<CMSSettings> = {
     }
   },
 
+  // ✅ Block groups — wrap blocks in layout containers in the editor.
+  // Opt-in: declaring this `blocks.groups` block turns the feature on. Remove it
+  // (or set `enabled: false`) to turn it off — no block_groups table, no grouping
+  // UI. `fields` defines what each group can configure — they become columns on
+  // the `block_groups` table and render in the group settings popover.
+  // Edit these freely; supported types: string, number, boolean, select
+  // (with `options`), color. Keys are snake_case column names. Run `db:update`
+  // after changing `fields`. See docs/core-concepts/templates.md#block-grouping.
+  blocks: {
+    groups: {
+      enabled: true,
+      fields: {
+        layout: {
+          type: 'select',
+          label: 'Layout',
+          default: 'stack',
+          options: [
+            { label: 'Stack', value: 'stack' },
+            { label: 'Grid', value: 'grid' },
+            { label: 'Flex', value: 'flex' }
+          ]
+        },
+        columns: {
+          type: 'select',
+          label: 'Columns',
+          options: [
+            { label: '1', value: '1' },
+            { label: '2', value: '2' },
+            { label: '3', value: '3' },
+            { label: '4', value: '4' },
+            { label: 'Auto-fit', value: 'auto-fit' }
+          ]
+        },
+        column_ratios: { type: 'string', label: 'Column ratios', placeholder: '1fr 2fr' },
+        gap: {
+          type: 'select',
+          label: 'Gap',
+          options: [
+            { label: '0', value: '0' },
+            { label: '1', value: '1' },
+            { label: '2', value: '2' },
+            { label: '4', value: '4' },
+            { label: '6', value: '6' },
+            { label: '8', value: '8' }
+          ]
+        },
+        padding: {
+          type: 'select',
+          label: 'Padding',
+          options: [
+            { label: 'None', value: 'none' },
+            { label: 'Small', value: 'small' },
+            { label: 'Medium', value: 'medium' },
+            { label: 'Large', value: 'large' }
+          ]
+        },
+        background_color: { type: 'color', label: 'Background' },
+        rounded: { type: 'boolean', label: 'Rounded corners' }
+      }
+    }
+  },
+
   // ✅ System settings (minimal - most via env vars)
   system: {},
 

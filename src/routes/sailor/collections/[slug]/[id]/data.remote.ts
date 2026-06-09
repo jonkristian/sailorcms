@@ -36,7 +36,7 @@ export const saveCollectionItem = command(
       collectionSlug,
       itemId,
       formData,
-      user: locals.user ? { id: locals.user.id } : null,
+      user: locals.user ?? null,
       canCreate,
       canUpdate
     });

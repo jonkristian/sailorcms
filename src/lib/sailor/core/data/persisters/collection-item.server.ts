@@ -12,24 +12,34 @@ import { db } from '../../db/index.server';
 import { eq, and, sql } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
+import { collectionDefinitions } from '$sailor/templates/collections';
 import { generateUUID, slugify, sanitizeId } from '../../utils/common';
 import { ensureUniqueSlug } from '../../utils/slug';
 import { TagService } from '../../services/tag.server';
 import { SearchIndexService } from '../../services/search-index.server';
 import { RevisionsService, resolveRevisionsKeep } from '../../services/revisions.server';
-import { toSnakeCase } from '../../utils/string';
+import { childTableName } from '../../utils/string';
 import { getCurrentTimestampSeconds } from '../../utils/date';
 import { syncArrayRowFiles, clearArrayRowFilesByParent } from './array-row-files.server';
 import { saveNestedArrayFields } from '../../content/blocks.server';
+import { GROUP_CONFIG_COLUMNS } from '../../content/block-groups';
+import { blockGroupsEnabled } from '$sailor/generated/block-groups';
 import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
+import { runTemplateHook, type TemplateHookUser } from '../../hooks/template-hooks';
 
 export interface SaveCollectionItemOptions {
   collectionSlug: string;
   itemId: string;
   formData: Record<string, any>;
-  /** Pre-resolved user from the request context. Persists `last_modified_by`. */
-  user: { id: string } | null;
+  /**
+   * Pre-resolved user from the request context. Persists `last_modified_by`
+   * and is forwarded to template lifecycle hooks (`ctx.user`). `email` /
+   * `name` / `role` are optional — passing the full shape gives hooks the
+   * real user; passing only `{ id }` keeps backwards compatibility but
+   * leaves hook ctx fields empty.
+   */
+  user: TemplateHookUser | { id: string } | null;
   /** Caller-resolved permission booleans. Persister throws if neither matches the operation. */
   canCreate: boolean;
   canUpdate: boolean;
@@ -206,6 +216,11 @@ export async function saveCollectionItem(
       // For localized: the `_locales` row id (set after upsert). For
       // non-localized: just the main row id (= itemId from the URL).
       let entityId: string = itemId;
+      // Whether this save is a CREATE vs UPDATE — tracked here so the
+      // post-tx hook firing knows which event to dispatch. For localized
+      // entities, each translation is a discrete content event: a new
+      // `_locales` row counts as a CREATE even if the main row pre-existed.
+      let wasCreate = false;
       // Child tables anchor on `collection_<slug>` for both modes. For
       // localized rows the FK columns reference the `_locales` row id
       // (`entityId` post-upsert).
@@ -300,6 +315,7 @@ export async function saveCollectionItem(
             .where(eq(localesTable.id, entityId));
         } else {
           entityId = generateUUID();
+          wasCreate = true;
           await (tx as any).insert(localesTable).values({
             id: entityId,
             [fkField]: itemId,
@@ -372,6 +388,7 @@ export async function saveCollectionItem(
           if (!canCreate) {
             throw new Error('You do not have permission to create content');
           }
+          wasCreate = true;
 
           const now = new Date();
           let author = regularFields.author;
@@ -508,7 +525,9 @@ export async function saveCollectionItem(
       // Handle file fields (relation tables)
       if (Object.keys(fileFields).length > 0) {
         for (const [fieldName, fieldValue] of Object.entries(fileFields)) {
-          const fileTableName = `${tablePrefix}_${fieldName}`;
+          // Relation tables are snake_cased by the generator — a camelCase field
+          // key (coverMobile) maps to <prefix>_cover_mobile, not _coverMobile.
+          const fileTableName = childTableName(tablePrefix, fieldName);
           const fileTable = schema[fileTableName as keyof typeof schema];
           if (!fileTable) continue;
 
@@ -556,7 +575,7 @@ export async function saveCollectionItem(
           if (fieldDef?.type !== 'relation') continue;
 
           let junctionTableName =
-            fieldDef.relation?.through || `junction_${junctionPrefix}_${toSnakeCase(fieldName)}`;
+            fieldDef.relation?.through || childTableName(`junction_${junctionPrefix}`, fieldName);
           let junctionTable = schema[junctionTableName as keyof typeof schema];
 
           if (!junctionTable && !fieldDef.relation?.through) {
@@ -604,7 +623,7 @@ export async function saveCollectionItem(
             ).filter(([, fieldDef]: [string, any]) => (fieldDef as any)?.type === 'file');
 
             for (const [fieldName] of blockFileFields) {
-              const fileTableName = `block_${blockTypeSlug}_${fieldName}`;
+              const fileTableName = childTableName(`block_${blockTypeSlug}`, fieldName);
               const fileTable = schema[fileTableName as keyof typeof schema];
               if (fileTable) {
                 await tx.run(sql`
@@ -631,6 +650,7 @@ export async function saveCollectionItem(
           const SYSTEM_COLUMNS = new Set([
             'id',
             'collection_id',
+            'group_id',
             'sort',
             'created_at',
             'updated_at'
@@ -692,21 +712,14 @@ export async function saveCollectionItem(
             ...filteredContent,
             id: block.id || generateUUID(),
             collection_id: entityId,
+            group_id: block.group_id ?? null,
             sort: block.sort ?? 0,
             created_at: blockNowSec,
             updated_at: blockNowSec
           };
 
           for (const [, tags] of Object.entries(blockTagFields)) {
-            const tagNames = (Array.isArray(tags) ? tags : [])
-              .map((t: any) =>
-                typeof t === 'object' && t !== null
-                  ? t.name || t.value || undefined
-                  : typeof t === 'string'
-                    ? t
-                    : undefined
-              )
-              .filter(Boolean) as string[];
+            const tagNames = TagService.toTagNames(tags);
             pendingBlockTags.push({
               blockType: block.blockType,
               blockId: blockData.id,
@@ -750,7 +763,7 @@ export async function saveCollectionItem(
             );
 
             for (const [fieldName] of blockRelationFields as [string, any][]) {
-              let junctionTableName = `junction_${block.blockType}_${toSnakeCase(fieldName)}`;
+              let junctionTableName = childTableName(`junction_${block.blockType}`, fieldName);
               let junctionTable = schema[junctionTableName as keyof typeof schema];
 
               if (!junctionTable) {
@@ -785,7 +798,7 @@ export async function saveCollectionItem(
             );
 
             for (const [fieldName] of blockFileFieldsSave as [string, any][]) {
-              const fileTableName = `block_${block.blockType}_${fieldName}`;
+              const fileTableName = childTableName(`block_${block.blockType}`, fieldName);
               const fileTable = schema[fileTableName as keyof typeof schema];
               if (!fileTable) continue;
 
@@ -829,7 +842,46 @@ export async function saveCollectionItem(
         }
       }
 
-      return { itemId, entityId, tablePrefix };
+      // Block groups: structural containers (normalized layout columns, no typed
+      // content). Mirror the blocks delete-then-insert, scoped by collection_id
+      // (the _locales row id for localized collections, so groups are per-locale).
+      // Guarded on presence so older clients that don't send the field leave
+      // existing groups untouched; an explicit [] clears them.
+      if (blockGroupsEnabled && formData.blockGroups && Array.isArray(formData.blockGroups)) {
+        await tx.run(sql`
+          DELETE FROM ${sql.identifier('block_groups')}
+          WHERE collection_id = ${entityId}
+        `);
+
+        for (const group of formData.blockGroups) {
+          const groupNowSec = getCurrentTimestampSeconds();
+          const groupData: Record<string, any> = {
+            id: group.id || generateUUID(),
+            collection_id: entityId,
+            sort: group.sort ?? 0,
+            created_at: groupNowSec,
+            updated_at: groupNowSec
+          };
+          for (const col of GROUP_CONFIG_COLUMNS) {
+            const v = (group as any)[col];
+            if (v === undefined || v === null) continue;
+            groupData[col] = typeof v === 'boolean' ? (v ? 1 : 0) : v;
+          }
+
+          await tx.run(sql`
+            INSERT OR REPLACE INTO ${sql.identifier('block_groups')}
+            (${sql.join(
+              Object.keys(groupData).map((key) => sql.identifier(key)),
+              sql`, `
+            )})
+            VALUES (${sql.join(
+              Object.values(groupData).map((val) => sql`${val}`),
+              sql`, `
+            )})`);
+        }
+      }
+
+      return { itemId, entityId, tablePrefix, wasCreate };
     });
 
     // Post-tx: tags, search reindex, revisions. Each one is non-blocking for
@@ -840,17 +892,7 @@ export async function saveCollectionItem(
       const taggableType = result.tablePrefix;
       const taggableId = result.entityId;
       for (const [, tags] of Object.entries(tagFields)) {
-        const tagNames = Array.isArray(tags)
-          ? ((tags as any[])
-              .map((t: any) =>
-                typeof t === 'object' && t !== null
-                  ? t.name || t.value || undefined
-                  : typeof t === 'string'
-                    ? t
-                    : undefined
-              )
-              .filter(Boolean) as string[])
-          : [];
+        const tagNames = TagService.toTagNames(tags);
         await TagService.tagEntity(taggableType, taggableId, tagNames);
       }
     }
@@ -913,6 +955,30 @@ export async function saveCollectionItem(
       `collection_${collectionSlug}`,
       tagTaggableId
     );
+
+    // Template lifecycle hook. Fires after every post-tx side-effect (tags,
+    // search reindex, revisions) so the hook sees a fully-committed item.
+    // For localized entities, each translation save fires its own event with
+    // `ctx.locale` set — a new `_locales` row is `afterCreate`, an update to
+    // an existing one is `afterUpdate`. Never throws — runner traps + logs.
+    const hooksDecl = (collectionDefinitions as Record<string, any>)[collectionSlug]?.hooks;
+    if (hooksDecl) {
+      await runTemplateHook(result.wasCreate ? 'afterCreate' : 'afterUpdate', hooksDecl, {
+        item: savedRow,
+        slug: collectionSlug,
+        kind: 'collection',
+        user: user
+          ? {
+              id: user.id,
+              email: (user as TemplateHookUser).email ?? '',
+              name: (user as TemplateHookUser).name ?? '',
+              role: (user as TemplateHookUser).role ?? ''
+            }
+          : null,
+        locale: currentLocale ?? undefined,
+        log
+      });
+    }
 
     return {
       success: true,

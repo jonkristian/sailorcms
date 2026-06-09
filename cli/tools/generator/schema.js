@@ -28,7 +28,12 @@ export class SchemaGenerator {
     this.metadata = new MetadataCollector();
     this.tableGen = new TableGenerator(adapter, this.metadata);
     this.relationGen = new RelationGenerator(this.metadata);
-    this.coreGen = new CoreGenerator(adapter, this.getUserRoles());
+    this.coreGen = new CoreGenerator(
+      adapter,
+      this.getUserRoles(),
+      definitions.groupFields || {},
+      definitions.groupsEnabled !== false
+    );
 
     // Entity generators — passed the transitional set so they branch
     // between transitional and steady-state shapes per entity.
@@ -340,6 +345,11 @@ export class SchemaGenerator {
         const options = {};
         if (fieldDef.references) options.references = fieldDef.references;
         fields.push(`  parent_id: ${this.adapter.getTextFieldDefinition('parent_id', options)}`);
+      } else if (fieldName === 'group_id') {
+        // Nullable: null = root-level block, otherwise the containing block_groups row.
+        const options = {};
+        if (fieldDef.references) options.references = fieldDef.references;
+        fields.push(`  group_id: ${this.adapter.getTextFieldDefinition('group_id', options)}`);
       } else if (fieldName.endsWith('_id')) {
         const options = { notNull: true };
         if (fieldDef.references) options.references = fieldDef.references;

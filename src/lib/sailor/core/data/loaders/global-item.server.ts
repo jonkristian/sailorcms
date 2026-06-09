@@ -18,6 +18,7 @@ import { randomUUID } from 'crypto';
 import { getCurrentTimestamp } from '../../utils/date';
 import { getContentSettings } from '../../settings/i18n';
 import { reidNestedRows } from '../i18n-prefill.server';
+import { childTableName } from '../../utils/string';
 
 export interface LoadGlobalItemOptions {
   slug: string;
@@ -307,7 +308,7 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
   for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {
     if ((fieldDef as any).type === 'file') {
       try {
-        const fileTableName = `${tablePrefix}_${fieldName}`;
+        const fileTableName = childTableName(tablePrefix, fieldName);
         const fileRelationTable = schema[fileTableName as keyof typeof schema];
         if (fileRelationTable && entityIdForChildren) {
           const fileResult = await db
@@ -325,7 +326,7 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
       }
     } else if ((fieldDef as any).type === 'array') {
       try {
-        const relTableName = `${tablePrefix}_${fieldName}`;
+        const relTableName = childTableName(tablePrefix, fieldName);
         const relationTable = schema[relTableName as keyof typeof schema];
         if (relationTable && entityIdForChildren) {
           const arrayResult = await db

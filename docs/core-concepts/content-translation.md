@@ -546,7 +546,6 @@ The `Sitemap:` line is stamped absolute (robots.txt requires it). `allow` / `dis
 
 - **Flat globals** (`dataType: 'flat'`) aren't localized — open an issue if you have a use case (the core mechanism would work; we deferred to keep v1 scope tight).
 - **Core `files` and `tags` tables** stay single-language. Per-usage `alt_override` on file junctions is per-locale already (junction FKs to `_locales.id`); tag selections are per-locale too. What's not yet translatable: file metadata in the media library (`alt`, `title`, `description`) and tag labels themselves. `files_locales` / `tags_locales` are queued.
-- **Removing a locale** doesn't auto-purge `_locales` rows for that locale — queued `sailor content:purge-locale <code>` CLI.
+- **Removing a locale** doesn't auto-purge `_locales` rows for that locale — run `npx sailor content:purge-locale <code>` (destructive; prompts to confirm). `npx sailor doctor` surfaces orphan codes under the `i18n:orphan-locales` check.
 - **Staleness indicator** — comparing each translation's `updated_at` against the default-locale row's `updated_at` to flag "may need update" siblings in the locale switcher — queued.
 - **Cross-locale revisions UI** — revisions are correctly scoped per translation; the History dialog shows one stream at a time. Per-item history is split across N translations; merging chronologically with locale labels is queued.
-- **`<HreflangLinks item={...} />` helper** — wraps `includeTranslations` + `contentToUrlLang` into ready-to-paste `<link rel="alternate" hreflang>` markup for `<svelte:head>`. Queued.

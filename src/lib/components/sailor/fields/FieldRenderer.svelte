@@ -39,6 +39,7 @@
   import BooleanField from './BooleanField.svelte';
   import DateField from './DateField.svelte';
   import SelectField from './SelectField.svelte';
+  import ColorField from './ColorField.svelte';
   import TextField from './TextField.svelte';
   import TextareaField from './TextareaField.svelte';
   import RelationField from './RelationField.svelte';
@@ -374,6 +375,13 @@
       <SelectField
         value={value || ''}
         options={field.options || []}
+        placeholder={field.placeholder}
+        required={field.required}
+        onChange={updateValue}
+      />
+    {:else if field.type === 'color'}
+      <ColorField
+        value={value || ''}
         placeholder={field.placeholder}
         required={field.required}
         onChange={updateValue}

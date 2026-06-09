@@ -368,6 +368,13 @@ function matchDestinations(
       visible: flags.canSettings
     },
     {
+      label: m.settings_nav_search_label,
+      parent: m.nav_settings,
+      extras: [m.settings_nav_search_description, m.settings_nav_search_aliases],
+      href: '/sailor/settings/search',
+      visible: flags.canSettings
+    },
+    {
       label: m.settings_nav_database_label,
       parent: m.nav_settings,
       extras: [m.settings_nav_database_description, m.settings_nav_database_aliases],

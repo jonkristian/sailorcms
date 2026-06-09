@@ -1,9 +1,12 @@
 // Full rebuild of the search_index table from templates + entity rows.
 //
-// NOTE v1 scope: this CLI indexes top-level text fields only. Block content
-// is NOT walked here — it gets populated incrementally by the SearchIndexService
-// save hooks (added in a later step). Run `search:reindex` to get a clean
-// baseline; block-level coverage catches up as items are saved.
+// NOTE: this CLI indexes TOP-LEVEL fields only. Deep content — block fields,
+// array-row text, file metadata (alt/title/description), relation target
+// labels — is populated by the runtime `SearchIndexService` on save (it has
+// access to the hydrated item shape, which this CLI doesn't). After running
+// `search:reindex`, you'll have a clean baseline; deep coverage fills in as
+// items are saved (or run a script that re-saves each item to force a deep
+// reindex pass).
 
 import { sql, eq, and } from 'drizzle-orm';
 import { pathToFileURL } from 'url';

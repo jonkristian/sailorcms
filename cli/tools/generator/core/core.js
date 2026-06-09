@@ -1,9 +1,32 @@
 // Core system tables generator (users, files, roles, etc.)
 
 export class CoreGenerator {
-  constructor(adapter, userRoles) {
+  constructor(adapter, userRoles, groupFields = {}, groupsEnabled = true) {
     this.adapter = adapter;
     this.userRoles = userRoles;
+    this.groupFields = groupFields;
+    this.groupsEnabled = groupsEnabled;
+  }
+
+  /**
+   * Build the `block_groups` config column definitions from the group setting
+   * fields (template-defined). boolean → integer(boolean), number → integer,
+   * everything else (string/select/color/text) → text. Returns the column lines
+   * with a trailing comma so they slot before the timestamps, or '' if none.
+   */
+  buildGroupConfigColumns() {
+    const lines = Object.entries(this.groupFields || {}).map(([name, def]) => {
+      let col;
+      if (def?.type === 'boolean') {
+        col = this.adapter.getIntegerFieldDefinition(name, { mode: 'boolean' });
+      } else if (def?.type === 'number') {
+        col = this.adapter.getIntegerFieldDefinition(name);
+      } else {
+        col = this.adapter.getTextFieldDefinition(name);
+      }
+      return `    ${name}: ${col}`;
+    });
+    return lines.length ? lines.join(',\n') + ',' : '';
   }
 
   /**
@@ -292,6 +315,29 @@ export class CoreGenerator {
   ]
 );`
     ];
+
+    // Block groups: core structural container, gated by settings blocks.groups
+    // .enabled. Holds child blocks one level deep; config columns come from the
+    // group setting fields. `group_id` on block tables references it. When the
+    // feature is off the table is omitted (the inert group_id column remains).
+    if (this.groupsEnabled) {
+      coreTableDefinitions.push(`export const blockGroups = ${this.adapter.getTableFunction()}(
+  'block_groups',
+  {
+    id: ${this.adapter.getPrimaryKeyDefinition()},
+    collection_id: ${this.adapter.getTextFieldDefinition('collection_id', { notNull: true })},
+    sort: ${this.adapter.getIntegerFieldDefinition('sort', { notNull: true, default: 0 })},
+${this.buildGroupConfigColumns()}
+    created_at: ${this.adapter.getTimestampDefinition('created_at')},
+    updated_at: ${this.adapter.getTimestampDefinition('updated_at')},
+    deleted_at: ${this.adapter.getNullableTimestampDefinition('deleted_at')},
+    deleted_by: ${this.adapter.getTextFieldDefinition('deleted_by')}
+  },
+  (table) => [
+    index('block_groups_collection_id_idx').on(table.collection_id)
+  ]
+);`);
+    }
 
     return coreTableDefinitions.join('\n\n');
   }

@@ -30,7 +30,15 @@
     children,
     nestable = false,
     showSelection = false,
-    extraControls
+    showSelectionControls = true,
+    extraControls,
+    canAcceptChild,
+    indentNested = true,
+    listClass = 'relative space-y-4',
+    nestedGroups = false,
+    isGroupNode,
+    groupOuterClass,
+    groupInnerClass
   }: {
     data: FlatItem[];
     onDataChange?: (updatedData: FlatItem[]) => void;
@@ -39,7 +47,33 @@
     children: any;
     nestable?: boolean;
     showSelection?: boolean;
+    // Render the built-in select-all / bulk-delete bar. Disable when the host
+    // provides its own selection toolbar (the collection editor does) while
+    // still wanting per-item checkboxes via showSelection.
+    showSelectionControls?: boolean;
     extraControls?: any;
+    // Optional gate for 'inside' (nesting) drops. When provided, a middle-zone
+    // hover only resolves to 'inside' if it returns true; otherwise the drop
+    // falls back to before/after. Used by block grouping to allow only
+    // blocks-into-groups (no group-in-group, no block-accepts-child).
+    canAcceptChild?: (draggedItem: FlatItem, targetItem: FlatItem) => boolean;
+    // When false, nested rows aren't given the depth-based left margin (the
+    // consumer handles containment visually instead, e.g. via itemClass).
+    indentNested?: boolean;
+    // Class for the rows container. Defaults to `space-y-4` (even spacing
+    // between every row). A consumer drawing multi-row containers can drop the
+    // spacing (`'relative'`) and own per-row margins via itemClass — no margin
+    // overrides needed.
+    listClass?: string;
+    // Nested rendering: when true, a root node that is a group (isGroupNode) or
+    // has children is rendered as an outer wrapper (groupOuterClass) holding its
+    // header row plus an inner wrapper (groupInnerClass, e.g. `grid gap-3`)
+    // around its child rows — a real DOM container, so the dashed box + gap live
+    // on actual elements instead of being faked per-row.
+    nestedGroups?: boolean;
+    isGroupNode?: (node: FlatItem) => boolean;
+    groupOuterClass?: (node: FlatItem) => string;
+    groupInnerClass?: string;
   } = $props();
 
   // Drag state
@@ -60,8 +94,12 @@
   });
 
   // Tree nodes derived directly from data — no internal duplicate state
-  const treeNodes: { node: TreeNode; depth: number }[] = $derived(
-    getTreeNodes(buildTree(data || []))
+  const tree: TreeNode[] = $derived(buildTree(data || []));
+  const treeNodes: { node: TreeNode; depth: number }[] = $derived(getTreeNodes(tree));
+  // Flat index per node id (DFS order = treeNodes order) so nested rendering can
+  // still drive the index-based drag handlers.
+  const flatIndexById: Map<string, number> = $derived(
+    new Map(treeNodes.map((t, i) => [t.node.id, i]))
   );
 
   // Build tree from flat data
@@ -145,12 +183,23 @@
         const mouseY = event.clientY - rect.top;
         const height = rect.height;
 
+        // Gate the middle 'inside' zone through canAcceptChild (if supplied);
+        // when nesting isn't allowed for this pair the row behaves as a flat
+        // before/after target instead.
+        const draggedNode = treeNodes[draggedIndex]?.node as FlatItem | undefined;
+        const targetNode = treeNodes[index]?.node as FlatItem | undefined;
+        const insideAllowed =
+          !canAcceptChild ||
+          (!!draggedNode && !!targetNode && canAcceptChild(draggedNode, targetNode));
+
         if (mouseY < height * 0.25) {
           dropPosition = 'before';
         } else if (mouseY > height * 0.75) {
           dropPosition = 'after';
-        } else {
+        } else if (insideAllowed) {
           dropPosition = 'inside';
+        } else {
+          dropPosition = mouseY < height * 0.5 ? 'before' : 'after';
         }
       } else {
         // For flat lists, determine before/after based on mouse position
@@ -220,6 +269,18 @@
 
     // Prevent dropping a parent onto its child (circular reference) - only if nestable
     if (nestable && isDescendant(draggedItem, targetItem, newItems)) {
+      dragOverIndex = -1;
+      return;
+    }
+
+    // Safety net: never nest a pair canAcceptChild rejects (handleDragOver
+    // already steers away from 'inside', but a stale dropPosition could slip).
+    if (
+      nestable &&
+      dropPosition === 'inside' &&
+      canAcceptChild &&
+      !canAcceptChild(draggedItem, targetItem)
+    ) {
       dragOverIndex = -1;
       return;
     }
@@ -358,7 +419,7 @@
 
 <div class="space-y-4">
   <!-- Selection Controls and Bulk Actions -->
-  {#if showSelection && treeNodes.length > 0}
+  {#if showSelectionControls && showSelection && treeNodes.length > 0}
     <div class="flex items-center justify-between">
       <!-- Left side: Selection info -->
       {#if selectedNodes.size > 0}
@@ -405,7 +466,7 @@
     </div>
   {/if}
 
-  <div class="relative space-y-4">
+  <div class={listClass}>
     <!-- Drop zone at the very top (overlay, no layout impact) -->
     {#if isDragging}
       <div
@@ -426,20 +487,19 @@
       </div>
     {/if}
 
-    {#each treeNodes as { node, depth }, index (node.id)}
+    {#snippet row(node: any, index: number, depth: number)}
       <div
         class="relative transition-all duration-200"
         class:opacity-60={draggedIndex === index}
         data-drag-item
         data-item-id={node.id}
-        animate:verticalFlip={{ duration: 300 }}
         role="button"
         tabindex="0"
         aria-label={m.blocks_drop_zone_item({ index: index + 1 })}
         ondragover={(e) => handleDragOver(e, index)}
         ondragleave={handleDragLeave}
         ondrop={(e) => handleDrop(e, index)}
-        style={nestable ? `margin-left: ${depth * 16}px;` : ''}
+        style={nestable && indentNested ? `margin-left: ${depth * 16}px;` : ''}
       >
         <!-- Drop zone indicators -->
         {#if dragOverIndex === index && draggedIndex !== -1 && draggedIndex !== index}
@@ -475,7 +535,38 @@
           onSelectNode: (checked: boolean) => handleSelectNode(node.id, checked)
         })}
       </div>
-    {/each}
+    {/snippet}
+
+    {#if nestedGroups}
+      <!-- Nested: a group root becomes an outer wrapper (header + inner grid
+           wrapper around its child rows). Drag still runs on the flat indices.
+           animate: lives on each keyed-each direct child (wrapper / row holder),
+           never inside the row snippet. -->
+      {#each tree as node (node.id)}
+        <div animate:verticalFlip={{ duration: 300 }}>
+          {#if isGroupNode ? isGroupNode(node) : node.children.length > 0}
+            <div class={groupOuterClass ? groupOuterClass(node) : ''}>
+              {@render row(node, flatIndexById.get(node.id) ?? -1, 0)}
+              <div class={groupInnerClass ?? ''}>
+                {#each node.children as child (child.id)}
+                  <div animate:verticalFlip={{ duration: 300 }}>
+                    {@render row(child, flatIndexById.get(child.id) ?? -1, 0)}
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else}
+            {@render row(node, flatIndexById.get(node.id) ?? -1, 0)}
+          {/if}
+        </div>
+      {/each}
+    {:else}
+      {#each treeNodes as { node, depth }, index (node.id)}
+        <div animate:verticalFlip={{ duration: 300 }}>
+          {@render row(node, index, depth)}
+        </div>
+      {/each}
+    {/if}
 
     <!-- Final drop zone -->
     {#if isDragging}

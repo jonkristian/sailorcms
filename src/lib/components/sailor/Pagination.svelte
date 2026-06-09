@@ -79,8 +79,8 @@
 </script>
 
 <div class="py-4">
-  <div class="flex items-center justify-between">
-    <div class="flex items-center gap-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-0">
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
       {#if showPageSizeSelector}
         <div class="flex items-center gap-2">
           <Select.Root
@@ -106,7 +106,9 @@
       {/if}
 
       {#if showTotalItems}
-        <div class="text-muted-foreground text-sm">
+        <!-- Hidden below sm: the results-summary string is the longest cell on the row.
+             The page-position chip on the right covers the same need at narrow widths. -->
+        <div class="text-muted-foreground hidden text-sm sm:block">
           {m.pagination_showing_results({
             from: Math.min((page - 1) * pageSize + 1, totalItems),
             to: Math.min(page * pageSize, totalItems),
@@ -116,7 +118,7 @@
       {/if}
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
       <span class="text-sm">
         {m.pagination_page_position({ current: page, total: totalPages })}
       </span>
