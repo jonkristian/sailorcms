@@ -150,16 +150,13 @@ async function validateBackupEnvironment(options) {
 }
 
 async function findSQLiteDatabase() {
-  // First check for DATABASE_URL environment variable
   if (process.env.DATABASE_URL) {
     let dbPath = process.env.DATABASE_URL;
 
-    // Parse file:// URLs
     if (dbPath.startsWith('file:')) {
       dbPath = dbPath.replace('file:', '');
     }
 
-    // Handle relative paths starting with ./
     if (dbPath.startsWith('./')) {
       dbPath = path.resolve(dbPath);
     }

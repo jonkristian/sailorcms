@@ -286,6 +286,18 @@ export type CollectionsMultipleResult<T extends CollectionTypes = CollectionType
  * });
  * ```
  */
+// Overload: single item + `includeBlocks: 'grouped'` → `.blocks` is the grouping
+// tree (`BlockOrGroup[]`), so a page loads its item and grouped blocks in one
+// call — no separate `getBlockTree(item.id)` round-trip. Listed before the plain
+// single-item overloads so the more specific options shape wins.
+export async function getCollections<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: CollectionsOptions & { itemSlug: string; includeBlocks: 'grouped' }
+): Promise<(T & { url: string; breadcrumbs?: BreadcrumbItem[]; blocks?: BlockOrGroup[] }) | null>;
+export async function getCollections<T extends CollectionTypes = CollectionTypes>(
+  collectionSlug: string,
+  options: CollectionsOptions & { itemId: string; includeBlocks: 'grouped' }
+): Promise<(T & { url: string; breadcrumbs?: BreadcrumbItem[]; blocks?: BlockOrGroup[] }) | null>;
 // Overload: When itemSlug or itemId is provided, return single result
 export async function getCollections<T extends CollectionTypes = CollectionTypes>(
   collectionSlug: string,
@@ -340,6 +352,17 @@ export async function getCollections<T extends CollectionTypes = CollectionTypes
  * non-localized reads. `getCollectionsFor` is the sugar for the "this is a
  * request-scoped read" common case.
  */
+// Single item + grouped blocks in one call — see the matching getCollections overload.
+export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  collectionSlug: string,
+  options: CollectionsOptions & { itemSlug: string; includeBlocks: 'grouped' }
+): Promise<(T & { url: string; breadcrumbs?: BreadcrumbItem[]; blocks?: BlockOrGroup[] }) | null>;
+export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
+  event: { locals: App.Locals; depends?: (id: string) => void },
+  collectionSlug: string,
+  options: CollectionsOptions & { itemId: string; includeBlocks: 'grouped' }
+): Promise<(T & { url: string; breadcrumbs?: BreadcrumbItem[]; blocks?: BlockOrGroup[] }) | null>;
 export async function getCollectionsFor<T extends CollectionTypes = CollectionTypes>(
   event: { locals: App.Locals; depends?: (id: string) => void },
   collectionSlug: string,

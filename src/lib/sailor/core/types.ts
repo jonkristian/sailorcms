@@ -31,6 +31,35 @@ export type FieldType =
   | 'tags';
 
 /**
+ * Base TypeScript type emitted for each field type by the schema generator
+ * (`cli/tools/db-generate.js` → `getTypeScriptType`). Keep this as the single
+ * source of truth so the generator can't drift from the `FieldType` union —
+ * `Record<FieldType, string>` makes a missing mapping a compile error.
+ *
+ * Context-dependent types (`select`/`radio` literal unions, `array` item types,
+ * `object` property shapes) are refined by the generator using the field
+ * definition; the value here is the fallback when no context is available.
+ */
+export const FIELD_TS_TYPES: Record<FieldType, string> = {
+  string: 'string',
+  text: 'string',
+  textarea: 'string',
+  wysiwyg: 'string',
+  number: 'number',
+  boolean: 'boolean',
+  date: 'Date',
+  email: 'string',
+  link: 'string',
+  select: 'string',
+  color: 'string',
+  relation: 'string',
+  array: 'any[]',
+  object: 'Record<string, any>',
+  file: 'string',
+  tags: 'Tag[]'
+};
+
+/**
  * Standard pagination interface used across the CMS
  */
 export interface Pagination {

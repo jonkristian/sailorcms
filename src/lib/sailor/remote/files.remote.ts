@@ -387,44 +387,21 @@ export const updateFile = command(
         };
       }
 
-      let updatedFile;
+      await db
+        .update(filesTable)
+        .set({ ...updates, updated_at: new Date() })
+        .where(eq(filesTable.id, fileId));
 
       if (tags && Array.isArray(tags)) {
-        // Update file metadata first
-        const updateData = {
-          ...updates,
-          updated_at: new Date()
-        };
-
-        await db.update(filesTable).set(updateData).where(eq(filesTable.id, fileId));
-
-        // Update tags using TagService
         await TagService.tagEntity('file', fileId, tags);
-
-        // Get updated file
-        const updatedFileResults = await db
-          .select()
-          .from(filesTable)
-          .where(eq(filesTable.id, fileId))
-          .limit(1);
-        updatedFile = updatedFileResults[0];
-      } else {
-        // Update metadata only
-        const updateData = {
-          ...updates,
-          updated_at: new Date()
-        };
-
-        await db.update(filesTable).set(updateData).where(eq(filesTable.id, fileId));
-
-        // Get updated file
-        const updatedFileResults = await db
-          .select()
-          .from(filesTable)
-          .where(eq(filesTable.id, fileId))
-          .limit(1);
-        updatedFile = updatedFileResults[0];
       }
+
+      const updatedFileResults = await db
+        .select()
+        .from(filesTable)
+        .where(eq(filesTable.id, fileId))
+        .limit(1);
+      const updatedFile = updatedFileResults[0];
 
       if (!updatedFile) {
         return { success: false, error: 'File not found' };

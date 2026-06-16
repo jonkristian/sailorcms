@@ -260,12 +260,11 @@ async function detectSiteName() {
 }
 
 async function confirmRestore(dbInfo) {
-  // Simple confirmation - in a real implementation you might use readline
   console.log(`\n⚠️  WARNING: This will overwrite your current database!`);
   console.log(`   Database: ${dbInfo.path} (${dbInfo.type})`);
   console.log(`   Use --force to skip this confirmation`);
 
-  // For now, require --force flag
+  // Non-interactive — require --force to proceed.
   return false;
 }
 

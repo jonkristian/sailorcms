@@ -6,6 +6,11 @@ import { blockGroupColumns } from '$sailor/generated/block-groups';
 
 export interface BlockWithRelations {
   id: string;
+  // Deliberately generic `string`, not the generated discriminated `BlockTypes`:
+  // keeps this client-safe type decoupled from generation and preserves the meta
+  // fields below (`collection_id`/`group_id`/`sort`) that `BlockTypes` omits.
+  // Consumers narrow at the render boundary via `node as unknown as BlockTypes`;
+  // full auto-narrowing is blocked by file fields (typed `string`, loaded as objects).
   blockType: string;
   collection_id: string;
   group_id?: string | null;

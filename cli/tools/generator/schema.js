@@ -57,9 +57,6 @@ export class SchemaGenerator {
       // Generate all tables
       await this.generateAllTables();
 
-      // Validate relations now that all tables are registered
-      // this.metadata.validateRelations(); // TODO: Implement if needed
-
       // Generate schema content
       const content = await this.buildSchemaContent();
 

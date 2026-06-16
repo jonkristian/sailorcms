@@ -27,16 +27,3 @@ export async function createDatabaseAdapter(): Promise<DatabaseAdapter> {
 
   return adapterInstance;
 }
-
-// Get the current adapter (must be created first)
-export function getDatabaseAdapter(): DatabaseAdapter {
-  if (!adapterInstance) {
-    throw new Error('Database adapter not initialized. Call createDatabaseAdapter() first.');
-  }
-  return adapterInstance;
-}
-
-// Reset adapter (useful for testing)
-export function resetDatabaseAdapter(): void {
-  adapterInstance = null;
-}

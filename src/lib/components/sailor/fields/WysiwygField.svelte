@@ -364,7 +364,7 @@
   async function handleImageSelect(selectedValue: string | string[]) {
     if (typeof selectedValue === 'string' && selectedValue) {
       try {
-        const result = await getFiles({ ids: [selectedValue], limit: 1 }).run();
+        const result = await getFiles({ ids: [selectedValue], limit: 1 });
 
         if (result.success && (result as any).files && (result as any).files.length > 0) {
           const file = (result as any).files[0];

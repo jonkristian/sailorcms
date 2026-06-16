@@ -106,7 +106,7 @@ function mergeWithCoreFields(templateFields, skipCoreFields = false) {
           ...otherProps
         };
       } else {
-        // Fallback: direct override (use override property instead)
+        // No `override` block — shallow-merge the field def onto the core field.
         mergedFields[key] = { ...CORE_FIELDS[key], ...fieldDef, core: true };
       }
     } else {

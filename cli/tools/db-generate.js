@@ -88,7 +88,7 @@ async function generateSchema() {
   const { collectionDefinitions } = collectionDefinitionsModule;
   const { globalDefinitions } = globalDefinitionsModule;
   const { settings } = settingsModule;
-  const { CORE_FIELDS, BLOCK_CORE_FIELDS, SEO_FIELDS } = typesModule;
+  const { CORE_FIELDS, BLOCK_CORE_FIELDS, SEO_FIELDS, FIELD_TS_TYPES } = typesModule;
   // Block groups config lives in settings.ts (blocks.groups) — the single source
   // of truth. Default enabled; fields default to none (a structural group with
   // no settings) when not declared.
@@ -145,7 +145,8 @@ async function generateSchema() {
     collectionDefinitions,
     blockDefinitions,
     CORE_FIELDS,
-    SEO_FIELDS
+    SEO_FIELDS,
+    FIELD_TS_TYPES
   });
 
   generateFieldConfigs(targetDir, {
@@ -416,8 +417,18 @@ function toValidIdentifier(name) {
 
 function generateTypes(
   targetDir,
-  { globalDefinitions, collectionDefinitions, blockDefinitions, CORE_FIELDS, SEO_FIELDS }
+  {
+    globalDefinitions,
+    collectionDefinitions,
+    blockDefinitions,
+    CORE_FIELDS,
+    SEO_FIELDS,
+    FIELD_TS_TYPES
+  }
 ) {
+  // Shared field-type → TS map (single source of truth in core/types.ts), read
+  // by getTypeScriptType. Module-scoped so the recursive helper can reach it.
+  fieldTsTypes = FIELD_TS_TYPES || {};
   const fieldConfigs = {
     collections: {},
     globals: {},
@@ -505,6 +516,16 @@ function generateTypes(
     config.typeName || toValidIdentifier(pluralize.singular(config.slug)) + 'Global';
   const blockTypeName = (config) => config.typeName || toValidIdentifier(config.slug) + 'Block';
 
+  // Slug → generated type name, so relation fields can emit their resolved
+  // target type (see getTypeScriptType's 'relation' case).
+  relationTargetTypeNames = { collection: {}, global: {} };
+  for (const [slug, config] of Object.entries(fieldConfigs.collections)) {
+    relationTargetTypeNames.collection[slug] = collectionTypeName(config);
+  }
+  for (const [slug, config] of Object.entries(fieldConfigs.globals)) {
+    relationTargetTypeNames.global[slug] = globalTypeName(config);
+  }
+
   const typeDefinitions = [];
   typeDefinitions.push('// Auto-generated types for Sailor CMS — do not edit manually.');
   typeDefinitions.push('//');
@@ -580,8 +601,16 @@ function generateTypes(
   for (const [slug, config] of Object.entries(fieldConfigs.blocks)) {
     const typeName = blockTypeName(config);
 
-    // Start with core database fields that are always present
-    const coreFields = ['  id: string;', '  created_at: Date;', '  updated_at: Date;'];
+    // Start with core database fields that are always present. The `blockType`
+    // literal is the registry key (block slug) the runtime stamps on each block
+    // (see loadBlocksForCollection) — it makes BlockTypes a discriminated union
+    // so consumers can `switch (block.blockType)` with full narrowing.
+    const coreFields = [
+      `  blockType: '${slug}';`,
+      '  id: string;',
+      '  created_at: Date;',
+      '  updated_at: Date;'
+    ];
 
     const fields = Object.entries(config.fields)
       .map(([fieldName, fieldDef]) => {
@@ -730,57 +759,88 @@ function generateTypes(
   fs.writeFileSync(typesPath, typesContent);
 }
 
+// Field-type → TS map, assigned from core/types.ts's FIELD_TS_TYPES at the start
+// of generateTypes. The single source of truth lives there so this generator
+// can't drift from the FieldType union.
+let fieldTsTypes = {};
+
+// Relation target slug → generated type name, keyed by kind. Assigned in
+// generateTypes once the collection/global type names are known, so a relation
+// field can emit its resolved target type (relations are loaded as full objects
+// by default) instead of a bare id string.
+let relationTargetTypeNames = { collection: {}, global: {} };
+
 function getTypeScriptType(fieldDef) {
   const type = fieldDef.type || 'text';
 
   switch (type) {
-    case 'text':
-    case 'textarea':
-    case 'wysiwyg':
-    case 'email':
-    case 'url':
-    case 'slug':
-    case 'password':
-      return 'string';
-
-    case 'number':
-      return 'number';
-
-    case 'checkbox':
-      return 'boolean';
-
+    // Context-dependent types — refined from the field definition, so they
+    // can't be a static map entry.
     case 'select':
     case 'radio':
       if (fieldDef.options && Array.isArray(fieldDef.options)) {
-        const values = fieldDef.options
+        return fieldDef.options
           .map((opt) => (typeof opt === 'object' ? `'${opt.value}'` : `'${opt}'`))
           .join(' | ');
-        return values;
       }
       return 'string';
 
-    case 'file':
-      return 'string'; // File ID reference
+    case 'relation': {
+      // Relations resolve to full target objects by default (the loader swaps
+      // the id for the object); many-to-many → array, one-to-one/one-to-many →
+      // single. Emit the target's generated type when resolvable.
+      const rel = fieldDef.relation;
+      const targetName = rel?.targetCollection
+        ? relationTargetTypeNames.collection[rel.targetCollection]
+        : rel?.targetGlobal
+          ? relationTargetTypeNames.global[rel.targetGlobal]
+          : undefined;
+      if (targetName) {
+        return rel.type === 'many-to-many' ? `${targetName}[]` : targetName;
+      }
+      // Target present but not generated here → still an object at runtime.
+      if (rel?.targetCollection || rel?.targetGlobal) {
+        return rel.type === 'many-to-many' ? 'Record<string, any>[]' : 'Record<string, any>';
+      }
+      // No target to resolve — falls back to the raw id string.
+      return 'string';
+    }
 
-    case 'relation':
-      return 'string'; // Related entity ID
-
-    case 'array':
+    case 'array': {
       const itemType = fieldDef.items ? getTypeScriptType(fieldDef.items) : 'any';
       return `${itemType}[]`;
+    }
+
+    case 'object': {
+      // Object fields nest under `properties` (see template field shape).
+      const props = fieldDef.properties || fieldDef.fields;
+      if (props && typeof props === 'object') {
+        const body = Object.entries(props)
+          .map(([k, def]) => `${k}${def.required !== true ? '?' : ''}: ${getTypeScriptType(def)}`)
+          .join('; ');
+        return body ? `{ ${body} }` : 'Record<string, any>';
+      }
+      return 'Record<string, any>';
+    }
 
     case 'blocks':
       return 'any[]'; // Block array
 
-    case 'date':
+    // Legacy aliases accepted in templates but not in the FieldType union.
+    case 'url':
+    case 'slug':
+    case 'password':
+      return 'string';
+    case 'checkbox':
+      return 'boolean';
     case 'datetime':
       return 'Date';
-
     case 'json':
       return 'Record<string, any>';
 
+    // Everything else resolves from the shared FieldType → TS map.
     default:
-      return 'any';
+      return fieldTsTypes[type] || 'any';
   }
 }
 

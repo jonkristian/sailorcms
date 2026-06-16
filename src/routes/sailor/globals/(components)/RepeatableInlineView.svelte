@@ -28,7 +28,6 @@
   }: {
     global: any;
     items: any[];
-    submitting: boolean;
     addFn?: (() => void) | null;
     saveFn?: (() => Promise<void>) | null;
     expandCollapseFn?: ((expand: boolean) => void) | null;

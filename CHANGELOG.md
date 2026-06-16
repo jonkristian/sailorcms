@@ -4,6 +4,24 @@ All notable changes to SailorCMS are documented here.
 
 ## [Unreleased]
 
+## [0.9.1] - 16 June 2026
+
+### Added
+
+- **Discriminated block types** — each generated block interface now carries a `blockType: '<slug>'` literal, so `BlockTypes` is a discriminated union (`switch (block.blockType)` narrows fully).
+- **Typed grouped blocks** — `getCollections` / `getCollectionsFor` overloads: with `includeBlocks: 'grouped'`, `.blocks` is typed `BlockOrGroup[]` (was the flat `BlockWithRelations[]`), so `isBlockGroup()` narrows without a cast. The default flat case is unchanged.
+
+### Changed
+
+- **`drizzle-orm` + `better-auth` moved to `peerDependencies`** (kept in `devDependencies` for sailor's own build) — their types cross the public API, so a single consumer-provided copy avoids duplicate-install type clashes.
+- **Slimmer dependency footprint** — removed 15 unused deps (sveltekit-superforms, formsnap, layerchart, paneforge, embla-carousel-svelte, @tanstack/table-core, @tiptap/extension-image, @tailwindcss/forms, @tailwindcss/typography, terser, rollup-plugin-visualizer, vite-bundle-visualizer, @floating-ui/dom, tslib, @sveltejs/adapter-auto) plus the dead `build:analyze` script.
+
+### Fixed
+
+- **Remote functions broke under SvelteKit 2.65** — `RemoteQuery.run()` was removed upstream; the four imperative call sites now await the query directly.
+- **Generated types fell back to `any` for common field types** — `string` / `boolean` / `link` / `color` / `tags` / `object` weren't handled by the type generator. Now sourced from a shared `FIELD_TS_TYPES` map (single source of truth in `core/types.ts`, exhaustive over `FieldType` so it can't drift), with nested `object` fields expanded to real shapes.
+- **Relation fields typed as bare `string`** — now emit the resolved target type (`many-to-many` → `Target[]`, one-to-one / one-to-many → `Target`), matching the default loaded shape.
+
 ## [0.9.0] - 09 June 2026
 
 ### Added

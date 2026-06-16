@@ -1,7 +1,7 @@
 // Base interface for database adapters
 // This allows Sailor CMS to support multiple databases with clean separation
 
-export type DatabaseType = 'sqlite' | 'postgres' | 'mysql' | 'mongodb';
+export type DatabaseType = 'sqlite' | 'postgres';
 
 export interface DatabaseConfig {
   type: DatabaseType;
@@ -122,7 +122,7 @@ export abstract class DatabaseAdapter {
 export function getDatabaseType(): DatabaseType {
   const dbProvider = process.env.DATABASE_PROVIDER || 'sqlite';
 
-  if (!['sqlite', 'postgres', 'mysql', 'mongodb'].includes(dbProvider)) {
+  if (!['sqlite', 'postgres'].includes(dbProvider)) {
     console.warn(`Invalid DATABASE_PROVIDER: ${dbProvider}. Defaulting to sqlite.`);
     return 'sqlite';
   }
@@ -138,12 +138,6 @@ export function createDatabaseConfig(): DatabaseConfig {
       return {
         type: 'postgres',
         url: process.env.DATABASE_URL || 'postgresql://localhost:5432/sailor'
-      };
-
-    case 'mysql':
-      return {
-        type: 'mysql',
-        url: process.env.DATABASE_URL || 'mysql://localhost:3306/sailor'
       };
 
     case 'sqlite':

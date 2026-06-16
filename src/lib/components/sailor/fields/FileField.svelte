@@ -37,7 +37,6 @@
     onChange(newValue);
   }
 
-  // Remove the duplicate handlePickerSelect function and use handleSelect directly
   function handlePickerSelect(selectedValue: string | string[]) {
     if (multiple) {
       if (Array.isArray(selectedValue)) {

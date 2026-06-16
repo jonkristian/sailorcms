@@ -9,7 +9,6 @@ import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
 import { loadCollectionItem } from 'sailorcms/core/data/loaders/collection-item.server';
 import type { PageServerLoad } from './$types';
 import { m } from '$sailor/i18n';
-import type { CollectionTypes, BlockTypes } from '$sailor/generated/types';
 
 export const load: PageServerLoad = async ({ params, locals, url }) => {
   // Check permission to view content
@@ -116,13 +115,14 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
   });
 
   return {
+    // The admin editor loads a dynamically-typed item (raw flat blocks +
+    // separate group rows), reshaped client-side by field config — not a
+    // specific CollectionTypes/BlockTypes member, so the honest type is loose.
     page: {
       ...loaded.page,
       blocks: loaded.blocks,
       blockGroups: loaded.blockGroups
-    } as CollectionTypes[keyof CollectionTypes] & {
-      blocks: BlockTypes[keyof BlockTypes][];
-    } & Record<string, any>,
+    } as Record<string, any>,
     isNewItem: loaded.isNewItem,
     collectionType: loaded.collectionType,
     availableBlocks: loaded.availableBlocks,

@@ -199,7 +199,6 @@
         <RepeatableInlineView
           global={data.global}
           {items}
-          {submitting}
           bind:addFn={inlineAddFunction}
           bind:saveFn={inlineSaveFunction}
           bind:expandCollapseFn={inlineExpandCollapseFunction}

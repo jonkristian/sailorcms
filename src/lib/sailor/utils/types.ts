@@ -26,8 +26,6 @@ export type { GlobalsMultipleResult, GlobalsOptions, GlobalsSingleResult };
 // Helper types for accessing specific collections and globals dynamically
 // No hardcoded types - these work with any generated collection/global
 
-// File and Tag types are now imported from generated types above
-
 // Navigation types
 export interface NavigationItem {
   id?: string;

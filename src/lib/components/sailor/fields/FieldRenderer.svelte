@@ -96,7 +96,7 @@
           entityType,
           slug: base,
           excludeId: currentItemId
-        }).run();
+        });
         if (result.success && result.slug) finalSlug = result.slug;
       } catch (err) {
         console.warn('Slug uniqueness check failed, using base slug', err);
@@ -120,7 +120,7 @@
           entityType,
           slug: base,
           excludeId: currentItemId
-        }).run();
+        });
         if (result.success && result.slug) finalSlug = result.slug;
       } catch (err) {
         console.warn('Slug uniqueness check failed, using base slug', err);

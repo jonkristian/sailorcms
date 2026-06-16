@@ -25,7 +25,6 @@ export function formatDate(
     return '';
   }
 
-  // Use native Intl.DateTimeFormat with dateStyle for cleaner code
   return new Intl.DateTimeFormat(locale, {
     dateStyle: format
   }).format(parsedDate);

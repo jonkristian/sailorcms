@@ -41,7 +41,7 @@
   async function runSearch(q: string) {
     const token = ++inflightToken;
     try {
-      const next = await adminSearch({ q }).run();
+      const next = await adminSearch({ q });
       // Drop stale responses — only keep the most recent token's result.
       if (token !== inflightToken) return;
       results = next;
