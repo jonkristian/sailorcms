@@ -2,7 +2,17 @@
 
 All notable changes to SailorCMS are documented here.
 
-## [Unreleased]
+## [0.9.2] - 26 August 2026
+
+### Added
+
+- **`doctor` `content:legacy-status` check** — flags content rows whose `status` is outside `published|draft` (0.2.0-era `'active'`, or NULL). Every content query filters `status = 'published'`, so those rows read as invisible with no error. Read-only; emits reviewed `UPDATE`s.
+
+### Fixed
+
+- **`svelte-check` failed for consumers without block groups** — `utils/data/blocks.ts` referenced `schema.blockGroups` at type level, but the generator omits that table when `blocks.groups` is off.
+- **`unlinkAccount` didn't type against better-auth 1.7** — 1.7 dropped `providerId` from the unlink body; the call now types against both ends of the peer range.
+- **`doctor --fix` added a duplicate `$sailor` alias** — the missing-alias test only matched the quoted key, so an unquoted `$sailor:` read as absent.
 
 ## [0.9.1] - 16 June 2026
 

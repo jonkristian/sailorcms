@@ -171,18 +171,19 @@ export async function loadGroupedBlocksForCollection(
   const blocks = await loadBlocksForCollection(collectionId, options);
   if (!blockGroupsEnabled) return blocks;
 
+  // `blockGroups` is only emitted into the generated schema when the project
+  // opts into `blocks.groups`, so it can't be referenced at type level here —
+  // that would break `svelte-check` for every consumer with groups off.
+  const blockGroups = (schema as Record<string, any>).blockGroups;
+  if (!blockGroups) return blocks;
+
   let groupRows: any[] = [];
   try {
     groupRows = await db
       .select()
-      .from(schema.blockGroups)
-      .where(
-        and(
-          eq(schema.blockGroups.collection_id, collectionId),
-          isNull(schema.blockGroups.deleted_at)
-        )
-      )
-      .orderBy(asc(schema.blockGroups.sort));
+      .from(blockGroups)
+      .where(and(eq(blockGroups.collection_id, collectionId), isNull(blockGroups.deleted_at)))
+      .orderBy(asc(blockGroups.sort));
   } catch (err) {
     log.warn('block_groups not available; returning flat blocks', { err });
     return blocks;

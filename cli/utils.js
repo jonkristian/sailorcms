@@ -725,9 +725,14 @@ export function patchSvelteConfig(content) {
       });
   } else {
     // Alias block exists — splice in any missing entries.
-    const missing = REQUIRED_ALIASES.filter(
-      ([k]) => !new RegExp(`['"]${k.replace(/[$/*]/g, '\\$&')}['"]`).test(updated)
-    );
+    // `$sailor` is a valid JS identifier, so consumers often write it unquoted
+    // (`$sailor: 'src/lib/sailor'`). Match both forms, or --fix appends a
+    // duplicate key right next to the existing one.
+    const hasAliasKey = (key) => {
+      const esc = key.replace(/[$/*]/g, '\\$&');
+      return new RegExp(`(['"])${esc}\\1\\s*:|(?:^|[{,\\s])${esc}\\s*:`, 'm').test(updated);
+    };
+    const missing = REQUIRED_ALIASES.filter(([k]) => !hasAliasKey(k));
     if (missing.length > 0) {
       const before = updated;
       const additions = missing.map(([k, v]) => `      '${k}': '${v}'`).join(',\n');

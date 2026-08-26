@@ -148,7 +148,13 @@
   async function handleUnlink(providerId: string, accountId: string) {
     unlinking = true;
     try {
-      const res = await authClient.unlinkAccount({ providerId, accountId });
+      // better-auth ≤1.6 requires `providerId` on unlink-account; 1.7 dropped it
+      // from the schema (accountId alone identifies the row) and no longer types
+      // it. Sending both keeps either peer version working — the endpoint strips
+      // unknown keys — and the cast keeps it typing against both.
+      const res = await authClient.unlinkAccount({ providerId, accountId } as Parameters<
+        typeof authClient.unlinkAccount
+      >[0]);
       // Better Auth's unlink-account endpoint refuses to remove the user's
       // last remaining account (FAILED_TO_UNLINK_LAST_ACCOUNT). Surface that
       // server-side message rather than a generic error so the admin knows

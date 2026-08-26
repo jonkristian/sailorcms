@@ -777,6 +777,112 @@ async function checkFlatGlobalIdMismatch(targetDir) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy content `status` values
+//
+// The stored vocabulary is 'published' | 'draft' ('all' is a query-side filter,
+// never written to a row). 0.2.0-era installs wrote 'active', which matches
+// neither: every content read applies `eq(status, 'published')` by default, so
+// those rows resolve to null/[] with no error anywhere — a `{#if}` renders
+// nothing and the page still returns 200. Flat globals ignore status entirely,
+// so a broken install can look half-working. NULL fails the same way.
+//
+// No sailor command migrates these (db:repair covers schema, db:repair-timestamps
+// covers epoch drift), so the remedy is a reviewed UPDATE per table.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VALID_CONTENT_STATUS = new Set(['published', 'draft']);
+
+// Content tables are `collection_<slug>` / `global_<slug>` (plus their `_locales`
+// side tables). The prefix filter is what keeps `users.status` ('active' is
+// legitimate there), `search_index.status`, and `mail_events.status` out of
+// scope — those carry unrelated vocabularies.
+async function contentTablesWithStatus(db) {
+  const r = await db.run(
+    sql.raw(
+      `SELECT name FROM sqlite_master WHERE type='table' ` +
+        `AND (name LIKE 'collection\\_%' ESCAPE '\\' OR name LIKE 'global\\_%' ESCAPE '\\') ` +
+        `ORDER BY name`
+    )
+  );
+  const out = [];
+  for (const row of r.rows || []) {
+    const cols = await columnsForDoctor(db, row.name);
+    if (cols.includes('status')) out.push(row.name);
+  }
+  return out;
+}
+
+async function checkLegacyContentStatus(targetDir) {
+  const id = 'content:legacy-status';
+  const label = 'Content rows with status outside published|draft';
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+
+  const tables = await contentTablesWithStatus(db);
+  if (tables.length === 0) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'no content tables with a status column — skipping',
+      fixable: false
+    };
+  }
+
+  const offenders = [];
+  for (const table of tables) {
+    const r = await db.run(sql.raw(`SELECT status, COUNT(*) AS n FROM "${table}" GROUP BY status`));
+    for (const row of r.rows || []) {
+      if (typeof row.status === 'string' && VALID_CONTENT_STATUS.has(row.status)) continue;
+      offenders.push({ table, value: row.status, count: Number(row.n) || 0 });
+    }
+  }
+
+  if (offenders.length === 0) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: `all content status values in published|draft (${tables.length} table(s) scanned)`,
+      fixable: false
+    };
+  }
+
+  const rows = offenders.reduce((n, o) => n + o.count, 0);
+  const detail = offenders.map(
+    (o) => `    ${o.table} — ${o.value === null ? 'NULL' : `'${o.value}'`} × ${o.count} row(s)`
+  );
+  const updates = offenders.map(
+    (o) =>
+      `      UPDATE "${o.table}" SET status = 'published' WHERE status ` +
+      `${o.value === null ? 'IS NULL' : `= '${o.value}'`};`
+  );
+
+  return {
+    // Informational only. The right target ('published' vs 'draft') depends on
+    // what the legacy value meant in that install, so this stays a reviewed
+    // UPDATE rather than a --fix that writes to a consumer's content DB.
+    id,
+    label,
+    ok: false,
+    message:
+      `${rows} content row(s) carry a status outside published|draft — these read as invisible ` +
+      `(every query filters status = 'published' by default)\n${detail.join('\n')}\n` +
+      `    Remedy — back up first (\`npx sailor db:backup\`), then review and run:\n${updates.join('\n')}\n` +
+      `    Map each value deliberately: 'published' is assumed above, but a legacy 'inactive'/'hidden' likely means 'draft'.`,
+    fixable: false
+  };
+}
+
 const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
@@ -788,7 +894,8 @@ const CHECKS = [
   checkDbLocked,
   checkI18nVestigialColumns,
   checkI18nOrphanLocales,
-  checkFlatGlobalIdMismatch
+  checkFlatGlobalIdMismatch,
+  checkLegacyContentStatus
 ];
 
 // Tiny ANSI color helpers. Respects NO_COLOR (https://no-color.org/) and
