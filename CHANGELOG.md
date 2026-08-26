@@ -2,7 +2,7 @@
 
 All notable changes to SailorCMS are documented here.
 
-## [Unreleased]
+## [0.9.3] - 26 August 2026
 
 ### Security
 
