@@ -21,6 +21,206 @@ import { existsSync, readFileSync } from 'fs';
 import fs from 'fs-extra';
 import crypto from 'node:crypto';
 import { createConsumerLibsqlClient } from '../utils.js';
+import { TIMESTAMP_REPAIR } from './db-repair-timestamps.js';
+import { ACCOUNT_ISSUER_REPAIR } from './db-repair-accounts.js';
+
+export const SCHEMA_REPAIR = {
+  id: 'schema',
+  label: 'schema drift (missing tables/columns vs schema.ts)',
+  run: runSchemaRepair
+};
+
+/**
+ * Apply schema drift repairs. Shared by the standalone `db:repair` command and
+ * `db:repair --all`, so it neither opens nor closes the client and never calls
+ * process.exit.
+ *
+ * Returns { status: 'ok' | 'would-change' | 'changed' | 'refused', rows }.
+ */
+export async function runSchemaRepair({ client, targetDir, dryRun = false }) {
+  const schemaPath = path.join(targetDir, 'src/lib/sailor/generated/schema.ts');
+  if (!existsSync(schemaPath)) {
+    console.error(`❌ schema.ts not found at ${schemaPath}. Run \`npx sailor db:update\` first.`);
+    return { status: 'refused', rows: 0 };
+  }
+
+  const expected = parseSchemaFile(readFileSync(schemaPath, 'utf-8'));
+  if (expected.size === 0) {
+    console.error('❌ Could not parse any tables from schema.ts.');
+    return { status: 'refused', rows: 0 };
+  }
+
+  console.log(dryRun ? '🔍 Dry run — scanning for schema drift…' : '🛠️  Repairing schema drift…');
+
+  {
+    const dbTables = new Set(
+      (
+        await client.execute(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'search_index_fts%'`
+        )
+      ).rows.map((r) => r.name)
+    );
+
+    const missingTables = []; // { name, columns, indexes }
+    const alters = []; // { table, column, sql }
+
+    for (const [tableName, { columns, indexes }] of expected) {
+      if (!dbTables.has(tableName)) {
+        missingTables.push({ name: tableName, columns, indexes });
+        continue;
+      }
+      const actualCols = new Set(
+        (await client.execute(`PRAGMA table_info("${tableName}")`)).rows.map((r) => r.name)
+      );
+      for (const col of columns) {
+        if (!actualCols.has(col.name)) {
+          alters.push({
+            table: tableName,
+            column: col.name,
+            sql: buildAlterAddColumn(tableName, col)
+          });
+        }
+      }
+    }
+
+    if (missingTables.length === 0 && alters.length === 0) {
+      console.log('✅ No drift detected — DB schema matches schema.ts.');
+    } else {
+      if (missingTables.length > 0) {
+        console.log(`\nMissing tables (${missingTables.length}):`);
+        for (const t of missingTables) console.log(`  ${t.name} (${t.indexes.length} indexes)`);
+      }
+      if (alters.length > 0) {
+        console.log(`\nMissing columns (${alters.length}):`);
+        for (const a of alters) console.log(`  ${a.table}.${a.column}`);
+      }
+
+      if (!dryRun) {
+        // Create missing tables first — column-add ALTERs may target tables
+        // that didn't exist a moment ago (rare, but defensive).
+        if (missingTables.length > 0) {
+          console.log('\nCreating missing tables…');
+          for (const t of missingTables) {
+            await client.execute(buildCreateTable(t.name, t.columns));
+            for (const idx of t.indexes) {
+              await client.execute(buildCreateIndex(t.name, idx));
+            }
+            console.log(`  ✓ ${t.name} (${t.indexes.length} indexes)`);
+          }
+        }
+        if (alters.length > 0) {
+          console.log('\nApplying ALTER TABLE statements…');
+          for (const a of alters) {
+            await client.execute(a.sql);
+            console.log(`  ✓ ${a.table}.${a.column}`);
+          }
+        }
+      }
+    }
+
+    // Reconcile __drizzle_migrations so future drizzle.migrate() works.
+    // Only touch it when empty — once populated, drizzle owns it.
+    if (!dryRun) {
+      await client.execute(
+        `CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)`
+      );
+      const { rows: countRow } = await client.execute(
+        'SELECT COUNT(*) as count FROM __drizzle_migrations'
+      );
+      if (Number(countRow[0].count) === 0) {
+        const journalPath = path.join(targetDir, 'drizzle', 'meta', '_journal.json');
+        if (await fs.pathExists(journalPath)) {
+          const journal = await fs.readJson(journalPath);
+          if (journal.entries?.length) {
+            const latest = journal.entries[journal.entries.length - 1];
+            const sqlPath = path.join(targetDir, 'drizzle', `${latest.tag}.sql`);
+            const hash = crypto
+              .createHash('sha256')
+              .update(await fs.readFile(sqlPath, 'utf-8'))
+              .digest('hex');
+            await client.execute({
+              sql: 'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
+              args: [hash, latest.when]
+            });
+            console.log(
+              `\n📋 Recorded ${latest.tag} as the migration high-water mark (was empty).`
+            );
+          }
+        }
+      }
+    }
+
+    if (alters.length > 0 && !dryRun) {
+      console.log(`\n✅ Repaired ${alters.length} column(s).`);
+    } else if (alters.length > 0 && dryRun) {
+      console.log(
+        `\n${alters.length} ALTER statement(s) would run. Re-run without --dry-run to apply.`
+      );
+    }
+
+    const changes = alters.length + missingTables.length;
+    if (changes === 0) return { status: 'ok', rows: 0 };
+    return { status: dryRun ? 'would-change' : 'changed', rows: changes };
+  }
+}
+
+// Ordered: schema first — the data repairs below may target columns the schema
+// pass has just added (accounts.issuer is exactly that case).
+const REPAIR_STEPS = [SCHEMA_REPAIR, TIMESTAMP_REPAIR, ACCOUNT_ISSUER_REPAIR];
+
+async function runAllRepairs({ client, targetDir, dryRun }) {
+  const results = [];
+  let pendingUpstream = false;
+  for (const step of REPAIR_STEPS) {
+    console.log(`\n${'─'.repeat(60)}\n▶ ${step.label}\n`);
+    let result;
+    try {
+      result = await step.run({ client, targetDir, dryRun });
+    } catch (err) {
+      console.error(`❌ ${step.id} failed: ${err.message}`);
+      result = { status: 'failed', rows: 0 };
+    }
+    // A dry run applies nothing, so a later step can refuse on a precondition
+    // an earlier *pending* step would have satisfied (accounts.issuer needs the
+    // column the schema pass is about to add). That's not a failure — report it
+    // as deferred so a healthy upgrade path doesn't dry-run as broken.
+    if (dryRun && result.status === 'refused' && pendingUpstream) {
+      console.log('   ↑ expected in --dry-run: an earlier pending repair provides this.');
+      result = { status: 'deferred', rows: 0 };
+    }
+    if (result.status === 'would-change' || result.status === 'changed') pendingUpstream = true;
+    results.push({ step, ...result });
+  }
+
+  console.log(`\n${'─'.repeat(60)}\nSummary:`);
+  const mark = {
+    ok: '✓',
+    changed: '✓',
+    'would-change': '•',
+    deferred: '•',
+    refused: '✗',
+    failed: '✗',
+    skipped: '–'
+  };
+  for (const r of results) {
+    const detail =
+      r.status === 'changed'
+        ? `${r.rows} change(s) applied`
+        : r.status === 'would-change'
+          ? `${r.rows} change(s) pending`
+          : r.status === 'deferred'
+            ? 'deferred — runs once the pending repairs above are applied'
+            : r.status;
+    console.log(`  ${mark[r.status] ?? '?'} ${r.step.id}: ${detail}`);
+  }
+
+  const blocked = results.filter((r) => r.status === 'refused' || r.status === 'failed');
+  const pending = results.filter((r) => r.status === 'would-change');
+  if (dryRun && (pending.length > 0 || results.some((r) => r.status === 'deferred'))) {
+    console.log('\nRe-run without --dry-run to apply.');
+  }
+  return blocked.length === 0;
+}
 
 export function registerDbRepair(program) {
   program
@@ -29,6 +229,7 @@ export function registerDbRepair(program) {
       'Apply missing columns from schema.ts to the live DB and reconcile migration tracking'
     )
     .option('--dry-run', 'Report drift without modifying anything')
+    .option('--all', 'Also run the data repairs (timestamps, accounts.issuer) in dependency order')
     .action(async (options) => {
       const targetDir = process.cwd();
 
@@ -44,129 +245,14 @@ export function registerDbRepair(program) {
         return;
       }
 
-      const schemaPath = path.join(targetDir, 'src/lib/sailor/generated/schema.ts');
-      if (!existsSync(schemaPath)) {
-        console.error(
-          `❌ schema.ts not found at ${schemaPath}. Run \`npx sailor db:update\` first.`
-        );
-        process.exit(1);
-      }
-
-      const expected = parseSchemaFile(readFileSync(schemaPath, 'utf-8'));
-      if (expected.size === 0) {
-        console.error('❌ Could not parse any tables from schema.ts.');
-        process.exit(1);
-      }
-
-      console.log(
-        options.dryRun ? '🔍 Dry run — scanning for schema drift…' : '🛠️  Repairing schema drift…'
-      );
-
       try {
-        const dbTables = new Set(
-          (
-            await client.execute(
-              `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'search_index_fts%'`
-            )
-          ).rows.map((r) => r.name)
-        );
-
-        const missingTables = []; // { name, columns, indexes }
-        const alters = []; // { table, column, sql }
-
-        for (const [tableName, { columns, indexes }] of expected) {
-          if (!dbTables.has(tableName)) {
-            missingTables.push({ name: tableName, columns, indexes });
-            continue;
-          }
-          const actualCols = new Set(
-            (await client.execute(`PRAGMA table_info("${tableName}")`)).rows.map((r) => r.name)
-          );
-          for (const col of columns) {
-            if (!actualCols.has(col.name)) {
-              alters.push({
-                table: tableName,
-                column: col.name,
-                sql: buildAlterAddColumn(tableName, col)
-              });
-            }
-          }
+        if (options.all) {
+          const ok = await runAllRepairs({ client, targetDir, dryRun: options.dryRun });
+          if (!ok) process.exit(1);
+          return;
         }
-
-        if (missingTables.length === 0 && alters.length === 0) {
-          console.log('✅ No drift detected — DB schema matches schema.ts.');
-        } else {
-          if (missingTables.length > 0) {
-            console.log(`\nMissing tables (${missingTables.length}):`);
-            for (const t of missingTables) console.log(`  ${t.name} (${t.indexes.length} indexes)`);
-          }
-          if (alters.length > 0) {
-            console.log(`\nMissing columns (${alters.length}):`);
-            for (const a of alters) console.log(`  ${a.table}.${a.column}`);
-          }
-
-          if (!options.dryRun) {
-            // Create missing tables first — column-add ALTERs may target tables
-            // that didn't exist a moment ago (rare, but defensive).
-            if (missingTables.length > 0) {
-              console.log('\nCreating missing tables…');
-              for (const t of missingTables) {
-                await client.execute(buildCreateTable(t.name, t.columns));
-                for (const idx of t.indexes) {
-                  await client.execute(buildCreateIndex(t.name, idx));
-                }
-                console.log(`  ✓ ${t.name} (${t.indexes.length} indexes)`);
-              }
-            }
-            if (alters.length > 0) {
-              console.log('\nApplying ALTER TABLE statements…');
-              for (const a of alters) {
-                await client.execute(a.sql);
-                console.log(`  ✓ ${a.table}.${a.column}`);
-              }
-            }
-          }
-        }
-
-        // Reconcile __drizzle_migrations so future drizzle.migrate() works.
-        // Only touch it when empty — once populated, drizzle owns it.
-        if (!options.dryRun) {
-          await client.execute(
-            `CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)`
-          );
-          const { rows: countRow } = await client.execute(
-            'SELECT COUNT(*) as count FROM __drizzle_migrations'
-          );
-          if (Number(countRow[0].count) === 0) {
-            const journalPath = path.join(targetDir, 'drizzle', 'meta', '_journal.json');
-            if (await fs.pathExists(journalPath)) {
-              const journal = await fs.readJson(journalPath);
-              if (journal.entries?.length) {
-                const latest = journal.entries[journal.entries.length - 1];
-                const sqlPath = path.join(targetDir, 'drizzle', `${latest.tag}.sql`);
-                const hash = crypto
-                  .createHash('sha256')
-                  .update(await fs.readFile(sqlPath, 'utf-8'))
-                  .digest('hex');
-                await client.execute({
-                  sql: 'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
-                  args: [hash, latest.when]
-                });
-                console.log(
-                  `\n📋 Recorded ${latest.tag} as the migration high-water mark (was empty).`
-                );
-              }
-            }
-          }
-        }
-
-        if (alters.length > 0 && !options.dryRun) {
-          console.log(`\n✅ Repaired ${alters.length} column(s).`);
-        } else if (alters.length > 0 && options.dryRun) {
-          console.log(
-            `\n${alters.length} ALTER statement(s) would run. Re-run without --dry-run to apply.`
-          );
-        }
+        const result = await runSchemaRepair({ client, targetDir, dryRun: options.dryRun });
+        if (result.status === 'refused') process.exit(1);
       } catch (err) {
         console.error('❌ Repair failed:', err.message);
         process.exit(1);

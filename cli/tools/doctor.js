@@ -883,6 +883,72 @@ async function checkLegacyContentStatus(targetDir) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// better-auth account issuer
+//
+// better-auth <=1.6 identified a linked account by (provider_id, account_id).
+// 1.7 scopes identity by a new `issuer` field and looks accounts up with
+// (issuer, account_id), so a row written before 1.7 is invisible to it — OAuth
+// sign-in fails and the account reads as unlinked. Sailor generates the
+// `accounts` table itself, so neither `db:update` nor better-auth's own
+// migrator backfills it; `npx sailor db:repair-accounts` does.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function checkAccountIssuer(targetDir) {
+  const id = 'auth:account-issuer';
+  const label = 'better-auth accounts.issuer populated';
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+  if (!(await tableExistsForDoctor(db, 'accounts'))) {
+    return { id, label, ok: true, message: 'no accounts table — skipping', fixable: false };
+  }
+
+  const cols = await columnsForDoctor(db, 'accounts');
+  if (!cols.includes('issuer')) {
+    return {
+      id,
+      label,
+      ok: false,
+      message:
+        "accounts.issuer column is missing — better-auth >=1.7 can't resolve any linked account\n" +
+        '    Remedy: `npx sailor db:update` to add the column, then `npx sailor db:repair-accounts` to backfill it.',
+      fixable: false
+    };
+  }
+
+  const r = await db.run(
+    sql.raw(
+      `SELECT provider_id, COUNT(*) AS n FROM accounts ` +
+        `WHERE issuer IS NULL OR issuer = '' GROUP BY provider_id`
+    )
+  );
+  const rows = r.rows || [];
+  if (rows.length === 0) {
+    return { id, label, ok: true, message: 'every account row has an issuer', fixable: false };
+  }
+
+  const total = rows.reduce((n, row) => n + (Number(row.n) || 0), 0);
+  const detail = rows.map((row) => `    ${row.provider_id} — ${Number(row.n) || 0} row(s)`);
+  return {
+    id,
+    label,
+    ok: false,
+    message:
+      `${total} account row(s) have no issuer — invisible to better-auth >=1.7 (OAuth sign-in fails, ` +
+      `accounts read as unlinked)\n${detail.join('\n')}\n` +
+      '    Remedy: `npx sailor db:repair-accounts` (add `--dry-run` to preview).',
+    fixable: false
+  };
+}
+
 const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
@@ -895,7 +961,8 @@ const CHECKS = [
   checkI18nVestigialColumns,
   checkI18nOrphanLocales,
   checkFlatGlobalIdMismatch,
-  checkLegacyContentStatus
+  checkLegacyContentStatus,
+  checkAccountIssuer
 ];
 
 // Tiny ANSI color helpers. Respects NO_COLOR (https://no-color.org/) and

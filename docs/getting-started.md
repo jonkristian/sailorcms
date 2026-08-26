@@ -88,9 +88,14 @@ npx sailor db:restore backup-file.sqlite.gz --force # Restore from file
 # Repair drifted DB (missing columns from generated/schema.ts)
 npx sailor db:repair --dry-run # Preview ALTERs without applying
 npx sailor db:repair # Apply missing columns
+npx sailor db:repair --all # Also run the data repairs below, in dependency order
 
 # Repair timestamp columns containing millisecond values (0.4.0 ms-leak)
 npx sailor db:repair-timestamps --dry-run
+
+# Backfill accounts.issuer after upgrading to better-auth 1.7 (run after db:update)
+npx sailor db:repair-accounts --dry-run
+npx sailor db:repair-accounts
 
 # Manage users and roles
 npx sailor users:list # List users

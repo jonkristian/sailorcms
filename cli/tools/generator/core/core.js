@@ -217,21 +217,39 @@ export class CoreGenerator {
 );`,
 
       // Better Auth tables
-      `export const accounts = ${this.adapter.getTableFunction()}('accounts', {
-  id: ${this.adapter.getPrimaryKeyDefinition()},
-  user_id: ${this.adapter.getTextFieldDefinition('user_id', { notNull: true })},
-  account_id: ${this.adapter.getTextFieldDefinition('account_id', { notNull: true })},
-  provider_id: ${this.adapter.getTextFieldDefinition('provider_id', { notNull: true })},
-  access_token: ${this.adapter.getTextFieldDefinition('access_token')},
-  refresh_token: ${this.adapter.getTextFieldDefinition('refresh_token')},
-  id_token: ${this.adapter.getTextFieldDefinition('id_token')},
-  access_token_expires_at: ${this.adapter.getTimestampDefinition('access_token_expires_at')},
-  refresh_token_expires_at: ${this.adapter.getTimestampDefinition('refresh_token_expires_at')},
-  scope: ${this.adapter.getTextFieldDefinition('scope')},
-  password: ${this.adapter.getTextFieldDefinition('password')},
-  created_at: ${this.adapter.getTimestampDefinition('created_at')},
-  updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
-});`,
+      `export const accounts = ${this.adapter.getTableFunction()}(
+  'accounts',
+  {
+    id: ${this.adapter.getPrimaryKeyDefinition()},
+    user_id: ${this.adapter.getTextFieldDefinition('user_id', { notNull: true })},
+    account_id: ${this.adapter.getTextFieldDefinition('account_id', { notNull: true })},
+    provider_id: ${this.adapter.getTextFieldDefinition('provider_id', { notNull: true })},
+    // better-auth >=1.7 scopes account identity by issuer rather than by
+    // provider_id alone: 'local:credential' for password accounts,
+    // 'local:oauth:<providerId>' for social ones (a real OIDC provider can
+    // supply its own). Nullable at the DB level so the column can be added to
+    // a populated table — better-auth always writes it on new rows, and
+    // \`npx sailor db:repair-accounts\` backfills pre-1.7 ones. Inert on 1.6.
+    issuer: ${this.adapter.getTextFieldDefinition('issuer')},
+    access_token: ${this.adapter.getTextFieldDefinition('access_token')},
+    refresh_token: ${this.adapter.getTextFieldDefinition('refresh_token')},
+    id_token: ${this.adapter.getTextFieldDefinition('id_token')},
+    access_token_expires_at: ${this.adapter.getTimestampDefinition('access_token_expires_at')},
+    refresh_token_expires_at: ${this.adapter.getTimestampDefinition('refresh_token_expires_at')},
+    scope: ${this.adapter.getTextFieldDefinition('scope')},
+    password: ${this.adapter.getTextFieldDefinition('password')},
+    created_at: ${this.adapter.getTimestampDefinition('created_at')},
+    updated_at: ${this.adapter.getTimestampDefinition('updated_at')}
+  },
+  (table) => [
+    // Mirrors better-auth's own account index. NULL issuers (pre-backfill)
+    // count as distinct in SQLite/Postgres, so this builds cleanly on a
+    // populated table; the backfill is what can surface real duplicates,
+    // which is why db:repair-accounts checks for them before writing.
+    uniqueIndex('accounts_issuer_account_id_idx').on(table.issuer, table.account_id),
+    index('accounts_user_id_idx').on(table.user_id)
+  ]
+);`,
 
       `export const sessions = ${this.adapter.getTableFunction()}('sessions', {
   id: ${this.adapter.getPrimaryKeyDefinition()},

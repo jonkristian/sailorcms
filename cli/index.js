@@ -15,6 +15,7 @@ import { registerDbSeed } from './tools/db-seed.js';
 import { registerSearchReindex } from './tools/search-reindex.js';
 import { registerDbRepairTimestamps } from './tools/db-repair-timestamps.js';
 import { registerDbRepair } from './tools/db-repair.js';
+import { registerDbRepairAccounts } from './tools/db-repair-accounts.js';
 import { registerDoctor } from './tools/doctor.js';
 import { registerSyncUi } from './tools/sync-ui.js';
 import { registerContentPurgeLocale } from './tools/content-purge-locale.js';
@@ -58,6 +59,7 @@ import { registerContentPurgeLocale } from './tools/content-purge-locale.js';
   registerDbRestore(program);
   registerDbRepair(program);
   registerDbRepairTimestamps(program);
+  registerDbRepairAccounts(program);
 
   // search:* — index management
   registerSearchReindex(program);

@@ -2,6 +2,24 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [Unreleased]
+
+### Security
+
+- **sharp 0.34 → 0.35.3** — patches four libvips CVEs (CVE-2026-33327/33328/35590/35591) reachable through image uploads; bundles libvips 1.3.2. **Raises the Node floor to >=20.9.0** (sharp's own `engines`).
+- **nodemailer 8 → 9.0.5** — patches GHSA-p6gq-j5cr-w38f, where a message-level `raw` option bypassed `disableFileAccess`/`disableUrlAccess`. Its one breaking change — TLS certificates are now validated when fetching remote content (attachment URLs, OAuth2 endpoints, proxy CONNECT) — affects only self-signed hosts; opt out per request with `tls.rejectUnauthorized: false`.
+
+### Added
+
+- **`sailor db:repair-accounts`** — backfills `accounts.issuer` from `provider_id` (`credential` → `local:credential`, social → `local:oauth:<id>`). Refuses to write if the backfill would collide on the unique `(issuer, account_id)` index, and `--dry-run` previews.
+- **`sailor db:repair --all`** — runs the schema pass and every data repair (timestamps, `accounts.issuer`) in dependency order against one connection, with a combined summary. Each `db:repair-*` command stays available standalone; `db:repair` on its own keeps its additive-only contract. Note it adds missing _columns_, not indexes — `db:update` remains the path for new indexes.
+- **`doctor` `auth:account-issuer` check** — flags a missing `issuer` column or un-backfilled rows, both of which break better-auth >=1.7 silently.
+
+### Changed
+
+- **Dependency sweep** — in-range bumps across the tree (SvelteKit 2.70.3, svelte 5.56.10, tiptap 3.30.3, bits-ui 2.19.0, tailwind 4.3.3, aws-sdk, paraglide, eslint/prettier tooling).
+- **better-auth 1.7 support** — 1.7 scopes account identity by a new required `issuer` field instead of `provider_id`, so pre-1.7 rows are invisible to it (OAuth sign-in fails, accounts read as unlinked). `accounts` now carries `issuer` plus a unique `(issuer, account_id)` index; run `npx sailor db:repair-accounts` after `db:update` to backfill existing rows. Peer range is `>=1.6.11 <1.8.0` — 1.6 and 1.7 both work, and the upper bound stops the next major arriving unannounced.
+
 ## [0.9.2] - 26 August 2026
 
 ### Added

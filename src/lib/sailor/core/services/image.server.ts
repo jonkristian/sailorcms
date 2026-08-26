@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 import { getSettings } from 'sailorcms/core/settings/index';
 import { StorageProviderFactory, type StorageProvider } from './storage-provider.server';
 import { S3StorageService } from './storage-s3.server';
-import sharp from 'sharp';
+import sharp, { type Sharp, type ResizeOptions } from 'sharp';
 
 interface CacheEntry {
   data: Buffer;
@@ -390,7 +390,7 @@ export class ImageProcessor {
     const { width, height, quality = 80, format = 'webp', resize = 'cover', position } = options;
 
     // Handle remote URLs vs local files
-    let sharpInstance: sharp.Sharp;
+    let sharpInstance: Sharp;
 
     if (originalPath.startsWith('http')) {
       const response = await fetch(originalPath);
@@ -423,7 +423,7 @@ export class ImageProcessor {
 
     // Apply resize based on resize mode
     if (width || height) {
-      const resizeOptions: sharp.ResizeOptions = {
+      const resizeOptions: ResizeOptions = {
         width,
         height,
         fit: resize as 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
