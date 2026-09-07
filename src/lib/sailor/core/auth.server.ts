@@ -217,7 +217,28 @@ function createAuth() {
     plugins: [
       admin({
         ...getAuthSettings(),
-        ...createAccessControlConfig()
+        ...createAccessControlConfig(),
+        // The plugin contributes its own columns, and `user.fields` /
+        // `session.fields` above do not reach them — a plugin's remapping goes
+        // through its own `schema`. Without this the plugin addresses
+        // `banReason`, `banExpires` and `impersonatedBy` while the tables
+        // declare snake_case, so ban and impersonation read and write columns
+        // that do not exist. better-auth 1.7.2 added a schema validator that
+        // makes it fatal at boot; before that it failed quietly, only when
+        // those features were used.
+        schema: {
+          user: {
+            fields: {
+              banReason: 'ban_reason',
+              banExpires: 'ban_expires'
+            }
+          },
+          session: {
+            fields: {
+              impersonatedBy: 'impersonated_by'
+            }
+          }
+        }
       }),
       // Only register when both halves are configured. If `TURNSTILE_SECRET_KEY`
       // were set without `PUBLIC_TURNSTILE_SITE_KEY`, the server would require a

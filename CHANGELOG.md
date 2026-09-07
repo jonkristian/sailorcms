@@ -32,12 +32,14 @@ All notable changes to SailorCMS are documented here.
 - **`error()` and `redirect()` were flattened into 500s** by ten catch blocks. Most visibly, every missing image returned 500 from the transform endpoint instead of 404.
 - **`db:backup` and `db:restore` hung against R2** — recent AWS SDK versions validate response checksums that R2 doesn't fully implement, and the SDK has no request timeout by default, so a stall never surfaced. Both are now configured, and the app's S3 clients share one factory.
 - **Boot crash against `@better-auth/drizzle-adapter` 1.7.2+** — the adapter reads `db._.schema` while it is being constructed, and `db` is a lazy proxy that throws until `initializeDatabase()` has run. Since `auth` was built at module scope and `sailor-hooks.ts` imports it, the app died on startup. `auth` is now built on first use instead. Affects any consumer whose `better-auth` resolves to 1.7.2 or later, which the peer range allows.
+- **Ban and impersonation addressed columns that don't exist** — the `admin` plugin contributes `banReason`, `banExpires` and `impersonatedBy`, and a plugin's column remapping goes through its own `schema` rather than `user.fields` / `session.fields`. Our tables declare snake_case, so those features read and wrote missing columns. Silent on better-auth 1.6; from 1.7.2 its schema validator refuses to start at all.
 - **`engines.node` was never declared** despite 0.9.3 raising the floor to `>=20.9.0` for sharp; installs on 20.0–20.8 failed later and less clearly.
 - Purging a restored item destroyed its translations and child rows before checking it was still in the bin, then reported success.
 - List previews rendered rich-text fields as raw markup (`<p>Utforsk…`).
 
 ### Changed
 
+- **Dependency sweep** — better-auth 1.7.3, svelte 5.57.0, sharp 0.35.4, nodemailer 9.1.1, aws-sdk 3.1127, tiptap 3.31.3, and in-range bumps across the tree.
 - `RelationField` handles single-FK relations only; many-to-many is the new editor.
 - Relation reads (`searchRelationOptions`, `resolveRelationTitles`) require `read`/`content`.
 
