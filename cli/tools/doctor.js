@@ -949,6 +949,65 @@ async function checkAccountIssuer(targetDir) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// better-auth credential account_id
+//
+// Every better-auth path that creates a credential account writes
+// `accountId: user.id`, and 1.7's email sign-in resolves the row with
+// (provider_id, issuer, account_id === user.id). A row holding anything else
+// is invisible to that lookup, so the user can never sign in — and the error
+// is the same INVALID_EMAIL_OR_PASSWORD a wrong password gives, so it reads as
+// a forgotten password rather than a broken row.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function checkCredentialAccountId(targetDir) {
+  const id = 'auth:credential-account-id';
+  const label = 'credential accounts.account_id matches the user id';
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+  if (!(await tableExistsForDoctor(db, 'accounts'))) {
+    return { id, label, ok: true, message: 'no accounts table — skipping', fixable: false };
+  }
+
+  const r = await db.run(
+    sql.raw(
+      `SELECT a.user_id AS user_id, a.account_id AS account_id, u.email AS email ` +
+        `FROM accounts a LEFT JOIN users u ON u.id = a.user_id ` +
+        `WHERE a.provider_id = 'credential' AND a.account_id <> a.user_id`
+    )
+  );
+  const rows = r.rows || [];
+  if (rows.length === 0) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'every credential account_id matches its user id',
+      fixable: false
+    };
+  }
+
+  const detail = rows.map((row) => `    ${row.email ?? row.user_id} — account_id '${row.account_id}'`);
+  return {
+    id,
+    label,
+    ok: false,
+    message:
+      `${rows.length} credential account(s) have a mismatched account_id — better-auth >=1.7 ` +
+      `can't resolve them, so those users can never sign in\n${detail.join('\n')}\n` +
+      '    Remedy: `npx sailor db:repair-accounts` (add `--dry-run` to preview).',
+    fixable: false
+  };
+}
+
 const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
@@ -962,7 +1021,8 @@ const CHECKS = [
   checkI18nOrphanLocales,
   checkFlatGlobalIdMismatch,
   checkLegacyContentStatus,
-  checkAccountIssuer
+  checkAccountIssuer,
+  checkCredentialAccountId
 ];
 
 // Tiny ANSI color helpers. Respects NO_COLOR (https://no-color.org/) and

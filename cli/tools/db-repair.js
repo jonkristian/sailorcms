@@ -22,7 +22,7 @@ import fs from 'fs-extra';
 import crypto from 'node:crypto';
 import { createConsumerLibsqlClient } from '../utils.js';
 import { TIMESTAMP_REPAIR } from './db-repair-timestamps.js';
-import { ACCOUNT_ISSUER_REPAIR } from './db-repair-accounts.js';
+import { ACCOUNT_ISSUER_REPAIR, CREDENTIAL_ACCOUNT_ID_REPAIR } from './db-repair-accounts.js';
 
 export const SCHEMA_REPAIR = {
   id: 'schema',
@@ -166,7 +166,12 @@ export async function runSchemaRepair({ client, targetDir, dryRun = false }) {
 
 // Ordered: schema first — the data repairs below may target columns the schema
 // pass has just added (accounts.issuer is exactly that case).
-const REPAIR_STEPS = [SCHEMA_REPAIR, TIMESTAMP_REPAIR, ACCOUNT_ISSUER_REPAIR];
+const REPAIR_STEPS = [
+  SCHEMA_REPAIR,
+  TIMESTAMP_REPAIR,
+  ACCOUNT_ISSUER_REPAIR,
+  CREDENTIAL_ACCOUNT_ID_REPAIR
+];
 
 async function runAllRepairs({ client, targetDir, dryRun }) {
   const results = [];

@@ -169,6 +169,14 @@ export const actions: Actions = {
             .update(accounts)
             .set({ user_id: userId, updated_at: new Date() })
             .where(eq(accounts.user_id, newUser.user.id));
+
+          // better-auth resolves the credential account by account_id === user.id,
+          // so it has to follow the new user ID or password sign-in fails with a
+          // generic INVALID_EMAIL_OR_PASSWORD.
+          await tx
+            .update(accounts)
+            .set({ account_id: userId, updated_at: new Date() })
+            .where(and(eq(accounts.user_id, userId), eq(accounts.provider_id, 'credential')));
         });
       }
     } catch (error) {
@@ -272,15 +280,6 @@ export const actions: Actions = {
             }
           });
         }
-
-        // If email changed, update account_id
-        await tx
-          .update(accounts)
-          .set({
-            account_id: email,
-            updated_at: new Date()
-          })
-          .where(and(eq(accounts.user_id, userId), eq(accounts.provider_id, 'credential')));
       });
     } catch (error) {
       log.error('Failed to update user', { userId }, error as Error);
