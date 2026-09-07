@@ -10,6 +10,7 @@
   import { getDisplayTitle } from 'sailorcms/core/content/display';
   import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
+  import { relationBadges } from 'sailorcms/core/ui/relation-badge';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { SvelteSet } from 'svelte/reactivity';
   import {
@@ -343,6 +344,7 @@
 
       <DraggableCard
         title={getDisplayTitle(item, global)}
+        badges={relationBadges(item, global.fields)}
         open={expandedItems.has(item.id)}
         onToggle={() => toggleExpanded(item.id)}
         onRemove={canDelete ? () => handleDelete(item.id) : undefined}

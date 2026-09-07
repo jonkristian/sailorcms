@@ -35,13 +35,11 @@ export function registerDbUpdate(program) {
           process.exit(1);
         }
 
-        console.log('🗄️ Updating database schema from templates...');
+        console.log('Updating database schema from templates...');
 
         const removedLegacyScripts = await stripLegacyDbScripts(targetDir);
         if (removedLegacyScripts.length > 0) {
-          console.log(
-            `🧹 Removed legacy package.json script(s): ${removedLegacyScripts.join(', ')}`
-          );
+          console.log(`Removed legacy package.json script(s): ${removedLegacyScripts.join(', ')}`);
         }
 
         // Ensure the local SQLite parent directory exists before handing off
@@ -54,7 +52,7 @@ export function registerDbUpdate(program) {
         // reason to bounce them back to `core:init`.
         const restored = await ensureDrizzleScaffold(targetDir);
         if (restored.length > 0) {
-          console.log(`🧰 Restored missing scaffold: ${restored.join(', ')}`);
+          console.log(`Restored missing scaffold: ${restored.join(', ')}`);
         }
 
         // Capture entities that just flipped to `localized: true` but don't
@@ -73,7 +71,7 @@ export function registerDbUpdate(program) {
           const transitionalSlugs = pendingLocalizations.map((m) => m.slug).join(',');
           process.env.SAILOR_TRANSITIONAL_LOCALIZED = transitionalSlugs;
           try {
-            console.log('🔁 Phase 1/2: applying transitional schema for flipping entities…');
+            console.log('Phase 1/2: applying transitional schema for flipping entities…');
             await generateSchema(targetDir);
             execSync('npx drizzle-kit generate --config=drizzle.config.ts', {
               cwd: targetDir,
@@ -86,7 +84,7 @@ export function registerDbUpdate(program) {
           } finally {
             delete process.env.SAILOR_TRANSITIONAL_LOCALIZED;
           }
-          console.log('🔁 Phase 2/2: applying steady-state schema (drops vestigial cols)…');
+          console.log('Phase 2/2: applying steady-state schema (drops vestigial cols)…');
         }
 
         // ── Phase 2: steady-state schema (identity-only main for localized) ─

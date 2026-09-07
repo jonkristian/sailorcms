@@ -2,7 +2,14 @@
  * Main Sailor hooks handler - single entry point for all hook logic
  */
 
-import { redirect, error, type RequestEvent, type ResolveOptions } from '@sveltejs/kit';
+import {
+  redirect,
+  error,
+  isHttpError,
+  isRedirect,
+  type RequestEvent,
+  type ResolveOptions
+} from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { auth } from 'sailorcms/core/auth.server';
 import { handleSailorLogging, log } from 'sailorcms/core/utils/logger';
@@ -260,15 +267,11 @@ async function handleSailorRequest(
         throw err;
       }
 
-      // Check for SvelteKit redirect response objects
-      if (
-        err &&
-        typeof err === 'object' &&
-        (err as any).status &&
-        ((err as any).status === 302 || (err as any).status === 301)
-      ) {
-        throw err;
-      }
+      // A `redirect()` or `error()` raised by the access-control code is a
+      // deliberate response, not a failure. This used to duck-type `status`
+      // against 301/302 only, so 303/307/308 redirects and every `error(403)`
+      // or `error(404)` were flattened into a 500.
+      if (isHttpError(err) || isRedirect(err)) throw err;
 
       // Log and re-throw the original error for debugging
       log.error('Route protection error', {

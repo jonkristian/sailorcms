@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import { db } from 'sailorcms/core/db/index.server';
 import { eq, isNotNull, desc, count } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
@@ -78,6 +78,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
       }
     };
   } catch (err) {
+    // A `redirect()` or `error()` thrown deeper is a deliberate response, not a
+    // failure — rethrow it untouched. Flattening everything into a 500 here
+    // turned auth redirects and 404s into server errors.
+    if (isHttpError(err) || isRedirect(err)) throw err;
     log.error('Failed to load recovery global', { slug }, err as Error);
     throw error(500, 'Failed to load deleted items');
   }

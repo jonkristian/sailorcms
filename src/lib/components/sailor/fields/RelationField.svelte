@@ -1,19 +1,20 @@
 <script lang="ts">
-  import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import * as Popover from 'sailorcms/components/ui/popover/index.js';
   import * as Command from 'sailorcms/components/ui/command/index.js';
   import { X, ChevronsUpDown, Check } from '@lucide/svelte';
   import { cn } from 'sailorcms/utils/shadcn.js';
-  import { getGlobalItems } from 'sailorcms/remote/globals.remote.js';
-  import { getCollectionItems } from 'sailorcms/remote/collections.remote.js';
+  import {
+    searchRelationOptions,
+    resolveRelationTitles
+  } from 'sailorcms/remote/relations.remote.js';
   import { m } from '$sailor/i18n';
+  import { onMount } from 'svelte';
 
   interface Props {
     value: string | string[];
     field: {
-      title: string;
+      title?: string;
       label?: string;
-      description?: string;
       relation?: {
         type: string;
         targetGlobal?: string;
@@ -21,197 +22,112 @@
         through?: string;
       };
     };
-    required?: boolean;
     onChange: (value: string | string[]) => void;
-    currentItemId?: string; // Add current item ID to prevent self-selection
+    currentItemId?: string | null; // Add current item ID to prevent self-selection
     readonly?: boolean;
   }
 
-  let { value, field, required = false, onChange, currentItemId, readonly = false } = $props();
+  let { value, field, onChange, currentItemId, readonly = false }: Props = $props();
 
-  // Determine if this is a single-select relation
-  let isSingleSelect = $derived(
-    field.relation?.type === 'one-to-one' || field.relation?.type === 'one-to-many'
-  );
-
-  let selectedItems: Array<{ id: string; title: string }> = $state(
-    parseValue(
-      // svelte-ignore state_referenced_locally
-      value
-    )
+  // Single-value relations only. Many-to-many is handled by
+  // `RelationBrowserField`, which owns ordering, paging and the attached list —
+  // this component would otherwise be a second, weaker way to edit the same
+  // thing.
+  // Labels learned from the candidate fetch, applied over the parsed value —
+  // the bound value is a bare id, so it carries no title of its own.
+  let resolvedTitles = $state<Record<string, string>>({});
+  let selectedItems = $derived(
+    parseValue(value).map((item) => ({ ...item, title: resolvedTitles[item.id] ?? item.title }))
   );
   let availableItems: Array<{ id: string; title: string }> = $state([]);
   let open = $state(false);
   let searchTerm = $state('');
   let triggerRef: HTMLButtonElement = $state(null!);
   let loading = $state(false);
-  let triedResolve = $state(false);
   let contentWidth: number = $state(0);
 
-  $effect(() => {
-    const next = parseValue(value);
-    const prevIds = selectedItems.map((i) => i.id);
-    const nextIds = next.map((i) => i.id);
-    const changed = prevIds.length !== nextIds.length || prevIds.some((id, i) => id !== nextIds[i]);
-    if (changed) {
-      selectedItems = next;
-      triedResolve = false; // allow one resolve attempt for new value
-    }
+  /** How many candidates the popover fetches per search. */
+  const OPTION_LIMIT = 50;
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // One-shot, on mount — a single-select value arrives as a bare id, so its
+  // label has to be fetched. Not an $effect: nothing here is a subscription.
+  onMount(() => {
+    if (value) void resolveTitles();
   });
 
-  // Resolve placeholder titles for single-select when we only have the ID
-  $effect(() => {
-    if (
-      isSingleSelect &&
-      !triedResolve &&
-      selectedItems.length > 0 &&
-      selectedItems.some((i) => i.title === 'Loading...' || i.title === i.id)
-    ) {
-      triedResolve = true;
-      resolveTitles();
-    }
-  });
-
-  // Parse initial value - handle both single and multi-select formats
+  /** A single-FK value is a bare id, or an object once its label is known. */
   function parseValue(val: string | string[]): Array<{ id: string; title: string }> {
     if (!val) return [];
-
     try {
-      // Handle array input directly
-      if (Array.isArray(val)) {
-        if (val.length > 0 && typeof val[0] === 'string') {
-          // Array of IDs - try to resolve titles from availableItems
-          const titleMap = new Map<string, string>(
-            availableItems.map(
-              (i: { id: string; title: string }) => [i.id, i.title] as [string, string]
-            )
-          );
-          return (val as string[]).map((id: string) => ({ id, title: titleMap.get(id) || id }));
-        } else {
-          // Array of objects with id and title
-          return (val as unknown as Array<{ id: string; title: string }>).filter(
-            (item) => item && item.id
-          );
-        }
+      const entry = Array.isArray(val) ? val[0] : val;
+      if (!entry) return [];
+      if (typeof entry === 'object') return [entry as { id: string; title: string }];
+      if (!entry.startsWith('[') && !entry.startsWith('{')) {
+        // Bare id — `resolveTitles` fills the label in on mount.
+        return [{ id: entry, title: entry }];
       }
-
-      // Handle string input
-      if (typeof val === 'string') {
-        // For single-select, the value might be a single ID string or a single object
-        if (isSingleSelect) {
-          if (!val.startsWith('[') && !val.startsWith('{')) {
-            // Single ID string - set placeholder title that will be resolved later
-            return [{ id: val, title: 'Loading...' }];
-          } else {
-            const parsed = JSON.parse(val);
-            if (Array.isArray(parsed)) {
-              return parsed.length > 0 ? [parsed[0] as { id: string; title: string }] : [];
-            } else if (parsed && typeof parsed === 'object' && (parsed as any).id) {
-              // Single object
-              return [parsed as { id: string; title: string }];
-            }
-            return [];
-          }
-        } else {
-          // Multi-select - handle array format
-          const parsed = JSON.parse(val);
-          if (Array.isArray(parsed)) {
-            if (parsed.length > 0 && typeof parsed[0] === 'string') {
-              // Array of IDs - try to resolve titles from availableItems or existing selectedItems
-              const titleMap = new Map<string, string>(
-                availableItems.map(
-                  (i: { id: string; title: string }) => [i.id, i.title] as [string, string]
-                )
-              );
-              return (parsed as string[]).map((id: string) => ({
-                id,
-                title: titleMap.get(id) || id
-              }));
-            } else {
-              // Array of objects with id and title (new format)
-              return (parsed as Array<{ id: string; title: string }>).filter(
-                (item) => item.id && item.title
-              );
-            }
-          }
-          return [];
-        }
-      }
-
-      return [];
+      const parsed = JSON.parse(entry);
+      const first = Array.isArray(parsed) ? parsed[0] : parsed;
+      return first?.id ? [first as { id: string; title: string }] : [];
     } catch {
       return [];
     }
   }
 
-  // Resolve titles for selected items
+  function toggleItem(item: { id: string; title: string }) {
+    if (value !== item.id) {
+      resolvedTitles = { ...resolvedTitles, [item.id]: item.title };
+      onChange(item.id);
+    }
+    open = false;
+  }
+
+  function isSelected(itemId: string) {
+    return selectedItems.some((item) => item.id === itemId);
+  }
+
+  // Resolve labels for a saved value, which carries bare ids. Asks for exactly
+  // those rather than paging the target table to find them.
   async function resolveTitles() {
-    if (!isSingleSelect) return; // Avoid churn for multi-select; titles load when popover opens
-    if (!field.relation?.targetGlobal && !field.relation?.targetCollection) return;
-    if (selectedItems.length === 0) return;
-
+    if (!field.relation || selectedItems.length === 0) return;
+    const ids = selectedItems.filter((item) => item.title === item.id).map((item) => item.id);
+    if (ids.length === 0) return;
     try {
-      const target = field.relation.targetGlobal || field.relation.targetCollection;
-
-      let result;
-      if (field.relation.targetGlobal) {
-        result = await getGlobalItems({ slug: target });
-      } else {
-        result = await getCollectionItems({ collection: target });
-      }
-
+      const result = await resolveRelationTitles({ target: field.relation, ids });
       if (result.success) {
-        const items = result.items || [];
-
-        const titleMap = new Map<string, string>(items.map((item: any) => [item.id, item.title]));
-
-        selectedItems = selectedItems.map((item) => {
-          const resolvedTitle = titleMap.get(item.id);
-          if (resolvedTitle && (item.title === 'Loading...' || item.title === item.id)) {
-            return { ...item, title: resolvedTitle };
-          }
-          return item;
-        });
+        resolvedTitles = {
+          ...resolvedTitles,
+          ...Object.fromEntries(
+            result.items.map((i: { id: string; title: string }) => [i.id, i.title])
+          )
+        };
       }
     } catch (error) {
       console.error('Failed to resolve titles:', error);
     }
   }
 
-  // Load available items when popover opens
-  async function loadAvailableItems() {
-    if (!field.relation?.targetGlobal && !field.relation?.targetCollection) return;
-
+  // Candidates for the picker. Search and the row cap are applied in SQL — this
+  // used to pull whole tables and filter in the browser.
+  async function loadAvailableItems(term: string = searchTerm) {
+    if (!field.relation) return;
     loading = true;
     try {
-      const target = field.relation.targetGlobal || field.relation.targetCollection;
-
-      let result;
-      if (field.relation.targetGlobal) {
-        result = await getGlobalItems({ slug: target });
-      } else {
-        result = await getCollectionItems({ collection: target });
-      }
-
+      const result = await searchRelationOptions({
+        target: field.relation,
+        search: term,
+        limit: OPTION_LIMIT,
+        excludeId: currentItemId ?? undefined
+      });
       if (result.success) {
-        const items = result.items || [];
-
-        // Filter out the current item to prevent self-selection
-        availableItems = items.filter((item: any) => item.id !== currentItemId);
-
-        // Update selected items with proper titles if they only have IDs
-        if (selectedItems.length > 0) {
-          const titleMap = new Map<string, string>(items.map((item: any) => [item.id, item.title]));
-
-          selectedItems = selectedItems.map((item) => {
-            const resolvedTitle = titleMap.get(item.id);
-            // Only update if we have a resolved title and the current title is a placeholder
-            if (resolvedTitle && (item.title === 'Loading...' || item.title === item.id)) {
-              return { ...item, title: resolvedTitle };
-            }
-            return item;
-          });
-        }
+        availableItems = result.items ?? [];
+        resolvedTitles = {
+          ...resolvedTitles,
+          ...Object.fromEntries(
+            availableItems.map((i: { id: string; title: string }) => [i.id, i.title])
+          )
+        };
       }
     } catch (error) {
       console.error('Failed to load available items:', error);
@@ -221,53 +137,16 @@
     }
   }
 
-  function toggleItem(item: { id: string; title: string }) {
-    if (isSingleSelect) {
-      // For single-select, return single item or string ID
-      if (value !== item.id) onChange(item.id);
-      // Close popover after selection for single-select
-      open = false;
-    } else {
-      // For multi-select, toggle the item
-      const currentItems = parseValue(value);
-      const index = currentItems.findIndex((selected) => selected.id === item.id);
-
-      let newItems;
-      if (index > -1) {
-        newItems = currentItems.filter((selected) => selected.id !== item.id);
-      } else {
-        newItems = [...currentItems, item];
-      }
-
-      // For many-to-many relations, return array of IDs
-      const nextIds = newItems.map((item) => item.id);
-      const prevIds = Array.isArray(value) ? value : [];
-      const changed =
-        nextIds.length !== prevIds.length || nextIds.some((id, i) => id !== prevIds[i]);
-      if (changed) onChange(nextIds);
-    }
+  function onSearchInput(term: string) {
+    searchTerm = term;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => void loadAvailableItems(term), 200);
   }
 
-  function removeItem(itemId: string) {
-    const currentItems = parseValue(value);
-    const newItems = currentItems.filter((item) => item.id !== itemId);
-
-    // For many-to-many relations, return array of IDs
-    const nextIds = newItems.map((item) => item.id);
-    const prevIds = Array.isArray(value) ? value : [];
-    const changed = nextIds.length !== prevIds.length || nextIds.some((id, i) => id !== prevIds[i]);
-    if (changed) onChange(nextIds);
-  }
-
-  function isSelected(itemId: string) {
-    return selectedItems.some((item) => item.id === itemId);
-  }
-
+  // Filtering happens in SQL; re-filtering here would hide rows the server
+  // deliberately returned.
   function getFilteredItems() {
-    if (!searchTerm) return availableItems;
-    return availableItems.filter((item) =>
-      item.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return availableItems;
   }
 
   // Handle popover open change
@@ -278,19 +157,13 @@
       queueMicrotask(() => {
         try {
           contentWidth = triggerRef ? (triggerRef as HTMLButtonElement).offsetWidth : 0;
-        } catch {}
-      });
-      loadAvailableItems();
-      // After loading available items, try to hydrate any 'Loading...' titles
-      queueMicrotask(() => {
-        if (selectedItems.some((i) => i.title === 'Loading...' || i.title === i.id)) {
-          const titleMap = new Map<string, string>(availableItems.map((i) => [i.id, i.title]));
-          selectedItems = selectedItems.map((i) => ({
-            id: i.id,
-            title: titleMap.get(i.id) || i.title
-          }));
+        } catch {
+          contentWidth = 0;
         }
       });
+      // Titles hydrate through `learnTitles` inside the load, so there is
+      // nothing to reconcile afterwards.
+      void loadAvailableItems();
     } else {
       searchTerm = '';
     }
@@ -308,32 +181,16 @@
       aria-controls="relation-field-content"
     >
       <span class="text-muted-foreground flex min-w-0 flex-1 items-center gap-2">
-        {#if isSingleSelect}
-          {#if selectedItems.length > 0}
-            <span class="truncate"
-              >{selectedItems[0].title === 'Loading...'
-                ? m.common_loading_dots()
-                : selectedItems[0].title}</span
-            >
-          {:else}
-            <span class="truncate"
-              >{m.relation_select_placeholder({ label: field.label || field.title })}</span
-            >
-          {/if}
+        {#if selectedItems.length > 0}
+          <span class="truncate">{selectedItems[0].title}</span>
         {:else}
-          <span class="truncate">
-            {selectedItems.length > 0
-              ? m.relation_items_selected({
-                  count: selectedItems.length,
-                  items:
-                    selectedItems.length === 1 ? m.common_item_singular() : m.common_item_plural()
-                })
-              : m.relation_select_placeholder({ label: field.label || field.title })}
-          </span>
+          <span class="truncate"
+            >{m.relation_select_placeholder({ label: field.label || field.title || '' })}</span
+          >
         {/if}
       </span>
       <div class="ml-2 flex shrink-0 items-center gap-2">
-        {#if isSingleSelect && selectedItems.length > 0 && !readonly}
+        {#if selectedItems.length > 0 && !readonly}
           <button
             type="button"
             onclick={(e) => {
@@ -357,10 +214,11 @@
     style={`width:${contentWidth > 0 ? contentWidth + 'px' : 'auto'}`}
     align="start"
   >
-    <Command.Root>
+    <Command.Root shouldFilter={false}>
       <Command.Input
         placeholder={m.relation_search_placeholder()}
-        bind:value={searchTerm}
+        value={searchTerm}
+        oninput={(e) => onSearchInput((e.currentTarget as HTMLInputElement).value)}
         class="h-9"
       />
       <Command.List class="max-h-60">
@@ -393,23 +251,3 @@
     </Command.Root>
   </Popover.Content>
 </Popover.Root>
-
-<!-- Selected items display - only show badges for multi-select -->
-{#if selectedItems.length > 0 && !isSingleSelect}
-  <div class="mt-2">
-    <div class="flex flex-wrap gap-2">
-      {#each selectedItems as item}
-        <Badge variant="secondary" class="flex items-center gap-1 px-3 py-1">
-          <span class="max-w-[200px] truncate">{item.title}</span>
-          <button
-            type="button"
-            onclick={() => removeItem(item.id)}
-            class="ml-1 rounded transition-colors hover:text-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
-          >
-            <X class="h-3 w-3" />
-          </button>
-        </Badge>
-      {/each}
-    </div>
-  </div>
-{/if}

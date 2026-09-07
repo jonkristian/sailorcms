@@ -81,6 +81,66 @@
   let dragOverIndex: number = $state(-1);
   let dropPosition: 'before' | 'after' | 'inside' = $state('after');
   let isDragging = $state(false);
+  /**
+   * Depth an 'after' drop should land at, when the boundary allows more than
+   * one. Null everywhere else, where the hovered row's own depth is the only
+   * legal answer.
+   */
+  let dropDepth: number | null = $state(null);
+  /**
+   * The dragged row's id. Indices shift the moment the list reorders, so the
+   * faded state has to hang off identity — keyed by index it jumped to whichever
+   * row inherited the old position mid-animation.
+   */
+  let draggedId: string | null = $state(null);
+  /** The handle carrying the inline fade, so the drop can clear it directly. */
+  let dragSourceEl: HTMLElement | null = null;
+  /**
+   * Offsets that lift the drop line out of the group box it is drawn inside.
+   *
+   * Depth is shown by containment here, not indentation, so a line drawn inside
+   * a group's box says "into this group" no matter what it means. When the drop
+   * actually lands *outside* that group — after the last child of a group, which
+   * resolves to root — the line has to sit in the gap between the boxes or it
+   * offers something the drop will not do, and that nothing allows anyway.
+   */
+  let outdentBar: { bottom: number; left: number } | null = $state(null);
+
+  const INDENT_PX = 16;
+  /** Reach to use when a row has no measured neighbour (first, last, alone). */
+  const DEFAULT_REACH_PX = 8;
+
+  let listEl: HTMLElement | null = $state(null);
+  /**
+   * How far each row's drop catcher may extend past its own box, keyed by item
+   * id. Half the distance to the neighbour on that side, so consecutive rows
+   * meet exactly in the middle of the gap and neither reaches into the other.
+   *
+   * Measured rather than fixed because the gap is not one number: rows sit
+   * 12–16px apart, but a group boundary in the blocks editor is 44px, and a
+   * constant big enough for the latter would have a row's catcher covering part
+   * of its neighbour, stealing drops meant for it.
+   */
+  let rowReach: Record<string, { top: number; bottom: number }> = $state({});
+
+  /** Rows do not move during a drag, so once at the start is enough. */
+  function measureRowReach() {
+    if (!listEl) return;
+    const els = [...listEl.querySelectorAll('[data-drag-item]')] as HTMLElement[];
+    const rects = els.map((el) => el.getBoundingClientRect());
+    const next: Record<string, { top: number; bottom: number }> = {};
+    els.forEach((el, i) => {
+      const id = el.dataset.itemId;
+      if (!id) return;
+      const gapAbove = i > 0 ? rects[i].top - rects[i - 1].bottom : NaN;
+      const gapBelow = i < rects.length - 1 ? rects[i + 1].top - rects[i].bottom : NaN;
+      next[id] = {
+        top: Number.isFinite(gapAbove) ? Math.max(0, Math.round(gapAbove / 2)) : DEFAULT_REACH_PX,
+        bottom: Number.isFinite(gapBelow) ? Math.max(0, Math.round(gapBelow / 2)) : DEFAULT_REACH_PX
+      };
+    });
+    rowReach = next;
+  }
 
   // Selection state
   let selectedNodes: Set<string> = $state(new Set());
@@ -149,24 +209,48 @@
     if (!event.dataTransfer) return;
 
     draggedIndex = index;
-    isDragging = true;
+    draggedId = treeNodes[index]?.node?.id ?? null;
+
+    // Mounting the gap catchers here kills the drag outright in Chrome: the
+    // browser abandons it when this much of the source's subtree appears
+    // underneath it mid-`dragstart` — `dragend` fires immediately and no
+    // `dragover` ever arrives. A frame later the drag has committed and the
+    // same mutation is harmless. The rows are drop targets on their own until
+    // then, so nothing is missed in the meantime.
+    requestAnimationFrame(() => {
+      if (draggedIndex === -1) return;
+      measureRowReach();
+      isDragging = true;
+    });
 
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', index.toString());
 
     // Add some visual feedback
-    const target = event.target as HTMLElement;
-    target.style.opacity = '0.5';
+    dragSourceEl = event.target as HTMLElement;
+    dragSourceEl.style.opacity = '0.5';
   }
 
-  function handleDragEnd(event: DragEvent) {
+  /**
+   * Clears every trace of a drag. Called on drop as well as on dragend, because
+   * `dragend` only fires after the list has already re-rendered and started its
+   * animation — leaving the moved row translucent while it slid into place.
+   */
+  function resetDragState() {
+    if (dragSourceEl) {
+      dragSourceEl.style.opacity = '';
+      dragSourceEl = null;
+    }
     draggedIndex = -1;
+    draggedId = null;
     dragOverIndex = -1;
+    dropDepth = null;
+    outdentBar = null;
     isDragging = false;
+  }
 
-    // Reset visual feedback
-    const target = event.target as HTMLElement;
-    target.style.opacity = '';
+  function handleDragEnd() {
+    resetDragState();
   }
 
   function handleDragOver(event: DragEvent, index: number) {
@@ -192,14 +276,61 @@
           !canAcceptChild ||
           (!!draggedNode && !!targetNode && canAcceptChild(draggedNode, targetNode));
 
-        if (mouseY < height * 0.25) {
+        // Thirds, not quarters: an 'inside' band covering half of every row
+        // means a drag travelling down a list is over a nest target most of
+        // the time, and reordering at the current level becomes the hard case.
+        // A group's header row is not the group's bottom edge — its children are
+        // rendered below it inside the same wrapper. So 'after the header' draws
+        // a line *between the header and the first child*, which reads as "into
+        // this group" while meaning "after the whole group". The whole header
+        // therefore means "before this group"; the group's real trailing edge is
+        // the 'after' zone of its last child, which is already reachable.
+        const targetNode2 = treeNodes[index]?.node;
+        const headerOfOpenGroup =
+          nestedGroups && !!targetNode2?.children?.length && (isGroupNode?.(targetNode2) ?? false);
+
+        if (mouseY < height / 3) {
           dropPosition = 'before';
-        } else if (mouseY > height * 0.75) {
+        } else if (mouseY > (height * 2) / 3) {
           dropPosition = 'after';
         } else if (insideAllowed) {
           dropPosition = 'inside';
         } else {
           dropPosition = mouseY < height * 0.5 ? 'before' : 'after';
+        }
+
+        // Applied after the chain, not inside it: when nesting is disallowed the
+        // fallback re-derives 'after' on its own, so gating only the branch
+        // above left the misleading line in place.
+        if (headerOfOpenGroup && dropPosition === 'after') dropPosition = 'before';
+
+        if (dropPosition === 'inside') {
+          dropDepth = null;
+        } else {
+          const legal = legalDropDepth(index, dropPosition);
+          // No depth here will take the dragged row, so this row is not a drop
+          // target at all — better to show nothing than a line that lies.
+          if (legal === null) {
+            dragOverIndex = -1;
+            return;
+          }
+          dropDepth = legal;
+        }
+
+        outdentBar = null;
+        const rowDepth = treeNodes[index]?.depth ?? 0;
+        if (nestedGroups && dropDepth !== null && dropDepth < rowDepth) {
+          const rowEl = (event.currentTarget as HTMLElement).closest('[data-drag-item]');
+          const box = rowEl?.closest('[data-drag-group]');
+          if (rowEl && box) {
+            const rowRect = rowEl.getBoundingClientRect();
+            const boxRect = box.getBoundingClientRect();
+            outdentBar = {
+              // Clear of the box, into the gap that separates it from the next.
+              bottom: Math.round(boxRect.bottom - rowRect.bottom) + 6,
+              left: Math.round(rowRect.left - boxRect.left)
+            };
+          }
         }
       } else {
         // For flat lists, determine before/after based on mouse position
@@ -217,13 +348,108 @@
     }
   }
 
+  /**
+   * The depths a before/after drop beside row `index` could legally express.
+   *
+   * Dropping below the last row of a subtree is the one genuinely ambiguous
+   * position in the tree: the row underneath sits at a shallower depth, so
+   * every level between the two is a possible home and vertical position alone
+   * cannot say which. Everywhere else the row below is at the same depth or
+   * deeper, and the hovered row's depth is the only answer.
+   *
+   * `preferred` is the dragged row's own depth, because a move is far more
+   * often a reorder than a change of level: dragging a root row to such a
+   * boundary means putting it between two roots, not adopting it into the
+   * subtree above.
+   *
+   * Depth deliberately does not track horizontal pointer movement. An earlier
+   * version read it as an indent gesture at one step per 16px, which turned the
+   * slight rightward drift of an ordinary downward drag into a silent
+   * reparenting.
+   */
+  function dropDepthRange(index: number, position: 'before' | 'after') {
+    const hoveredDepth = treeNodes[index]?.depth ?? 0;
+    const draggedDepth = treeNodes[draggedIndex]?.depth ?? 0;
+    if (position === 'before')
+      return { min: hoveredDepth, max: hoveredDepth, preferred: hoveredDepth };
+
+    // What follows the boundary decides how shallow a drop here may go — but
+    // the dragged row is still in the list and about to leave it, taking its
+    // descendants with it. Skipping only the row itself would read its own
+    // children as "what follows" and wrongly rule the outdent out.
+    let nextIndex = index + 1;
+    if (nextIndex === draggedIndex) {
+      nextIndex++;
+      while ((treeNodes[nextIndex]?.depth ?? -1) > draggedDepth) nextIndex++;
+    }
+    // No next row means the end of the list, where every level is available.
+    const nextDepth = treeNodes[nextIndex]?.depth ?? 0;
+    if (nextDepth >= hoveredDepth) {
+      return { min: hoveredDepth, max: hoveredDepth, preferred: hoveredDepth };
+    }
+    return {
+      min: nextDepth,
+      max: hoveredDepth,
+      preferred: Math.min(hoveredDepth, Math.max(nextDepth, draggedDepth))
+    };
+  }
+
+  /**
+   * The shallowest depth at this position whose resulting parent will have the
+   * dragged row, or null when none will.
+   *
+   * `canAcceptChild` used to gate only the `inside` zone, so a pair it rejected
+   * could still be nested by dropping *beside* one of that parent's children —
+   * before/after simply inherited the target's `parent_id` unchecked. That let
+   * a block group be dropped into another block group, which nothing supports.
+   */
+  function legalDropDepth(index: number, position: 'before' | 'after'): number | null {
+    const draggedNode = treeNodes[draggedIndex]?.node as FlatItem | undefined;
+    const targetNode = treeNodes[index]?.node as FlatItem | undefined;
+    if (!draggedNode || !targetNode) return null;
+
+    const targetDepth = treeNodes[index]?.depth ?? 0;
+    const { min, preferred } = dropDepthRange(index, position);
+    const items = data || [];
+
+    for (let depth = preferred; depth >= min; depth--) {
+      const parentId = ancestorParentId(targetNode, targetDepth, depth, items);
+      if (parentAccepts(draggedNode, parentId, items)) return depth;
+    }
+    return null;
+  }
+
+  /** Root always accepts; anything else has to pass `canAcceptChild`. */
+  function parentAccepts(dragged: FlatItem, parentId: string | null, items: FlatItem[]): boolean {
+    if (!canAcceptChild || parentId === null) return true;
+    const parent = items.find((item) => item.id === parentId);
+    return !!parent && canAcceptChild(dragged, parent);
+  }
+
+  /** The `parent_id` that puts a row at `wantedDepth`, given a sibling of `from`. */
+  function ancestorParentId(
+    from: FlatItem,
+    fromDepth: number,
+    wantedDepth: number,
+    items: FlatItem[]
+  ): string | null {
+    let parentId = from.parent_id ?? null;
+    for (let depth = fromDepth; depth > wantedDepth; depth--) {
+      parentId = items.find((item) => item.id === parentId)?.parent_id ?? null;
+    }
+    return parentId;
+  }
+
   function handleDragLeave(event: DragEvent) {
     // Only clear if we're actually leaving the drop zone
     const relatedTarget = event.relatedTarget as HTMLElement;
     const currentTarget = event.currentTarget as HTMLElement;
 
-    if (!currentTarget.contains(relatedTarget)) {
+    // Moving from one row straight onto the next is not leaving the list, and
+    // clearing here made the indicator blink out at every boundary crossing.
+    if (!currentTarget.contains(relatedTarget) && !relatedTarget?.closest?.('[data-drag-item]')) {
       dragOverIndex = -1;
+      dropDepth = null;
     }
   }
 
@@ -311,7 +537,17 @@
         newItems.push(removedItem);
       }
     } else {
-      removedItem.parent_id = targetItem.parent_id;
+      removedItem.parent_id =
+        dropDepth !== null
+          ? ancestorParentId(targetItem, targetTreeNode.depth, dropDepth, newItems)
+          : (targetItem.parent_id ?? null);
+
+      // Safety net, mirroring the one guarding 'inside': never land somewhere
+      // `canAcceptChild` rejects, however stale the hover state.
+      if (!parentAccepts(removedItem, removedItem.parent_id ?? null, newItems)) {
+        dragOverIndex = -1;
+        return;
+      }
 
       const insertIndex = newItems.findIndex((item) => item.id === targetItem.id);
 
@@ -328,7 +564,10 @@
       }
     }
 
-    dragOverIndex = -1;
+    // Before the re-render, not after: `onDataChange` triggers the reorder and
+    // its flip animation, and any drag styling still set at that moment rides
+    // along with it.
+    resetDragState();
     onDataChange?.(newItems);
   }
 
@@ -466,7 +705,7 @@
     </div>
   {/if}
 
-  <div class={listClass}>
+  <div class={listClass} bind:this={listEl}>
     <!-- Drop zone at the very top (overlay, no layout impact) -->
     {#if isDragging}
       <div
@@ -488,9 +727,12 @@
     {/if}
 
     {#snippet row(node: any, index: number, depth: number)}
+      {@const reach = rowReach[node.id]}
+      {@const reachTop = reach?.top ?? DEFAULT_REACH_PX}
+      {@const reachBottom = reach?.bottom ?? DEFAULT_REACH_PX}
       <div
         class="relative transition-all duration-200"
-        class:opacity-60={draggedIndex === index}
+        class:opacity-60={draggedId === node.id}
         data-drag-item
         data-item-id={node.id}
         role="button"
@@ -499,19 +741,58 @@
         ondragover={(e) => handleDragOver(e, index)}
         ondragleave={handleDragLeave}
         ondrop={(e) => handleDrop(e, index)}
-        style={nestable && indentNested ? `margin-left: ${depth * 16}px;` : ''}
+        style={nestable && indentNested ? `margin-left: ${depth * INDENT_PX}px;` : ''}
       >
+        <!-- Rows are laid out with a gap between them, and that gap belonged to
+             nothing: no `dragover` fired over it, so the indicator froze at a
+             stale position, and a drop there hit no target and was silently
+             discarded. It is also exactly where the indicator is drawn, which
+             made it the natural place to aim.
+
+             The gap is claimed by an overlay rather than by padding the row,
+             because the row's layout box has to stay exactly as it is —
+             `space-y-4` here, but `grid gap-4` in the blocks editor, where
+             stretching the box would eat the gap instead of covering it. It
+             exists only mid-drag, so it never intercepts an ordinary click. -->
+        {#if isDragging}
+          <div
+            class="absolute inset-x-0 z-20"
+            style="top: -{reachTop}px; bottom: -{reachBottom}px;"
+            role="button"
+            tabindex="-1"
+            aria-label={m.blocks_drop_zone_item({ index: index + 1 })}
+            ondragover={(e) => handleDragOver(e, index)}
+            ondragleave={handleDragLeave}
+            ondrop={(e) => handleDrop(e, index)}
+          ></div>
+        {/if}
+
         <!-- Drop zone indicators -->
         {#if dragOverIndex === index && draggedIndex !== -1 && draggedIndex !== index}
           {#if dropPosition === 'before' && index > 0}
+            <!-- Centred in the gap above: this and the previous row's trailing
+                 line describe the same insertion point, so they have to land on
+                 the same pixel. Fixed offsets put them ~5px apart, and a 1px
+                 pointer move flipped between them — one line that looked like
+                 two. -->
             <div
-              class="absolute -top-2.5 right-0 left-0 z-10 mx-4 rounded bg-blue-500 transition-all duration-200"
-              style="height: 4px;"
+              class="absolute right-0 left-0 z-10 mx-4 rounded bg-blue-500 transition-all duration-200"
+              style="height: 4px; top: -{reachTop + 2}px;"
             ></div>
           {:else if dropPosition === 'after'}
+            <!-- Where rows are indented, the line outdents by whole indent steps
+                 so its left edge reads as the level it will land at. Where depth
+                 is containment instead, it steps outside the box entirely. `mx-4`
+                 is 16px, added back because an inline margin replaces it. -->
             <div
-              class="absolute right-0 -bottom-2.5 left-0 z-10 mx-4 rounded bg-blue-500 transition-all duration-200"
-              style="height: 4px;"
+              class="absolute right-0 left-0 z-10 mx-4 rounded bg-blue-500 transition-all duration-200"
+              style={outdentBar
+                ? `height: 4px; bottom: -${outdentBar.bottom}px; margin-left: -${outdentBar.left}px; margin-right: -${outdentBar.left}px;`
+                : `height: 4px; bottom: -${reachBottom + 2}px;${
+                    dropDepth === null || !indentNested
+                      ? ''
+                      : ` margin-left: ${INDENT_PX + (dropDepth - depth) * INDENT_PX}px;`
+                  }`}
             ></div>
           {:else if nestable && dropPosition === 'inside'}
             <div
@@ -545,7 +826,7 @@
       {#each tree as node (node.id)}
         <div animate:verticalFlip={{ duration: 300 }}>
           {#if isGroupNode ? isGroupNode(node) : node.children.length > 0}
-            <div class={groupOuterClass ? groupOuterClass(node) : ''}>
+            <div class={groupOuterClass ? groupOuterClass(node) : ''} data-drag-group={node.id}>
               {@render row(node, flatIndexById.get(node.id) ?? -1, 0)}
               <div class={groupInnerClass ?? ''}>
                 {#each node.children as child (child.id)}

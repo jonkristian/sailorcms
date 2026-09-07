@@ -36,8 +36,8 @@ export const TIMESTAMP_REPAIR = {
 export async function runTimestampRepair({ client, dryRun = false }) {
   console.log(
     dryRun
-      ? '🔍 Dry run — scanning for timestamp columns with ms-leakage…'
-      : '🛠️  Repairing timestamp columns with ms-leakage…'
+      ? 'Dry run — scanning for timestamp columns with ms-leakage…'
+      : 'Repairing timestamp columns with ms-leakage…'
   );
 
   {

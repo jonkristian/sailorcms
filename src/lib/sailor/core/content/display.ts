@@ -2,6 +2,36 @@
  * Utility functions for displaying content in the CMS
  */
 
+/** Named entities worth decoding for a preview; `&amp;` is handled separately. */
+const ENTITIES: Record<string, string> = {
+  nbsp: ' ',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'"
+};
+
+/**
+ * Plain-text rendering of a value that may hold rich text, for previews.
+ *
+ * Tags collapse to a space rather than to nothing, or `<p>A</p><p>B</p>` reads
+ * as "AB". Entities are decoded because the result is rendered as text, so
+ * `&amp;` would otherwise be visible as-is.
+ */
+export function stripHtml(value: string): string {
+  return (
+    value
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&(nbsp|lt|gt|quot|apos);/g, (_match, name: string) => ENTITIES[name])
+      .replace(/&#0*39;/g, "'")
+      // Last, or `&amp;lt;` would decode twice and come out as `<`.
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
 /**
  * Get the display title for an item based on the template's titleField option
  * @param item - The item to get the title for
@@ -18,7 +48,7 @@ export function getDisplayTitle(item: any, template: any): string {
 
     // For rich text fields, strip HTML and limit length
     if (typeof value === 'string' && value.includes('<')) {
-      const stripped = value.replace(/<[^>]*>/g, '').trim();
+      const stripped = stripHtml(value);
       return stripped.length > 50 ? stripped.substring(0, 50) + '...' : stripped;
     }
 

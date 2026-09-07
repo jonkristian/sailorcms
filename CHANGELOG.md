@@ -2,6 +2,50 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.9.4] - 7 September 2026
+
+### Added
+
+- **Relation editor** — every many-to-many now renders one always-open combobox: search, attached entries above candidates, drag-to-reorder, a footer pager, and a wider detailed view. Layout follows the container's width, so a sidebar stacks and a wide modal splits into two columns.
+- **`searchRelationOptions` / `resolveRelationTitles`** — relation pickers search and page in SQL instead of fetching whole tables. Both take the relation itself, so the global-vs-collection branch lives in one place.
+- **`junction.sort` and `junction.inverse_sort`** — many-to-many edges carry their own ordering. `sort` is the owner's order of its targets and is written by the picker; `inverse_sort` is reserved for the target's order of its owners and is not yet written.
+- **`reverse` field type** — edit an existing relation from the side that doesn't declare it. Declare `{ fromCollection | fromGlobal | fromBlock, field }` and the field resolves to the junction the forward side already owns, ordered by `inverse_sort`. Emits no column and no table, so there is still only one edge set. Attaching, detaching and reordering write the forward side's junction — reconciled by target, so an owner's edges to other targets are untouched. Set `reverse.editable: false` for a read-only list.
+- **`generated/relations.ts`** — every many-to-many indexed by owner and by target. A `reverse` field naming a relation that doesn't exist now fails during `db:update` instead of returning an empty array at runtime. Reverse fields also emit the owning entity's type (`Product[]`, not `any[]`).
+- **`getCollections({ orderBy: 'relation' })`** — order results by the junction's `inverse_sort` rather than by a column on the collection, so a category page can use the order the category assigned. Only meaningful alongside `whereRelated`. Ordering happens in SQL via a correlated subquery, so it survives pagination; under `recursive` a row matched through several descendants sorts by its best (`MIN`) position.
+- **`GlobalsOptions.whereRelated`** — previously declared but never implemented; passing it silently did nothing.
+- **`showInTable`** — now honoured by collection lists, not just globals.
+- **Relation filter on collection lists** — narrow a list to items related to a given entry.
+- **`options.view: 'table'`** for repeatable globals — the column-and-filter table instead of the tree or inline editor, still dragging to reorder and to reparent.
+- Relation counts on global rows, in all three list views. In the table they roll up through the tree, counting distinct entries so a row filed under two sibling categories is counted once.
+
+### Fixed
+
+- **Purging content left its relations behind** — `purgeCollectionItem` / `purgeGlobalItem` removed the row, its translations, revisions and search entry, but no junction, array or file child rows. Orphaned junction rows still read as real relations, so counts, filters and reverse panels over-reported — a category could look non-empty while being empty. Child rows are now removed first, with the owning key derived per table: array tables key on `<kind>_id` and _also_ carry an unrelated `parent_id`, file tables key on `parent_id` + `parent_type`, and nested tables key on their parent row.
+- **`doctor` `content:orphaned-junctions`** — reports junction rows pointing at deleted content, with a reviewed `DELETE` for debris left by earlier versions.
+- **`whereRelated` threw on collection→collection relations** — target resolution only ever looked for a global.
+- **Globals editors never loaded many-to-many values**, and two of the three save paths deleted the existing edges on save.
+- **Mutually-referencing many-to-many relations hung the loader** — nested relation loading had no depth cap.
+- Breadcrumbs rendered underscored slugs verbatim (`Product_categories`).
+- The drag-and-drop indicator highlighted the hovered element, reading as "drop into" rather than "insert here"; it is now an insertion line. Also affects the file picker and the media grid, where the side a drop landed on came from the drag's direction rather than the pointer.
+- **Drops between rows were silently discarded** — every drag surface left a gap between rows that belonged to no row, so no `dragover` fired there, the indicator froze at a stale position, and a drop hit nothing. The gap is also where the indicator is drawn, so it was the natural place to aim.
+- **Reordering a table with nested or collapsed rows moved the wrong item** — the drop used the visible-row index against the flat list, which diverge as soon as anything is nested.
+- **`error()` and `redirect()` were flattened into 500s** by ten catch blocks. Most visibly, every missing image returned 500 from the transform endpoint instead of 404.
+- **`db:backup` and `db:restore` hung against R2** — recent AWS SDK versions validate response checksums that R2 doesn't fully implement, and the SDK has no request timeout by default, so a stall never surfaced. Both are now configured, and the app's S3 clients share one factory.
+- **`engines.node` was never declared** despite 0.9.3 raising the floor to `>=20.9.0` for sharp; installs on 20.0–20.8 failed later and less clearly.
+- Purging a restored item destroyed its translations and child rows before checking it was still in the bin, then reported success.
+- List previews rendered rich-text fields as raw markup (`<p>Utforsk…`).
+
+### Changed
+
+- `RelationField` handles single-FK relations only; many-to-many is the new editor.
+- Relation reads (`searchRelationOptions`, `resolveRelationTitles`) require `read`/`content`.
+
+### Removed
+
+- **`getGlobalItems` / `getCollectionItems`** — both fetched an entire table with no access check, and nothing calls them since the relation pickers moved to `searchRelationOptions`. Use that instead; it takes the relation, searches and pages in SQL, and requires `read`/`content`.
+
+**Upgrading:** run `npx sailor db:update` — it adds `sort` and `inverse_sort` to every junction table, both defaulting to 0, so existing ordering is unchanged. Node `>=20.9.0` is now declared in `engines`, so installs on 20.0–20.8 fail up front rather than at the first image operation.
+
 ## [0.9.3] - 26 August 2026
 
 ### Security

@@ -12,6 +12,8 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import { TagService } from '../../services/tag.server';
 import { toSnakeCase } from '../../utils/string';
 import { liveOnly } from '../../db/soft-delete';
+import { loadJunctionValuesForOwners } from './junction-values.server';
+import { loadReverseRelationsForOwners } from '../../../utils/data/loaders/reverse-loader';
 import { loadFileFields } from '../../../utils/data/loaders/file-loader';
 import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
@@ -414,6 +416,39 @@ export async function loadGlobalsForList(
       }
     }
   }
+
+  // Load many-to-many values. The inline edit dialog reads its initial value
+  // from these rows, and its save deletes-and-reinserts the junction from
+  // whatever it hands back — so not loading them here is what made the field
+  // silently empty, and destructive on the paths that do persist it.
+  //
+  // Junctions anchor on the main row id, matching the writer, unlike the array
+  // and file passes above which use `_localeId` when localized.
+  for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {
+    if ((fieldDef as any).relation?.type !== 'many-to-many') continue;
+
+    const owners = isFlat ? [existingData] : items;
+    const ownerIds = owners.map((owner: any) => owner.id).filter(Boolean);
+    const byOwner = await loadJunctionValuesForOwners(
+      slug,
+      'global_id',
+      ownerIds,
+      fieldName,
+      fieldDef
+    );
+    owners.forEach((owner: any) => {
+      owner[fieldName] = byOwner.get(owner.id) ?? [];
+    });
+  }
+
+  // Reverse fields — read from the other side of a relation this global does
+  // not own. Bulk-loaded, so a list costs one query per field rather than one
+  // per row.
+  await loadReverseRelationsForOwners(
+    isFlat ? [existingData] : items,
+    globalDefinition.fields ?? {},
+    'all'
+  );
 
   // Load file field data from file relation tables.
   for (const [fieldName, fieldDef] of Object.entries(globalDefinition.fields)) {

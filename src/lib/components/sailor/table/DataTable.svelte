@@ -300,14 +300,20 @@
       // Handle simple top-level reordering with onReorder instead of onNestChange
       if (isSimpleTopLevelReorder && onReorder) {
         const newItems = [...items];
-        const [draggedItem] = newItems.splice(draggedIndex, 1);
-
-        let insertIndex = dropIndex;
-        if (dropPosition === 'after') {
-          insertIndex = dropIndex + 1;
+        // `draggedIndex` and `dropIndex` count *visible* rows. `items` is the
+        // flat set, which is a different sequence the moment anything is nested
+        // or collapsed — so the indices have to be resolved back through ids.
+        const fromIndex = newItems.findIndex((i) => i.id === draggedHierarchicalItem.item.id);
+        const toIndex = newItems.findIndex((i) => i.id === targetHierarchicalItem.item.id);
+        if (fromIndex === -1 || toIndex === -1) {
+          dragOverIndex = -1;
+          return;
         }
+
+        const [draggedItem] = newItems.splice(fromIndex, 1);
+        let insertIndex = dropPosition === 'after' ? toIndex + 1 : toIndex;
         // Adjust for removal if dragged index was before insert position
-        if (draggedIndex < insertIndex) {
+        if (fromIndex < insertIndex) {
           insertIndex--;
         }
 

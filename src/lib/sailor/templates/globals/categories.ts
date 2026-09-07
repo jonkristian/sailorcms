@@ -11,7 +11,10 @@ export const categoriesGlobal: GlobalDefinition = {
   dataType: 'repeatable',
   options: {
     sortable: true,
-    nestable: true
+    nestable: true,
+    // Same data as Product Categories, shown through the table view instead —
+    // the other hierarchy-capable surface, with its own drag implementation.
+    view: 'table'
   },
   fields: {
     // Core fields auto-added by generator:

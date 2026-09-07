@@ -26,6 +26,7 @@ import {
   clearArrayRowFiles
 } from 'sailorcms/core/data/persisters/array-row-files.server';
 import { saveGlobalItem } from 'sailorcms/core/data/persisters/global-item.server';
+import { persistReverseRelations } from 'sailorcms/core/data/persisters/reverse-relations.server';
 import { getContentSettings } from 'sailorcms/utils/data/collections';
 
 /**
@@ -45,6 +46,10 @@ async function persistGlobalRelations(
 ): Promise<void> {
   await syncArrayRowFiles(tx, `global_${globalSlug}`, itemId, globalFields, data, 'global');
 
+  // Reverse fields — edits from the side that does not own the relation.
+  // Reconciled by target, so an owner's other edges are untouched.
+  await persistReverseRelations(tx, globalFields, itemId, data);
+
   for (const [key, def] of Object.entries(globalFields)) {
     const fd = def as any;
     if (fd?.type !== 'relation' || fd?.relation?.type !== 'many-to-many') continue;
@@ -53,13 +58,17 @@ async function persistGlobalRelations(
     await tx.run(sql`DELETE FROM ${sql.identifier(junctionTableName)} WHERE global_id = ${itemId}`);
     const raw = (data as any)[key];
     const values = Array.isArray(raw) ? raw : [];
+    // Rows are deleted and reinserted on every save, so the picker's array
+    // order is the edge order — persist it as `sort`.
+    let relationSort = 0;
     for (const v of values) {
       const targetId = typeof v === 'object' && v ? v.id : v;
       if (!targetId) continue;
       await tx.run(sql`
-        INSERT INTO ${sql.identifier(junctionTableName)} (id, global_id, target_id, created_at, updated_at)
-        VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
+        INSERT INTO ${sql.identifier(junctionTableName)} (id, global_id, target_id, sort, created_at, updated_at)
+        VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${relationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
       `);
+      relationSort++;
     }
   }
 }
@@ -684,6 +693,7 @@ export const updateRelationalGlobal = command(
         } else if (
           fieldDef.type === 'file' ||
           fieldDef.type === 'tags' ||
+          fieldDef.type === 'reverse' ||
           (fieldDef.type === 'relation' && fieldDef.relation?.type === 'many-to-many')
         ) {
           // Not scalar columns: file fields live in `global_<slug>_<field>`
@@ -987,6 +997,7 @@ export const bulkUpdateGlobalItems = command(
         const fd = globalFields[key];
         if (!fd) return false;
         if (fd.type === 'file' || fd.type === 'array' || fd.type === 'tags') return true;
+        if (fd.type === 'reverse') return true;
         return fd.type === 'relation' && fd.relation?.type === 'many-to-many';
       };
 

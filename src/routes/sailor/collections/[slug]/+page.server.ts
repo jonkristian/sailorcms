@@ -4,7 +4,7 @@
 // live here; the actual paginated query (localized + non-localized,
 // nestable + flat) lives in the loader.
 
-import { error } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import { loadCollectionList } from 'sailorcms/core/data/loaders/collection-list.server';
 
 export const load = async ({ params, locals, url }: any) => {
@@ -22,9 +22,16 @@ export const load = async ({ params, locals, url }: any) => {
       pageSize: parseInt(url.searchParams.get('pageSize') || '20'),
       searchQuery: url.searchParams.get('search') ?? undefined,
       sortBy: url.searchParams.get('sortBy') ?? undefined,
-      sortOrder: (url.searchParams.get('sortOrder') as 'asc' | 'desc' | null) ?? undefined
+      sortOrder: (url.searchParams.get('sortOrder') as 'asc' | 'desc' | null) ?? undefined,
+      relationField: url.searchParams.get('relation') ?? undefined,
+      relationValue: url.searchParams.get('relationValue') ?? undefined,
+      relationRecursive: url.searchParams.get('relationRecursive') === '1'
     });
   } catch (err) {
+    // A `redirect()` or `error()` thrown deeper is a deliberate response, not a
+    // failure — rethrow it untouched. Flattening everything into a 500 here
+    // turned auth redirects and 404s into server errors.
+    if (isHttpError(err) || isRedirect(err)) throw err;
     if (err && (err as any).notFound) {
       throw error(404, (err as Error).message);
     }

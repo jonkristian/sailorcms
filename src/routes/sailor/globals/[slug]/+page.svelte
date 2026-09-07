@@ -105,6 +105,34 @@
     }
   }
 
+  // Drag-to-reparent from the table view. `DataTable` reports the moved item
+  // and its new parent; the reorder command already accepts `parent_id`, so
+  // this reuses the same write path as a plain reorder.
+  async function handleNestChange(draggedId: string, newParentId: string | null, newIndex: number) {
+    const source = items.find((i: any) => i.id === draggedId);
+    if (!source) return;
+
+    const without = items.filter((i: any) => i.id !== draggedId);
+    const moved = { ...source, parent_id: newParentId };
+
+    // `newIndex` counts siblings under `newParentId`, but the list sent to the
+    // server is flat — every item in the global, in sort order, with hierarchy
+    // carried by `parent_id`. Using the sibling index directly landed the row
+    // wherever unrelated items happened to sit, so a drop moved it a slot or
+    // two instead of where it was aimed. Translate through the sibling that
+    // should end up after it, falling back to just past the last one.
+    const siblings = without.filter((i: any) => (i.parent_id ?? null) === (newParentId ?? null));
+    const follower = siblings[newIndex];
+    const at = follower
+      ? without.findIndex((i: any) => i.id === follower.id)
+      : siblings.length
+        ? without.findIndex((i: any) => i.id === siblings[siblings.length - 1].id) + 1
+        : without.length;
+
+    without.splice(at, 0, moved);
+    await handleReorder(without);
+  }
+
   // Handle add new item
   function handleAddNew() {
     if (data.global.dataType === 'repeatable' && data.global.options?.nestable) {
@@ -169,11 +197,13 @@
           canCreate &&
           !data.global.options?.readonly}
         showCountBadge={data.global.dataType !== 'flat'}
-        addButtonAction={data.global.dataType === 'repeatable' && data.global.options?.nestable
-          ? nestableAddFunction || (() => {})
-          : data.global.dataType === 'repeatable' && data.global.options?.inline
-            ? inlineAddFunction || (() => {})
-            : handleAddNew}
+        addButtonAction={data.global.options?.view === 'table'
+          ? handleAddNew
+          : data.global.dataType === 'repeatable' && data.global.options?.nestable
+            ? nestableAddFunction || (() => {})
+            : data.global.dataType === 'repeatable' && data.global.options?.inline
+              ? inlineAddFunction || (() => {})
+              : handleAddNew}
         showSaveButton={data.global.dataType === 'repeatable' && data.global.options?.inline}
         saveButtonAction={inlineSaveFunction || (async () => {})}
         showExpandCollapseButton={data.global.dataType === 'repeatable' &&
@@ -185,6 +215,21 @@
       {#if data.global.dataType === 'flat'}
         <!-- FlatView: Flat Global with static fields (like Settings) -->
         <FlatView global={data.global} bind:formData {submitting} permissions={data.permissions} />
+      {:else if data.global.dataType === 'repeatable' && data.global.options?.view === 'table'}
+        <!-- TableView with hierarchy: columns + filtering, still drag-to-reorder
+             and drag-to-reparent. Opt in with `options.view: 'table'`. -->
+        <TableView
+          global={data.global}
+          {items}
+          onAddNew={handleAddNew}
+          onDelete={handleDelete}
+          onBulkDelete={handleBulkDelete}
+          sortable={!!data.global.options?.sortable}
+          nestable={!!data.global.options?.nestable}
+          onReorder={handleReorder}
+          onNestChange={handleNestChange}
+          pagination={data.pagination}
+        />
       {:else if data.global.dataType === 'repeatable' && data.global.options?.nestable}
         <!-- RepeatableNestedView: Repeatable Global with hierarchy (like Categories) -->
         <RepeatableNestedView

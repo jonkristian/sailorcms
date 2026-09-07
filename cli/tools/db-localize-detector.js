@@ -140,7 +140,7 @@ export function printPendingMigrations(migrations) {
   const total = migrations.reduce((sum, m) => sum + m.rowCount, 0);
   console.log('');
   console.log(
-    `🌐 i18n auto-migration queued: ${migrations.length} entit${migrations.length === 1 ? 'y' : 'ies'}, ${total} row(s):`
+    `i18n auto-migration queued: ${migrations.length} entit${migrations.length === 1 ? 'y' : 'ies'}, ${total} row(s):`
   );
   for (const m of migrations) {
     const rows = `${m.rowCount} row${m.rowCount === 1 ? '' : 's'}`;

@@ -10,6 +10,7 @@
   import DataTable from 'sailorcms/components/sailor/table/DataTable.svelte';
   import BulkActionsBar from 'sailorcms/components/sailor/table/BulkActionsBar.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
+  import RelationFilter from 'sailorcms/components/sailor/table/RelationFilter.svelte';
   import { m } from '$sailor/i18n';
   import { generateUUID } from 'sailorcms/core/utils/common';
   import { invalidateAll } from '$app/navigation';
@@ -127,14 +128,31 @@
     }
   }
 
+  // Template fields marked `showInTable`, inserted after the title. Unlike the
+  // globals table — which replaces its defaults entirely — a collection's
+  // status/author/date columns stay, since they are what the list is for.
+  // Not sortable: these are not columns on the collection's own table.
+  const extraColumns = $derived(
+    Object.entries((data.collectionType.fields ?? {}) as Record<string, any>)
+      .filter(([, field]) => field?.showInTable === true)
+      .sort(([, a], [, b]) => (a?.order ?? 99) - (b?.order ?? 99))
+      .map(([key, field]) => ({
+        key,
+        label: field?.label || field?.title || key,
+        sortable: false,
+        width: 200
+      }))
+  );
+
   // Column definitions with sorting and fixed widths
-  const columns = [
+  const columns = $derived([
     { key: 'title', label: m.collections_col_title(), sortable: true, width: 300 },
+    ...extraColumns,
     { key: 'status', label: m.collections_col_status(), sortable: true, width: 100 },
     { key: 'author', label: m.collections_col_author(), sortable: true, width: 150 },
     { key: 'updated_at', label: m.collections_col_updated(), sortable: true, width: 120 },
     { key: 'created_at', label: m.collections_col_created(), sortable: true, width: 120 }
-  ];
+  ]);
 
   function handleEdit(id: string) {
     goto(`/sailor/collections/${data.collectionType.slug}/${id}`);
@@ -278,6 +296,12 @@
           <div class="flex items-center gap-4">
             <FilterBar config={{ search: true }} {tableFilters} />
 
+            <!-- Filter by a many-to-many relation, e.g. products in a category. -->
+            <RelationFilter
+              fields={data.collectionType.fields ?? {}}
+              slug={data.collectionType.slug}
+            />
+
             <!-- Sort dropdown -->
             <Select.Root
               type="single"
@@ -337,6 +361,20 @@
             {item.author_name || item.author_email || m.common_unknown()}
           {:else if column.key === 'updated_at' || column.key === 'created_at'}
             {formatTableDate(item[column.key], getUserLocale())}
+          {:else if Array.isArray(item[column.key])}
+            <!-- Relation and other multi-value fields arrive as objects. -->
+            <span
+              class="block w-full truncate"
+              title={item[column.key]
+                .map((entry: any) => (entry && typeof entry === 'object' ? entry.title : entry))
+                .filter(Boolean)
+                .join(', ')}
+            >
+              {item[column.key]
+                .map((entry: any) => (entry && typeof entry === 'object' ? entry.title : entry))
+                .filter(Boolean)
+                .join(', ') || '-'}
+            </span>
           {:else}
             {item[column.key] || '-'}
           {/if}

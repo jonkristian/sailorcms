@@ -26,6 +26,7 @@ import { log } from '../../utils/logger';
 import { randomUUID } from 'crypto';
 
 import { reidNestedRows } from '../i18n-prefill.server';
+import { loadReverseRelations } from '../../../utils/data/loaders/reverse-loader';
 
 export interface LoadCollectionItemOptions {
   slug: string;
@@ -352,8 +353,12 @@ export async function loadCollectionItem(
         const targetCollection = (fieldDef as any).relation?.targetCollection;
 
         try {
+          // Ordered by the junction's own `sort` so the editor's picker shows
+          // the stored edge order. It matters that this round-trips: saving
+          // rewrites `sort` from the order the picker hands back, so loading
+          // unordered would let an untouched save scramble the sequence.
           const relationResult = await db.run(
-            sql`SELECT target_id FROM ${sql.identifier(junctionTableName)} WHERE collection_id = ${entityId}`
+            sql`SELECT target_id FROM ${sql.identifier(junctionTableName)} WHERE collection_id = ${entityId} ORDER BY "sort"`
           );
 
           const targetIds = relationResult.rows.map((row: any) => row.target_id);
@@ -376,11 +381,14 @@ export async function loadCollectionItem(
               )})`
             );
 
-            const relationItems = targetResult.rows.map((row: any) => ({
-              id: row.id,
-              title: row.title
-            }));
-            page[fieldName] = relationItems;
+            // `IN (...)` returns rows in whatever order the planner likes, so
+            // re-project onto `targetIds` to keep the junction's order.
+            const byId = new Map(
+              targetResult.rows.map((row: any) => [row.id, { id: row.id, title: row.title }])
+            );
+            page[fieldName] = targetIds
+              .map((tid: any) => byId.get(tid))
+              .filter((item: any) => item !== undefined);
           } else {
             page[fieldName] = [];
           }
@@ -389,6 +397,9 @@ export async function loadCollectionItem(
         }
       }
     }
+
+    // Reverse fields — read from the side that does not own the relation.
+    await loadReverseRelations(page, collectionDefinition.fields ?? {}, 'all');
 
     // Load array fields for collection
     for (const [fieldName, fieldDef] of Object.entries(collectionDefinition.fields)) {

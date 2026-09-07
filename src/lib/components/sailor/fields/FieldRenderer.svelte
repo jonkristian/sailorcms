@@ -43,6 +43,8 @@
   import TextField from './TextField.svelte';
   import TextareaField from './TextareaField.svelte';
   import RelationField from './RelationField.svelte';
+  import RelationBrowserField from './RelationBrowserField.svelte';
+  import ReverseRelationField from './ReverseRelationField.svelte';
   import FileField from './FileField.svelte';
   import TagsInput from './TagsInput.svelte';
   import { formatDetailedDate } from 'sailorcms/core/utils/date';
@@ -386,14 +388,32 @@
         required={field.required}
         onChange={updateValue}
       />
-    {:else if field.type === 'relation'}
-      <RelationField
-        value={value || (field.relation?.type === 'many-to-many' ? [] : '')}
-        {field}
-        required={field.required}
+    {:else if field.type === 'reverse' && (field.reverse?.editable === false || field.reverse?.fromBlock)}
+      <!-- Opted out of editing, or sourced from a block: a plain list of what
+           points here. The picker resolves candidates by collection or global
+           only, so a block-sourced field has nothing to browse — rendering the
+           editor would give a permanently empty one. -->
+      <ReverseRelationField {value} {field} />
+    {:else if field.type === 'reverse'}
+      <!-- The same editor the owning side gets. Candidates come from the entity
+           that owns the relation, and writes go to its junction. -->
+      <RelationBrowserField
+        value={value || []}
+        field={{
+          ...field,
+          relation: {
+            type: 'many-to-many',
+            targetCollection: field.reverse?.fromCollection,
+            targetGlobal: field.reverse?.fromGlobal
+          }
+        }}
         onChange={updateValue}
         {currentItemId}
       />
+    {:else if field.type === 'relation' && field.relation?.type === 'many-to-many'}
+      <RelationBrowserField value={value || []} {field} onChange={updateValue} {currentItemId} />
+    {:else if field.type === 'relation'}
+      <RelationField value={value || ''} {field} onChange={updateValue} {currentItemId} />
     {:else if field.type === 'file'}
       <FileField value={value || ''} {field} required={field.required} onChange={updateValue} />
     {:else if field.type === 'tags'}

@@ -91,7 +91,7 @@ export function registerSyncUi(program) {
         return;
       }
 
-      console.log(`🔧 Normalized imports in ${touched} file(s):`);
+      console.log(`Normalized imports in ${touched} file(s):`);
       for (const f of touchedFiles) console.log(`  ${f}`);
     });
 }

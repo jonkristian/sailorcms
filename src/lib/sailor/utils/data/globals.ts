@@ -1,5 +1,5 @@
 import { db } from 'sailorcms/core/db/index.server';
-import { sql, ne, eq, asc, desc, and, count } from 'drizzle-orm';
+import { sql, ne, eq, asc, desc, and, count, inArray } from 'drizzle-orm';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import { globalTypes, files } from '$sailor/generated/schema';
 import * as schema from '$sailor/generated/schema';
@@ -19,9 +19,11 @@ import {
   loadManyToManyRelations,
   type RelationStatus
 } from './loaders/relation-loader';
+import { loadReverseRelations } from './loaders/reverse-loader';
 import { assertAccess, AccessDeniedError } from './access';
 import { parseDate, groupItemsByField } from './internal';
-import { getContentSettings, buildLocaleHref } from './collections';
+import { getContentSettings, buildLocaleHref, getAllDescendantItems } from './collections';
+import { buildRelationshipSubquery } from './loaders/relation-filter';
 
 /**
  * True if the consumer marked this global `localized: true` in its template.
@@ -75,6 +77,10 @@ async function loadGlobalFields(
     loadFullFileObjects,
     status
   );
+
+  // Read relations owned by the other side. Resolved last, and never followed
+  // from inside another reverse field.
+  await loadReverseRelations(global, globalSchema, status);
 }
 
 type User = {
@@ -146,10 +152,13 @@ export interface GlobalsOptions {
    */
   routePattern?: string;
 
-  // Relationship filtering
+  // Relationship filtering. Traverses the junction the named many-to-many
+  // field owns, and keeps only items pointing at one of `value`. Repeatable
+  // globals only — singletons have no junction to filter.
   whereRelated?: {
     field: string; // The relation field name (e.g., 'categories')
     value: string | string[]; // Category slug(s) to filter by
+    recursive?: boolean; // Also match descendants of `value` (single value only)
   };
 
   // Security
@@ -308,6 +317,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
     baseUrl,
     currentPage,
     routePattern,
+    whereRelated,
     user: _user, // Reserved for future ACL implementation
     locale,
     fallback
@@ -357,6 +367,11 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
 
     // Handle singleton globals
     if (isFlat) {
+      if (whereRelated) {
+        log.warn(
+          `getGlobals('${globalSlug}'): whereRelated ignored — singleton globals have a single row and no junction to filter.`
+        );
+      }
       if (isLocalized) {
         return await handleSingletonLocalizedGlobal<T>(globalSlug, globalType, {
           withRelations,
@@ -410,6 +425,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
         offset,
         baseUrl: resolvedBaseUrl,
         currentPage,
+        whereRelated,
         locale,
         fallback,
         user: _user
@@ -436,6 +452,7 @@ async function _loadGlobalImpl<T extends GlobalTypes = GlobalTypes>(
       offset,
       baseUrl: resolvedBaseUrl,
       currentPage,
+      whereRelated,
       user: _user
     });
   } catch (err) {
@@ -741,6 +758,11 @@ async function handleRepeatableLocalizedGlobalMulti<T extends GlobalTypes = Glob
     offset: number;
     baseUrl?: string;
     currentPage?: number;
+    whereRelated?: {
+      field: string;
+      value: string | string[];
+      recursive?: boolean;
+    };
     locale?: string;
     fallback?: 'default' | 'strict';
     user?: User | null;
@@ -762,6 +784,7 @@ async function handleRepeatableLocalizedGlobalMulti<T extends GlobalTypes = Glob
     offset,
     baseUrl,
     currentPage,
+    whereRelated,
     locale,
     fallback
   } = options;
@@ -797,6 +820,26 @@ async function handleRepeatableLocalizedGlobalMulti<T extends GlobalTypes = Glob
   if (status !== 'all' && localesTable.status) {
     whereConditions.push(eq(localesTable.status, status));
   }
+
+  // Relationship filtering — for localized globals the junction's `global_id`
+  // holds the `_locales` row id, so we filter against `localesTable.id`.
+  if (whereRelated) {
+    const relatedIds = await buildRelationshipSubquery({
+      ownerType: 'global',
+      ownerSlug: globalSlug,
+      relationField: whereRelated.field,
+      targetValues: whereRelated.value,
+      recursive: whereRelated.recursive || false,
+      resolveDescendants: getAllDescendantItems
+    });
+
+    if (relatedIds.length > 0) {
+      whereConditions.push(inArray(localesTable.id, relatedIds));
+    } else {
+      whereConditions.push(sql`1 = 0`);
+    }
+  }
+
   if (parentId && localesTable.parent_id) {
     whereConditions.push(eq(localesTable.parent_id, parentId));
   }
@@ -932,6 +975,11 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     offset: number;
     baseUrl?: string;
     currentPage?: number;
+    whereRelated?: {
+      field: string;
+      value: string | string[];
+      recursive?: boolean;
+    };
     user?: User | null;
   }
 ): Promise<GlobalsSingleResult<T> | GlobalsMultipleResult<T>> {
@@ -954,6 +1002,7 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
     offset,
     baseUrl,
     currentPage,
+    whereRelated,
     user: _user // Reserved for future ACL implementation
   } = options;
 
@@ -971,6 +1020,25 @@ async function handleRepeatableGlobal<T extends GlobalTypes = GlobalTypes>(
   // can apply unconditionally.
   if (status !== 'all') {
     whereConditions.push(eq((globalTable as any).status, status));
+  }
+
+  // Relationship filtering — the junction is owned by this global, so the
+  // subquery returns `global_<slug>.id` values.
+  if (whereRelated) {
+    const relatedIds = await buildRelationshipSubquery({
+      ownerType: 'global',
+      ownerSlug: globalSlug,
+      relationField: whereRelated.field,
+      targetValues: whereRelated.value,
+      recursive: whereRelated.recursive || false,
+      resolveDescendants: getAllDescendantItems
+    });
+
+    if (relatedIds.length > 0) {
+      whereConditions.push(inArray((globalTable as any).id, relatedIds));
+    } else {
+      whereConditions.push(sql`1 = 0`);
+    }
   }
 
   // Handle different query types

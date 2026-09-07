@@ -6,6 +6,7 @@
   import { quintIn, quintOut } from 'svelte/easing';
   import { m } from '$sailor/i18n';
   import { getStatusBadge } from 'sailorcms/core/ui/status-badge';
+  import { stripHtml } from 'sailorcms/core/content/display';
 
   let {
     title,
@@ -20,6 +21,7 @@
     isDragging = false,
     children,
     tags = [],
+    badges = [],
     featured = false,
     showSelection = false,
     isSelected = false,
@@ -30,6 +32,8 @@
   }: {
     title: string;
     subtitle?: string;
+    /** Small neutral counters, e.g. how many items a relation field holds. */
+    badges?: Array<{ label: string; count: number }>;
     open?: boolean;
     onToggle?: () => void;
     onEdit?: () => void;
@@ -48,6 +52,11 @@
     statusOptions?: Array<{ label: string; value: string }>;
     onStatusToggle?: (next: string) => void;
   } = $props();
+
+  // Callers pass a description straight through, and a description can be a
+  // rich text field. Both the preview and its tooltip render as text, so any
+  // markup would show up literally.
+  const subtitleText = $derived(subtitle ? stripHtml(subtitle) : '');
 
   // Row click expands/collapses only when there is something to expand AND
   // when the card isn't using a modal-edit pattern (onEdit takes over from
@@ -113,12 +122,24 @@
       <div class="flex items-center gap-2">
         <div class="flex items-center gap-2">
           <h4 class="text-sm leading-tight font-medium">{title}</h4>
-          {#if subtitle}
-            <span class="text-muted-foreground max-w-[200px] truncate text-xs" title={subtitle}>
-              • {subtitle.length > 50 ? subtitle.substring(0, 50) + '...' : subtitle}
+          {#if subtitleText}
+            <span class="text-muted-foreground max-w-[200px] truncate text-xs" title={subtitleText}>
+              • {subtitleText}
             </span>
           {/if}
         </div>
+        {#if badges && badges.length > 0}
+          <div class="flex gap-1">
+            {#each badges as badge (badge.label)}
+              <span
+                class="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs tabular-nums"
+                title="{badge.label}: {badge.count}"
+              >
+                {badge.count}
+              </span>
+            {/each}
+          </div>
+        {/if}
         {#if tags && tags.length > 0}
           <div class="flex gap-1">
             {#each tags.slice(0, 3) as tag (typeof tag === 'string' ? tag : tag.name)}

@@ -129,7 +129,7 @@
 </script>
 
 <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-  <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+  <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
     <DialogHeader>
       <DialogTitle>
         {isNewItem

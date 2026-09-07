@@ -132,6 +132,15 @@ export class TableGenerator {
       id: this.getPrimaryKeyField(),
       [`${fromTable.split('_')[0]}_id`]: this.getTextField({ notNull: true }),
       target_id: this.getTextField({ notNull: true }),
+      // Two independent orderings over the same edges, because one integer
+      // cannot express both. `sort` groups by owner: "this target is Nth in the
+      // owner's list" — a byline order, a curated related-posts order. It is
+      // what the relation picker writes. `inverse_sort` groups by target: "this
+      // owner is Nth among everything pointing at this target" — the order of
+      // products within a category. Both default to 0, so untouched data ties
+      // and falls back to the target's own `sort` exactly as before.
+      sort: this.getIntegerField({ notNull: true, default: 0 }),
+      inverse_sort: this.getIntegerField({ notNull: true, default: 0 }),
       created_at: this.getTimestampField(),
       updated_at: this.getTimestampField()
     };

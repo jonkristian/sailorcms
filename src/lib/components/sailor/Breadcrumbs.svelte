@@ -31,7 +31,10 @@
   function labelFor(segment: string): string {
     const fn = SEGMENT_LABELS[segment];
     if (fn) return fn();
-    return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+    // Slugs use either separator — `product_categories` was rendering as
+    // "Product_categories" because only hyphens were handled, and only the
+    // first word was capitalised.
+    return segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
   }
 
   let breadcrumbs: Breadcrumb[] = $derived(

@@ -3,6 +3,7 @@ import { faqGlobal } from './faq';
 import { menusGlobal } from './menus';
 import { detailsGlobal } from './details';
 import { submissionsGlobal } from './submissions';
+import { productCategoriesGlobal } from './productCategories';
 
 /**
  * Global Definitions
@@ -18,5 +19,6 @@ export const globalDefinitions = {
   faq: faqGlobal,
   menus: menusGlobal,
   details: detailsGlobal,
-  submissions: submissionsGlobal
+  submissions: submissionsGlobal,
+  product_categories: productCategoriesGlobal
 };

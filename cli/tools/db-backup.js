@@ -25,10 +25,10 @@ export function registerDbBackup(program) {
           process.exit(1);
         }
 
-        console.log('🗄️ Starting database backup...');
+        console.log('Starting database backup...');
 
         if (options.dryRun) {
-          console.log('🔍 DRY RUN MODE - No actual backup will be created');
+          console.log('DRY RUN MODE - No actual backup will be created');
         }
 
         // Look for SQLite database file
@@ -49,18 +49,18 @@ export function registerDbBackup(program) {
           .replace('T', '_')
           .slice(0, 19);
 
-        console.log(`📋 Site: ${siteName}`);
-        console.log(`📁 Database: ${dbPath}`);
+        console.log(`Site: ${siteName}`);
+        console.log(`Database: ${dbPath}`);
         console.log(`⏰ Timestamp: ${timestamp}`);
 
         if (options.dryRun) {
           const bucket = validationResult.bucket;
-          console.log(`🔍 Would create backup: ${siteName}-${timestamp}.sqlite.gz`);
+          console.log(`Would create backup: ${siteName}-${timestamp}.sqlite.gz`);
           if (bucket) {
-            console.log(`🔍 Would upload to: ${bucket}/backup/${siteName}-${timestamp}.sqlite.gz`);
+            console.log(`Would upload to: ${bucket}/backup/${siteName}-${timestamp}.sqlite.gz`);
           } else {
             console.log(
-              `🔍 Would save locally to: ${options.tempDir}/${siteName}-${timestamp}.sqlite.gz`
+              `Would save locally to: ${options.tempDir}/${siteName}-${timestamp}.sqlite.gz`
             );
           }
           console.log('✅ Dry run completed');
@@ -79,8 +79,8 @@ export function registerDbBackup(program) {
             timestamp
           );
           console.log('✅ Backup saved locally!');
-          console.log(`📊 Backup size: ${backupInfo.size}`);
-          console.log(`📁 Local backup: ${finalPath}`);
+          console.log(`Backup size: ${backupInfo.size}`);
+          console.log(`Local backup: ${finalPath}`);
           return;
         }
 
@@ -95,10 +95,10 @@ export function registerDbBackup(program) {
 
           // Remove local temp file
           await fs.unlink(backupInfo.localPath);
-          console.log('🧹 Cleaned up temporary files');
+          console.log('Cleaned up temporary files');
 
           console.log('✅ Backup completed successfully!');
-          console.log(`📊 Backup size: ${backupInfo.size}`);
+          console.log(`Backup size: ${backupInfo.size}`);
           console.log(`☁️ Uploaded to: ${bucket}/backup/${siteName}-${timestamp}.sqlite.gz`);
         } else {
           // No S3 configured, save locally to ./backup/
@@ -109,11 +109,11 @@ export function registerDbBackup(program) {
             timestamp
           );
           console.log('✅ Backup saved locally!');
-          console.log(`📊 Backup size: ${backupInfo.size}`);
-          console.log(`📁 Local backup: ${localBackupPath}`);
+          console.log(`Backup size: ${backupInfo.size}`);
+          console.log(`Local backup: ${localBackupPath}`);
 
           console.log(
-            '💡 Configure S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY to enable cloud backup'
+            'Configure S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY to enable cloud backup'
           );
         }
       } catch (error) {
@@ -239,12 +239,12 @@ async function createSQLiteBackup(dbPath, options, siteName, timestamp) {
 
   // Create proper SQLite backup using VACUUM INTO
   await createSQLiteVacuumBackup(dbPath, tempPath);
-  console.log('📋 Created SQLite backup');
+  console.log('Created SQLite backup');
 
   // Compress the backup
   const compressedPath = await compressFile(tempPath);
   await fs.unlink(tempPath); // Remove uncompressed version
-  console.log('🗜️ Compressed backup');
+  console.log('Compressed backup');
 
   const stats = await fs.stat(compressedPath);
 
@@ -362,6 +362,15 @@ async function uploadToS3(backupPath, options, siteName, timestamp, bucket) {
     const region = process.env.S3_REGION || 'auto';
 
     const client = new S3Client({
+      // R2 and other S3-compatible providers don't fully implement the
+      // checksums the SDK enables by default from 3.729 — the body stream
+      // stalls rather than failing. Mirrors s3-client.server.ts.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+      // The SDK's default request timeout is 0, i.e. none, so a stall hangs
+      // the command forever with nothing logged.
+      requestHandler: { requestTimeout: 120_000, connectionTimeout: 5_000 },
+
       region: region,
       endpoint: endpoint,
       credentials: {
@@ -407,6 +416,15 @@ async function cleanupOldBackups(options, siteName, bucket) {
     const region = process.env.S3_REGION || 'auto';
 
     const client = new S3Client({
+      // R2 and other S3-compatible providers don't fully implement the
+      // checksums the SDK enables by default from 3.729 — the body stream
+      // stalls rather than failing. Mirrors s3-client.server.ts.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+      // The SDK's default request timeout is 0, i.e. none, so a stall hangs
+      // the command forever with nothing logged.
+      requestHandler: { requestTimeout: 120_000, connectionTimeout: 5_000 },
+
       region: region,
       endpoint: endpoint,
       credentials: {
@@ -425,7 +443,7 @@ async function cleanupOldBackups(options, siteName, bucket) {
     const objects = response.Contents || [];
 
     if (objects.length === 0) {
-      console.log('🧹 No existing backups found to cleanup');
+      console.log('No existing backups found to cleanup');
       return;
     }
 
@@ -436,7 +454,7 @@ async function cleanupOldBackups(options, siteName, bucket) {
     const objectsToDelete = objects.filter((obj) => obj.LastModified < cutoffDate);
 
     if (objectsToDelete.length === 0) {
-      console.log(`🧹 No backups older than ${options.retention} days found`);
+      console.log(`No backups older than ${options.retention} days found`);
       return;
     }
 
@@ -448,10 +466,10 @@ async function cleanupOldBackups(options, siteName, bucket) {
       });
 
       await client.send(deleteCommand);
-      console.log(`🗑️ Deleted old backup: ${obj.Key}`);
+      console.log(`Deleted old backup: ${obj.Key}`);
     }
 
-    console.log(`🧹 Cleaned up ${objectsToDelete.length} old backup(s) from S3`);
+    console.log(`Cleaned up ${objectsToDelete.length} old backup(s) from S3`);
   } catch (error) {
     console.warn('⚠️ S3 cleanup warning:', error.message);
     // Don't fail the backup if cleanup fails

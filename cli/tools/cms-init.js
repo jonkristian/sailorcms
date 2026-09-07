@@ -26,10 +26,10 @@ export function registerCoreInit(program) {
     .option('--force', 'Force overwrite existing files (use with caution)')
     .action(async (options) => {
       try {
-        console.log('🚢 Initializing Sailor CMS...\n');
+        console.log('Initializing Sailor CMS...\n');
         const targetDir = options.dir || process.cwd();
         // Check if we're in a SvelteKit project
-        console.log('🔍 Validating SvelteKit project...');
+        console.log('Validating SvelteKit project...');
         const packageJsonPath = path.join(targetDir, 'package.json');
         if (!(await fs.pathExists(packageJsonPath))) {
           console.error(
@@ -113,7 +113,7 @@ export function registerCoreInit(program) {
 
             if (missingDeps.length > 0 || missingDevDeps.length > 0) {
               console.log(
-                `📋 Found ${missingDeps.length} production and ${missingDevDeps.length} development dependencies to install\n`
+                `Found ${missingDeps.length} production and ${missingDevDeps.length} development dependencies to install\n`
               );
 
               // Add dependencies to package.json
@@ -137,7 +137,7 @@ export function registerCoreInit(program) {
               const installCommand = getInstallCommand(packageManager);
 
               console.log(
-                `📦 Installing ${missingDeps.length + missingDevDeps.length} dependencies with ${packageManager}...`
+                `Installing ${missingDeps.length + missingDevDeps.length} dependencies with ${packageManager}...`
               );
 
               try {
@@ -166,7 +166,7 @@ export function registerCoreInit(program) {
           }
 
           // Copy templates and configuration files
-          console.log('🚢 Setting up Sailor CMS files...');
+          console.log('Setting up Sailor CMS files...');
           const setupResult = await setupSailorFiles(targetDir, options.force);
           console.log('✅ Files copied successfully');
 
@@ -220,8 +220,8 @@ backup/
             console.log('ℹ️  nixpacks.toml already exists, leaving alone');
           }
 
-          console.log('\n🎉 Sailor CMS files installed successfully!');
-          console.log('\n🚀 Next steps:');
+          console.log('\nSailor CMS files installed successfully!');
+          console.log('\nNext steps:');
           console.log(
             '1. Review .env (DATABASE_URL defaults to file:./sailor.sqlite — change for Turso/Postgres) and merge any extras from .env.sailor'
           );

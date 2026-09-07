@@ -84,9 +84,7 @@ export async function runAccountIssuerRepair({ client, dryRun = false }) {
     byProvider.set(providerId, bucket);
   }
 
-  console.log(
-    dryRun ? '🔍 Dry run — accounts.issuer backfill:' : '🛠️  Backfilling accounts.issuer…'
-  );
+  console.log(dryRun ? 'Dry run — accounts.issuer backfill:' : 'Backfilling accounts.issuer…');
   for (const [providerId, ids] of byProvider) {
     console.log(`  ${providerId} → '${issuerFor(providerId)}' (${ids.length} row(s))`);
   }
@@ -191,7 +189,9 @@ export async function runCredentialAccountIdRepair({ client, dryRun = false }) {
   if (clashes.length > 0) {
     console.error('\n❌ Refusing to realign — target account_id already taken:');
     for (const c of clashes) {
-      console.error(`   account ${c.id}: user_id '${c.user_id}' is another credential row's account_id`);
+      console.error(
+        `   account ${c.id}: user_id '${c.user_id}' is another credential row's account_id`
+      );
     }
     console.error(
       '\n   Two credential rows point at the same user. Decide which to keep\n' +
@@ -201,9 +201,7 @@ export async function runCredentialAccountIdRepair({ client, dryRun = false }) {
   }
 
   console.log(
-    dryRun
-      ? '🔍 Dry run — credential account_id realignment:'
-      : '🛠️  Realigning credential account_id…'
+    dryRun ? 'Dry run — credential account_id realignment:' : 'Realigning credential account_id…'
   );
   for (const r of pending.rows) {
     console.log(`  account ${r.id}: '${r.account_id}' → '${r.user_id}'`);

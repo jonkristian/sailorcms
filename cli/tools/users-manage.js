@@ -19,7 +19,7 @@ export function registerUserCommands(program) {
     .action(async () => {
       try {
         const database = await getDb();
-        console.log('📋 Fetching users...\n');
+        console.log('Fetching users...\n');
         const allUsers = await database
           .select({
             id: users.id,
@@ -64,23 +64,23 @@ export function registerUserCommands(program) {
 
       try {
         const database = await getDb();
-        console.log(`🔍 Looking for user with email: ${email}`);
+        console.log(`Looking for user with email: ${email}`);
         const user = (await database.select().from(users).where(eq(users.email, email))).at(0);
         if (!user) {
           console.error('❌ User not found with that email');
-          console.log('💡 Make sure the user has signed up first (via email/password or OAuth)');
+          console.log('Make sure the user has signed up first (via email/password or OAuth)');
           process.exit(1);
         }
 
-        console.log(`👤 Found user: ${user.name || 'No name'} (ID: ${user.id})`);
-        console.log(`📝 Current role: ${user.role || 'No role assigned'}`);
+        console.log(`Found user: ${user.name || 'No name'} (ID: ${user.id})`);
+        console.log(`Current role: ${user.role || 'No role assigned'}`);
 
         if (user.role === role) {
           console.log(`ℹ️  User already has role: ${role}`);
           return;
         }
 
-        console.log(`🔄 Assigning role: ${role}`);
+        console.log(`Assigning role: ${role}`);
 
         // Update user role
         await database.update(users).set({ role }).where(eq(users.email, email));
@@ -100,16 +100,16 @@ export function registerUserCommands(program) {
     .action(async (email) => {
       try {
         const database = await getDb();
-        console.log(`🔍 Looking for user with email: ${email}`);
+        console.log(`Looking for user with email: ${email}`);
         const user = (await database.select().from(users).where(eq(users.email, email))).at(0);
         if (!user) {
           console.error('❌ User not found with that email');
           process.exit(1);
         }
 
-        console.log(`👤 Found user: ${user.name || 'No name'} (ID: ${user.id})`);
+        console.log(`Found user: ${user.name || 'No name'} (ID: ${user.id})`);
         console.log(
-          `📧 Current email verification status: ${user.email_verified ? 'Verified' : 'Not verified'}`
+          `Current email verification status: ${user.email_verified ? 'Verified' : 'Not verified'}`
         );
 
         if (user.email_verified) {
@@ -117,7 +117,7 @@ export function registerUserCommands(program) {
           return;
         }
 
-        console.log('🔄 Verifying user email...');
+        console.log('Verifying user email...');
 
         // Update user email verification status
         await database.update(users).set({ email_verified: true }).where(eq(users.email, email));

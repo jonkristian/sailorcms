@@ -33,9 +33,6 @@ export const getUniqueSlug = query(
   }
 );
 
-/**
- * Get items from a collection table for relation fields
- */
 export const getCollectionItems = command(
   'unchecked',
   async ({ collection }: { collection: string }) => {

@@ -1,6 +1,7 @@
 import type { CollectionDefinition } from 'sailorcms/core/types';
 import { postsCollection } from './posts';
 import { pagesCollection } from './pages';
+import { productsCollection } from './products';
 
 /**
  * Collection Definitions
@@ -10,5 +11,6 @@ import { pagesCollection } from './pages';
  */
 export const collectionDefinitions: Record<string, CollectionDefinition> = {
   posts: postsCollection,
-  pages: pagesCollection
+  pages: pagesCollection,
+  products: productsCollection
 };

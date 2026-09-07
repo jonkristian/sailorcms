@@ -13,6 +13,7 @@
   import { formatTableDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { getStatusBadge } from 'sailorcms/core/ui/status-badge';
+  import { relationBadgeFields } from 'sailorcms/core/ui/relation-badge';
   import { m } from '$sailor/i18n';
 
   const {
@@ -22,7 +23,9 @@
     onDelete,
     onBulkDelete,
     sortable = false,
+    nestable = false,
     onReorder,
+    onNestChange,
     pagination
   }: {
     global: any;
@@ -31,7 +34,11 @@
     onDelete: (itemId: string) => void;
     onBulkDelete?: (itemIds: string[]) => void;
     sortable?: boolean;
+    /** Render the parent/child tree rather than a flat list. `DataTable` builds
+     *  it from `parent_id`; without this a nestable global loses its hierarchy. */
+    nestable?: boolean;
     onReorder?: (items: any[]) => void;
+    onNestChange?: (draggedId: string, newParentId: string | null, newIndex: number) => void;
     pagination?: PaginationData | null;
   } = $props();
 
@@ -88,8 +95,74 @@
         ]
   );
 
-  // First column should be clickable to open detail view
-  let firstColumnKey = $derived(columns[0]?.key);
+  // First column should be clickable to open detail view — but only if it
+  // holds something label-shaped. A `reverse` or `relation` column holds an
+  // array, so making it the clickable label renders the array and skips the
+  // branch that would have counted it. Falls back to `title`, which every
+  // content table has.
+  /**
+   * Which columns render as a relation count. Shared with the tree's badges via
+   * `relationBadgeFields`, so the two cannot disagree about what is countable —
+   * they did, and a single-FK relation rendered a bare `0` here and no badge
+   * there. Independent of `nestable`: a flat global still counts, it just has
+   * nothing to roll up.
+   */
+  const countableKeys = $derived(
+    new Set(relationBadgeFields(global.fields).map((field) => field.key))
+  );
+
+  /**
+   * Relation counts rolled up through the tree, keyed `field -> item id`.
+   *
+   * A category with no edges of its own still contains everything its children
+   * do, and roots render collapsed — so the direct count showed "0 produkter"
+   * for a category holding thirty. Rolls up by union of ids rather than summing
+   * counts, so a row filed under two sibling categories is counted once.
+   *
+   * Display only: the field's own value is untouched, so nothing here changes
+   * what a `reverse` read returns or how `orderBy: 'relation'` sorts.
+   */
+  const rolledUpCounts = $derived.by(() => {
+    const keys = columns.map((column) => column.key).filter((key) => countableKeys.has(key));
+    const result = new Map<string, Map<string, number>>();
+    if (keys.length === 0 || !nestable) return result;
+
+    const childrenOf = new Map<string, any[]>();
+    for (const item of items ?? []) {
+      const parent = item?.parent_id;
+      if (!parent) continue;
+      (childrenOf.get(parent) ?? childrenOf.set(parent, []).get(parent)!).push(item);
+    }
+
+    for (const key of keys) {
+      const counts = new Map<string, number>();
+      // `seen` guards a corrupted parent chain; without it a cycle recurses
+      // until the stack gives out.
+      const collect = (item: any, seen: Set<string>): Set<string> => {
+        const ids = new Set<string>();
+        if (!item?.id || seen.has(item.id)) return ids;
+        seen.add(item.id);
+        for (const row of Array.isArray(item[key]) ? item[key] : []) {
+          const id = row && typeof row === 'object' ? row.id : row;
+          if (id) ids.add(id);
+        }
+        for (const child of childrenOf.get(item.id) ?? []) {
+          for (const id of collect(child, seen)) ids.add(id);
+        }
+        counts.set(item.id, ids.size);
+        return ids;
+      };
+      for (const item of items ?? []) collect(item, new Set());
+      result.set(key, counts);
+    }
+    return result;
+  });
+
+  const LABEL_UNSUITABLE = new Set(['reverse', 'relation', 'array', 'file', 'tags']);
+  let firstColumnKey = $derived(
+    columns.find((column) => !LABEL_UNSUITABLE.has((global.fields as any)?.[column.key]?.type))
+      ?.key ?? 'title'
+  );
 </script>
 
 <div class="space-y-6">
@@ -134,7 +207,9 @@
       {items}
       {columns}
       {sortable}
+      {nestable}
       {onReorder}
+      {onNestChange}
       selectable={true}
       selectedItems={selection.selectedItems}
       onSelect={selection.handleSelect}
@@ -156,6 +231,14 @@
         {:else if column.key === 'status'}
           {@const badge = getStatusBadge(item[column.key])}
           <Badge class={badge.classes}>{badge.label}</Badge>
+        {:else if countableKeys.has(column.key)}
+          <!-- Relations render as a count, forward or reverse. The list loaders
+               already attach the values, so this costs no extra query. In a
+               nestable global the count includes descendants — see
+               `rolledUpCounts`. -->
+          {@const direct = Array.isArray(item[column.key]) ? item[column.key].length : 0}
+          {@const count = rolledUpCounts.get(column.key)?.get(item.id) ?? direct}
+          <span class="text-muted-foreground text-sm tabular-nums">{count}</span>
         {:else if fieldType === 'select'}
           <Badge
             variant={item[column.key] === 'new'

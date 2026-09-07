@@ -22,7 +22,8 @@ import { ensureUniqueSlug } from '../../utils/slug';
 import { TagService } from '../../services/tag.server';
 import { SearchIndexService } from '../../services/search-index.server';
 import { toSnakeCase } from '../../utils/string';
-import { getCurrentTimestamp } from '../../utils/date';
+import { persistReverseRelations } from './reverse-relations.server';
+import { getCurrentTimestamp, getCurrentTimestampSeconds } from '../../utils/date';
 import { syncArrayRowFiles, clearArrayRowFiles } from './array-row-files.server';
 import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
@@ -104,12 +105,21 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
 
     // For flat globals, the id is the slug (singleton convention). For
     // repeatable, use the provided id or generate a fresh one (create path).
-    const itemId = isFlat ? globalSlug : opts.itemId || generateUUID();
+    //
+    // `data.id` is accepted as a fallback because a form payload naturally
+    // carries it: without this, passing the id inside `data` silently takes the
+    // create branch and fails as "no permission to create content", which
+    // points nowhere near the cause.
+    const itemId = isFlat ? globalSlug : opts.itemId || (data as any)?.id || generateUUID();
 
     // Categorize fields — same pattern as collections.
     const arrayFields: Record<string, any[]> = {};
     const fileFields: Record<string, any> = {};
     const tagFields: Record<string, any[]> = {};
+    // Many-to-many values live in a junction, not on the main row — the
+    // generator emits no column for them. They must not reach `regularFields`.
+    const manyToManyFields: Record<string, any[]> = {};
+    const reverseFields: Record<string, any[]> = {};
     const regularFields: Record<string, any> = {};
 
     Object.entries(data).forEach(([key, value]) => {
@@ -134,6 +144,11 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
           }
         }
         tagFields[key] = Array.isArray(parsedTags) ? parsedTags : [];
+      } else if (fieldDef?.type === 'relation' && fieldDef?.relation?.type === 'many-to-many') {
+        manyToManyFields[key] = Array.isArray(value) ? value : [];
+      } else if (fieldDef?.type === 'reverse') {
+        // Written to the forward side's junction, never to a column here.
+        reverseFields[key] = Array.isArray(value) ? value : [];
       } else if (key !== 'id' && fieldDef) {
         regularFields[key] = value;
       }
@@ -432,6 +447,37 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
             item,
             'global'
           );
+        }
+      }
+
+      // Reverse fields — edits made from the side that does not own the
+      // relation. Reconciled by target rather than deleted wholesale.
+      await persistReverseRelations(tx, globalFields, itemId, reverseFields);
+
+      // Many-to-many fields. Anchored on the main row id (`itemId`), not the
+      // `_locales` row — that is what `persistGlobalRelations` uses, and reads
+      // have to find what writes put there. Delete-and-reinsert, so the
+      // picker's array order becomes the junction's `sort`.
+      for (const [fieldName, relationItems] of Object.entries(manyToManyFields)) {
+        const fieldDef = globalFields[fieldName];
+        const junctionTableName =
+          fieldDef?.relation?.through || `junction_${globalSlug}_${toSnakeCase(fieldName)}`;
+        if (!(schema as any)[junctionTableName]) continue;
+
+        await tx.run(
+          sql`DELETE FROM ${sql.identifier(junctionTableName)} WHERE global_id = ${itemId}`
+        );
+
+        let relationSort = 0;
+        for (const entry of relationItems) {
+          const targetId = typeof entry === 'object' && entry ? (entry as any).id : entry;
+          if (!targetId) continue;
+          await tx.run(
+            sql`INSERT INTO ${sql.identifier(junctionTableName)}
+                (id, global_id, target_id, sort, created_at, updated_at)
+                VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${relationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})`
+          );
+          relationSort++;
         }
       }
     });

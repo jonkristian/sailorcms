@@ -4,7 +4,7 @@
 // (header actions, site URL) live here, the actual data load lives in the
 // loader. Localized + non-localized branching all happens inside the loader.
 
-import { error, redirect } from '@sveltejs/kit';
+import { error, redirect, isHttpError, isRedirect } from '@sveltejs/kit';
 import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
 import { loadCollectionItem } from 'sailorcms/core/data/loaders/collection-item.server';
 import type { PageServerLoad } from './$types';
@@ -27,6 +27,10 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
       locale: url.searchParams.get('locale') ?? undefined
     });
   } catch (err) {
+    // A `redirect()` or `error()` thrown deeper is a deliberate response, not a
+    // failure — rethrow it untouched. Flattening everything into a 500 here
+    // turned auth redirects and 404s into server errors.
+    if (isHttpError(err) || isRedirect(err)) throw err;
     if (err && (err as any).notFound) {
       throw error(404, (err as Error).message);
     }

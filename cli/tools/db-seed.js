@@ -390,7 +390,7 @@ export function registerDbSeed(program) {
     .description('Seed database with roles, collections, blocks, and globals from templates')
     .action(async () => {
       try {
-        console.log('🌱 Seeding database from templates...');
+        console.log('Seeding database from templates...');
         await seedAll();
         console.log('✅ Database seeded successfully!');
       } catch (error) {

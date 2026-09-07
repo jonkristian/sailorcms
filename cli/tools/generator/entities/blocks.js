@@ -234,6 +234,9 @@ export class BlockGenerator {
         continue;
       }
 
+      // `reverse` is a read of another entity's relation — no column, no table.
+      if (fieldDef.type === 'reverse') continue;
+
       if (fieldDef.type === 'relation') {
         // Handle relation fields that need foreign keys in main table
         const relation = fieldDef.relation;
@@ -254,6 +257,9 @@ export class BlockGenerator {
         // a column on the entity. Skip so we don't create a phantom column.
         continue;
       }
+
+      // `reverse` is a read of another entity's relation — no column, no table.
+      if (fieldDef.type === 'reverse') continue;
 
       fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef);
     }

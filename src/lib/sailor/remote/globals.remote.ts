@@ -5,9 +5,6 @@ import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
 import { getContentSettings } from 'sailorcms/utils/data/collections';
 
-/**
- * Get items from a global table for relation fields
- */
 export const getGlobalItems = command('unchecked', async ({ slug }: { slug: string }) => {
   try {
     // Validate slug format (alphanumeric, underscores, hyphens only)

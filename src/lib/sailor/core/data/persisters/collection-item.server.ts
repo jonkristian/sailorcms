@@ -20,6 +20,7 @@ import { SearchIndexService } from '../../services/search-index.server';
 import { RevisionsService, resolveRevisionsKeep } from '../../services/revisions.server';
 import { childTableName } from '../../utils/string';
 import { getCurrentTimestampSeconds } from '../../utils/date';
+import { persistReverseRelations } from './reverse-relations.server';
 import { syncArrayRowFiles, clearArrayRowFilesByParent } from './array-row-files.server';
 import { saveNestedArrayFields } from '../../content/blocks.server';
 import { GROUP_CONFIG_COLUMNS } from '../../content/block-groups';
@@ -74,7 +75,12 @@ export interface SaveCollectionItemResult {
 export async function saveCollectionItem(
   opts: SaveCollectionItemOptions
 ): Promise<SaveCollectionItemResult> {
-  const { collectionSlug, itemId, formData, user, canCreate, canUpdate, locale } = opts;
+  const { collectionSlug, formData, user, canCreate, canUpdate, locale } = opts;
+  // `formData.id` is accepted as a fallback because a form payload naturally
+  // carries it. Unlike the globals persister this already failed loudly rather
+  // than silently creating, but the error named the option rather than the
+  // thing the caller had.
+  const itemId = opts.itemId || (formData as any)?.id;
 
   if (!collectionSlug || !itemId || !formData) {
     return { success: false, error: 'Collection slug, item ID, and form data are required' };
@@ -122,6 +128,7 @@ export async function saveCollectionItem(
     const regularFields: Record<string, any> = {};
     const arrayFields: Record<string, any[]> = {};
     const relationFields: Record<string, any[]> = {};
+    const reverseFields: Record<string, any[]> = {};
     const tagFields: Record<string, any[]> = {};
     const fileFields: Record<string, any> = {};
 
@@ -133,6 +140,9 @@ export async function saveCollectionItem(
 
       if (fieldDef?.type === 'array') {
         arrayFields[key] = value as any[];
+      } else if (fieldDef?.type === 'reverse') {
+        // Written to the forward side's junction, never to a column here.
+        reverseFields[key] = Array.isArray(value) ? value : [];
       } else if (fieldDef?.type === 'file') {
         fileFields[key] = value;
       } else if (fieldDef?.type === 'relation') {
@@ -568,6 +578,14 @@ export async function saveCollectionItem(
         }
       }
 
+      // Reverse fields — edits from the side that does not own the relation.
+      // Keyed on `itemId`, the main row: in the reverse direction this item is
+      // the junction's *target*, and `target_id` holds whatever the forward
+      // picker stored, which is a main row id. `entityId` is the `_locales` row
+      // when localized, so using it here wrote edges no reader could find —
+      // detaches became no-ops and every save inserted another duplicate.
+      await persistReverseRelations(tx, collectionFields, itemId, reverseFields);
+
       // Handle many-to-many relation fields (junction tables)
       if (Object.keys(relationFields).length > 0) {
         for (const [fieldName, relationItems] of Object.entries(relationFields)) {
@@ -590,6 +608,10 @@ export async function saveCollectionItem(
             WHERE collection_id = ${entityId}
           `);
 
+          // Rows are deleted and reinserted on every save, so the picker's
+          // array order is the edge order — persist it as `sort` so this
+          // owner's sequence survives independently of the target's own.
+          let relationSort = 0;
           for (const item of relationItems as any[]) {
             const targetId =
               typeof item === 'string' ? item : item && item.id ? item.id : undefined;
@@ -602,13 +624,15 @@ export async function saveCollectionItem(
                   sql.identifier('id'),
                   sql.identifier('collection_id'),
                   sql.identifier('target_id'),
+                  sql.identifier('sort'),
                   sql.identifier('created_at'),
                   sql.identifier('updated_at')
                 ],
                 sql`, `
               )})
-              VALUES (${generateUUID()}, ${entityId}, ${targetId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
+              VALUES (${generateUUID()}, ${entityId}, ${targetId}, ${relationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
             `);
+            relationSort++;
           }
         }
       }
@@ -781,15 +805,17 @@ export async function saveCollectionItem(
               const fieldValue = (block.content || {})[fieldName];
               if (!fieldValue || !Array.isArray(fieldValue)) continue;
 
+              let blockRelationSort = 0;
               for (const relatedId of fieldValue) {
                 const targetId = typeof relatedId === 'object' ? relatedId.id : relatedId;
                 if (!targetId) continue;
 
                 await tx.run(sql`
                   INSERT INTO ${sql.identifier(junctionTableName)}
-                  (id, block_id, target_id, created_at, updated_at)
-                  VALUES (${generateUUID()}, ${blockData.id}, ${targetId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
+                  (id, block_id, target_id, sort, created_at, updated_at)
+                  VALUES (${generateUUID()}, ${blockData.id}, ${targetId}, ${blockRelationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
                 `);
+                blockRelationSort++;
               }
             }
 

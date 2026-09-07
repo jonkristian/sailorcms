@@ -12,7 +12,7 @@ export function registerDbGenerate(program) {
     )
     .action(async () => {
       try {
-        console.log('🗄️ Generating database schema...');
+        console.log('Generating database schema...');
 
         // If we're in a regular Node.js environment (not tsx/bun), restart with tsx
         if (!process.env.TSX && !process.execPath.includes('bun')) {
@@ -132,6 +132,12 @@ async function generateSchema() {
 
   const schemaContent = await generator.generateSchema();
 
+  assertNoReverseColumns(schemaContent, {
+    globalDefinitions,
+    collectionDefinitions,
+    blockDefinitions
+  });
+
   const generatedDir = path.join(targetDir, 'src/lib/sailor/generated');
   if (!fs.existsSync(generatedDir)) {
     fs.mkdirSync(generatedDir, { recursive: true });
@@ -162,6 +168,183 @@ async function generateSchema() {
   generateBlockGroups(targetDir, { groupFields, groupsEnabled });
 
   generateIcons(targetDir, { globalDefinitions, collectionDefinitions, blockDefinitions });
+
+  generateRelations(targetDir, {
+    globalDefinitions,
+    collectionDefinitions,
+    blockDefinitions,
+    toSnakeCase
+  });
+}
+
+/**
+ * A `reverse` field must never produce a column.
+ *
+ * Column emission is spread across six loops — one per entity type, twice over
+ * for the localized and non-localized main tables — and each needs its own
+ * skip. Missing one does not fail loudly: the field falls through to the
+ * default branch and becomes a `text` column, which is a second place to store
+ * the relation and exactly the drift a reverse field exists to avoid. This
+ * checks the emitted schema instead of trusting that every site was found.
+ */
+function assertNoReverseColumns(
+  schemaContent,
+  { globalDefinitions, collectionDefinitions, blockDefinitions }
+) {
+  const sources = [
+    ['collection', collectionDefinitions || {}],
+    ['global', globalDefinitions || {}],
+    ['block', blockDefinitions || {}]
+  ];
+
+  for (const [prefix, definitions] of sources) {
+    for (const [slug, definition] of Object.entries(definitions)) {
+      const reverseFields = Object.entries(definition.fields || {})
+        .filter(([, def]) => def?.type === 'reverse')
+        .map(([name]) => name);
+      if (reverseFields.length === 0) continue;
+
+      for (const table of [`${prefix}_${slug}`, `${prefix}_${slug}_locales`]) {
+        const match = schemaContent.match(
+          new RegExp(`export const ${table} = \\w+\\('${table}', \\{([\\s\\S]*?)\\n\\}\\)`)
+        );
+        if (!match) continue;
+        for (const field of reverseFields) {
+          if (new RegExp(`\\n\\s+${field}:`).test(match[1])) {
+            throw new Error(
+              `Reverse field '${field}' on ${prefix} '${slug}' produced a column on '${table}'. ` +
+                `A reverse field reads another entity's relation and must emit no column — ` +
+                `a column-emission branch in cli/tools/generator/entities/ is missing its skip.`
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Emit `generated/relations.ts` — every many-to-many in the project, indexed
+ * both by its owner and by its target.
+ *
+ * A `reverse` field names one forward relation and reads the junction that
+ * relation already owns. Resolving that at runtime would mean parsing the
+ * `schema` JSON column on every type row and caching the result, which is a
+ * second reading of template structure plus a cache to invalidate. Emitting it
+ * costs nothing extra: a template edit already requires `db:update`, and doing
+ * it here means a `reverse` pointing at a relation that does not exist fails
+ * during generation rather than silently returning an empty array at runtime.
+ */
+function generateRelations(
+  targetDir,
+  { globalDefinitions, collectionDefinitions, blockDefinitions, toSnakeCase }
+) {
+  const forward = {};
+
+  const sources = [
+    ['collection', collectionDefinitions || {}],
+    ['global', globalDefinitions || {}],
+    ['block', blockDefinitions || {}]
+  ];
+
+  for (const [ownerType, definitions] of sources) {
+    for (const [ownerSlug, definition] of Object.entries(definitions)) {
+      for (const [field, def] of Object.entries(definition.fields || {})) {
+        if (def?.type !== 'relation' || def?.relation?.type !== 'many-to-many') continue;
+        const relation = def.relation;
+        const targetType = relation.targetGlobal ? 'global' : 'collection';
+        const targetSlug = relation.targetGlobal || relation.targetCollection;
+        if (!targetSlug) continue;
+
+        forward[`${ownerType}:${ownerSlug}:${field}`] = {
+          ownerType,
+          ownerSlug,
+          field,
+          // Mirrors `createJunctionTable`: the owner column comes from the
+          // owning table's prefix.
+          junction: relation.through || `junction_${ownerSlug}_${toSnakeCase(field)}`,
+          ownerKey: `${ownerType}_id`,
+          targetType,
+          targetSlug
+        };
+      }
+    }
+  }
+
+  const byTarget = {};
+  for (const relation of Object.values(forward)) {
+    const key = `${relation.targetType}:${relation.targetSlug}`;
+    (byTarget[key] ||= []).push(relation);
+  }
+
+  // Validate every `reverse` declaration while both halves are in hand.
+  for (const [ownerType, definitions] of sources) {
+    for (const [ownerSlug, definition] of Object.entries(definitions)) {
+      for (const [field, def] of Object.entries(definition.fields || {})) {
+        if (def?.type !== 'reverse') continue;
+        const spec = def.reverse || {};
+        const fromType = spec.fromCollection
+          ? 'collection'
+          : spec.fromGlobal
+            ? 'global'
+            : spec.fromBlock
+              ? 'block'
+              : null;
+        const fromSlug = spec.fromCollection || spec.fromGlobal || spec.fromBlock;
+        const where = `${ownerType} '${ownerSlug}' field '${field}'`;
+
+        if (!fromType || !spec.field) {
+          throw new Error(
+            `${where}: a reverse field needs fromCollection/fromGlobal/fromBlock and field.`
+          );
+        }
+        const match = forward[`${fromType}:${fromSlug}:${spec.field}`];
+        if (!match) {
+          throw new Error(
+            `${where}: no many-to-many '${spec.field}' on ${fromType} '${fromSlug}'.`
+          );
+        }
+        if (match.targetType !== ownerType || match.targetSlug !== ownerSlug) {
+          throw new Error(
+            `${where}: '${fromSlug}.${spec.field}' points at ` +
+              `${match.targetType} '${match.targetSlug}', not at this ${ownerType}.`
+          );
+        }
+      }
+    }
+  }
+
+  const content = [
+    '// Auto-generated relation index for Sailor CMS',
+    '// This file is automatically generated - do not edit manually',
+    '',
+    'export type ForwardRelation = {',
+    "  ownerType: 'collection' | 'global' | 'block';",
+    '  ownerSlug: string;',
+    '  field: string;',
+    '  junction: string;',
+    '  ownerKey: string;',
+    "  targetType: 'collection' | 'global';",
+    '  targetSlug: string;',
+    '};',
+    '',
+    '/** Every many-to-many, keyed by `${ownerType}:${ownerSlug}:${field}`. */',
+    'export const forwardRelations: Record<string, ForwardRelation> = ' +
+      JSON.stringify(forward, null, 2) +
+      ';',
+    '',
+    '/** The same relations grouped by what they point at, keyed by `${targetType}:${targetSlug}`. */',
+    'export const relationsByTarget: Record<string, ForwardRelation[]> = ' +
+      JSON.stringify(byTarget, null, 2) +
+      ';',
+    ''
+  ].join('\n');
+
+  const generatedDir = path.join(targetDir, 'src/lib/sailor/generated');
+  if (!fs.existsSync(generatedDir)) {
+    fs.mkdirSync(generatedDir, { recursive: true });
+  }
+  fs.writeFileSync(path.join(generatedDir, 'relations.ts'), content);
 }
 
 /**
@@ -804,6 +987,24 @@ function getTypeScriptType(fieldDef) {
       }
       // No target to resolve — falls back to the raw id string.
       return 'string';
+    }
+
+    case 'reverse': {
+      // A reverse field resolves to rows of the entity that *owns* the
+      // relation, so the element type is that entity — the same information the
+      // relation index already carries. Without this it emits `any[]` and the
+      // panel's contents get no autocomplete.
+      const spec = fieldDef.reverse;
+      const ownerName = spec?.fromCollection
+        ? relationTargetTypeNames.collection[spec.fromCollection]
+        : spec?.fromGlobal
+          ? relationTargetTypeNames.global[spec.fromGlobal]
+          : undefined;
+      if (ownerName) return `${ownerName}[]`;
+      if (spec?.fromCollection || spec?.fromGlobal || spec?.fromBlock) {
+        return 'Record<string, any>[]';
+      }
+      return 'any[]';
     }
 
     case 'array': {

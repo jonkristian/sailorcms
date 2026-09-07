@@ -9,6 +9,7 @@
   import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
+  import { relationBadges } from 'sailorcms/core/ui/relation-badge';
   import { generateUUID } from 'sailorcms/core/utils/common';
   import { reorderGlobalItems, deleteGlobalItem } from '../data.remote.js';
 
@@ -271,6 +272,7 @@
         <DraggableCard
           title={node.name}
           subtitle={node.description}
+          badges={relationBadges(node, global.fields)}
           open={false}
           onEdit={() => handleEdit(node)}
           onRemove={canDelete ? () => handleDelete(node.id) : undefined}

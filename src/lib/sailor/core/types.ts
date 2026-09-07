@@ -25,6 +25,7 @@ export type FieldType =
   | 'select'
   | 'color'
   | 'relation'
+  | 'reverse'
   | 'array'
   | 'object'
   | 'file'
@@ -53,6 +54,8 @@ export const FIELD_TS_TYPES: Record<FieldType, string> = {
   select: 'string',
   color: 'string',
   relation: 'string',
+  // Populated only when relations are requested, hence the optional array.
+  reverse: 'any[]',
   array: 'any[]',
   object: 'Record<string, any>',
   file: 'string',
@@ -93,6 +96,49 @@ export interface FieldDefinition {
     targetGlobal?: string;
     foreignKey?: string;
     through?: string; // For many-to-many relationships
+    /**
+     * Offer this relation as a filter on the admin list (default: true for
+     * many-to-many). Self-referential relations are excluded regardless —
+     * they are per-item curation, not a taxonomy to filter by.
+     */
+    filterable?: boolean;
+  };
+  /**
+   * For `reverse` fields — a read of an existing relation from the side that
+   * does not declare it.
+   *
+   * A `reverse` field never emits a column and never generates a junction
+   * table. It resolves to the junction the forward side already created and
+   * reads it from the other end, so there is only ever one edge set. Declaring
+   * the same relation from both sides instead would produce two junctions that
+   * drift the first time someone edits the side you did not treat as canonical.
+   *
+   * `from*` + `field` name exactly one forward relation, which is what makes
+   * resolution deterministic and checkable at generate time — a slug alone is
+   * ambiguous when an entity declares two relations at the same target.
+   */
+  reverse?: {
+    fromCollection?: string;
+    fromGlobal?: string;
+    fromBlock?: string;
+    /** The many-to-many field on that entity which points back here. */
+    field: string;
+    /**
+     * Cap how many edges are read. Ignored when the field is editable: the
+     * editor submits what it was given, and the writer treats anything missing
+     * from that list as a detach, so a truncated read would delete the rest on
+     * the first save.
+     */
+    limit?: number;
+    /**
+     * Allow attaching, detaching and reordering from this side (default: true).
+     *
+     * Writes go to the junction the forward side owns — there is still one edge
+     * set. Ordering is written to `inverse_sort`, which is this side's own
+     * sequence; the owner's `sort` is left alone, since it means something
+     * different.
+     */
+    editable?: boolean;
   };
   // For array fields - OR for file fields (preferred for file fields going forward)
   items?:
@@ -451,6 +497,13 @@ export type GlobalDefinition = {
     sortable?: boolean; // enable manual sorting in UI
     nestable?: boolean; // enable parent-child relationships (repeatable only)
     inline?: boolean; // edit inline vs navigate to separate pages (repeatable only)
+    /**
+     * Repeatable only. `'table'` renders the column-and-filter table instead of
+     * the nested tree or the inline editor, and takes precedence over both.
+     * The table still drags to reorder and to reparent when `nestable` is set,
+     * so a hierarchy stays editable with the columns visible.
+     */
+    view?: 'list' | 'table';
     titleField?: string; // Field to use as title for display
     readonly?: boolean; // make items read-only (hide create/edit UI)
     defaultView?: 'edit' | 'read'; // 'read' opens existing items in a read-only view with an Edit toggle (good for submissions); new items always start in edit mode

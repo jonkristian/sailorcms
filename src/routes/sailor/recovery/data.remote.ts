@@ -11,6 +11,7 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import { log } from 'sailorcms/core/utils/logger';
 import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 import { RevisionsService } from 'sailorcms/core/services/revisions.server';
+import { purgeEntityChildren } from 'sailorcms/core/data/persisters/purge-children.server';
 import { StorageProviderFactory } from 'sailorcms/core/services/storage-provider.server';
 import { ImageProcessor } from 'sailorcms/core/services/image.server';
 
@@ -29,21 +30,49 @@ export const purgeCollectionItem = command(
       if (!table) {
         return { success: false, error: `Collection '${collectionSlug}' not found` };
       }
+      // Establish that the item is really in the bin *before* destroying
+      // anything. The guard used to live only on the final DELETE, so purging
+      // an item someone had restored in the meantime still wiped its locales,
+      // arrays, files and relations — and reported success, leaving a live row
+      // stripped of everything it owned.
+      const trashed = await db
+        .select({ id: (table as any).id })
+        .from(table as any)
+        .where(and(eq((table as any).id, itemId), isNotNull((table as any).deleted_at)))
+        .limit(1);
+      if (trashed.length === 0) {
+        return { success: false, error: 'Item not found in recovery' };
+      }
+
       const isLocalized =
         (fieldConfigurations as any).collections?.[collectionSlug]?.localized === true;
-      // For localized collections the `_locales` sibling holds a FK back to
-      // main; SQLite blocks the main DELETE until those rows go. Drop them
-      // first within the same transaction so the purge stays atomic.
-      if (isLocalized) {
-        const localesTable = schema[
-          `collection_${collectionSlug}_locales` as keyof typeof schema
-        ] as any;
-        if (localesTable) {
-          await db.delete(localesTable).where(eq(localesTable[`${collectionSlug}_id`], itemId));
-        }
+      const localesTable = isLocalized
+        ? (schema[`collection_${collectionSlug}_locales` as keyof typeof schema] as any)
+        : null;
+
+      // A localized entity's children key on its `_locales` row ids, not the
+      // main id, so collect them while those rows still exist.
+      const localeIds: string[] = localesTable
+        ? (
+            await db
+              .select({ id: localesTable.id })
+              .from(localesTable)
+              .where(eq(localesTable[`${collectionSlug}_id`], itemId))
+          ).map((row: any) => row.id)
+        : [];
+
+      // Child rows first: junction edges, array rows and file links. Leaving
+      // them behind is invisible but not harmless — an orphaned junction row
+      // still reads as an edge, so counts, filters and reverse panels report
+      // items that no longer exist.
+      await purgeEntityChildren('collection', collectionSlug, [itemId, ...localeIds]);
+
+      // `_locales` holds a FK back to main; SQLite blocks the main DELETE until
+      // those rows go.
+      if (localesTable) {
+        await db.delete(localesTable).where(eq(localesTable[`${collectionSlug}_id`], itemId));
       }
-      // Only purge rows that are already soft-deleted — protects against the
-      // recovery UI being used to nuke live items.
+
       await db
         .delete(table)
         .where(and(eq((table as any).id, itemId), isNotNull((table as any).deleted_at)));
@@ -77,13 +106,37 @@ export const purgeGlobalItem = command(
       if (!table) {
         return { success: false, error: `Global '${globalSlug}' not found` };
       }
-      const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
-      if (isLocalized) {
-        const localesTable = schema[`global_${globalSlug}_locales` as keyof typeof schema] as any;
-        if (localesTable) {
-          await db.delete(localesTable).where(eq(localesTable[`${globalSlug}_id`], itemId));
-        }
+      // Same ordering as the collection purge: prove it is in the bin before
+      // destroying anything, and gather the locale row ids the children key on
+      // while those rows are still there.
+      const trashed = await db
+        .select({ id: (table as any).id })
+        .from(table as any)
+        .where(and(eq((table as any).id, itemId), isNotNull((table as any).deleted_at)))
+        .limit(1);
+      if (trashed.length === 0) {
+        return { success: false, error: 'Item not found in recovery' };
       }
+
+      const isLocalized = (fieldConfigurations as any).globals?.[globalSlug]?.localized === true;
+      const localesTable = isLocalized
+        ? (schema[`global_${globalSlug}_locales` as keyof typeof schema] as any)
+        : null;
+      const localeIds: string[] = localesTable
+        ? (
+            await db
+              .select({ id: localesTable.id })
+              .from(localesTable)
+              .where(eq(localesTable[`${globalSlug}_id`], itemId))
+          ).map((row: any) => row.id)
+        : [];
+
+      await purgeEntityChildren('global', globalSlug, [itemId, ...localeIds]);
+
+      if (localesTable) {
+        await db.delete(localesTable).where(eq(localesTable[`${globalSlug}_id`], itemId));
+      }
+
       await db
         .delete(table)
         .where(and(eq((table as any).id, itemId), isNotNull((table as any).deleted_at)));

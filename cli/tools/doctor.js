@@ -140,7 +140,7 @@ async function checkStaleMigratedImports(targetDir) {
         const full = path.join(targetDir, rel);
         if (await fs.pathExists(full)) await rewrite(full);
       }
-      for (const f of touched) console.log(`  🔧 rewrote imports in ${f}`);
+      for (const f of touched) console.log(`  rewrote imports in ${f}`);
     }
   };
 }
@@ -179,7 +179,7 @@ async function checkScaffoldRouteClash(targetDir) {
     fix: async () => {
       for (const rel of conflicts) {
         await fs.remove(path.join(targetDir, rel));
-        console.log(`  🗑  removed ${rel}`);
+        console.log(`  removed ${rel}`);
       }
     }
   };
@@ -221,7 +221,7 @@ async function checkSvelteConfig(targetDir) {
       const { content: patched, applied: appliedNow } = patchSvelteConfig(fresh);
       if (appliedNow.length > 0) {
         await fs.writeFile(configPath, patched);
-        console.log(`  🔧 svelte.config.js: ${appliedNow.join(', ')}`);
+        console.log(`  svelte.config.js: ${appliedNow.join(', ')}`);
       }
     }
   };
@@ -263,7 +263,7 @@ async function checkViteConfig(targetDir) {
       const { content: patched, applied: appliedNow } = patchViteConfig(fresh);
       if (appliedNow.length > 0) {
         await fs.writeFile(configPath, patched);
-        console.log(`  🔧 vite.config.ts: ${appliedNow.join(', ')}`);
+        console.log(`  vite.config.ts: ${appliedNow.join(', ')}`);
       }
     }
   };
@@ -304,7 +304,7 @@ async function checkLegacyDbScripts(targetDir) {
     fixable: true,
     fix: async () => {
       const removed = await stripLegacyDbScripts(targetDir);
-      for (const name of removed) console.log(`  🗑  package.json: removed scripts.${name}`);
+      for (const name of removed) console.log(`  package.json: removed scripts.${name}`);
     }
   };
 }
@@ -813,6 +813,107 @@ async function contentTablesWithStatus(db) {
   return out;
 }
 
+/**
+ * Junction rows whose owning or target row is gone.
+ *
+ * Until 0.9.4 a permanent delete removed the entity but not its junction
+ * edges, so purged items leave edges behind that still read as real: counts,
+ * relation filters and reverse panels all report items that no longer exist.
+ * A category can look non-empty while being entirely empty.
+ *
+ * Read-only. The remedy is a plain DELETE, but it is emitted for review rather
+ * than run, since this writes to a consumer's content database.
+ */
+async function checkOrphanedJunctionRows(targetDir) {
+  const id = 'content:orphaned-junctions';
+  const label = 'Junction rows pointing at deleted content';
+  const db = await openLibsqlClientForDoctor(targetDir);
+  if (!db) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: 'DATABASE_URL unset or Postgres — skipping (sqlite/libsql only)',
+      fixable: false
+    };
+  }
+
+  const listed = await db.run(
+    sql.raw(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'junction_%' ORDER BY name`
+    )
+  );
+  const junctions = (listed.rows || []).map((row) => row.name);
+  if (junctions.length === 0) {
+    return { id, label, ok: true, message: 'no junction tables — skipping', fixable: false };
+  }
+
+  const offenders = [];
+  for (const junction of junctions) {
+    const cols = await columnsForDoctor(db, junction);
+    // The owner column is whichever `<kind>_id` this junction carries; the
+    // table it points at is not derivable from the name, so only the owner
+    // side is checked here. That is where purge debris accumulates.
+    const ownerKey = ['collection_id', 'global_id', 'block_id'].find((c) => cols.includes(c));
+    if (!ownerKey) continue;
+
+    // `junction_<slug>_<field>` — the owner table is `<kind>_<slug>`, and slug
+    // may itself contain underscores, so try the longest prefix that exists.
+    const kind = ownerKey.replace('_id', '');
+    const rest = junction.slice('junction_'.length).split('_');
+    let ownerTable = null;
+    for (let take = rest.length - 1; take >= 1; take--) {
+      const candidate = `${kind}_${rest.slice(0, take).join('_')}`;
+      const exists = await db.run(
+        sql.raw(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='${candidate}' LIMIT 1`)
+      );
+      if ((exists.rows || []).length > 0) {
+        ownerTable = candidate;
+        break;
+      }
+    }
+    if (!ownerTable) continue;
+
+    const r = await db.run(
+      sql.raw(
+        `SELECT COUNT(*) AS n FROM "${junction}" j ` +
+          `LEFT JOIN "${ownerTable}" o ON o.id = j."${ownerKey}" WHERE o.id IS NULL`
+      )
+    );
+    const n = Number(r.rows?.[0]?.n) || 0;
+    if (n > 0) offenders.push({ junction, ownerTable, ownerKey, count: n });
+  }
+
+  if (offenders.length === 0) {
+    return {
+      id,
+      label,
+      ok: true,
+      message: `no orphaned junction rows (${junctions.length} junction(s) scanned)`,
+      fixable: false
+    };
+  }
+
+  const total = offenders.reduce((n, o) => n + o.count, 0);
+  const detail = offenders.map((o) => `    ${o.junction} — ${o.count} row(s)`);
+  const deletes = offenders.map(
+    (o) =>
+      `      DELETE FROM "${o.junction}" WHERE "${o.ownerKey}" NOT IN (SELECT id FROM "${o.ownerTable}");`
+  );
+
+  return {
+    id,
+    label,
+    ok: false,
+    message:
+      `${total} junction row(s) point at content that no longer exists — these still read as ` +
+      `real relations, so counts and filters over-report\n${detail.join('\n')}\n` +
+      `    Remedy — back up first (\`npx sailor db:backup\`), then review and run:\n${deletes.join('\n')}\n` +
+      `    Purging no longer leaves these behind as of 0.9.4; this is existing debris.`,
+    fixable: false
+  };
+}
+
 async function checkLegacyContentStatus(targetDir) {
   const id = 'content:legacy-status';
   const label = 'Content rows with status outside published|draft';
@@ -995,7 +1096,9 @@ async function checkCredentialAccountId(targetDir) {
     };
   }
 
-  const detail = rows.map((row) => `    ${row.email ?? row.user_id} — account_id '${row.account_id}'`);
+  const detail = rows.map(
+    (row) => `    ${row.email ?? row.user_id} — account_id '${row.account_id}'`
+  );
   return {
     id,
     label,
@@ -1021,6 +1124,7 @@ const CHECKS = [
   checkI18nOrphanLocales,
   checkFlatGlobalIdMismatch,
   checkLegacyContentStatus,
+  checkOrphanedJunctionRows,
   checkAccountIssuer,
   checkCredentialAccountId
 ];

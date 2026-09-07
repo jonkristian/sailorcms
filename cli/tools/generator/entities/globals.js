@@ -139,6 +139,8 @@ export class GlobalGenerator {
       if (fieldDef.type === 'array') continue;
       if (fieldDef.type === 'file') continue;
       if (fieldDef.type === 'tags') continue;
+      // `reverse` is a read of another entity's relation — no column, no table.
+      if (fieldDef.type === 'reverse') continue;
 
       if (fieldDef.type === 'relation') {
         const relation = fieldDef.relation;
@@ -454,6 +456,9 @@ export class GlobalGenerator {
         // a column on the entity. Skip so we don't create a phantom column.
         continue;
       }
+
+      // `reverse` is a read of another entity's relation — no column, no table.
+      if (fieldDef.type === 'reverse') continue;
 
       // Handle relation fields that need foreign keys in main table
       if (fieldDef.type === 'relation') {

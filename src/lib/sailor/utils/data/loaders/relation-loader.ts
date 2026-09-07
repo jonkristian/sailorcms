@@ -1,5 +1,5 @@
 import { db } from 'sailorcms/core/db/index.server';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import { log } from 'sailorcms/core/utils/logger';
@@ -8,6 +8,20 @@ import { loadFileFields } from './file-loader';
 import { loadArrayFields } from './array-loader';
 
 export type RelationStatus = 'published' | 'draft' | 'all';
+
+/**
+ * How many levels of nested relations to resolve before stopping.
+ *
+ * Relations can point both ways — a collection with a many-to-many to a global
+ * that declares a many-to-many back is a cycle, and following it recursively
+ * never terminates. That shape is reachable with plain forward relations today;
+ * it does not need a `reverse` field to occur.
+ *
+ * Hitting the cap degrades rather than fails: the related objects themselves are
+ * still returned, only *their* nested relations are left unresolved, and a
+ * warning names the entity so it is not silent.
+ */
+const MAX_RELATION_DEPTH = 3;
 
 /**
  * Returns an `eq(table.status, status)` condition, or a no-op for tables
@@ -40,7 +54,8 @@ async function loadNestedContent(
   targetSchema: Record<string, any>,
   loadFullFileObjects: boolean,
   contentType: 'block' | 'global' | 'collection',
-  status: RelationStatus
+  status: RelationStatus,
+  depth: number = 0
 ): Promise<void> {
   const tablePrefix = `${contentType}_${targetSlug}`;
   const foreignKeyField =
@@ -64,7 +79,7 @@ async function loadNestedContent(
   );
 
   // Load one-to-one and one-to-many relations (recursively with correct content type)
-  await loadOneToXRelations(item, targetSchema, loadFullFileObjects, status);
+  await loadOneToXRelations(item, targetSchema, loadFullFileObjects, status, depth);
 
   // Load many-to-many relations (recursively with correct content type)
   await loadManyToManyRelations(
@@ -73,7 +88,8 @@ async function loadNestedContent(
     targetSlug,
     foreignKeyField,
     loadFullFileObjects,
-    status
+    status,
+    depth
   );
 }
 
@@ -84,7 +100,8 @@ export async function loadOneToXRelations(
   item: any,
   itemProperties: Record<string, any>,
   loadFullFileObjects: boolean = true,
-  status: RelationStatus = 'published'
+  status: RelationStatus = 'published',
+  depth: number = 0
 ): Promise<void> {
   for (const [fieldName, fieldDef] of Object.entries(itemProperties)) {
     const typedFieldDef = fieldDef as any;
@@ -170,14 +187,21 @@ export async function loadOneToXRelations(
 
               // Recursively load nested content data for the related object using the correct loader
               if (Object.keys(targetSchema).length > 0) {
-                await loadNestedContent(
-                  relatedObject,
-                  targetSlug,
-                  targetSchema,
-                  loadFullFileObjects,
-                  targetContentType,
-                  status
-                );
+                if (depth + 1 >= MAX_RELATION_DEPTH) {
+                  log.warn(
+                    `Relation depth cap (${MAX_RELATION_DEPTH}) reached at '${targetSlug}' — nested relations left unresolved. Check for relations that point at each other.`
+                  );
+                } else {
+                  await loadNestedContent(
+                    relatedObject,
+                    targetSlug,
+                    targetSchema,
+                    loadFullFileObjects,
+                    targetContentType,
+                    status,
+                    depth + 1
+                  );
+                }
               }
             } catch (schemaError) {
               // If we can't load the schema, just use the object as-is
@@ -214,7 +238,8 @@ export async function loadManyToManyRelations(
   junctionTablePrefix: string,
   foreignKeyField: string,
   loadFullFileObjects: boolean = true,
-  status: RelationStatus = 'published'
+  status: RelationStatus = 'published',
+  depth: number = 0
 ): Promise<void> {
   for (const [fieldName, fieldDef] of Object.entries(itemProperties)) {
     const typedFieldDef = fieldDef as any;
@@ -265,7 +290,23 @@ export async function loadManyToManyRelations(
         // The `_localeId` convention lets non-localized callers pass `undefined`
         // and fall through to `item.id` (= main row id) unchanged.
         const parentId = item._localeId ?? item.id;
-        const relationResult = await db
+
+        // Order by the junction's own `sort` first, so each owner gets its own
+        // sequence rather than sharing one global column on the target. Falls
+        // back to the target's `sort` — which is what ordering meant before the
+        // junction had a column of its own, and what still decides on data
+        // where every edge carries the default 0. Both are guarded on column
+        // presence: a consumer who hasn't run `db:update` since the column was
+        // added has junctions without it.
+        const relationOrder: any[] = [];
+        if ((junctionTable as any).sort !== undefined) {
+          relationOrder.push(asc((junctionTable as any).sort));
+        }
+        if ((targetTable as any).sort !== undefined) {
+          relationOrder.push(asc((targetTable as any).sort));
+        }
+
+        const relationQuery = db
           .select()
           .from(targetTable)
           .innerJoin(junctionTable, eq((targetTable as any).id, (junctionTable as any).target_id))
@@ -276,6 +317,10 @@ export async function loadManyToManyRelations(
               statusOnly(targetTable, status)
             )
           );
+
+        const relationResult = relationOrder.length
+          ? await relationQuery.orderBy(...relationOrder)
+          : await relationQuery;
 
         // Extract the target objects and recursively load their nested data
         const relatedObjects = await Promise.all(
@@ -312,14 +357,21 @@ export async function loadManyToManyRelations(
 
               // Load nested content data for the related object using the correct loader
               if (Object.keys(targetSchema).length > 0) {
-                await loadNestedContent(
-                  relatedObject,
-                  targetSlug,
-                  targetSchema,
-                  loadFullFileObjects,
-                  targetContentType,
-                  status
-                );
+                if (depth + 1 >= MAX_RELATION_DEPTH) {
+                  log.warn(
+                    `Relation depth cap (${MAX_RELATION_DEPTH}) reached at '${targetSlug}' — nested relations left unresolved. Check for relations that point at each other.`
+                  );
+                } else {
+                  await loadNestedContent(
+                    relatedObject,
+                    targetSlug,
+                    targetSchema,
+                    loadFullFileObjects,
+                    targetContentType,
+                    status,
+                    depth + 1
+                  );
+                }
               }
             } catch (schemaError) {
               // If we can't load the schema, just return the object as-is

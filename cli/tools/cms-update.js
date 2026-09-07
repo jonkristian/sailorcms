@@ -154,7 +154,7 @@ export function registerCoreUpdate(program) {
           const removedLegacyScripts = await stripLegacyDbScripts(targetDir);
           if (removedLegacyScripts.length > 0) {
             console.log(
-              `🧹 Removed legacy package.json script(s): ${removedLegacyScripts.join(', ')}`
+              `Removed legacy package.json script(s): ${removedLegacyScripts.join(', ')}`
             );
           }
 
@@ -165,7 +165,7 @@ export function registerCoreUpdate(program) {
           // Clean up unused dependencies first
           await cleanupUnusedDependencies(targetDir);
 
-          console.log(`📦 Installing dependencies with ${packageManager}...`);
+          console.log(`Installing dependencies with ${packageManager}...`);
           try {
             execSync(installCommand, { cwd: targetDir, stdio: 'pipe' });
             console.log('✅ Dependencies updated');
@@ -211,7 +211,7 @@ export function registerCoreUpdate(program) {
         }
 
         // Update Sailor CMS core files (lib, routes, hooks)
-        console.log('📁 Updating core files...');
+        console.log('Updating core files...');
         await updateSailorCoreFiles(targetDir);
 
         // Update config files

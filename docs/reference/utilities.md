@@ -202,9 +202,11 @@ const faqsByTags = await getGlobals('faq', {
   limit: 50
 });
 
-// Filter by related content
+// Filter by related content. Walks the junction owned by the named
+// many-to-many field, so it needs a `many-to-many` relation on the global —
+// and a repeatable global to filter. Throws if either is missing.
 const techCategories = await getGlobals<Category>('categories', {
-  whereRelated: { field: 'parent', value: 'technology' }
+  whereRelated: { field: 'topics', value: 'technology', recursive: true }
 });
 
 // Localized repeatable globals — same locale / fallback options as
@@ -229,7 +231,7 @@ const faq = await getGlobals('faq', { locale: 'nb-NO', fallback: 'default' });
 | `order`               | `'asc' \| 'desc'`       | Sort order (default: `'asc'`)                                                                                                                                                                                                                          |
 | `limit`               | `number`                | Limit number of results                                                                                                                                                                                                                                |
 | `offset`              | `number`                | Offset for pagination                                                                                                                                                                                                                                  |
-| `whereRelated`        | `object`                | Filter by related content: `{ field, value }`                                                                                                                                                                                                          |
+| `whereRelated`        | `object`                | Filter by related content: `{ field, value, recursive? }`. Repeatable globals with a `many-to-many` field only.                                                                                                                                        |
 | `user`                | `User \| null`          | User context for ACL filtering                                                                                                                                                                                                                         |
 | `locale`              | `string`                | BCP-47 locale for localized repeatable globals. Defaults to `content.i18n.default`. Ignored for flat globals and non-localized templates.                                                                                                              |
 | `fallback`            | `'default' \| 'strict'` | Behavior when the requested locale has no row: `'default'` returns the default-locale row stamped `isFallback: true` + `requestedLocale` (the asked-for code); `'strict'` omits / returns null. Defaults to `content.i18n.fallback`, then `'default'`. |

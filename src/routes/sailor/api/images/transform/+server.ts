@@ -1,4 +1,4 @@
-import { error, type RequestHandler } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, type RequestHandler } from '@sveltejs/kit';
 import { ImageProcessor } from 'sailorcms/core/services/image.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 import { S3StorageService } from 'sailorcms/core/services/storage-s3.server';
@@ -22,12 +22,7 @@ export const GET: RequestHandler = async ({ url }) => {
     const format = url.searchParams.get('format') as 'webp' | 'jpg' | 'png' | undefined;
     const resize =
       (url.searchParams.get('resize') as
-        | 'cover'
-        | 'contain'
-        | 'fill'
-        | 'inside'
-        | 'outside'
-        | undefined) || 'cover';
+        'cover' | 'contain' | 'fill' | 'inside' | 'outside' | undefined) || 'cover';
     const position = url.searchParams.get('position') || undefined;
     const transform = url.searchParams.get('transform') !== 'false'; // Default to true unless explicitly set to false
 
@@ -147,10 +142,10 @@ export const GET: RequestHandler = async ({ url }) => {
       }
     });
   } catch (err) {
-    // Use SvelteKit's error handling
-    if (err instanceof Response) {
-      throw err; // Re-throw SvelteKit errors
-    }
+    // The 400s and 404s this handler raises are deliberate responses. The old
+    // check tested `err instanceof Response`, which an `error()` never is —
+    // it throws an `HttpError` — so every "File not found" left here as a 500.
+    if (isHttpError(err) || isRedirect(err)) throw err;
 
     // Log concise error messages
     const errorMessage = err instanceof Error ? err.message : 'Image processing failed';

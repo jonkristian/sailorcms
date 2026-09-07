@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, readdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { createHash } from 'crypto';
+import { createS3Client } from './s3-client.server';
 import { getSettings } from 'sailorcms/core/settings/index';
 import { StorageProviderFactory, type StorageProvider } from './storage-provider.server';
 import { S3StorageService } from './storage-s3.server';
@@ -201,17 +202,9 @@ export class ImageProcessor {
         return null;
       }
 
-      const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3');
+      const { GetObjectCommand } = await import('@aws-sdk/client-s3');
 
-      const s3Client = new S3Client({
-        region: s3Config.region,
-        credentials: {
-          accessKeyId,
-          secretAccessKey
-        },
-        endpoint: s3Config.endpoint,
-        forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-      });
+      const s3Client = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
 
       const getCommand = new GetObjectCommand({
         Bucket: s3Config.bucket,
@@ -266,13 +259,8 @@ export class ImageProcessor {
       const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
       if (!accessKeyId || !secretAccessKey) return false;
 
-      const { S3Client, HeadObjectCommand } = await import('@aws-sdk/client-s3');
-      const s3Client = new S3Client({
-        region: s3Config.region,
-        credentials: { accessKeyId, secretAccessKey },
-        endpoint: s3Config.endpoint,
-        forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-      });
+      const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
+      const s3Client = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
 
       await s3Client.send(new HeadObjectCommand({ Bucket: s3Config.bucket, Key: cachePath }));
       return true;
@@ -352,17 +340,9 @@ export class ImageProcessor {
         );
       }
 
-      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+      const { PutObjectCommand } = await import('@aws-sdk/client-s3');
 
-      const s3Client = new S3Client({
-        region: s3Config.region,
-        credentials: {
-          accessKeyId,
-          secretAccessKey
-        },
-        endpoint: s3Config.endpoint,
-        forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-      });
+      const s3Client = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
 
       const uploadCommand = new PutObjectCommand({
         Bucket: s3Config.bucket,
@@ -643,14 +623,8 @@ export class ImageProcessor {
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
     if (!accessKeyId || !secretAccessKey) return 0;
 
-    const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } =
-      await import('@aws-sdk/client-s3');
-    const s3 = new S3Client({
-      region: s3Config.region,
-      credentials: { accessKeyId, secretAccessKey },
-      endpoint: s3Config.endpoint,
-      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-    });
+    const { ListObjectsV2Command, DeleteObjectsCommand } = await import('@aws-sdk/client-s3');
+    const s3 = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
 
     let removed = 0;
     let continuationToken: string | undefined;
@@ -772,14 +746,8 @@ export class ImageProcessor {
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
     if (!accessKeyId || !secretAccessKey) return 0;
 
-    const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } =
-      await import('@aws-sdk/client-s3');
-    const s3 = new S3Client({
-      region: s3Config.region,
-      credentials: { accessKeyId, secretAccessKey },
-      endpoint: s3Config.endpoint,
-      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-    });
+    const { ListObjectsV2Command, DeleteObjectsCommand } = await import('@aws-sdk/client-s3');
+    const s3 = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
 
     let removed = 0;
     let continuationToken: string | undefined;
@@ -911,13 +879,8 @@ export class ImageProcessor {
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
     if (!accessKeyId || !secretAccessKey) return [];
 
-    const { S3Client, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
-    const s3 = new S3Client({
-      region: s3Config.region,
-      credentials: { accessKeyId, secretAccessKey },
-      endpoint: s3Config.endpoint,
-      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-    });
+    const { ListObjectsV2Command } = await import('@aws-sdk/client-s3');
+    const s3 = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
 
     const out: Array<{ key: string; size: number; mtimeMs: number }> = [];
     let continuationToken: string | undefined;
@@ -950,13 +913,8 @@ export class ImageProcessor {
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
     if (!accessKeyId || !secretAccessKey) return;
 
-    const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
-    const s3 = new S3Client({
-      region: s3Config.region,
-      credentials: { accessKeyId, secretAccessKey },
-      endpoint: s3Config.endpoint,
-      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com'
-    });
+    const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3 = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
     await s3.send(new DeleteObjectCommand({ Bucket: s3Config.bucket, Key: key }));
   }
 

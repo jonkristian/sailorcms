@@ -1,5 +1,5 @@
 import { db } from 'sailorcms/core/db/index.server';
-import { sql, ne, eq, and, asc, desc, count, inArray } from 'drizzle-orm';
+import { sql, ne, eq, and, asc, desc, count, inArray, type SQL } from 'drizzle-orm';
 import { liveOnly } from 'sailorcms/core/db/soft-delete';
 import {
   loadBlocksForCollection,
@@ -7,7 +7,6 @@ import {
   type BlockWithRelations,
   type BlockOrGroup
 } from './blocks';
-import { childTableName } from 'sailorcms/core/utils/string';
 import type { CollectionTypes } from '$sailor/generated/types';
 import type { Pagination } from 'sailorcms/core/types';
 import type { BreadcrumbItem } from '../types';
@@ -22,6 +21,8 @@ import {
   loadManyToManyRelations,
   type RelationStatus
 } from './loaders/relation-loader';
+import { buildRelationshipSubquery, resolveRelationFilter } from './loaders/relation-filter';
+import { loadReverseRelations } from './loaders/reverse-loader';
 import { assertAccess, AccessDeniedError } from './access';
 import { parseDate, groupItemsByField } from './internal';
 import { TagService } from 'sailorcms/core/services/tag.server';
@@ -100,6 +101,8 @@ async function loadCollectionFields(
   await loadOneToXRelations(collection, collectionSchema, loadFullFileObjects, status);
 
   // Load many-to-many relations
+  await loadReverseRelations(collection, collectionSchema, status);
+
   await loadManyToManyRelations(
     collection,
     collectionSchema,
@@ -174,6 +177,11 @@ export interface CollectionsOptions {
   includeTranslations?: boolean;
 
   // Filtering and ordering
+  /**
+   * Field to order by. `'relation'` orders by the junction's `inverse_sort`
+   * — the position the related target assigned — and is only meaningful
+   * alongside `whereRelated`; without it the ordering is skipped.
+   */
   orderBy?: string; // Default: 'created_at'
   order?: 'asc' | 'desc'; // Default: 'desc'
   groupBy?: string;
@@ -820,19 +828,43 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
   }
 
   // Handle relationship filtering
+  let relationOrdering: SQL | null = null;
   if (whereRelated) {
-    const relatedIds = await buildRelationshipSubquery(
-      collectionSlug,
-      whereRelated.field,
-      whereRelated.value,
-      (whereRelated as any).recursive || false
-    );
+    const resolved = await resolveRelationFilter({
+      ownerType: 'collection',
+      ownerSlug: collectionSlug,
+      relationField: whereRelated.field,
+      targetValues: whereRelated.value,
+      recursive: (whereRelated as any).recursive || false,
+      resolveDescendants: getAllDescendantItems
+    });
 
-    if (relatedIds.length > 0) {
-      whereConditions.push(inArray((table as any).id, relatedIds));
+    if (resolved.ownerIds.length > 0) {
+      whereConditions.push(inArray((table as any).id, resolved.ownerIds));
     } else {
       // If no related items found, ensure no results are returned
       whereConditions.push(sql`1 = 0`);
+    }
+
+    // `orderBy: 'relation'` orders by the junction rather than by a column on
+    // the collection — the position the *target* assigned, which is what a
+    // category page wants. A correlated subquery keeps it in SQL so it survives
+    // pagination; ordering the resolved ids in JS would only sort one page.
+    //
+    // `MIN` because `recursive` expands the target set: a row matched through
+    // several descendants has several positions, and its best one is the
+    // sensible answer. With everything tied at 0 this returns 0 for every row
+    // and the secondary ordering decides, which is the pre-existing behaviour.
+    if (orderBy === 'relation' && resolved.targetIds.length > 0) {
+      relationOrdering = sql`(
+        SELECT MIN(${sql.identifier('rj')}.inverse_sort)
+        FROM ${sql.identifier(resolved.junctionTable)} AS ${sql.identifier('rj')}
+        WHERE ${sql.identifier('rj')}.${sql.identifier(resolved.ownerKey)} = ${(table as any).id}
+          AND ${sql.identifier('rj')}.target_id IN (${sql.join(
+            resolved.targetIds.map((id) => sql`${id}`),
+            sql`, `
+          )})
+      )`;
     }
   }
 
@@ -874,8 +906,11 @@ async function handleMultipleCollectionItems<T extends CollectionTypes = Collect
   }
 
   // Add ordering
-  if (orderBy && (table as any)[orderBy]) {
-    const orderFn = order === 'desc' ? desc : asc;
+  const orderFn = order === 'desc' ? desc : asc;
+  if (relationOrdering) {
+    // Fall back to the collection's own `sort` so ties stay deterministic.
+    itemsQuery = itemsQuery.orderBy(orderFn(relationOrdering), asc((table as any).sort));
+  } else if (orderBy && (table as any)[orderBy]) {
     itemsQuery = itemsQuery.orderBy(orderFn((table as any)[orderBy]));
   }
 
@@ -1033,12 +1068,14 @@ async function handleMultipleLocalizedCollectionItems<T extends CollectionTypes 
   // Relationship filtering — buildRelationshipSubquery returns `_locales.id`
   // values for localized collections, so we filter against `localesTable.id`.
   if (whereRelated) {
-    const relatedIds = await buildRelationshipSubquery(
-      collectionSlug,
-      whereRelated.field,
-      whereRelated.value,
-      whereRelated.recursive || false
-    );
+    const relatedIds = await buildRelationshipSubquery({
+      ownerType: 'collection',
+      ownerSlug: collectionSlug,
+      relationField: whereRelated.field,
+      targetValues: whereRelated.value,
+      recursive: whereRelated.recursive || false,
+      resolveDescendants: getAllDescendantItems
+    });
 
     if (relatedIds.length > 0) {
       whereConditions.push(inArray(localesTable.id, relatedIds));
@@ -1398,41 +1435,43 @@ async function generateItemUrlAndBreadcrumbs(
 }
 
 /**
- * Get all descendant items recursively for any global or collection type
+ * Get all descendant items recursively for any global or collection type.
+ *
+ * `targetKind` is passed rather than probed. Probing by try/catch does not work
+ * here: `getGlobals` on an unknown slug warns and returns `null` instead of
+ * throwing, so a collection target used to take the global branch, come back
+ * empty, and bail before the collection lookup was ever reached.
  */
-async function getAllDescendantItems(parentSlug: string, targetType: string): Promise<string[]> {
+export async function getAllDescendantItems(
+  parentSlug: string,
+  targetType: string,
+  targetKind: 'global' | 'collection'
+): Promise<string[]> {
   const allSlugs = new Set<string>();
+  const isGlobal = targetKind === 'global';
 
   async function getChildren(slug: string) {
-    // Try to get as global first, then as collection
-    let itemResult = null;
-    let isGlobal = false;
+    const itemResult = isGlobal
+      ? await getGlobals(targetType, { itemSlug: slug, withRelations: true })
+      : await getCollections(targetType, { itemSlug: slug });
 
-    try {
-      itemResult = await getGlobals(targetType, { itemSlug: slug, withRelations: true });
-      isGlobal = true;
-    } catch {
-      try {
-        itemResult = await getCollections(targetType, { itemSlug: slug });
-        isGlobal = false;
-      } catch {
-        console.warn(`Could not find item with slug '${slug}' in type '${targetType}'`);
-        return;
-      }
+    if (!itemResult) {
+      console.warn(`Could not find item with slug '${slug}' in ${targetKind} '${targetType}'`);
+      return;
     }
 
-    if (!itemResult) return;
-
     const item = itemResult as any;
+    if (typeof item.slug !== 'string') return;
+
+    // Doubles as the cycle guard: a parent_id loop would otherwise recurse forever.
+    if (allSlugs.has(item.slug)) return;
     allSlugs.add(item.slug);
 
-    // Get children of this item
     const childrenResult = isGlobal
       ? await getGlobals(targetType, { parentId: item.id, withRelations: true })
       : await getCollections(targetType, { parentId: item.id });
 
     if (childrenResult && 'items' in childrenResult && childrenResult.items) {
-      // Recursively get children of each child
       for (const child of childrenResult.items) {
         if ('slug' in child && typeof child.slug === 'string') {
           await getChildren(child.slug);
@@ -1443,103 +1482,6 @@ async function getAllDescendantItems(parentSlug: string, targetType: string): Pr
 
   await getChildren(parentSlug);
   return Array.from(allSlugs);
-}
-
-/**
- * Build a relationship subquery to filter items by related entities
- */
-async function buildRelationshipSubquery(
-  collectionSlug: string,
-  relationField: string,
-  targetValues: string | string[],
-  recursive: boolean = false
-): Promise<any> {
-  let values = Array.isArray(targetValues) ? targetValues : [targetValues];
-
-  // If recursive is true, get all descendant items
-  if (recursive && values.length === 1) {
-    // Get the target type from the collection definition
-    const collectionDef = await getCollectionType(collectionSlug);
-    const relationDef = collectionDef?.fields?.[relationField]?.relation;
-
-    if (relationDef) {
-      let targetType: string;
-
-      if (relationDef.targetGlobal) {
-        // Collection to Global relationship
-        targetType = relationDef.targetGlobal;
-      } else if (relationDef.targetCollection) {
-        // Collection to Collection relationship
-        targetType = relationDef.targetCollection;
-      } else {
-        console.warn(
-          `No target type found for relation field '${relationField}' in collection '${collectionSlug}'`
-        );
-        return [];
-      }
-
-      const allDescendantSlugs = await getAllDescendantItems(values[0], targetType);
-      values = allDescendantSlugs;
-    }
-  }
-
-  // Junction table name is the same for localized and non-localized. For
-  // localized collections the `collection_id` column stores the `_locales`
-  // row id; callers (`buildRelationshipSubquery`) account for that when
-  // joining back.
-  const junctionBase = collectionSlug;
-  let throughTableName = childTableName(`junction_${junctionBase}`, relationField);
-  let throughTable = schema[throughTableName as keyof typeof schema];
-
-  // If the standard naming doesn't work, try alternative naming patterns
-  if (!throughTable) {
-    // Try with just the field name (singular)
-    throughTableName = `junction_${junctionBase}_${relationField}`;
-    throughTable = schema[throughTableName as keyof typeof schema];
-  }
-
-  if (!throughTable) {
-    throw new Error(`Junction table '${throughTableName}' not found in schema`);
-  }
-
-  // Get the target global table name from the collection definition
-  // We need to look up the actual targetGlobal from the relation field definition
-  let targetTableName: string;
-
-  // Try to get the target global from the collection definition
-  try {
-    const collectionDef = await getCollectionType(collectionSlug);
-    if (collectionDef?.fields?.[relationField]?.relation?.targetGlobal) {
-      targetTableName = `global_${collectionDef.fields[relationField].relation.targetGlobal}`;
-    } else {
-      // Fallback to the old behavior
-      targetTableName = `global_${relationField}`;
-    }
-  } catch (error) {
-    // Fallback to the old behavior if we can't get the collection definition
-    targetTableName = `global_${relationField}`;
-  }
-
-  const targetTable = schema[targetTableName as keyof typeof schema];
-
-  if (!targetTable) {
-    throw new Error(`Target table '${targetTableName}' not found in schema`);
-  }
-
-  // Execute query to get collection_ids that have the specified related entities
-  // If no values provided, return empty array
-  if (values.length === 0) {
-    return [];
-  }
-
-  const relatedResults = await db
-    .select({ collection_id: (throughTable as any).collection_id })
-    .from(throughTable)
-    .innerJoin(targetTable, eq((throughTable as any).target_id, (targetTable as any).id))
-    .where(inArray((targetTable as any).slug, values));
-
-  // Extract just the collection_id values for the IN clause
-  return relatedResults.map((row: { collection_id: string }) => row.collection_id);
 }
 
 /**

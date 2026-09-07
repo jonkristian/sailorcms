@@ -50,7 +50,7 @@ export async function runSchemaRepair({ client, targetDir, dryRun = false }) {
     return { status: 'refused', rows: 0 };
   }
 
-  console.log(dryRun ? '🔍 Dry run — scanning for schema drift…' : '🛠️  Repairing schema drift…');
+  console.log(dryRun ? 'Dry run — scanning for schema drift…' : 'Repairing schema drift…');
 
   {
     const dbTables = new Set(
@@ -142,9 +142,7 @@ export async function runSchemaRepair({ client, targetDir, dryRun = false }) {
               sql: 'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
               args: [hash, latest.when]
             });
-            console.log(
-              `\n📋 Recorded ${latest.tag} as the migration high-water mark (was empty).`
-            );
+            console.log(`\nRecorded ${latest.tag} as the migration high-water mark (was empty).`);
           }
         }
       }

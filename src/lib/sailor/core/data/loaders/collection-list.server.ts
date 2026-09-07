@@ -15,6 +15,85 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import { getContentSettings } from '../../settings/i18n';
 import { liveOnly } from '../../db/soft-delete';
 import type { Pagination } from '../../types';
+import { log } from '../../utils/logger';
+import { loadReverseRelationsForOwners } from '../../../utils/data/loaders/reverse-loader';
+import { loadJunctionValuesForOwners } from './junction-values.server';
+import { resolveRelationFilter } from '../../../utils/data/loaders/relation-filter';
+import { getAllDescendantItems } from '../../../utils/data/collections';
+
+/**
+ * Attach many-to-many values for any field the template marks `showInTable`.
+ *
+ * Only those fields — a list view has no use for relations it will not render,
+ * and each one costs two queries. Bulk-loaded per field rather than per row, so
+ * the cost is independent of page size.
+ */
+/**
+ * Owning-row ids for a relation filter, or `null` when no filter is active.
+ *
+ * Returns an empty array rather than `null` when the filter resolves to
+ * nothing — the caller has to tell "no filter" apart from "filter matched
+ * nothing", or an unmatched filter would silently show everything.
+ */
+async function resolveListRelationFilter(
+  slug: string,
+  options: LoadCollectionListOptions
+): Promise<string[] | null> {
+  if (!options.relationField || !options.relationValue) return null;
+  try {
+    const resolved = await resolveRelationFilter({
+      ownerType: 'collection',
+      ownerSlug: slug,
+      relationField: options.relationField,
+      targetValues: options.relationValue,
+      recursive: options.relationRecursive ?? false,
+      resolveDescendants: getAllDescendantItems
+    });
+    return resolved.ownerIds;
+  } catch (err) {
+    log.warn(`Relation filter on '${slug}.${options.relationField}' failed`, { error: err });
+    return [];
+  }
+}
+
+/**
+ * `ownerIdKey` is which id on each item the junction's owner column holds. For a
+ * localized collection that is the `_locales` row, not the main row — the same
+ * thing `resolveRelationFilter` returns and the item persister writes. Reading
+ * these with the main row id matched nothing, so every `showInTable`
+ * many-to-many column came back empty for localized collections.
+ */
+async function attachTableRelations(
+  slug: string,
+  fields: Record<string, any>,
+  items: any[],
+  ownerIdKey: string = 'id'
+): Promise<void> {
+  if (items.length === 0) return;
+
+  const relationFields = Object.entries(fields).filter(
+    ([, def]: [string, any]) =>
+      def?.showInTable === true &&
+      def?.type === 'relation' &&
+      def?.relation?.type === 'many-to-many'
+  );
+  if (relationFields.length === 0) return;
+
+  const ownerIds = items.map((item: any) => item[ownerIdKey]).filter(Boolean);
+
+  for (const [fieldName, def] of relationFields) {
+    const byOwner = await loadJunctionValuesForOwners(
+      slug,
+      'collection_id',
+      ownerIds,
+      fieldName,
+      def
+    );
+    for (const item of items) {
+      item[fieldName] = byOwner.get(item[ownerIdKey]) ?? [];
+    }
+  }
+}
 
 export interface LoadCollectionListOptions {
   slug: string;
@@ -23,6 +102,15 @@ export interface LoadCollectionListOptions {
   searchQuery?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  /**
+   * Filter by a many-to-many relation — the list equivalent of
+   * `getCollections({ whereRelated })`. `relationValue` is the target's slug.
+   * Both are needed; either alone is ignored.
+   */
+  relationField?: string;
+  relationValue?: string;
+  /** Also match items related to any descendant of `relationValue`. */
+  relationRecursive?: boolean;
 }
 
 export interface LoadCollectionListResult {
@@ -107,6 +195,15 @@ export async function loadCollectionList(
 
   // ── Non-localized path ────────────────────────────────────────────────
   const whereConditions: any[] = [liveOnly(collectionTable)];
+
+  const relationMatches = await resolveListRelationFilter(slug, options);
+  if (relationMatches) {
+    whereConditions.push(
+      relationMatches.length > 0
+        ? inArray((collectionTable as any).id, relationMatches)
+        : sql`1 = 0`
+    );
+  }
 
   // For nestable collections with no search, only paginate top-level items
   // (parent_id is null, empty string, or invalid values like '[]'). When
@@ -223,6 +320,9 @@ export async function loadCollectionList(
     items = result;
   }
 
+  await attachTableRelations(slug, collectionType.fields ?? {}, items);
+  await loadReverseRelationsForOwners(items, collectionType.fields ?? {}, 'all');
+
   return {
     collectionType,
     items,
@@ -284,10 +384,23 @@ async function loadLocalizedList({
 
   // WHERE: soft-delete on main, locale match on locales. Search and
   // parent-null filter both target locales (slug/title/parent_id live there).
+  const localizedRelationMatches = await resolveListRelationFilter(slug, options);
+
   const whereConditions: any[] = [
     liveOnly(collectionTable),
     eq(localesTable.locale, defaultLocale)
   ];
+
+  // The junction's owner column holds the `_locales` row id for a localized
+  // collection, which is what `resolveRelationFilter` returns, so this filters
+  // against `_locales.id` rather than the main row.
+  if (localizedRelationMatches) {
+    whereConditions.push(
+      localizedRelationMatches.length > 0
+        ? inArray(localesTable.id, localizedRelationMatches)
+        : sql`1 = 0`
+    );
+  }
 
   if (options.nestable && !searchQuery) {
     whereConditions.push(
@@ -324,6 +437,9 @@ async function loadLocalizedList({
 
   const selectShape = {
     id: (collectionTable as any).id,
+    // The junction's owner column for a localized collection, needed to attach
+    // many-to-many table columns. Not the row identity — that stays `id`.
+    locale_id: localesTable.id,
     title: localesTable.title,
     slug: localesTable.slug,
     status: localesTable.status,
@@ -411,6 +527,9 @@ async function loadLocalizedList({
     validPage = totalPages > 0 ? Math.min(page, totalPages) : 1;
     items = result;
   }
+
+  await attachTableRelations(slug, collectionType.fields ?? {}, items, 'locale_id');
+  await loadReverseRelationsForOwners(items, collectionType.fields ?? {}, 'all');
 
   return {
     collectionType,

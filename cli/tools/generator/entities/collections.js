@@ -155,6 +155,8 @@ export class CollectionGenerator {
       if (fieldDef.type === 'array') continue; // separate table
       if (fieldDef.type === 'file') continue; // separate table
       if (fieldDef.type === 'tags') continue; // polymorphic taggables, no column
+      // `reverse` is a read of another entity's relation — no column, no table.
+      if (fieldDef.type === 'reverse') continue;
 
       if (fieldDef.type === 'relation') {
         const relation = fieldDef.relation;
@@ -463,6 +465,9 @@ export class CollectionGenerator {
         // a column on the entity. Skip so we don't create a phantom column.
         continue;
       }
+
+      // `reverse` is a read of another entity's relation — no column, no table.
+      if (fieldDef.type === 'reverse') continue;
 
       fields[fieldName] = this.buildFieldDefinition(fieldName, fieldDef, opts);
     }

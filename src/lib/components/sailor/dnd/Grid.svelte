@@ -18,6 +18,12 @@
   // Drag state
   let draggedIndex: number = $state(-1);
   let dragOverIndex: number = $state(-1);
+  /**
+   * Which side of the hovered item the drop lands on. A grid flows left to
+   * right, so the pointer's horizontal position picks the side — the same
+   * question a vertical list answers with mouseY.
+   */
+  let dropPosition: 'before' | 'after' = $state('after');
   let isDragging = $state(false);
 
   // Selection state
@@ -40,7 +46,17 @@
     if (!event.dataTransfer) return;
 
     draggedIndex = index;
-    isDragging = true;
+
+    // Mounting the gap catchers here kills the drag outright in Chrome: the
+    // browser abandons it when this much of the source's subtree appears
+    // underneath it mid-`dragstart` — `dragend` fires immediately and no
+    // `dragover` ever arrives. A frame later the drag has committed and the
+    // same mutation is harmless. Items stay drop targets on their own until
+    // then, so nothing is missed in the meantime.
+    requestAnimationFrame(() => {
+      if (draggedIndex === -1) return;
+      isDragging = true;
+    });
 
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', index.toString());
@@ -64,6 +80,13 @@
 
     if (draggedIndex !== -1 && draggedIndex !== index) {
       dragOverIndex = index;
+
+      // The side used to be inferred from drag *direction* — forward landed
+      // after the target, backward landed before it. Two opposite outcomes
+      // behind one identical highlight, with nothing on screen to tell them
+      // apart. Read it from the pointer instead, and show it.
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      dropPosition = event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
     }
   }
 
@@ -85,24 +108,14 @@
     }
 
     const newItems = [...items];
-    const draggedItem = newItems[draggedIndex];
+    const [draggedItem] = newItems.splice(draggedIndex, 1);
 
-    // Remove the dragged item
-    newItems.splice(draggedIndex, 1);
-
-    // Calculate correct insertion index after removal
-    let insertIndex = dropIndex;
-    // When dragging forward in array order (draggedIndex < dropIndex), we want to insert AFTER the target
-    // After removing the dragged item, the target position shifts back by 1
-    if (draggedIndex < dropIndex) {
-      insertIndex = dropIndex; // Insert after the target position (which is now at dropIndex-1 after removal)
-    }
-    // When dragging backward in array order (draggedIndex > dropIndex), insert at the target position
-
-    // Ensure valid bounds
+    // Position is now stated outright rather than derived from direction.
+    let insertIndex = dropPosition === 'after' ? dropIndex + 1 : dropIndex;
+    // The target shifted back by one if the dragged item sat before it.
+    if (draggedIndex < insertIndex) insertIndex--;
     insertIndex = Math.max(0, Math.min(insertIndex, newItems.length));
 
-    // Insert at new position
     newItems.splice(insertIndex, 0, draggedItem);
 
     // Update items
@@ -159,16 +172,36 @@
         class:opacity-50={draggedIndex === index}
         class:scale-95={draggedIndex !== -1 && index !== draggedIndex}
         animate:gridFlip={{ duration: 300 }}
-        role="button"
-        tabindex="0"
-        ondragover={(e) => handleDragOver(e, index)}
-        ondragleave={handleDragLeave}
-        ondrop={(e) => handleDrop(e, index)}
       >
+        <!-- The `gap-4` lanes between cards belong to no card, so a drag over
+             one fires no `dragover` and a drop there is discarded. Claimed by
+             an overlay that exists only mid-drag, rather than by resizing the
+             card, which would collapse the grid gap instead of covering it.
+             `-inset-3` overshoots the 8px half-gap on purpose: the cards are
+             `scale-95` while a drag is in progress, and the overlay scales with
+             them. Neighbours overlapping is harmless — the later one wins. -->
+        {#if isDragging}
+          <div
+            class="absolute -inset-3 z-30"
+            role="button"
+            tabindex="-1"
+            aria-label={`Drop position ${index + 1}`}
+            ondragover={(e) => handleDragOver(e, index)}
+            ondragleave={handleDragLeave}
+            ondrop={(e) => handleDrop(e, index)}
+          ></div>
+        {/if}
+
         <!-- Drop indicator between items -->
         {#if dragOverIndex === index && draggedIndex !== -1 && draggedIndex !== index}
+          <!-- An insertion bar on the edge the item will land against, matching
+               the vertical list's horizontal mode. Filling the whole tile said
+               only "this one", which is the one thing that was never in
+               question. -->
           <div
-            class="absolute inset-0 z-20 rounded border-2 border-blue-500 bg-blue-500/10 transition-all duration-200"
+            class="bg-primary absolute top-0 bottom-0 z-30 w-1 rounded-full transition-all duration-150"
+            class:-left-2={dropPosition === 'before'}
+            class:-right-2={dropPosition === 'after'}
           ></div>
         {/if}
 

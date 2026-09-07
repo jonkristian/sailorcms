@@ -1,11 +1,12 @@
 import {
-  S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   ListObjectsV2Command
 } from '@aws-sdk/client-s3';
+import type { S3Client } from '@aws-sdk/client-s3';
+import { createS3Client } from './s3-client.server';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { generateFileName } from 'sailorcms/core/files/file.server';
 import { getSettings } from 'sailorcms/core/settings/index';
@@ -42,15 +43,7 @@ export class S3StorageService {
       );
     }
 
-    return new S3Client({
-      region: s3Config.region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey
-      },
-      endpoint: s3Config.endpoint,
-      forcePathStyle: s3Config.endpoint !== 'https://s3.amazonaws.com' // For custom endpoints like MinIO
-    });
+    return await createS3Client(s3Config, { accessKeyId, secretAccessKey });
   }
 
   private static async getS3Config(): Promise<S3StorageConfig> {

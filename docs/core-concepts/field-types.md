@@ -226,6 +226,41 @@ Link to other collections or globals.
 }
 ```
 
+### Reverse
+
+Read an existing relation from the side that doesn't declare it.
+
+A `relation` is declared on one entity and readable from that entity. `reverse` gives you the other
+direction — a category listing the products that point at it — without declaring a second relation.
+
+```typescript
+{
+  type: 'reverse',
+  label: 'Products in this category',
+  position: 'main',
+  reverse: {
+    fromCollection: 'products',  // or fromGlobal / fromBlock
+    field: 'category',           // the many-to-many field on that entity
+    limit: 50                    // optional
+  }
+}
+```
+
+Name both halves: `fromCollection` + `field` identify exactly one relation, which stays unambiguous
+when an entity declares two relations at the same target, and lets `db:update` reject a `reverse`
+that points at nothing.
+
+A few things worth knowing:
+
+- **It creates nothing.** No column, no junction table. It reads the junction the forward side
+  already owns, so there is one edge set rather than two that drift apart. Declaring the relation on
+  both sides instead would generate two junction tables and two answers to the same question.
+- **It's read-only.** Edit the relation from the entity that declares it.
+- **Ordering** comes from the junction's `inverse_sort` — the target's own order of the rows
+  pointing at it, independent of `sort`, which is the owner's order of its targets. Nothing writes
+  `inverse_sort` yet, so entries currently fall back to the owner's own `sort`.
+- **Many-to-many only**, and the owning entity must not be localized.
+
 ## Structured Fields
 
 ### Array

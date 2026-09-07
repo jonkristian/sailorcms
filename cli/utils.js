@@ -48,7 +48,7 @@ async function pruneStalePackageExportedComponents(targetComponentsDir) {
     const stale = path.join(targetComponentsDir, dir);
     if (await fs.pathExists(stale)) {
       await fs.remove(stale);
-      console.log(`🧹 Removed stale components/${dir}/ (now resolved from sailorcms package).`);
+      console.log(`Removed stale components/${dir}/ (now resolved from sailorcms package).`);
     }
   }
 }
@@ -58,7 +58,7 @@ async function pruneStalePackageExportedSailorDirs(targetSailorDir) {
     const stale = path.join(targetSailorDir, dir);
     if (await fs.pathExists(stale)) {
       await fs.remove(stale);
-      console.log(`🧹 Removed stale sailor/${dir}/ (now resolved from sailorcms package).`);
+      console.log(`Removed stale sailor/${dir}/ (now resolved from sailorcms package).`);
     }
   }
 }
@@ -96,7 +96,7 @@ async function cleanDir(srcDir, tgtDir, skip = [], relPath = '') {
     const tgtPath = path.join(tgtDir, entry);
     if (!srcEntries.has(entry)) {
       await fs.remove(tgtPath);
-      console.log(`🧹 Removed obsolete: ${tgtPath}`);
+      console.log(`Removed obsolete: ${tgtPath}`);
       continue;
     }
     const stat = await fs.stat(tgtPath);
@@ -195,7 +195,7 @@ async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
     await pruneStalePackageExportedSailorDirs(targetSailorDir);
 
     if (!isInit) {
-      console.log('📝 Updated sailor core files');
+      console.log('✅ Updated sailor core files');
 
       // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
       await cleanDir(mainSailorDir, targetSailorDir, ['templates', 'generated']);
@@ -309,7 +309,7 @@ export async function setupConfigFiles(targetDir, force = false) {
   const envTarget = path.join(targetDir, '.env');
   if (await fs.pathExists(envSource)) {
     await fs.copy(envSource, envSailorTarget);
-    console.log('📝 Created .env.sailor - copy variables to your .env file');
+    console.log('Created .env.sailor - copy variables to your .env file');
 
     // Bootstrap a real .env if the consumer doesn't have one yet, with a freshly
     // generated BETTER_AUTH_SECRET so they can boot the admin without manual setup.
@@ -321,7 +321,7 @@ export async function setupConfigFiles(targetDir, force = false) {
         `BETTER_AUTH_SECRET=${secret}`
       );
       await fs.writeFile(envTarget, seeded);
-      console.log('🔐 Created .env with a generated BETTER_AUTH_SECRET');
+      console.log('Created .env with a generated BETTER_AUTH_SECRET');
     }
   }
 
@@ -1480,7 +1480,7 @@ export async function runMigrations(targetDir) {
           args: [hash, latest.when]
         });
         console.log(
-          `📋 Adopted ${journal.entries.length} pre-existing migration(s) into __drizzle_migrations (last: ${latest.tag}).`
+          `Adopted ${journal.entries.length} pre-existing migration(s) into __drizzle_migrations (last: ${latest.tag}).`
         );
       }
     }
@@ -1559,7 +1559,7 @@ async function runPostgresMigrations(targetDir, dbUrl, journal) {
           [hash, latest.when]
         );
         console.log(
-          `📋 Adopted ${journal.entries.length} pre-existing migration(s) into __drizzle_migrations (last: ${latest.tag}).`
+          `Adopted ${journal.entries.length} pre-existing migration(s) into __drizzle_migrations (last: ${latest.tag}).`
         );
       }
     }
@@ -1668,7 +1668,7 @@ async function patchSqliteRebuildBug(client, targetDir, journal, maxApplied) {
       await fs.writeFile(sqlPath, patched);
       for (const s of summaries) {
         console.log(
-          `🔧 Patched drizzle/${entry.tag}.sql (\`${s.table}\` rebuild): dropped ${s.removed.length} new column(s) from INSERT-SELECT — ${s.removed.join(', ')}.`
+          `Patched drizzle/${entry.tag}.sql (\`${s.table}\` rebuild): dropped ${s.removed.length} new column(s) from INSERT-SELECT — ${s.removed.join(', ')}.`
         );
       }
       console.log(
@@ -1752,7 +1752,7 @@ export async function cleanupUnusedDependencies(targetDir) {
   });
 
   if (unusedDeps.length > 0) {
-    console.log('🧹 Cleaning up unused dependencies...');
+    console.log('Cleaning up unused dependencies...');
     console.log(`Removing: ${unusedDeps.join(', ')}`);
 
     // Remove unused dependencies

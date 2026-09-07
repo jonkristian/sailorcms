@@ -18,10 +18,10 @@ export function registerDbRestore(program) {
     .option('--dry-run', 'Show what would be restored without actually doing it')
     .action(async (backupFile, options) => {
       try {
-        console.log('🔄 Starting database restore...');
+        console.log('Starting database restore...');
 
         if (options.dryRun) {
-          console.log('🔍 DRY RUN MODE - No actual restore will be performed');
+          console.log('DRY RUN MODE - No actual restore will be performed');
         }
 
         let restoreFile = backupFile;
@@ -45,8 +45,8 @@ export function registerDbRestore(program) {
         const dbInfo = await detectDatabase();
 
         if (options.dryRun) {
-          console.log(`🔍 Would restore: ${restoreFile}`);
-          console.log(`🔍 Target database: ${dbInfo.path} (${dbInfo.type})`);
+          console.log(`Would restore: ${restoreFile}`);
+          console.log(`Target database: ${dbInfo.path} (${dbInfo.type})`);
           console.log('✅ Dry run completed');
           return;
         }
@@ -64,7 +64,7 @@ export function registerDbRestore(program) {
         await performRestore(restoreFile, dbInfo, options);
 
         console.log('✅ Database restore completed successfully!');
-        console.log('💡 Restart your application to see the changes.');
+        console.log('Restart your application to see the changes.');
       } catch (error) {
         console.error('❌ Restore failed:', error.message);
         process.exit(1);
@@ -175,12 +175,21 @@ async function selectS3Backup(options, bucket) {
       credentials: {
         accessKeyId: process.env.S3_ACCESS_KEY_ID,
         secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
-      }
+      },
+      // R2 and other S3-compatible providers don't fully implement the
+      // checksums the SDK enables by default from 3.729 — GetObject stalls on
+      // the body stream rather than failing. Mirrors s3-client.server.ts.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+      // And the SDK's default request timeout is 0, i.e. none — so a stall
+      // hangs `db:restore` forever with nothing logged. Generous, since
+      // backups are large, but bounded.
+      requestHandler: { requestTimeout: 120_000, connectionTimeout: 5_000 }
     });
 
     const siteName = options.siteName || (await detectSiteName());
 
-    console.log(`🔍 Searching for backups in ${bucket} for site: ${siteName}`);
+    console.log(`Searching for backups in ${bucket} for site: ${siteName}`);
 
     const listCommand = new ListObjectsV2Command({
       Bucket: bucket,
@@ -198,7 +207,7 @@ async function selectS3Backup(options, bucket) {
     // Sort by last modified (newest first)
     backups.sort((a, b) => new Date(b.LastModified) - new Date(a.LastModified));
 
-    console.log('\n📋 Available backups:');
+    console.log('\nAvailable backups:');
     backups.forEach((backup, index) => {
       const date = new Date(backup.LastModified).toLocaleString();
       const size = formatFileSize(backup.Size);
@@ -208,7 +217,7 @@ async function selectS3Backup(options, bucket) {
     // For now, auto-select the newest backup
     // TODO: Add interactive selection with readline
     const selectedBackup = backups[0];
-    console.log(`\n🎯 Selected newest backup: ${selectedBackup.Key}`);
+    console.log(`\nSelected newest backup: ${selectedBackup.Key}`);
 
     // Download the backup
     return await downloadS3Backup(client, bucket, selectedBackup.Key, options.tempDir);
@@ -221,7 +230,7 @@ async function downloadS3Backup(client, bucket, key, tempDir) {
   try {
     const { GetObjectCommand } = await import('@aws-sdk/client-s3');
 
-    console.log(`⬇️ Downloading backup: ${key}`);
+    console.log(`Downloading backup: ${key}`);
 
     const command = new GetObjectCommand({
       Bucket: bucket,
@@ -269,7 +278,7 @@ async function confirmRestore(dbInfo) {
 }
 
 async function performRestore(backupFile, dbInfo, options) {
-  console.log(`🔄 Restoring ${dbInfo.type} database...`);
+  console.log(`Restoring ${dbInfo.type} database...`);
 
   if (dbInfo.type === 'sqlite') {
     await restoreSQLite(backupFile, dbInfo.path, options);
@@ -285,7 +294,7 @@ async function restoreSQLite(backupFile, dbPath, options) {
 
   // Check if file is compressed
   if (backupFile.endsWith('.gz')) {
-    console.log('🗜️ Decompressing backup...');
+    console.log('Decompressing backup...');
     sourceFile = await decompressFile(backupFile, options.tempDir);
   }
 
@@ -294,7 +303,7 @@ async function restoreSQLite(backupFile, dbPath, options) {
     await fs.access(dbPath);
     const backupDbPath = `${dbPath}.backup-${Date.now()}`;
     await fs.copyFile(dbPath, backupDbPath);
-    console.log(`💾 Backed up existing database to: ${backupDbPath}`);
+    console.log(`Backed up existing database to: ${backupDbPath}`);
   } catch {
     // Database doesn't exist yet, that's fine
   }
@@ -314,14 +323,14 @@ async function restorePostgreSQL(backupFile, connectionString, options) {
 
   // Check if file is compressed
   if (backupFile.endsWith('.gz')) {
-    console.log('🗜️ Decompressing backup...');
+    console.log('Decompressing backup...');
     sourceFile = await decompressFile(backupFile, options.tempDir);
   }
 
   try {
     const { spawn } = await import('child_process');
 
-    console.log('🔄 Restoring PostgreSQL database...');
+    console.log('Restoring PostgreSQL database...');
     console.log('⚠️  WARNING: This will drop and recreate all tables!');
 
     // Use psql to restore the backup

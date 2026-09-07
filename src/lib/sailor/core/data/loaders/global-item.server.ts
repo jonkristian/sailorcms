@@ -19,6 +19,8 @@ import { getCurrentTimestamp } from '../../utils/date';
 import { getContentSettings } from '../../settings/i18n';
 import { reidNestedRows } from '../i18n-prefill.server';
 import { childTableName } from '../../utils/string';
+import { loadJunctionValues } from './junction-values.server';
+import { loadReverseRelations } from '../../../utils/data/loaders/reverse-loader';
 
 export interface LoadGlobalItemOptions {
   slug: string;
@@ -344,7 +346,11 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
     } else if ((fieldDef as any).type === 'relation') {
       // Resolve single-FK relations server-side for better UX
       const relType = (fieldDef as any).relation?.type;
-      if (relType === 'one-to-one' || relType === 'many-to-one') {
+      if (relType === 'many-to-many') {
+        // Junctions anchor on the main row id, matching the writer — unlike the
+        // array/file child tables above, which use `entityIdForChildren`.
+        item[fieldName] = await loadJunctionValues(slug, 'global_id', item.id, fieldName, fieldDef);
+      } else if (relType === 'one-to-one' || relType === 'many-to-one') {
         const targetId = item[fieldName];
         if (targetId) {
           try {
@@ -364,6 +370,10 @@ export async function loadGlobalItem(opts: LoadGlobalItemOptions): Promise<LoadG
       }
     }
   }
+
+  // Reverse fields — read from the other side of a relation this global does
+  // not own. Status 'all' so the editor shows drafts too.
+  await loadReverseRelations(item, globalDefinition.fields ?? {}, 'all');
 
   // Localized-prefill path: array/file rows just loaded came from the
   // source-locale's `_locales.id` and still carry their original row ids.

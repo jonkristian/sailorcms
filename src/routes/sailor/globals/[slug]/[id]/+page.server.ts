@@ -4,7 +4,7 @@
 // orchestration live here; all data load/save logic lives in the loader and
 // persister.
 
-import { error, redirect, fail } from '@sveltejs/kit';
+import { error, redirect, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import { loadGlobalItem } from 'sailorcms/core/data/loaders/global-item.server';
 import { saveGlobalItem } from 'sailorcms/core/data/persisters/global-item.server';
 
@@ -24,6 +24,10 @@ export const load = async ({ params, locals, url }: any) => {
       locale: url.searchParams.get('locale') ?? undefined
     });
   } catch (err) {
+    // A `redirect()` or `error()` thrown deeper is a deliberate response, not a
+    // failure — rethrow it untouched. Flattening everything into a 500 here
+    // turned auth redirects and 404s into server errors.
+    if (isHttpError(err) || isRedirect(err)) throw err;
     if (err && (err as any).notFound) {
       throw error(404, (err as Error).message);
     }

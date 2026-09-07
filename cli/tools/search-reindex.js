@@ -150,7 +150,7 @@ async function reindexAll() {
     console.warn('⚠ FTS5 init skipped (likely non-SQLite backend):', err.message);
   }
 
-  console.log('🧹 Clearing search_index...');
+  console.log('Clearing search_index...');
   await db.delete(searchIndex);
   if (ftsAvailable) {
     await db.run(sql`DELETE FROM search_index_fts`);
@@ -245,7 +245,7 @@ export function registerSearchReindex(program) {
     )
     .action(async () => {
       try {
-        console.log('🔎 Rebuilding search index...');
+        console.log('Rebuilding search index...');
         const { indexed, skipped } = await reindexAll();
         console.log(`✅ Search index rebuilt: ${indexed} indexed, ${skipped} skipped`);
       } catch (err) {
