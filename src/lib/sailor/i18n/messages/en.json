@@ -83,7 +83,6 @@
   "history_button_title": "Revision history",
   "history_button_title_with_count": "Revision history ({count})",
   "history_aria_label": "Revision history",
-
   "account_page_title": "Account Settings",
   "account_page_description": "Manage your account information and preferences.",
   "account_profile_card_title": "Profile Information",
@@ -118,7 +117,6 @@
   "account_overview_last_updated": "Last Updated:",
   "account_update_success": "Account updated successfully",
   "account_update_failed": "Failed to update account",
-
   "common_item_singular": "item",
   "common_item_plural": "items",
   "common_file_singular": "file",
@@ -129,20 +127,16 @@
   "common_tag_plural": "tags",
   "common_user_singular": "user",
   "common_user_plural": "users",
-
   "header_add_button_aria": "Add new",
   "header_save_changes": "Save Changes",
   "header_expand_all": "Expand All",
   "header_collapse_all": "Collapse All",
   "header_expand_all_aria": "Expand all",
   "header_collapse_all_aria": "Collapse all",
-
   "pagination_rows_per_page": "Rows per page",
   "pagination_showing_results": "Showing {from} to {to} of {total} results",
   "pagination_page_position": "Page {current} of {total}",
-
   "bulk_selection_count": "{selected} of {total} {items} selected",
-
   "delete_dialog_title_one": "Delete {item}",
   "delete_dialog_title_many": "Delete {count} {items}",
   "delete_dialog_title_one_permanent": "Permanently delete {item}",
@@ -155,7 +149,6 @@
   "delete_dialog_body_one_permanent": "Permanently delete this {item}? This cannot be undone.",
   "delete_dialog_body_one_named_permanent": "Permanently delete \"{name}\"? This cannot be undone.",
   "delete_dialog_body_many_permanent": "Permanently delete these {count} {items}? This cannot be undone.",
-
   "toast_file_updated": "File updated successfully",
   "toast_file_update_failed": "Failed to update file",
   "toast_filename_copied": "Filename copied to clipboard",
@@ -175,7 +168,6 @@
   "toast_nesting_update_failed": "Failed to update nesting",
   "toast_author_updated": "Author updated successfully",
   "toast_author_update_failed": "Failed to update author",
-
   "toast_item_saved": "Item saved successfully",
   "toast_item_created": "Item created successfully",
   "toast_item_deleted": "Item deleted successfully",
@@ -193,39 +185,30 @@
   "toast_items_permanent_deleted": "Permanently deleted {count} {items}",
   "toast_restore_partial": "Restored {ok}, {failed} failed",
   "toast_delete_partial": "Deleted {ok}, {failed} failed",
-
   "toast_collection_saved": "Collection saved successfully",
   "toast_collection_created": "Collection created successfully",
   "toast_save_collection_failed": "Failed to save collection",
-
   "toast_global_saved": "Global saved successfully",
   "toast_save_global_failed": "Failed to save global",
   "toast_global_settings_saved": "Global settings saved successfully",
   "toast_save_global_settings_failed": "Failed to save global settings",
-
   "toast_site_settings_saved": "Site settings saved successfully",
   "toast_save_site_settings_failed": "Failed to save site settings",
   "toast_settings_purged": "Settings purged successfully",
   "toast_purge_settings_failed": "Failed to purge settings",
-
   "toast_restore_failed": "Failed to restore",
   "toast_permanent_delete_failed": "Failed to permanently delete",
-
   "toast_user_deleted": "User deleted successfully",
   "toast_delete_user_failed": "Failed to delete user",
   "toast_delete_users_failed": "Failed to delete users",
   "toast_passwords_no_match": "Passwords do not match",
-
   "toast_tag_deleted_named": "Tag \"{name}\" deleted successfully",
   "toast_delete_tag_failed": "Failed to delete tag",
-
   "toast_generic_error": "An error occurred",
-
   "toast_perm_update_global": "You do not have permission to update this global",
   "toast_perm_delete_items": "You do not have permission to delete items",
   "toast_perm_create_items": "You do not have permission to create new items",
   "toast_perm_save_items": "You do not have permission to save items",
-
   "settings_page_title": "Settings",
   "settings_page_description": "Configure your site's basic information and settings",
   "settings_basic_info_title": "Basic Information",
@@ -250,7 +233,6 @@
   "settings_purge_button": "Purge Settings",
   "settings_purging": "Purging…",
   "settings_purge_confirm": "This will remove all old template/environment settings and reload them fresh. Continue?",
-
   "auth_field_email": "Email",
   "auth_field_email_placeholder": "Enter your email",
   "auth_field_password": "Password",
@@ -263,7 +245,6 @@
   "auth_oauth_divider": "Or continue with",
   "auth_error_fill_all_fields": "Please fill in all fields",
   "auth_error_invalid_email": "Please enter a valid email address",
-
   "auth_login_page_title": "Login",
   "auth_login_welcome": "Welcome back",
   "auth_login_subtitle": "Sign in to your Sailor CMS dashboard",
@@ -273,7 +254,6 @@
   "auth_login_error_generic": "An error occurred during login",
   "auth_login_error_github": "Failed to sign in with GitHub",
   "auth_login_no_account": "Don't have an account? Sign up",
-
   "auth_signup_page_title": "Sign Up",
   "auth_signup_welcome": "Create account",
   "auth_signup_subtitle": "Join Sailor CMS to start managing your content",
@@ -284,7 +264,6 @@
   "auth_signup_error_generic": "An error occurred during signup",
   "auth_signup_account_created": "Account created successfully. Please sign in.",
   "auth_signup_have_account": "Already have an account? Sign in",
-
   "toast_url_copied": "URL copied to clipboard",
   "toast_copy_url_failed": "Failed to copy URL",
   "toast_payload_copied": "Payload copied to clipboard",
@@ -298,12 +277,10 @@
   "toast_preview_loaded": "Preview loaded successfully",
   "toast_unknown_error": "Unknown error",
   "toast_slug_needs_title": "Please enter a title first, then generate the slug",
-
   "common_time_singular": "time",
   "common_time_plural": "times",
   "common_entity_type_singular": "entity type",
   "common_entity_type_plural": "entity types",
-
   "settings_roles_page_title": "Role Permissions",
   "settings_roles_description": "User roles and their access permissions throughout the CMS",
   "settings_roles_total_roles": "Total Roles",
@@ -314,7 +291,6 @@
   "settings_roles_card_description": "Role definitions and their resource permissions configured in src/lib/sailor/templates/settings.ts",
   "settings_roles_admin_badge": "Admin",
   "settings_roles_default_badge": "Default",
-
   "settings_taggables_page_title": "Taggables",
   "settings_taggables_description": "Manage tags and view where they are being used across your content.",
   "settings_taggables_total": "Total Tags",
@@ -328,7 +304,6 @@
   "settings_taggables_entity_collections": "Collection Items",
   "settings_taggables_usage_heading": "{label} Usage",
   "settings_taggables_no_tags": "No tags found. Tags will appear here as you create them.",
-
   "settings_storage_page_title": "Storage Settings",
   "settings_storage_description": "Configure file storage provider and upload settings",
   "settings_storage_current_config_title": "Current Configuration",
@@ -356,13 +331,11 @@
   "settings_storage_repair_fix_button": "Fix {count} File URLs",
   "settings_storage_repair_none": "No files need URL repair.",
   "settings_storage_repair_summary": "{count} {files} will have their URLs updated for proper storage compatibility.",
-
   "settings_storage_overview_title": "Storage Overview",
   "settings_storage_overview_description": "Top-level folders on the configured storage provider. Folders marked excluded are skipped by file import and the file picker, but still take up storage.",
   "settings_storage_overview_empty": "No top-level folders found.",
   "settings_storage_overview_empty_folder": "Empty",
   "settings_storage_overview_excluded": "Excluded",
-
   "settings_storage_image_cache_title": "Image Cache",
   "settings_storage_image_cache_description": "Wipe every cached image variant from storage. Variants regenerate on demand; the first page load after a purge will be slower.",
   "settings_storage_image_cache_button": "Purge image cache",
@@ -376,12 +349,10 @@
   "settings_storage_image_cache_enforce_under_limit": "Cache is {size}, under the {limit} limit — nothing to prune.",
   "settings_storage_image_cache_enforce_no_limit": "No cache.maxSize configured — set storage.cache.maxSize or CACHE_MAX_SIZE.",
   "settings_storage_image_cache_enforce_failed": "Failed to enforce image cache size",
-
   "toast_repair_analysis": "File repair analysis: {count} files need repair",
   "toast_repair_completed": "File repair completed: {count} files processed",
   "toast_repair_failed": "Repair failed",
   "toast_check_failed": "Check failed",
-
   "settings_db_page_title": "Database",
   "settings_db_description": "View your database schema, tables, and generated content types",
   "settings_db_stat_collections": "Collections",
@@ -398,13 +369,10 @@
   "settings_db_col_name": "Name",
   "settings_db_col_type": "Type",
   "settings_db_col_rows": "Rows",
-
   "common_view_all": "View all",
-
   "dashboard_page_title": "Dashboard",
   "dashboard_fallback_description": "Overview of your content management system",
   "dashboard_visit_site": "Visit site: {url}",
-
   "dashboard_stat_collections": "Collections",
   "dashboard_stat_collections_help": "Content types",
   "dashboard_stat_users": "Users",
@@ -413,7 +381,6 @@
   "dashboard_stat_media_help": "Uploaded files",
   "dashboard_stat_globals": "Globals",
   "dashboard_stat_globals_help": "Global settings",
-
   "dashboard_activity_title": "Recent Activity",
   "dashboard_activity_description": "Latest changes and updates in your CMS",
   "dashboard_activity_empty": "No recent activity",
@@ -426,29 +393,24 @@
   "dashboard_activity_desc_created": "Created {entity}",
   "dashboard_activity_desc_edited": "Edited {entity}",
   "dashboard_activity_desc_updated": "Updated {entity}",
-
   "status_published": "Published",
   "status_draft": "Draft",
   "status_archived": "Archived",
   "status_private": "Private",
   "status_active": "Active",
-
   "file_type_image": "Image",
   "file_type_video": "Video",
   "file_type_audio": "Audio",
   "file_type_document": "Document",
   "file_type_other": "Other",
-
   "dashboard_media_title": "Recent Media",
   "dashboard_media_description": "Latest uploaded files",
   "dashboard_media_empty": "No media files uploaded",
   "dashboard_media_view_all": "View all media ({total} total)",
-
   "dashboard_users_title": "Recent Users",
   "dashboard_users_description": "Latest registered users",
   "dashboard_users_empty": "No users registered yet",
   "dashboard_users_view_all": "View all users ({total} total)",
-
   "users_page_title": "Users",
   "users_page_description": "Manage user accounts and permissions",
   "users_col_name": "Name",
@@ -519,7 +481,6 @@
   "users_role_warning_li4": "Require another admin to restore your privileges",
   "users_role_warning_confirm": "Are you sure you want to continue?",
   "users_role_warning_button": "Yes, Remove Admin Role",
-
   "help_page_title": "Help & Documentation",
   "help_page_description": "Get help and learn how to use Sailor CMS",
   "help_quickstart_title": "Quick Start",
@@ -537,7 +498,6 @@
   "help_docs_description": "View the full documentation, contribute improvements, or report issues on GitHub.",
   "help_docs_browse": "Browse All Docs",
   "help_contributing": "Contributing Guide",
-
   "recovery_page_title": "Recovery",
   "recovery_page_description": "Restore deleted items, or permanently remove them. Pick a type to drill in.",
   "recovery_empty_title": "Nothing to recover",
@@ -558,10 +518,8 @@
   "recovery_action_restore": "Restore",
   "recovery_action_restore_count": "Restore ({count})",
   "recovery_action_delete_count": "Delete ({count})",
-
   "common_apply": "Apply",
   "common_unknown": "Unknown",
-
   "collections_col_title": "Title",
   "collections_col_status": "Status",
   "collections_filter_by_relation": "All {label}",
@@ -583,13 +541,11 @@
   "collections_empty_text": "Get started by creating your first {singular}.",
   "collections_change_author_dialog_title": "Change author",
   "collections_change_author_dialog_description": "Select an author to assign to the selected items",
-
   "globals_page_title": "Globals",
   "globals_page_description": "Manage your site's global content and settings",
   "globals_badge_singleton": "Singleton",
   "globals_badge_global": "Global",
   "globals_manage_button": "Manage {label}",
-
   "media_page_title": "Media Library",
   "media_page_description": "Manage your files and media assets",
   "media_bulk_action_select": "Bulk actions…",
@@ -621,7 +577,6 @@
   "media_tags_input_placeholder_add": "Add tags…",
   "media_tags_input_placeholder_remove": "Select tags to remove…",
   "media_tags_input_placeholder_replace": "Select new tags…",
-
   "nav_dashboard": "Dashboard",
   "nav_dashboard_aliases": "home,overview,start",
   "nav_media_library": "Media Library",
@@ -671,13 +626,11 @@
   "nav_user_account": "Account",
   "nav_user_account_aliases": "profile,me,my account,preferences,language",
   "nav_user_logout": "Log out",
-
   "common_block_singular": "block",
   "common_block_plural": "blocks",
   "common_by": "by",
   "common_created": "Created",
   "common_updated": "Updated",
-
   "editor_recovery_banner": "This item is in recovery. Restore it to bring it back to the collection.",
   "editor_recovery_restore": "Restore",
   "editor_blocks_heading": "Blocks",
@@ -696,20 +649,17 @@
   "editor_blocks_placeholder": "Placeholder",
   "editor_main_empty_title": "No main fields",
   "editor_main_empty_text": "This collection doesn't have any main fields. Use the sidebar to edit content.",
-
   "common_yes": "Yes",
   "common_no": "No",
   "common_loading_dots": "Loading…",
   "common_searching": "Searching…",
   "common_back": "Back",
-
   "omnibar_placeholder": "Search everything…",
   "omnibar_no_results": "No results",
   "omnibar_group_content": "Content",
   "omnibar_group_files": "Files",
   "omnibar_group_users": "Users",
   "omnibar_group_destinations": "Pages",
-
   "field_no_tags": "No tags",
   "field_no_email": "No email",
   "field_no_link": "No link",
@@ -726,14 +676,12 @@
   "field_slug_is_homepage_help": "This item is configured as the site homepage in templates/settings.ts. Renaming this slug breaks the declaration until settings is updated.",
   "toast_slug_generated": "Slug generated from title",
   "toast_slug_generated_unique": "Slug generated from title (suffixed to avoid a conflict)",
-
   "array_edit_item": "Edit Item",
   "array_add_item": "Add Item",
   "array_modal_title": "Edit Item {index}",
   "array_modal_description": "Update the details for this item",
   "array_modal_cancel": "Cancel",
   "array_modal_save": "Save",
-
   "relation_select_placeholder": "Select {label}…",
   "relation_search_placeholder": "Search items…",
   "relation_loading_items": "Loading items…",
@@ -751,7 +699,6 @@
   "relation_browser_empty": "Nothing attached yet",
   "relation_browser_remove": "Remove",
   "relation_items_selected": "{count} {items} selected",
-
   "file_field_label": "Files",
   "file_field_select_one_title": "Select file",
   "file_field_select_many_title": "Select files",
@@ -765,7 +712,6 @@
   "file_field_cancel": "Cancel",
   "file_field_missing_name": "Missing file",
   "file_field_unknown_name": "Unknown file",
-
   "file_picker_search_placeholder": "Search for files…",
   "file_picker_upload_one": "Upload file",
   "file_picker_upload_many": "Upload files",
@@ -782,15 +728,12 @@
   "file_picker_preview": "Preview",
   "file_picker_size_label": "Size: {size}",
   "file_picker_date_label": "Date: {date}",
-
   "tags_input_placeholder": "Type tag name and press Enter",
   "tags_remove_tag": "Remove tag",
-
   "tag_selector_placeholder": "Select tags…",
   "tag_selector_search_placeholder": "Search tags…",
   "tag_selector_create_label": "Create tag",
   "tag_selector_no_tags_found": "No tags found.",
-
   "link_dialog_title": "Add Link",
   "link_dialog_description": "Enter the URL and optional link text for your link.",
   "link_dialog_field_url": "URL",
@@ -804,7 +747,6 @@
   "link_dialog_target_select": "Select target",
   "link_dialog_button_add": "Add Link",
   "link_dialog_button_cancel": "Cancel",
-
   "blocks_drop_zone_first": "Drop zone for first position",
   "blocks_drop_zone_item": "Drop zone for item {index}",
   "blocks_drop_zone_last": "Drop zone for last position",
@@ -812,7 +754,6 @@
   "blocks_delete_selected": "Delete Selected ({count})",
   "blocks_select_all": "Select All",
   "blocks_select_all_aria": "Select all",
-
   "table_drag_to_reorder": "Drag to reorder",
   "table_select_all": "Select all",
   "table_select_row": "Select row",
@@ -820,14 +761,12 @@
   "table_open_menu": "Open menu",
   "table_action_edit": "Edit",
   "table_action_delete": "Delete",
-
   "filter_placeholder": "Filter…",
   "filter_select_count_selected": "{count} selected",
   "filter_select_placeholder": "Select {label}…",
   "filter_search_label": "Search {label}…",
   "filter_no_results": "No {label} found.",
   "filter_clear_filters": "Clear Filters",
-
   "media_edit_default_title": "Edit Media",
   "media_edit_image": "Image",
   "media_edit_video": "Video",
@@ -849,16 +788,13 @@
   "media_edit_copy_filename_title": "Copy filename to clipboard",
   "media_edit_view_original": "View original",
   "media_edit_save": "Save",
-
   "payload_preview_default_title": "JSON Preview",
   "payload_preview_show": "Show Payload",
   "payload_preview_copy": "Copy",
   "payload_preview_loading": "Loading payload…",
   "payload_preview_error": "Error: {error}",
   "payload_preview_none": "No payload available",
-
   "theme_toggle": "Toggle theme",
-
   "auth_widget_aria": "Sailor CMS Widget",
   "auth_widget_hello": "Hello, {name}",
   "auth_widget_welcome_back": "Welcome back to your dashboard",
@@ -869,7 +805,6 @@
   "auth_widget_signout": "Sign Out",
   "auth_widget_signin": "Sign In",
   "auth_widget_create_account": "Create Account",
-
   "upload_uploading_files": "Uploading Files",
   "upload_completed_with_errors": "Upload completed with {count} {errors}",
   "upload_error_singular": "error",
@@ -882,7 +817,6 @@
   "upload_summary_done": "{completed} of {total} files uploaded successfully",
   "upload_summary_progress": "{uploading} uploading, {pending} pending",
   "upload_cancel": "Cancel",
-
   "file_controls_missing": "Missing file",
   "file_controls_video": "Video",
   "file_controls_document": "Document",
@@ -894,7 +828,6 @@
   "file_controls_copy_filename": "Copy filename",
   "file_controls_remove_image": "Remove image",
   "file_controls_restore": "Restore",
-
   "site_info_title": "Site Information",
   "site_info_configure": "Configure",
   "site_info_no_info": "No site information configured",
@@ -902,7 +835,6 @@
   "site_info_label_name": "Name",
   "site_info_label_url": "URL",
   "site_info_label_description": "Description",
-
   "seo_heading": "SEO Settings",
   "seo_refresh": "Refresh from Content",
   "seo_toggle": "Toggle SEO settings",
@@ -925,7 +857,6 @@
   "seo_canonical_url_placeholder": "https://yoursite.com/page-slug",
   "seo_noindex_label": "Discourage Search Engine Indexing",
   "seo_noindex_description": "Request that search engines do not index this page (not guaranteed)",
-
   "global_no_main_fields_title": "No main fields",
   "global_no_main_fields_text": "This global doesn't have any main content fields.",
   "global_edit_button": "Edit {label}",
@@ -936,14 +867,12 @@
   "global_modal_edit_title": "Edit {label}",
   "global_modal_create": "Create",
   "global_modal_save": "Save",
-
   "account_passwords_no_match": "Passwords do not match",
   "account_oauth_title": "OAuth Authentication",
   "account_oauth_description": "Your account is authenticated via {providers}.",
   "account_oauth_connected": "Connected {date}",
   "account_oauth_connected_recently": "Connected recently",
   "account_role_not_set": "Not set",
-
   "wp_import_title_media": "WordPress Import to Media Library",
   "wp_import_title_collection": "WordPress Import to {collection}",
   "wp_step_connect": "1. Connect",
@@ -1041,7 +970,6 @@
   "wp_results_errors_label": "Errors ({count})",
   "wp_error_load_preview": "Failed to load preview",
   "wp_error_connect": "Failed to connect to WordPress API",
-
   "settings_nav_settings_label": "Settings",
   "settings_nav_settings_description": "Basic site information",
   "settings_nav_roles_label": "Roles",
@@ -1077,7 +1005,6 @@
   "settings_nav_import_label": "Import & Export",
   "settings_nav_import_description": "Content migration tools",
   "settings_nav_import_aliases": "export,migration,wordpress",
-
   "settings_search_page_title": "Search Index",
   "settings_search_description": "Health snapshot of the FTS index that powers admin omnibar and public site search.",
   "settings_search_unavailable": "Search index is unavailable. Run `npx sailor db:update` to create the table.",
@@ -1109,7 +1036,6 @@
   "settings_search_reindex_running": "Rebuilding…",
   "settings_search_reindex_complete": "Reindex complete: {indexed} indexed, {skipped} skipped.",
   "settings_search_reindex_failed": "Search index rebuild failed",
-
   "import_page_title": "Import Content",
   "import_page_description": "Import content from external sources into your collections.",
   "import_tab_wordpress": "WordPress",
@@ -1127,7 +1053,6 @@
   "export_coming_soon": "Coming Soon",
   "export_features_title": "Export Features",
   "export_features_text": "Export functionality including JSON, XML, and CSV formats will be available in a future update.",
-
   "wysiwyg_tooltip_bold": "Bold",
   "wysiwyg_tooltip_italic": "Italic",
   "wysiwyg_tooltip_underline": "Underline",
@@ -1150,7 +1075,6 @@
   "wysiwyg_tooltip_remove_link": "Remove Link",
   "wysiwyg_tooltip_source_view": "Toggle Source View",
   "wysiwyg_source_placeholder": "Enter HTML content…",
-
   "globals_table_col_title": "Title",
   "globals_table_col_slug": "Slug",
   "globals_table_col_status": "Status",
@@ -1162,31 +1086,24 @@
   "globals_table_add_button": "Add {label}",
   "globals_table_no_results": "No {plural} found.",
   "globals_table_delete_count": "Delete ({count})",
-
   "users_role_user_label": "User",
   "users_role_user_description": "Basic access with limited permissions",
   "users_role_editor_label": "Editor",
   "users_role_editor_description": "Can manage content and access most features",
   "users_role_admin_label": "Admin",
   "users_role_admin_description": "Full access to all features and settings",
-
   "date_field_placeholder": "Pick a date",
   "date_field_clear": "Clear date",
-
   "draggable_featured": "Featured",
   "draggable_more_count": "+{count} more",
   "draggable_select_row": "Select row",
-
   "overlay_loading": "Loading",
-
   "globals_no_create_permission": "You don't have permission to create new items",
-
   "payload_title_settings": "Settings Payload",
   "payload_title_roles": "Roles Payload",
   "payload_title_storage": "Storage Settings Payload",
   "payload_title_collection": "Collection Payload",
   "payload_title_preview": "Preview",
-
   "select_dialog_default_title": "Select",
   "select_dialog_confirm": "Confirm",
   "select_dialog_cancel": "Cancel",
@@ -1217,5 +1134,10 @@
   "block_group_field_margin_bottom": "Margin bottom",
   "block_group_field_background": "Background",
   "block_group_field_rounded": "Rounded corners",
-  "block_group_field_wrap": "Wrap"
+  "block_group_field_wrap": "Wrap",
+  "locale_field_none": "Not set",
+  "locale_field_search": "Search language or code…",
+  "locale_field_empty": "No match",
+  "locale_field_use_custom": "Use “{code}”",
+  "locale_display_language": "en"
 }

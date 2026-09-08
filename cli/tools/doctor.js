@@ -78,7 +78,20 @@ async function checkStaleMigratedImports(targetDir) {
     }
     if (!earliestPattern) return;
     const lines = content.split('\n');
+    let inBlockComment = false;
     for (let i = 0; i < lines.length; i++) {
+      // Skip comments. Docblocks routinely show the very import they are
+      // documenting — `drizzle-config.ts` explains how a consumer wires it up
+      // by quoting the import — and flagging those sends people to rewrite
+      // prose that was already correct.
+      const trimmed = lines[i].trim();
+      const opensBlock = trimmed.includes('/*');
+      const closesBlock = trimmed.includes('*/');
+      const wasInBlock = inBlockComment;
+      if (opensBlock && !closesBlock) inBlockComment = true;
+      else if (closesBlock) inBlockComment = false;
+      if (wasInBlock || opensBlock || trimmed.startsWith('*') || trimmed.startsWith('//')) continue;
+
       for (const [needle] of patterns) {
         if (lines[i].includes(needle)) {
           hits.push({
@@ -1111,6 +1124,21 @@ async function checkCredentialAccountId(targetDir) {
   };
 }
 
+/**
+ * Checks that only make sense where sailor is a *dependency*. Run inside the
+ * sailorcms repo itself they report problems that cannot exist: the library is
+ * not installed into itself, so there is no `vite.config.ts` patch to apply and
+ * no nested copy to dedupe. Reporting them there trains you to ignore doctor's
+ * output, which is worse than not running the check.
+ */
+const CONSUMER_ONLY_CHECKS = new Set([
+  checkScaffoldRouteClash,
+  checkSvelteConfig,
+  checkViteConfig,
+  checkLegacyDbScripts,
+  checkNestedSailorcmsDeps
+]);
+
 const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
@@ -1152,8 +1180,24 @@ export function registerDoctor(program) {
         `\n${c.bold(c.cyan('Sailor doctor'))} ${c.dim('—')} ${path.basename(targetDir)}\n`
       );
 
+      // Read the package name rather than the folder name — a consumer may well
+      // have cloned into a directory called `sailorcms`.
+      let isSailorItself = false;
+      try {
+        const pkg = await fs.readJson(path.join(targetDir, 'package.json'));
+        isSailorItself = pkg?.name === 'sailorcms';
+      } catch {
+        // No package.json, or unreadable — treat it as a consumer and run everything.
+      }
+      if (isSailorItself) {
+        console.log(
+          `${c.dim('  sailorcms repo — skipping checks that only apply where sailor is installed')}\n`
+        );
+      }
+
       const results = [];
       for (const check of CHECKS) {
+        if (isSailorItself && CONSUMER_ONLY_CHECKS.has(check)) continue;
         try {
           results.push(await check(targetDir));
         } catch (err) {

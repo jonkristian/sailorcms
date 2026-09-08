@@ -1,5 +1,6 @@
 import { fail, error } from '@sveltejs/kit';
 import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
+import { getContentSettings } from 'sailorcms/core/settings/i18n';
 import { log } from 'sailorcms/core/utils/logger';
 import { m } from '$sailor/i18n';
 import type { PageServerLoad, Actions } from './$types';
@@ -34,6 +35,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
   });
 
   return {
+    // Locales the project has content for. The site-language picker offers
+    // these first, since any other tag is one the site has no content in.
+    contentLocales: getContentSettings().locales ?? [],
     settings: {
       siteName: siteName || 'My Website',
       siteUrl: siteUrl || '',

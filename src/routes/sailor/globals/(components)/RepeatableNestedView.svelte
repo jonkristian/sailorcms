@@ -6,10 +6,10 @@
   import { pluralize } from 'sailorcms/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import EditModal from './EditModal.svelte';
-  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import NestedList from 'sailorcms/components/sailor/dnd/NestedList.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
-  import { relationBadges } from 'sailorcms/core/ui/relation-badge';
+  import { relationBadges, relationCounts } from 'sailorcms/core/ui/relation-badge';
   import { generateUUID } from 'sailorcms/core/utils/common';
   import { reorderGlobalItems, deleteGlobalItem } from '../data.remote.js';
 
@@ -60,6 +60,10 @@
       ...item
     }));
   }
+  // Rolled up, so a parent's badge means the same thing here as in the table
+  // view — otherwise the same category reads 1 in one screen and 4 in the other.
+  const badgeCounts = $derived(relationCounts(items, global.fields));
+
   let flatItemsBase = $derived(toFlatItems(items));
   let optimisticItems: FlatItem[] | null = $state(null);
   let flatItems: FlatItem[] = $derived(optimisticItems ?? flatItemsBase);
@@ -233,7 +237,7 @@
       {/if}
     </div>
   {:else}
-    <Blocks
+    <NestedList
       data={flatItems}
       nestable={true}
       showSelection={true}
@@ -272,7 +276,7 @@
         <DraggableCard
           title={node.name}
           subtitle={node.description}
-          badges={relationBadges(node, global.fields)}
+          badges={relationBadges(node, global.fields, badgeCounts)}
           open={false}
           onEdit={() => handleEdit(node)}
           onRemove={canDelete ? () => handleDelete(node.id) : undefined}
@@ -292,7 +296,7 @@
           {/snippet}
         </DraggableCard>
       {/snippet}
-    </Blocks>
+    </NestedList>
   {/if}
 </div>
 

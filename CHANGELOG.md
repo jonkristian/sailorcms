@@ -2,6 +2,25 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.9.5] - 8 September 2026
+
+### Added
+
+- **Language picker for the site-language setting** — searchable, showing each locale's name in the admin's own language, with the project's configured content locales first. Still accepts any BCP-47 tag, since the set is open-ended.
+- **Media on the dashboard opens the edit modal**, the same one the media library uses, rather than the raw file in a new tab.
+
+### Fixed
+
+- **Role badges disagreed across three screens** — `admin` rendered red on the dashboard, blue on the account and user pages, and uncoloured on the user list, from three separate mappings. One mapping now, and `admin` is amber: red reads as danger, which full access is not.
+- **Relation counts disagreed between the tree and the table** — the table rolled counts up through the hierarchy, the tree showed direct counts only. Both roll up now, counting distinct entries so a row filed under two sibling categories is counted once.
+- **`doctor` reported problems that could not exist** — checks that only apply where sailor is a dependency now skip inside the sailorcms repo, and the stale-import scan no longer matches inside comments, where a docblock quoting an import looked like a real one.
+- Paragraphs in the editor sat barely further apart than the lines inside them, so a paragraph break read like a line break.
+
+### Changed
+
+- Roles render lowercase. They are raw identifiers with no translated counterpart, unlike status, and capitalising the first letter breaks a custom role such as `content-manager`.
+- `dnd/Blocks.svelte` is now `dnd/NestedList.svelte` — only one of its four consumers is the blocks editor. The `Blocks` export is kept as an alias.
+
 ## [0.9.4] - 7 September 2026
 
 ### Added

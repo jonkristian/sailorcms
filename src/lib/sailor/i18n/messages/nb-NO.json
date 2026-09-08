@@ -83,7 +83,6 @@
   "history_button_title": "Revisjonshistorikk",
   "history_button_title_with_count": "Revisjonshistorikk ({count})",
   "history_aria_label": "Revisjonshistorikk",
-
   "account_page_title": "Kontoinnstillinger",
   "account_page_description": "Administrer kontoinformasjon og preferanser.",
   "account_profile_card_title": "Profilinformasjon",
@@ -118,7 +117,6 @@
   "account_overview_last_updated": "Sist oppdatert:",
   "account_update_success": "Kontoen ble oppdatert",
   "account_update_failed": "Kunne ikke oppdatere kontoen",
-
   "common_item_singular": "element",
   "common_item_plural": "elementer",
   "common_file_singular": "fil",
@@ -129,20 +127,16 @@
   "common_tag_plural": "tagger",
   "common_user_singular": "bruker",
   "common_user_plural": "brukere",
-
   "header_add_button_aria": "Legg til",
   "header_save_changes": "Lagre endringer",
   "header_expand_all": "Utvid alle",
   "header_collapse_all": "Skjul alle",
   "header_expand_all_aria": "Utvid alle",
   "header_collapse_all_aria": "Skjul alle",
-
   "pagination_rows_per_page": "Rader per side",
   "pagination_showing_results": "Viser {from} til {to} av {total} resultater",
   "pagination_page_position": "Side {current} av {total}",
-
   "bulk_selection_count": "{selected} av {total} {items} valgt",
-
   "delete_dialog_title_one": "Slett {item}",
   "delete_dialog_title_many": "Slett {count} {items}",
   "delete_dialog_title_one_permanent": "Slett {item} permanent",
@@ -155,7 +149,6 @@
   "delete_dialog_body_one_permanent": "Slett {item} permanent? Dette kan ikke angres.",
   "delete_dialog_body_one_named_permanent": "Slett «{name}» permanent? Dette kan ikke angres.",
   "delete_dialog_body_many_permanent": "Slett {count} {items} permanent? Dette kan ikke angres.",
-
   "toast_file_updated": "Filen ble oppdatert",
   "toast_file_update_failed": "Kunne ikke oppdatere filen",
   "toast_filename_copied": "Filnavn kopiert til utklippstavlen",
@@ -175,7 +168,6 @@
   "toast_nesting_update_failed": "Kunne ikke oppdatere hierarki",
   "toast_author_updated": "Forfatter ble oppdatert",
   "toast_author_update_failed": "Kunne ikke oppdatere forfatter",
-
   "toast_item_saved": "Element lagret",
   "toast_item_created": "Element opprettet",
   "toast_item_deleted": "Element slettet",
@@ -193,39 +185,30 @@
   "toast_items_permanent_deleted": "Slettet {count} {items} permanent",
   "toast_restore_partial": "Gjenopprettet {ok}, {failed} feilet",
   "toast_delete_partial": "Slettet {ok}, {failed} feilet",
-
   "toast_collection_saved": "Samling lagret",
   "toast_collection_created": "Samling opprettet",
   "toast_save_collection_failed": "Kunne ikke lagre samling",
-
   "toast_global_saved": "Global lagret",
   "toast_save_global_failed": "Kunne ikke lagre global",
   "toast_global_settings_saved": "Globale innstillinger ble lagret",
   "toast_save_global_settings_failed": "Kunne ikke lagre globale innstillinger",
-
   "toast_site_settings_saved": "Nettstedsinnstillinger ble lagret",
   "toast_save_site_settings_failed": "Kunne ikke lagre nettstedsinnstillinger",
   "toast_settings_purged": "Innstillinger ble tømt",
   "toast_purge_settings_failed": "Kunne ikke tømme innstillinger",
-
   "toast_restore_failed": "Kunne ikke gjenopprette",
   "toast_permanent_delete_failed": "Kunne ikke slette permanent",
-
   "toast_user_deleted": "Bruker slettet",
   "toast_delete_user_failed": "Kunne ikke slette bruker",
   "toast_delete_users_failed": "Kunne ikke slette brukere",
   "toast_passwords_no_match": "Passordene er ikke like",
-
   "toast_tag_deleted_named": "Taggen «{name}» ble slettet",
   "toast_delete_tag_failed": "Kunne ikke slette tagg",
-
   "toast_generic_error": "Det oppstod en feil",
-
   "toast_perm_update_global": "Du har ikke tillatelse til å oppdatere denne globalen",
   "toast_perm_delete_items": "Du har ikke tillatelse til å slette elementer",
   "toast_perm_create_items": "Du har ikke tillatelse til å opprette nye elementer",
   "toast_perm_save_items": "Du har ikke tillatelse til å lagre elementer",
-
   "settings_page_title": "Innstillinger",
   "settings_page_description": "Konfigurer grunnleggende informasjon og innstillinger for nettstedet",
   "settings_basic_info_title": "Grunnleggende informasjon",
@@ -250,7 +233,6 @@
   "settings_purge_button": "Tøm innstillinger",
   "settings_purging": "Tømmer…",
   "settings_purge_confirm": "Dette vil fjerne alle gamle mal- og miljøinnstillinger og laste dem inn på nytt. Fortsette?",
-
   "auth_field_email": "E-post",
   "auth_field_email_placeholder": "Skriv inn e-post",
   "auth_field_password": "Passord",
@@ -263,7 +245,6 @@
   "auth_oauth_divider": "Eller fortsett med",
   "auth_error_fill_all_fields": "Vennligst fyll ut alle feltene",
   "auth_error_invalid_email": "Vennligst oppgi en gyldig e-postadresse",
-
   "auth_login_page_title": "Logg inn",
   "auth_login_welcome": "Velkommen tilbake",
   "auth_login_subtitle": "Logg inn til Sailor CMS-administrasjonen",
@@ -273,7 +254,6 @@
   "auth_login_error_generic": "Det oppstod en feil under innlogging",
   "auth_login_error_github": "Kunne ikke logge inn med GitHub",
   "auth_login_no_account": "Har du ikke konto? Registrer deg",
-
   "auth_signup_page_title": "Registrer",
   "auth_signup_welcome": "Opprett konto",
   "auth_signup_subtitle": "Bli med i Sailor CMS for å administrere innholdet ditt",
@@ -284,7 +264,6 @@
   "auth_signup_error_generic": "Det oppstod en feil under registrering",
   "auth_signup_account_created": "Konto opprettet. Logg inn.",
   "auth_signup_have_account": "Har du allerede konto? Logg inn",
-
   "toast_url_copied": "URL kopiert til utklippstavlen",
   "toast_copy_url_failed": "Kunne ikke kopiere URL",
   "toast_payload_copied": "Payload kopiert til utklippstavlen",
@@ -298,12 +277,10 @@
   "toast_preview_loaded": "Forhåndsvisning lastet",
   "toast_unknown_error": "Ukjent feil",
   "toast_slug_needs_title": "Vennligst skriv inn en tittel først, og generer deretter slug",
-
   "common_time_singular": "gang",
   "common_time_plural": "ganger",
   "common_entity_type_singular": "innholdstype",
   "common_entity_type_plural": "innholdstyper",
-
   "settings_roles_page_title": "Rolletillatelser",
   "settings_roles_description": "Brukerroller og deres tilgangstillatelser i CMS-et",
   "settings_roles_total_roles": "Totalt antall roller",
@@ -314,7 +291,6 @@
   "settings_roles_card_description": "Rolledefinisjoner og deres ressurstillatelser konfigurert i src/lib/sailor/templates/settings.ts",
   "settings_roles_admin_badge": "Admin",
   "settings_roles_default_badge": "Standard",
-
   "settings_taggables_page_title": "Tagger",
   "settings_taggables_description": "Administrer tagger og se hvor de brukes i innholdet.",
   "settings_taggables_total": "Totalt antall tagger",
@@ -328,7 +304,6 @@
   "settings_taggables_entity_collections": "Samlingselementer",
   "settings_taggables_usage_heading": "Bruk av {label}",
   "settings_taggables_no_tags": "Ingen tagger funnet. Tagger vil vises her etter hvert som du oppretter dem.",
-
   "settings_storage_page_title": "Lagringsinnstillinger",
   "settings_storage_description": "Konfigurer fillagringsleverandør og opplastingsinnstillinger",
   "settings_storage_current_config_title": "Gjeldende konfigurasjon",
@@ -356,13 +331,11 @@
   "settings_storage_repair_fix_button": "Fiks {count} fil-URL-er",
   "settings_storage_repair_none": "Ingen filer trenger URL-reparasjon.",
   "settings_storage_repair_summary": "{count} {files} vil få URL-ene oppdatert for korrekt lagringskompatibilitet.",
-
   "settings_storage_overview_title": "Lagringsoversikt",
   "settings_storage_overview_description": "Mapper på øverste nivå hos lagringsleverandøren. Mapper merket som ekskludert hoppes over av filimport og filvelgeren, men opptar fortsatt plass.",
   "settings_storage_overview_empty": "Ingen mapper på øverste nivå funnet.",
   "settings_storage_overview_empty_folder": "Tom",
   "settings_storage_overview_excluded": "Ekskludert",
-
   "settings_storage_image_cache_title": "Bildebuffer",
   "settings_storage_image_cache_description": "Slett alle bufrede bildevarianter fra lageret. Varianter genereres på nytt ved behov; første sidelasting etter en tømming blir tregere.",
   "settings_storage_image_cache_button": "Tøm bildebuffer",
@@ -376,12 +349,10 @@
   "settings_storage_image_cache_enforce_under_limit": "Bufferen er {size}, under grensen på {limit} — ingenting å slette.",
   "settings_storage_image_cache_enforce_no_limit": "Ingen cache.maxSize konfigurert — sett storage.cache.maxSize eller CACHE_MAX_SIZE.",
   "settings_storage_image_cache_enforce_failed": "Klarte ikke å håndheve bildebuffer-størrelsen",
-
   "toast_repair_analysis": "Filreparasjonsanalyse: {count} filer trenger reparasjon",
   "toast_repair_completed": "Filreparasjon fullført: {count} filer behandlet",
   "toast_repair_failed": "Reparasjon feilet",
   "toast_check_failed": "Sjekk feilet",
-
   "settings_db_page_title": "Database",
   "settings_db_description": "Se databaseskjema, tabeller og genererte innholdstyper",
   "settings_db_stat_collections": "Samlinger",
@@ -398,13 +369,10 @@
   "settings_db_col_name": "Navn",
   "settings_db_col_type": "Type",
   "settings_db_col_rows": "Rader",
-
   "common_view_all": "Vis alle",
-
   "dashboard_page_title": "Dashbord",
   "dashboard_fallback_description": "Oversikt over innholdsstyringssystemet ditt",
   "dashboard_visit_site": "Besøk nettstedet: {url}",
-
   "dashboard_stat_collections": "Samlinger",
   "dashboard_stat_collections_help": "Innholdstyper",
   "dashboard_stat_users": "Brukere",
@@ -413,7 +381,6 @@
   "dashboard_stat_media_help": "Opplastede filer",
   "dashboard_stat_globals": "Globaler",
   "dashboard_stat_globals_help": "Globale innstillinger",
-
   "dashboard_activity_title": "Nylig aktivitet",
   "dashboard_activity_description": "Siste endringer og oppdateringer i CMS-et",
   "dashboard_activity_empty": "Ingen nylig aktivitet",
@@ -426,29 +393,24 @@
   "dashboard_activity_desc_created": "Opprettet {entity}",
   "dashboard_activity_desc_edited": "Redigerte {entity}",
   "dashboard_activity_desc_updated": "Oppdaterte {entity}",
-
   "status_published": "Publisert",
   "status_draft": "Utkast",
   "status_archived": "Arkivert",
   "status_private": "Privat",
   "status_active": "Aktiv",
-
   "file_type_image": "Bilde",
   "file_type_video": "Video",
   "file_type_audio": "Lyd",
   "file_type_document": "Dokument",
   "file_type_other": "Annet",
-
   "dashboard_media_title": "Nylige medier",
   "dashboard_media_description": "Siste opplastede filer",
   "dashboard_media_empty": "Ingen mediefiler lastet opp",
   "dashboard_media_view_all": "Vis alle medier ({total} totalt)",
-
   "dashboard_users_title": "Nylige brukere",
   "dashboard_users_description": "Siste registrerte brukere",
   "dashboard_users_empty": "Ingen brukere registrert ennå",
   "dashboard_users_view_all": "Vis alle brukere ({total} totalt)",
-
   "users_page_title": "Brukere",
   "users_page_description": "Administrer brukerkontoer og tillatelser",
   "users_col_name": "Navn",
@@ -519,7 +481,6 @@
   "users_role_warning_li4": "Kreve at en annen admin gjenoppretter dine rettigheter",
   "users_role_warning_confirm": "Er du sikker på at du vil fortsette?",
   "users_role_warning_button": "Ja, fjern admin-rolle",
-
   "help_page_title": "Hjelp og dokumentasjon",
   "help_page_description": "Få hjelp og lær hvordan du bruker Sailor CMS",
   "help_quickstart_title": "Komme i gang",
@@ -537,7 +498,6 @@
   "help_docs_description": "Se den fullstendige dokumentasjonen, bidra med forbedringer eller rapporter feil på GitHub.",
   "help_docs_browse": "Bla gjennom dokumentasjonen",
   "help_contributing": "Bidragsguide",
-
   "recovery_page_title": "Gjenoppretting",
   "recovery_page_description": "Gjenopprett slettede elementer, eller fjern dem permanent. Velg en type for å gå videre.",
   "recovery_empty_title": "Ingenting å gjenopprette",
@@ -558,10 +518,8 @@
   "recovery_action_restore": "Gjenopprett",
   "recovery_action_restore_count": "Gjenopprett ({count})",
   "recovery_action_delete_count": "Slett ({count})",
-
   "common_apply": "Bruk",
   "common_unknown": "Ukjent",
-
   "collections_col_title": "Tittel",
   "collections_col_status": "Status",
   "collections_filter_by_relation": "Alle {label}",
@@ -583,13 +541,11 @@
   "collections_empty_text": "Kom i gang ved å opprette din første {singular}.",
   "collections_change_author_dialog_title": "Endre forfatter",
   "collections_change_author_dialog_description": "Velg en forfatter å tildele de valgte elementene",
-
   "globals_page_title": "Globaler",
   "globals_page_description": "Administrer globalt innhold og innstillinger for nettstedet",
   "globals_badge_singleton": "Singleton",
   "globals_badge_global": "Global",
   "globals_manage_button": "Administrer {label}",
-
   "media_page_title": "Mediebibliotek",
   "media_page_description": "Administrer filene og mediene dine",
   "media_bulk_action_select": "Massehandlinger…",
@@ -621,7 +577,6 @@
   "media_tags_input_placeholder_add": "Legg til tagger…",
   "media_tags_input_placeholder_remove": "Velg tagger å fjerne…",
   "media_tags_input_placeholder_replace": "Velg nye tagger…",
-
   "nav_dashboard": "Dashbord",
   "nav_dashboard_aliases": "hjem,oversikt,start",
   "nav_media_library": "Mediebibliotek",
@@ -671,13 +626,11 @@
   "nav_user_account": "Konto",
   "nav_user_account_aliases": "profil,meg,min konto,preferanser,språk",
   "nav_user_logout": "Logg ut",
-
   "common_block_singular": "blokk",
   "common_block_plural": "blokker",
   "common_by": "av",
   "common_created": "Opprettet",
   "common_updated": "Oppdatert",
-
   "editor_recovery_banner": "Dette elementet er i gjenoppretting. Gjenopprett for å returnere det til samlingen.",
   "editor_recovery_restore": "Gjenopprett",
   "editor_blocks_heading": "Blokker",
@@ -696,20 +649,17 @@
   "editor_blocks_placeholder": "Plassholder",
   "editor_main_empty_title": "Ingen hovedfelter",
   "editor_main_empty_text": "Denne samlingen har ingen hovedfelter. Bruk sidefeltet for å redigere innhold.",
-
   "common_yes": "Ja",
   "common_no": "Nei",
   "common_loading_dots": "Laster…",
   "common_searching": "Søker…",
   "common_back": "Tilbake",
-
   "omnibar_placeholder": "Søk overalt…",
   "omnibar_no_results": "Ingen treff",
   "omnibar_group_content": "Innhold",
   "omnibar_group_files": "Filer",
   "omnibar_group_users": "Brukere",
   "omnibar_group_destinations": "Sider",
-
   "field_no_tags": "Ingen tagger",
   "field_no_email": "Ingen e-post",
   "field_no_link": "Ingen lenke",
@@ -726,32 +676,29 @@
   "field_slug_is_homepage_help": "Dette elementet er satt opp som forside i templates/settings.ts. Hvis du endrer slug-en, brytes erklæringen til templates/settings.ts oppdateres.",
   "toast_slug_generated": "Slug generert fra tittel",
   "toast_slug_generated_unique": "Slug generert fra tittel (suffiks lagt til for å unngå konflikt)",
-
   "array_edit_item": "Rediger element",
   "array_add_item": "Legg til element",
   "array_modal_title": "Rediger element {index}",
   "array_modal_description": "Oppdater detaljer for dette elementet",
   "array_modal_cancel": "Avbryt",
   "array_modal_save": "Lagre",
-
   "relation_select_placeholder": "Velg {label}…",
   "relation_search_placeholder": "Søk i elementer…",
   "relation_loading_items": "Laster elementer…",
   "relation_no_items_found": "Ingen elementer funnet.",
   "relation_no_items_available": "Ingen elementer tilgjengelig.",
   "relation_clear_selection": "Fjern valg",
-  "relation_drag_to_reorder": "Dra for \u00e5 endre rekkef\u00f8lge",
+  "relation_drag_to_reorder": "Dra for å endre rekkefølge",
   "relation_browser_available": "Tilgjengelige",
   "relation_browser_done": "Ferdig",
   "relation_browser_previous_page": "Forrige side",
   "relation_browser_next_page": "Neste side",
-  "relation_browser_detailed_view": "\u00c5pne detaljert visning",
+  "relation_browser_detailed_view": "Åpne detaljert visning",
   "relation_browser_manage": "Behandle relasjoner",
   "relation_browser_selected": "Tilknyttede ({count})",
-  "relation_browser_empty": "Ingenting tilknyttet enn\u00e5",
+  "relation_browser_empty": "Ingenting tilknyttet ennå",
   "relation_browser_remove": "Fjern",
   "relation_items_selected": "{count} {items} valgt",
-
   "file_field_label": "Filer",
   "file_field_select_one_title": "Velg fil",
   "file_field_select_many_title": "Velg filer",
@@ -765,7 +712,6 @@
   "file_field_cancel": "Avbryt",
   "file_field_missing_name": "Manglende fil",
   "file_field_unknown_name": "Ukjent fil",
-
   "file_picker_search_placeholder": "Søk etter filer…",
   "file_picker_upload_one": "Last opp fil",
   "file_picker_upload_many": "Last opp filer",
@@ -782,15 +728,12 @@
   "file_picker_preview": "Forhåndsvisning",
   "file_picker_size_label": "Størrelse: {size}",
   "file_picker_date_label": "Dato: {date}",
-
   "tags_input_placeholder": "Skriv inn et tagg-navn og trykk Enter",
   "tags_remove_tag": "Fjern tagg",
-
   "tag_selector_placeholder": "Velg tagger…",
   "tag_selector_search_placeholder": "Søk i tagger…",
   "tag_selector_create_label": "Opprett tagg",
   "tag_selector_no_tags_found": "Ingen tagger funnet.",
-
   "link_dialog_title": "Legg til lenke",
   "link_dialog_description": "Skriv inn URL og valgfri lenketekst.",
   "link_dialog_field_url": "URL",
@@ -804,7 +747,6 @@
   "link_dialog_target_select": "Velg mål",
   "link_dialog_button_add": "Legg til lenke",
   "link_dialog_button_cancel": "Avbryt",
-
   "blocks_drop_zone_first": "Slippsone for første posisjon",
   "blocks_drop_zone_item": "Slippsone for element {index}",
   "blocks_drop_zone_last": "Slippsone for siste posisjon",
@@ -812,7 +754,6 @@
   "blocks_delete_selected": "Slett valgte ({count})",
   "blocks_select_all": "Velg alle",
   "blocks_select_all_aria": "Velg alle",
-
   "table_drag_to_reorder": "Dra for å sortere",
   "table_select_all": "Velg alle",
   "table_select_row": "Velg rad",
@@ -820,14 +761,12 @@
   "table_open_menu": "Åpne meny",
   "table_action_edit": "Rediger",
   "table_action_delete": "Slett",
-
   "filter_placeholder": "Filtrer…",
   "filter_select_count_selected": "{count} valgt",
   "filter_select_placeholder": "Velg {label}…",
   "filter_search_label": "Søk i {label}…",
   "filter_no_results": "Ingen {label} funnet.",
   "filter_clear_filters": "Tøm filtre",
-
   "media_edit_default_title": "Rediger media",
   "media_edit_image": "Bilde",
   "media_edit_video": "Video",
@@ -849,16 +788,13 @@
   "media_edit_copy_filename_title": "Kopier filnavn til utklippstavle",
   "media_edit_view_original": "Vis original",
   "media_edit_save": "Lagre",
-
   "payload_preview_default_title": "JSON-forhåndsvisning",
   "payload_preview_show": "Vis payload",
   "payload_preview_copy": "Kopier",
   "payload_preview_loading": "Laster payload…",
   "payload_preview_error": "Feil: {error}",
   "payload_preview_none": "Ingen payload tilgjengelig",
-
   "theme_toggle": "Bytt tema",
-
   "auth_widget_aria": "Sailor CMS-widget",
   "auth_widget_hello": "Hei, {name}",
   "auth_widget_welcome_back": "Velkommen tilbake til dashbordet",
@@ -869,7 +805,6 @@
   "auth_widget_signout": "Logg ut",
   "auth_widget_signin": "Logg inn",
   "auth_widget_create_account": "Opprett konto",
-
   "upload_uploading_files": "Laster opp filer",
   "upload_completed_with_errors": "Opplasting fullført med {count} {errors}",
   "upload_error_singular": "feil",
@@ -882,7 +817,6 @@
   "upload_summary_done": "{completed} av {total} filer ble lastet opp",
   "upload_summary_progress": "{uploading} laster opp, {pending} venter",
   "upload_cancel": "Avbryt",
-
   "file_controls_missing": "Manglende fil",
   "file_controls_video": "Video",
   "file_controls_document": "Dokument",
@@ -894,7 +828,6 @@
   "file_controls_copy_filename": "Kopier filnavn",
   "file_controls_remove_image": "Fjern bilde",
   "file_controls_restore": "Gjenopprett",
-
   "site_info_title": "Nettstedinformasjon",
   "site_info_configure": "Konfigurer",
   "site_info_no_info": "Ingen nettstedinformasjon konfigurert",
@@ -902,7 +835,6 @@
   "site_info_label_name": "Navn",
   "site_info_label_url": "URL",
   "site_info_label_description": "Beskrivelse",
-
   "seo_heading": "SEO-innstillinger",
   "seo_refresh": "Oppdater fra innhold",
   "seo_toggle": "Veksle SEO-innstillinger",
@@ -925,7 +857,6 @@
   "seo_canonical_url_placeholder": "https://nettsted.no/side-slug",
   "seo_noindex_label": "Frarå indeksering av søkemotorer",
   "seo_noindex_description": "Be søkemotorer om å ikke indeksere denne siden (ikke garantert)",
-
   "global_no_main_fields_title": "Ingen hovedfelter",
   "global_no_main_fields_text": "Denne globalen har ingen hovedinnholdsfelter.",
   "global_edit_button": "Rediger {label}",
@@ -936,14 +867,12 @@
   "global_modal_edit_title": "Rediger {label}",
   "global_modal_create": "Opprett",
   "global_modal_save": "Lagre",
-
   "account_passwords_no_match": "Passordene stemmer ikke",
   "account_oauth_title": "OAuth-autentisering",
   "account_oauth_description": "Kontoen din er autentisert via {providers}.",
   "account_oauth_connected": "Tilkoblet {date}",
   "account_oauth_connected_recently": "Nylig tilkoblet",
   "account_role_not_set": "Ikke satt",
-
   "wp_import_title_media": "WordPress-import til mediebibliotek",
   "wp_import_title_collection": "WordPress-import til {collection}",
   "wp_step_connect": "1. Koble til",
@@ -1041,7 +970,6 @@
   "wp_results_errors_label": "Feil ({count})",
   "wp_error_load_preview": "Kunne ikke laste forhåndsvisning",
   "wp_error_connect": "Kunne ikke koble til WordPress API",
-
   "settings_nav_settings_label": "Innstillinger",
   "settings_nav_settings_description": "Grunnleggende nettstedinformasjon",
   "settings_nav_roles_label": "Roller",
@@ -1077,7 +1005,6 @@
   "settings_nav_import_label": "Import og eksport",
   "settings_nav_import_description": "Verktøy for innholdsmigrering",
   "settings_nav_import_aliases": "eksport,migrering,wordpress",
-
   "settings_search_page_title": "Søkeindeks",
   "settings_search_description": "Helseoversikt for FTS-indeksen som driver administrasjons-omnibaren og det offentlige søket.",
   "settings_search_unavailable": "Søkeindeksen er utilgjengelig. Kjør `npx sailor db:update` for å opprette tabellen.",
@@ -1109,7 +1036,6 @@
   "settings_search_reindex_running": "Bygger på nytt…",
   "settings_search_reindex_complete": "Reindeksering fullført: {indexed} indeksert, {skipped} hoppet over.",
   "settings_search_reindex_failed": "Reindeksering av søkeindeks feilet",
-
   "import_page_title": "Importer innhold",
   "import_page_description": "Importer innhold fra eksterne kilder inn i samlingene dine.",
   "import_tab_wordpress": "WordPress",
@@ -1127,7 +1053,6 @@
   "export_coming_soon": "Kommer snart",
   "export_features_title": "Eksportfunksjoner",
   "export_features_text": "Eksportfunksjonalitet, inkludert JSON-, XML- og CSV-formater, blir tilgjengelig i en fremtidig oppdatering.",
-
   "wysiwyg_tooltip_bold": "Fet",
   "wysiwyg_tooltip_italic": "Kursiv",
   "wysiwyg_tooltip_underline": "Understreket",
@@ -1150,7 +1075,6 @@
   "wysiwyg_tooltip_remove_link": "Fjern lenke",
   "wysiwyg_tooltip_source_view": "Veksle kildevisning",
   "wysiwyg_source_placeholder": "Skriv inn HTML-innhold…",
-
   "globals_table_col_title": "Tittel",
   "globals_table_col_slug": "Slug",
   "globals_table_col_status": "Status",
@@ -1162,31 +1086,24 @@
   "globals_table_add_button": "Legg til {label}",
   "globals_table_no_results": "Ingen {plural} funnet.",
   "globals_table_delete_count": "Slett ({count})",
-
   "users_role_user_label": "Bruker",
   "users_role_user_description": "Grunnleggende tilgang med begrensede tillatelser",
   "users_role_editor_label": "Redaktør",
   "users_role_editor_description": "Kan administrere innhold og bruke de fleste funksjonene",
   "users_role_admin_label": "Administrator",
   "users_role_admin_description": "Full tilgang til alle funksjoner og innstillinger",
-
   "date_field_placeholder": "Velg en dato",
   "date_field_clear": "Fjern dato",
-
   "draggable_featured": "Fremhevet",
   "draggable_more_count": "+{count} til",
   "draggable_select_row": "Velg rad",
-
   "overlay_loading": "Laster",
-
   "globals_no_create_permission": "Du har ikke tillatelse til å opprette nye elementer",
-
   "payload_title_settings": "Innstillinger-payload",
   "payload_title_roles": "Roller-payload",
   "payload_title_storage": "Lagringsinnstillinger-payload",
   "payload_title_collection": "Samlings-payload",
   "payload_title_preview": "Forhåndsvisning",
-
   "select_dialog_default_title": "Velg",
   "select_dialog_confirm": "Bekreft",
   "select_dialog_cancel": "Avbryt",
@@ -1217,5 +1134,10 @@
   "block_group_field_margin_bottom": "Marg bunn",
   "block_group_field_background": "Bakgrunn",
   "block_group_field_rounded": "Avrundede hjørner",
-  "block_group_field_wrap": "Bryt"
+  "block_group_field_wrap": "Bryt",
+  "locale_field_none": "Ikke satt",
+  "locale_field_search": "Søk etter språk eller kode…",
+  "locale_field_empty": "Ingen treff",
+  "locale_field_use_custom": "Bruk «{code}»",
+  "locale_display_language": "nb-NO"
 }

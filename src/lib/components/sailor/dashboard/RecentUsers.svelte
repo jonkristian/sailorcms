@@ -6,6 +6,7 @@
   import { formatRelativeTime } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import type { User } from '$sailor/generated/types';
+  import { getRoleColor } from 'sailorcms/core/utils/user';
   import { m } from '$sailor/i18n';
 
   interface Props {
@@ -32,19 +33,6 @@
       user.image ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&size=32`
     );
-  }
-
-  function getRoleColor(role?: string) {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'editor':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'author':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
   }
 </script>
 

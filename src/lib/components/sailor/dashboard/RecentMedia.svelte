@@ -1,11 +1,13 @@
 <script lang="ts">
   import * as Card from 'sailorcms/components/ui/card/index.js';
   import { Badge } from 'sailorcms/components/ui/badge/index.js';
-  import { FileImage, FileText, Video, Music, File, ExternalLink } from '@lucide/svelte';
+  import { FileImage, FileText, Video, Music, File, ExternalLink, Pencil } from '@lucide/svelte';
   import { formatRelativeTime } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import { formatFileSize } from 'sailorcms/utils/files/index';
-  import type { File as FileType } from 'sailorcms/utils/types';
+  import { type FileType } from 'sailorcms/core/files/file';
+  import MediaEditModal from 'sailorcms/components/sailor/MediaEditModal.svelte';
+  import { invalidateAll } from '$app/navigation';
   import { m } from '$sailor/i18n';
 
   interface Props {
@@ -40,8 +42,16 @@
     return type.charAt(0).toUpperCase() + type.slice(1);
   }
 
+  let editModalOpen = $state(false);
+  let editingFile: FileType | null = $state(null);
+
+  // Opens the media library's own modal rather than the raw file in a new tab —
+  // clicking a file in a CMS should show what the CMS knows about it, not hand
+  // you the binary. The modal writes back alt, title and description, which is
+  // why the dashboard query has to select them.
   function handleFileClick(file: FileType) {
-    window.open(file.url, '_blank');
+    editingFile = file;
+    editModalOpen = true;
   }
 </script>
 
@@ -102,11 +112,13 @@
                 </div>
               {/if}
 
-              <!-- Hover overlay with external link icon -->
+              <!-- The click opens the edit modal, so the affordance is a pencil.
+                   It was an external-link glyph back when it opened the raw
+                   file in a new tab, which now promises the wrong thing. -->
               <div
                 class="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/20"
               >
-                <ExternalLink
+                <Pencil
                   class="size-6 text-white opacity-0 transition-opacity group-hover:opacity-100"
                 />
               </div>
@@ -148,3 +160,14 @@
     {/if}
   </Card.Content>
 </Card.Root>
+
+{#if editModalOpen && editingFile}
+  <MediaEditModal
+    bind:open={editModalOpen}
+    file={editingFile}
+    onSave={async () => {
+      await invalidateAll();
+      editModalOpen = false;
+    }}
+  />
+{/if}

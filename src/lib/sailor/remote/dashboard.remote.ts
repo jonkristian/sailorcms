@@ -23,7 +23,9 @@ interface DashboardData {
     size: number;
     path: string;
     url: string;
-    alt?: string;
+    alt: string | null;
+    title: string | null;
+    description: string | null;
     created_at: Date;
     updated_at: Date;
   }>;
@@ -225,6 +227,11 @@ export const getDashboardData = query(async (): Promise<DashboardData> => {
           path: schema.files.path,
           url: schema.files.url,
           alt: schema.files.alt,
+          // The dashboard opens the same edit modal as the media library, and
+          // that modal writes back every field it holds. Omitting these would
+          // load them as empty and blank them on the first save.
+          title: schema.files.title,
+          description: schema.files.description,
           created_at: schema.files.created_at,
           updated_at: schema.files.updated_at
         })

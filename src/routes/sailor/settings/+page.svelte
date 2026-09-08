@@ -2,6 +2,7 @@
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Label } from 'sailorcms/components/ui/label/index.js';
   import { Input } from 'sailorcms/components/ui/input/index.js';
+  import LocaleField from 'sailorcms/components/sailor/fields/LocaleField.svelte';
   import { Textarea } from 'sailorcms/components/ui/textarea/index.js';
   import { Save, RotateCcw } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
@@ -141,12 +142,13 @@
         <!-- Site Language -->
         <div class="space-y-2">
           <Label for="siteLang">{m.settings_field_site_lang()}</Label>
-          <Input
+          <LocaleField
             id="siteLang"
-            name="siteLang"
             bind:value={formData.siteLang}
-            placeholder="en, en-US, nb-NO"
+            onChange={(next) => (formData.siteLang = next)}
+            contentLocales={data.contentLocales ?? []}
           />
+          <input type="hidden" name="siteLang" value={formData.siteLang ?? ''} />
           <p class="text-muted-foreground text-xs">
             {m.settings_field_site_lang_help()}
           </p>

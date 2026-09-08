@@ -30,7 +30,7 @@
     type EditorGroup
   } from 'sailorcms/core/content/block-groups';
   import { blockGroupsEnabled } from '$sailor/generated/block-groups';
-  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import NestedList from 'sailorcms/components/sailor/dnd/NestedList.svelte';
   import BlockGroupContainer from 'sailorcms/components/sailor/BlockGroupContainer.svelte';
   import SEOFields from 'sailorcms/components/sailor/SEOFields.svelte';
   import RevisionsDialog from 'sailorcms/components/sailor/RevisionsDialog.svelte';
@@ -498,7 +498,7 @@
     blocksChanged = true;
   }
 
-  // Group rendering is a real DOM wrapper (see <Blocks nestedGroups>): the outer
+  // Group rendering is a real DOM wrapper (see <NestedList nestedGroups>): the outer
   // wrapper holds the header + an inner grid container around the child blocks.
   // The dashed border lives on the outer wrapper; spacing is container `gap`.
   const isGroupNode = (node: any) => node?.kind === 'group';
@@ -759,7 +759,7 @@
         <div class="flex-1">
           <div class="pt-2">
             {#if blocks.length > 0 || groups.length > 0}
-              <Blocks
+              <NestedList
                 data={dragDropData}
                 onDataChange={handleDragDropDataChange}
                 onRemove={handleRemoveBlock}
@@ -845,7 +845,7 @@
                     />
                   {/if}
                 {/snippet}
-              </Blocks>
+              </NestedList>
             {:else}
               <!-- Empty state when no blocks -->
               <div class="flex flex-col items-center justify-center py-12 text-center">

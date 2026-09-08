@@ -1,6 +1,6 @@
 // Editor-side helpers for block grouping. Translate between the admin's
 // `blocks` + `blockGroups` state and the single flat list the nestable DnD
-// (`dnd/Blocks.svelte`) consumes, where a block's `parent_id` is its group id.
+// (`dnd/NestedList.svelte`) consumes, where a block's `parent_id` is its group id.
 //
 // Grouping is one level deep: groups are always roots; blocks are either roots
 // (group_id null) or children of a group. Sibling order is the array order; the

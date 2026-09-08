@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from 'sailorcms/components/ui/button/index.js';
-  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import NestedList from 'sailorcms/components/sailor/dnd/NestedList.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import ArrayFieldModal from './ArrayFieldModal.svelte';
   import DraggableCard from 'sailorcms/components/sailor/DraggableCard.svelte';
@@ -172,7 +172,7 @@
 
 <div class="space-y-3">
   {#if items.length > 0}
-    <Blocks
+    <NestedList
       data={getFlatData()}
       {nestable}
       showSelection={true}
@@ -229,7 +229,7 @@
           {/snippet}
         </DraggableCard>
       {/snippet}
-    </Blocks>
+    </NestedList>
   {/if}
 
   <Button type="button" variant="outline" size="sm" onclick={addItem}>

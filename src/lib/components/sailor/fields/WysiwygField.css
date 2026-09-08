@@ -11,9 +11,22 @@
 
 /* Paragraphs */
 .ProseMirror p {
-  margin: 0.5em 0;
+  /* Adjacent margins collapse, so this is the whole gap between paragraphs.
+     At 0.5em it was barely wider than the 1.6 line-height inside a paragraph,
+     which made a paragraph break read like a line break. */
+  margin: 0.85em 0;
   line-height: 1.6;
   font-size: 0.9rem;
+}
+
+/* No leading or trailing gap inside the editor box — the padding handles that,
+   and a margin there does not collapse against it. */
+.ProseMirror > p:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror > p:last-child {
+  margin-bottom: 0;
 }
 
 /* Headings */

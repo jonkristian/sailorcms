@@ -2,18 +2,28 @@ import { toast } from 'sailorcms/core/ui/toast';
 import { m } from '$sailor/i18n';
 
 /**
- * Get the appropriate color classes for a user role badge
+ * Colour classes for a user role badge.
+ *
+ * Amber for `admin` rather than red: red reads as danger or error, and an
+ * account having full access is neither — it is the state you would expect the
+ * owner's account to be in. Amber says "elevated, look twice" without implying
+ * something is wrong.
+ *
+ * The seeded roles are `admin`, `editor` and `viewer`; anything else is a
+ * custom role and gets the neutral fallback.
  */
 export const getRoleColor = (role: string) => {
   switch (role) {
     case 'admin':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      return 'bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200';
     case 'editor':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+    case 'author':
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     case 'viewer':
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     default:
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
   }
 };
 

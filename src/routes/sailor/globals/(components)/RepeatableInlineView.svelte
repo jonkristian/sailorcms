@@ -5,7 +5,7 @@
   import { pluralize } from 'sailorcms/utils/ui/text';
   import { invalidateAll } from '$app/navigation';
   import { generateUUID } from 'sailorcms/core/utils/common';
-  import Blocks from 'sailorcms/components/sailor/dnd/Blocks.svelte';
+  import NestedList from 'sailorcms/components/sailor/dnd/NestedList.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import { getDisplayTitle } from 'sailorcms/core/content/display';
   import { getCurrentTimestamp } from 'sailorcms/core/utils/date';
@@ -310,7 +310,7 @@
 </script>
 
 <div class="relative pt-2">
-  <Blocks
+  <NestedList
     data={localItems}
     showSelection={canDelete}
     onDataChange={handleDataChange}
@@ -378,5 +378,5 @@
         {/snippet}
       </DraggableCard>
     {/snippet}
-  </Blocks>
+  </NestedList>
 </div>

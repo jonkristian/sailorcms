@@ -14,6 +14,7 @@
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
   import type { PageData } from './$types';
   import { useTableFilters } from 'sailorcms/composables/useTableFilters.svelte';
+  import { getRoleColor } from 'sailorcms/core/utils/user';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';
 
@@ -59,18 +60,13 @@
     return formatTableDate(date, getUserLocale());
   }
 
-  function formatRole(role: string) {
-    return role.charAt(0).toUpperCase() + role.slice(1);
-  }
-
   // Transform data for display. Leave `created_at` raw — the cellRenderer
   // calls `formatDate` itself; pre-formatting here would feed a localized
   // string back into `new Date(...)`, hit NaN, and render '-'.
   const displayUsers = $derived(
     data.users.map((user) => ({
       ...user,
-      title: user.name, // Map name to title for DataTable linking
-      role: formatRole(user.role)
+      title: user.name // Map name to title for DataTable linking
     }))
   );
 </script>
@@ -145,7 +141,11 @@
             {label}
           </button>
         {:else if column.key === 'role'}
-          <Badge variant="secondary">
+          <!-- Rendered as-is. A role is the raw identifier from the database
+               with no translated counterpart, unlike status, so capitalising it
+               would dress a value up as a label — and it breaks outright on a
+               custom role like `content-manager`. -->
+          <Badge variant="secondary" class={getRoleColor(item.role)}>
             {item.role}
           </Badge>
         {:else if column.key === 'created_at'}
