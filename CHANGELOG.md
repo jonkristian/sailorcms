@@ -2,6 +2,17 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.9.8] - 10 September 2026
+
+### Added
+
+- **`cache.redirectMaxAge`** sets how long a browser may reuse the redirect pointing a transform URL at its cached variant. Default stays 300. Raise it when nothing clears the cache outside the CMS; a returning visitor otherwise pays an origin round trip per image even though the bytes are already cached for a year.
+
+### Fixed
+
+- **The marker-less list button did nothing outside a list.** It refused to act unless you were already in a bulleted list, silently, so selecting paragraphs and clicking it had no effect. It now starts a list, like the bullet and numbered buttons beside it.
+- **No wysiwyg toolbar button had updated since it was mounted.** `editorState.editor` holds the same instance for the field's lifetime, so the `$derived` reading it never propagated and every active state was frozen. Affected bold, italic, headings, alignment, link and the rest, not just the list buttons.
+
 ## [0.9.7] - 10 September 2026
 
 ### Added

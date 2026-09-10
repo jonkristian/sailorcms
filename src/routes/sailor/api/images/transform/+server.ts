@@ -36,6 +36,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
     // Validate parameters against settings
     const settings = await getSettings();
+    const redirectMaxAge = settings.cache?.redirectMaxAge ?? 300;
     const maxWidth = settings.storage.images.maxWidth || 2560;
     const maxHeight = settings.storage.images.maxHeight || 2560;
 
@@ -125,9 +126,13 @@ export const GET: RequestHandler = async ({ url }) => {
         status: 302,
         headers: {
           Location: cachedUrl,
-          // Brief redirect cache so out-of-band cache wipes recover within minutes; the
-          // redirect target itself carries long max-age, so repeat visitors stay fast.
-          'Cache-Control': 'public, max-age=300'
+          // The variant behind this redirect is immutable and cached for a
+          // year; this governs only how long the pointer lives. Kept short by
+          // default so a cache wipe made outside the CMS recovers on its own,
+          // since a browser holding this redirect will not consult the origin
+          // again until it expires. Raise `cache.redirectMaxAge` when nothing
+          // wipes the cache out of band.
+          'Cache-Control': `public, max-age=${redirectMaxAge}`
         }
       });
     }

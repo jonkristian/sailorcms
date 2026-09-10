@@ -81,6 +81,32 @@
 
   let editorState = $state<{ editor: TiptapEditor | null }>({ editor: null });
   const editor = $derived(editorState.editor);
+
+  /**
+   * Toolbar state, rebuilt on every transaction.
+   *
+   * `editorState.editor` holds the same Editor instance for the life of the
+   * field, so a `$derived` that returns it never propagates: Svelte compares
+   * the result, sees an unchanged object and stops there. Every
+   * `editor.isActive(...)` in the markup therefore froze at whatever was true
+   * on mount.
+   *
+   * Bumping a counter and returning fresh closures gives the template
+   * something whose identity does change, so active states follow the caret.
+   */
+  let transactionCount = $state(0);
+
+  const isActive = $derived.by(() => {
+    void transactionCount;
+    const e = editorState.editor;
+    return (name: any, attrs?: any) => (e ? e.isActive(name, attrs) : false);
+  });
+
+  const activeAttributes = $derived.by(() => {
+    void transactionCount;
+    const e = editorState.editor;
+    return (name: string) => (e ? e.getAttributes(name) : {});
+  });
   let element = $state() as HTMLElement;
   let showSource = $state(false);
   let sourceContent = $state('');
@@ -224,8 +250,8 @@
             mode === 'minimal' ? 300 : 500
           );
         },
-        onTransaction: ({ editor: e }) => {
-          editorState = { editor: e };
+        onTransaction: () => {
+          transactionCount++;
         }
       })
     };
@@ -258,13 +284,29 @@
   }
 
   /**
-   * Only meaningful inside a bullet list, so the button is hidden elsewhere
-   * rather than shown disabled — a control that never applies is noise.
+   * Toggle a marker-less list, matching how the bullet and numbered buttons
+   * behave: off when you are already in one, on otherwise.
+   *
+   * Creating the list and dropping its markers are two separate `run()` calls,
+   * not one chain. Chaining would leave `updateAttributes` looking for a
+   * `bulletList` in the same transaction that creates it; two transactions
+   * mean the second is applied to a document that certainly has one.
    */
   function togglePlainList() {
-    if (!editor?.isActive('bulletList')) return;
-    const plain = editor.getAttributes('bulletList')?.plain === true;
-    editor.chain().focus().updateAttributes('bulletList', { plain: !plain }).run();
+    if (!editor) return;
+
+    if (!editor.isActive('bulletList')) {
+      editor.chain().focus().toggleBulletList().run();
+      editor.chain().focus().updateAttributes('bulletList', { plain: true }).run();
+      return;
+    }
+
+    if (editor.getAttributes('bulletList')?.plain === true) {
+      editor.chain().focus().toggleBulletList().run();
+      return;
+    }
+
+    editor.chain().focus().updateAttributes('bulletList', { plain: true }).run();
   }
 
   function toggleOrderedList() {
@@ -442,7 +484,7 @@
             type="button"
             variant="ghost"
             size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('bold') && 'bg-accent')}
+            class={cn('h-7 w-7 p-0', isActive('bold') && 'bg-accent')}
             onclick={toggleBold}
             tooltip={m.wysiwyg_tooltip_bold()}
           >
@@ -452,7 +494,7 @@
             type="button"
             variant="ghost"
             size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('italic') && 'bg-accent')}
+            class={cn('h-7 w-7 p-0', isActive('italic') && 'bg-accent')}
             onclick={toggleItalic}
             tooltip={m.wysiwyg_tooltip_italic()}
           >
@@ -462,7 +504,7 @@
             type="button"
             variant="ghost"
             size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('underline') && 'bg-accent')}
+            class={cn('h-7 w-7 p-0', isActive('underline') && 'bg-accent')}
             onclick={toggleUnderline}
             tooltip={m.wysiwyg_tooltip_underline()}
           >
@@ -472,7 +514,7 @@
             type="button"
             variant="ghost"
             size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('strike') && 'bg-accent')}
+            class={cn('h-7 w-7 p-0', isActive('strike') && 'bg-accent')}
             onclick={toggleStrike}
             tooltip={m.wysiwyg_tooltip_strikethrough()}
           >
@@ -487,7 +529,7 @@
                 type="button"
                 variant="ghost"
                 size="sm"
-                class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 1 }) && 'bg-accent')}
+                class={cn('h-7 w-7 p-0', isActive('heading', { level: 1 }) && 'bg-accent')}
                 onclick={() => setHeading(1)}
                 tooltip={m.wysiwyg_tooltip_h1()}
               >
@@ -498,7 +540,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 2 }) && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('heading', { level: 2 }) && 'bg-accent')}
               onclick={() => setHeading(2)}
               tooltip={m.wysiwyg_tooltip_h2()}
             >
@@ -508,7 +550,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 3 }) && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('heading', { level: 3 }) && 'bg-accent')}
               onclick={() => setHeading(3)}
               tooltip={m.wysiwyg_tooltip_h3()}
             >
@@ -518,7 +560,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 4 }) && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('heading', { level: 4 }) && 'bg-accent')}
               onclick={() => setHeading(4)}
               tooltip={m.wysiwyg_tooltip_h4()}
             >
@@ -529,7 +571,7 @@
                 type="button"
                 variant="ghost"
                 size="sm"
-                class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 5 }) && 'bg-accent')}
+                class={cn('h-7 w-7 p-0', isActive('heading', { level: 5 }) && 'bg-accent')}
                 onclick={() => setHeading(5)}
                 tooltip={m.wysiwyg_tooltip_h5()}
               >
@@ -539,7 +581,7 @@
                 type="button"
                 variant="ghost"
                 size="sm"
-                class={cn('h-7 w-7 p-0', editor?.isActive('heading', { level: 6 }) && 'bg-accent')}
+                class={cn('h-7 w-7 p-0', isActive('heading', { level: 6 }) && 'bg-accent')}
                 onclick={() => setHeading(6)}
                 tooltip={m.wysiwyg_tooltip_h6()}
               >
@@ -549,18 +591,16 @@
 
             <Separator orientation="vertical" class="h-5" />
 
-            <!-- First of the list group: plain, then bulleted, then numbered —
-                 fewest markers to most. Always present rather than shown only
-                 inside a list, because the toolbar's active states only
-                 re-evaluate when the document changes, not when the caret
-                 moves; clicking outside a list is a no-op. -->
+            <!-- First of the list group: plain, then bulleted, then numbered,
+                 fewest markers to most. Clicking outside a list starts one,
+                 like its two siblings do. -->
             <TooltipButton
               type="button"
               variant="ghost"
               size="sm"
               class={cn(
                 'h-7 w-7 p-0',
-                editor?.getAttributes('bulletList')?.plain === true && 'bg-accent'
+                activeAttributes('bulletList')?.plain === true && 'bg-accent'
               )}
               onclick={togglePlainList}
               tooltip={m.wysiwyg_tooltip_plain_list()}
@@ -571,7 +611,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('bulletList') && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('bulletList') && 'bg-accent')}
               onclick={toggleBulletList}
               tooltip={m.wysiwyg_tooltip_bullet_list()}
             >
@@ -581,7 +621,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('orderedList') && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('orderedList') && 'bg-accent')}
               onclick={toggleOrderedList}
               tooltip={m.wysiwyg_tooltip_numbered_list()}
             >
@@ -594,7 +634,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('blockquote') && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('blockquote') && 'bg-accent')}
               onclick={toggleBlockquote}
               tooltip={m.wysiwyg_tooltip_blockquote()}
             >
@@ -607,7 +647,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive('code') && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive('code') && 'bg-accent')}
               onclick={toggleCode}
               tooltip={m.wysiwyg_tooltip_inline_code()}
             >
@@ -635,7 +675,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'left' }) && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive({ textAlign: 'left' }) && 'bg-accent')}
               onclick={() => setTextAlign('left')}
               tooltip={m.wysiwyg_tooltip_align_left()}
             >
@@ -645,7 +685,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'center' }) && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive({ textAlign: 'center' }) && 'bg-accent')}
               onclick={() => setTextAlign('center')}
               tooltip={m.wysiwyg_tooltip_align_center()}
             >
@@ -655,7 +695,7 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', editor?.isActive({ textAlign: 'right' }) && 'bg-accent')}
+              class={cn('h-7 w-7 p-0', isActive({ textAlign: 'right' }) && 'bg-accent')}
               onclick={() => setTextAlign('right')}
               tooltip={m.wysiwyg_tooltip_align_right()}
             >
@@ -669,13 +709,13 @@
             type="button"
             variant="ghost"
             size="sm"
-            class={cn('h-7 w-7 p-0', editor?.isActive('link') && 'bg-accent')}
+            class={cn('h-7 w-7 p-0', isActive('link') && 'bg-accent')}
             onclick={addLink}
             tooltip={m.wysiwyg_tooltip_add_link()}
           >
             <LinkIcon class="h-3.5 w-3.5" />
           </TooltipButton>
-          {#if editor?.isActive('link')}
+          {#if isActive('link')}
             <TooltipButton
               type="button"
               variant="ghost"

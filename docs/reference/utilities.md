@@ -635,6 +635,38 @@ const retina = getImage('logo.png', {
 });
 ```
 
+### The two hops, and why return visits feel slow
+
+On S3 or R2, a transform URL does not serve bytes. It answers with a 302 to the
+cached variant, so the image never streams through Node. That means two round
+trips: one to your origin for the redirect, one to storage for the bytes.
+
+The variant is immutable and cached for a year. The redirect is cached for five
+minutes. So a returning visitor still pays an origin round trip per image, even
+though the bytes are already in their browser. On a page with a dozen images
+that is the dominant cost.
+
+Raise it when nothing clears the cache outside the CMS:
+
+```typescript
+cache: {
+  enabled: true,
+  maxSize: '1GB',
+  redirectMaxAge: 86400
+}
+```
+
+The default is deliberately short. A browser holding this redirect will not ask
+your origin again until it expires, so if something deletes the cache out of
+band, by clearing the bucket prefix by hand, those browsers point at an object
+that no longer exists and nothing can tell them otherwise. Purging through
+Settings > Storage has the same effect for up to `redirectMaxAge`.
+
+Behind a CDN there is a second option: cache the redirect at the edge with a
+rule on `/sailor/api/images/transform*`. Your origin is then hit once per
+variant per `redirectMaxAge` instead of once per visitor. Keep the rule scoped
+to that path; the rest of `/sailor/` is admin and must not be cached.
+
 ### Where the resizing happens
 
 By default Sailor resizes images itself with sharp and caches the results, so

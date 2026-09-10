@@ -33,6 +33,22 @@ export interface CacheConfig {
   provider?: 'auto' | 'local' | 's3'; // auto = follow main storage
   path?: string; // Override cache path (from CACHE_PATH env)
   maxSize: string; // Human readable like "1GB"
+
+  /**
+   * Seconds a browser may reuse the 302 that points a transform URL at its
+   * cached variant. Default 300.
+   *
+   * The variant itself is immutable and cached for a year; this only governs
+   * how long the pointer to it lives. Short by default because a cache wipe
+   * that happens outside the CMS, deleting the bucket prefix by hand, leaves
+   * any browser holding this redirect pointing at an object that is gone, and
+   * it will not ask the origin again until the redirect expires.
+   *
+   * Raise it if you do not wipe the cache out of band. At 300 an idle visitor
+   * pays an origin round trip per image on every return visit, which is the
+   * dominant cost on an image-heavy page.
+   */
+  redirectMaxAge?: number;
   s3?: {
     bucket: string; // Can be different from main storage
     prefix: string; // e.g., "cache/" or "processed-images/"

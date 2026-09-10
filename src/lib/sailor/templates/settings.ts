@@ -50,6 +50,19 @@ export const settings: Partial<CMSSettings> = {
   cache: {
     enabled: true,
     maxSize: '1GB'
+
+    // How long a browser may reuse the redirect that points a transform URL at
+    // its cached variant, in seconds. Default 300.
+    //
+    // The variant itself is immutable and cached for a year, so this only
+    // controls the pointer. At 300 a returning visitor pays an origin round
+    // trip per image, which is the dominant cost on an image-heavy page.
+    //
+    // Raise it if the cache is only ever cleared through the CMS. Keep it low
+    // if anything wipes the cache out of band, deleting the bucket prefix by
+    // hand for instance, because browsers holding the old redirect will not
+    // ask the origin again until it expires.
+    // redirectMaxAge: 86400
   },
 
   // ✅ Content i18n — only relevant for entities marked `localized: true` in
