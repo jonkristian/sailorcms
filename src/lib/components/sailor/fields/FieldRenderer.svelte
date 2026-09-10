@@ -321,6 +321,7 @@
           <m.default
             value={value || ''}
             mode={field.mode}
+            enterKey={field.enterKey}
             placeholder={field.placeholder}
             required={field.required}
             onChange={updateValue}

@@ -5,10 +5,12 @@
   import { Editor } from '@tiptap/core';
   import type { Editor as TiptapEditor } from '@tiptap/core';
   import StarterKit from '@tiptap/starter-kit';
+  import { Extension } from '@tiptap/core';
   import Link from '@tiptap/extension-link';
   import TextAlign from '@tiptap/extension-text-align';
   import Underline from '@tiptap/extension-underline';
   import { CustomImageExtension } from 'sailorcms/core/editor/extensions/CustomImageExtension';
+  import { PlainBulletList } from 'sailorcms/core/editor/extensions/PlainBulletList';
   import { getFiles } from 'sailorcms/remote/files.remote.js';
   import * as Tooltip from 'sailorcms/components/ui/tooltip/index.js';
   import TooltipButton from 'sailorcms/components/sailor/TooltipButton.svelte';
@@ -21,6 +23,7 @@
     Strikethrough,
     List,
     ListOrdered,
+    Menu as PlainListIcon,
     AlignLeft,
     AlignCenter,
     AlignRight,
@@ -47,6 +50,7 @@
   const {
     value,
     mode = 'full',
+    enterKey = 'paragraph',
     placeholder,
     required,
     height,
@@ -55,6 +59,13 @@
   }: {
     value: string | object;
     mode?: EditorMode;
+    /**
+     * What Enter does. `'paragraph'` (default) starts a new paragraph and
+     * Shift+Enter inserts a line break; `'break'` swaps them, for fields whose
+     * content is a single block of lines — an address, say — where a paragraph
+     * per line is wrong.
+     */
+    enterKey?: 'paragraph' | 'break';
     placeholder?: string;
     required?: boolean;
     height?: string;
@@ -106,7 +117,31 @@
     return value;
   }
 
+  /**
+   * Swaps Enter and Shift+Enter.
+   *
+   * Precedence comes from `priority`, not from position in the array: TipTap
+   * builds its plugins from `[...extensions].reverse()`, so ordering alone
+   * would have let HardBreak's own `Shift-Enter` win and make a new paragraph
+   * unreachable.
+   */
+  const SwapEnter = Extension.create({
+    name: 'sailorSwapEnter',
+    priority: 1000,
+    addKeyboardShortcuts() {
+      return {
+        Enter: () => this.editor.commands.setHardBreak(),
+        'Shift-Enter': () => this.editor.commands.splitBlock()
+      };
+    }
+  });
+
   function getExtensions() {
+    const base = buildExtensions();
+    return enterKey === 'break' ? [SwapEnter, ...base] : base;
+  }
+
+  function buildExtensions() {
     if (mode === 'minimal') {
       return [
         StarterKit.configure({
@@ -134,8 +169,11 @@
           codeBlock: false,
           horizontalRule: false,
           link: false,
-          underline: false
+          underline: false,
+          // Replaced below, so a list can drop its markers.
+          bulletList: false
         }),
+        PlainBulletList,
         Link.configure({
           openOnClick: false,
           HTMLAttributes: { class: 'text-blue-600 underline hover:text-blue-800' }
@@ -146,7 +184,8 @@
 
     // Full
     return [
-      StarterKit.configure({ link: false, underline: false }),
+      StarterKit.configure({ link: false, underline: false, bulletList: false }),
+      PlainBulletList,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'text-blue-600 underline hover:text-blue-800' }
@@ -216,6 +255,16 @@
 
   function toggleBulletList() {
     editor?.chain().focus().toggleBulletList().run();
+  }
+
+  /**
+   * Only meaningful inside a bullet list, so the button is hidden elsewhere
+   * rather than shown disabled — a control that never applies is noise.
+   */
+  function togglePlainList() {
+    if (!editor?.isActive('bulletList')) return;
+    const plain = editor.getAttributes('bulletList')?.plain === true;
+    editor.chain().focus().updateAttributes('bulletList', { plain: !plain }).run();
   }
 
   function toggleOrderedList() {
@@ -500,6 +549,24 @@
 
             <Separator orientation="vertical" class="h-5" />
 
+            <!-- First of the list group: plain, then bulleted, then numbered —
+                 fewest markers to most. Always present rather than shown only
+                 inside a list, because the toolbar's active states only
+                 re-evaluate when the document changes, not when the caret
+                 moves; clicking outside a list is a no-op. -->
+            <TooltipButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class={cn(
+                'h-7 w-7 p-0',
+                editor?.getAttributes('bulletList')?.plain === true && 'bg-accent'
+              )}
+              onclick={togglePlainList}
+              tooltip={m.wysiwyg_tooltip_plain_list()}
+            >
+              <PlainListIcon class="h-3.5 w-3.5" />
+            </TooltipButton>
             <TooltipButton
               type="button"
               variant="ghost"
@@ -647,8 +714,13 @@
             style="min-height: {computedMinHeight};"
             placeholder={m.wysiwyg_source_placeholder()}
           ></textarea>
-        {:else if browser}
-          <div bind:this={element}></div>
+        {/if}
+        <!-- Hidden rather than unmounted while the source view is open. TipTap
+             attaches to this element once, on mount; taking it out of the DOM
+             leaves the editor bound to a detached node, and coming back renders
+             a fresh empty div that nothing is attached to. -->
+        {#if browser}
+          <div bind:this={element} class={showSource ? 'hidden' : ''}></div>
         {/if}
       </div>
     </div>

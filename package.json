@@ -1,7 +1,7 @@
 {
   "name": "sailorcms",
   "private": false,
-  "version": "0.9.5",
+  "version": "0.9.6",
   "engines": {
     "node": ">=20.9.0"
   },
@@ -134,6 +134,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-link": "^3.31.3",
+    "@tiptap/extension-list": "^3.31.3",
     "@tiptap/extension-text-align": "^3.31.3",
     "@tiptap/extension-underline": "^3.31.3",
     "@tiptap/pm": "^3.31.3",

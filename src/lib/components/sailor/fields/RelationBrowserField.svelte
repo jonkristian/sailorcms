@@ -4,7 +4,14 @@
   import * as Dialog from 'sailorcms/components/ui/dialog/index.js';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Checkbox } from 'sailorcms/components/ui/checkbox/index.js';
-  import { Maximize2, GripVertical, X, ChevronLeft, ChevronRight } from '@lucide/svelte';
+  import {
+    Maximize2,
+    GripVertical,
+    X,
+    ChevronLeft,
+    ChevronRight,
+    ExternalLink
+  } from '@lucide/svelte';
   import {
     searchRelationOptions,
     resolveRelationTitles
@@ -218,6 +225,20 @@
     searchTimer = setTimeout(() => void fetchPage(term, 0), 200);
   }
 
+  /**
+   * The attached item's own edit page, or null when it has none.
+   *
+   * A relation can target a collection or a global, and those live at different
+   * routes; a block target has no standalone editor at all, so it gets no link
+   * rather than a broken one.
+   */
+  function editHref(id: string): string | null {
+    const relation = field.relation;
+    if (relation?.targetCollection) return `/sailor/collections/${relation.targetCollection}/${id}`;
+    if (relation?.targetGlobal) return `/sailor/globals/${relation.targetGlobal}/${id}`;
+    return null;
+  }
+
   function openDialog() {
     open = true;
     void ensureLoaded();
@@ -388,6 +409,23 @@
                   <GripVertical class="text-muted-foreground h-4 w-4" aria-hidden="true" />
                 </span>
                 <span class="min-w-0 flex-1 truncate">{item.title}</span>
+                {#if editHref(item.id)}
+                  <!-- New tab deliberately: the surrounding form usually has
+                       unsaved changes, and navigating away from it to look
+                       something up would lose them. -->
+                  <a
+                    href={editHref(item.id)}
+                    target="_blank"
+                    rel="noopener"
+                    onclick={(e) => e.stopPropagation()}
+                    draggable="false"
+                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring shrink-0 rounded transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                    title={m.relation_open_in_new_tab()}
+                    aria-label={m.relation_open_in_new_tab()}
+                  >
+                    <ExternalLink class="h-3.5 w-3.5" />
+                  </a>
+                {/if}
                 {#if !readonly}
                   <button
                     type="button"
@@ -412,7 +450,10 @@
      room. The detailed view is the same list given a wider, taller box, so the
      container query turns it into two panes without a second layout. -->
 <div class="@container" bind:this={rootEl}>
-  {@render browser('max-h-72', !insideDialog)}
+  <!-- Floor equal to the cap: a page of `PAGE_SIZE` rows always exceeds it, so
+       the box is a fixed height and stops collapsing when a search narrows the
+       list to one row and springing back when it is cleared. -->
+  {@render browser('max-h-72 min-h-72', !insideDialog)}
 </div>
 
 <Dialog.Root bind:open>
@@ -442,7 +483,7 @@
       </Dialog.Close>
     </Dialog.Header>
     <div class="@container">
-      {@render browser('max-h-[55vh]', false)}
+      {@render browser('max-h-[55vh] min-h-72', false)}
     </div>
   </Dialog.Content>
 </Dialog.Root>

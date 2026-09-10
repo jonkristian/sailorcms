@@ -1139,5 +1139,7 @@
   "locale_field_search": "Søk etter språk eller kode…",
   "locale_field_empty": "Ingen treff",
   "locale_field_use_custom": "Bruk «{code}»",
-  "locale_display_language": "nb-NO"
+  "locale_display_language": "nb-NO",
+  "relation_open_in_new_tab": "Åpne i ny fane",
+  "wysiwyg_tooltip_plain_list": "Liste uten punkter"
 }

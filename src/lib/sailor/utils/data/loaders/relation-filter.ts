@@ -81,6 +81,43 @@ export interface RelationFilterResult {
   targetIds: string[];
 }
 
+/**
+ * Table and column names for a many-to-many relation, without touching the
+ * database.
+ *
+ * Shared so callers that only need the shape — sorting a list by a relation,
+ * say — do not re-derive the junction name and get the snake_case fallback
+ * subtly wrong. Returns `null` for anything that is not a many-to-many, since
+ * those keep a foreign key on the row and have no junction to join.
+ */
+export function resolveRelationTables(
+  ownerType: RelationOwnerType,
+  ownerSlug: string,
+  relationField: string,
+  fields: Record<string, any> | undefined
+): { junctionTable: string; ownerKey: string; targetTable: string } | null {
+  // `hasOwn` because `relationField` comes from a query parameter: every object
+  // inherits `constructor` and friends, and a plain lookup would resolve one.
+  const field = fields && Object.hasOwn(fields, relationField) ? fields[relationField] : undefined;
+  const relation = field?.relation;
+  if (!relation || relation.type !== 'many-to-many') return null;
+
+  const targetTable = relation.targetGlobal
+    ? `global_${relation.targetGlobal}`
+    : relation.targetCollection
+      ? `collection_${relation.targetCollection}`
+      : null;
+  if (!targetTable || !(schema as any)[targetTable]) return null;
+
+  // Field names that are already snake_case round-trip unchanged; this covers
+  // the ones that don't.
+  let junctionTable = childTableName(`junction_${ownerSlug}`, relationField);
+  if (!(schema as any)[junctionTable]) junctionTable = `junction_${ownerSlug}_${relationField}`;
+  if (!(schema as any)[junctionTable]) return null;
+
+  return { junctionTable, ownerKey: `${ownerType}_id`, targetTable };
+}
+
 /** Owning-row ids only. Most callers want this. */
 export async function buildRelationshipSubquery(options: RelationFilterOptions): Promise<string[]> {
   return (await resolveRelationFilter(options)).ownerIds;

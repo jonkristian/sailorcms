@@ -2,6 +2,29 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.9.6] - 10 September 2026
+
+### Added
+
+- **Sort a collection list by a relation column.** A `showInTable` many-to-many is now sortable from its header, ordered in SQL through a correlated subquery so it survives pagination. Items with no relation sort last in both directions.
+- **`enterKey` on `wysiwyg` fields** — `'break'` swaps Enter and Shift+Enter, for content that is one block of lines rather than prose. Defaults to `'paragraph'`, so existing fields are unchanged.
+- **Bullet lists without markers** — a toolbar toggle stores `class="list-none"` on the `<ul>`, so the list keeps its markup for the frontend and screen readers.
+- Attached entries in the relation editor link to their own edit page, in a new tab.
+
+### Fixed
+
+- **The relation filter never applied.** Both call sites passed the parsed collection-type options where the loader's own options were expected, so the filter short-circuited on every request. On localized collections it had never worked at all.
+- **An unknown `?sortBy=` returned 500** on non-localized lists — including inherited property names like `constructor`. The localized path already guarded this.
+- **Filtering by a parent category returned nothing** — descendants were never requested, and the descendant walk skipped drafts, which the admin lists.
+- **Toggling source view and back left the editor blank.** The element TipTap attaches to was unmounted, so returning bound a fresh element to nothing.
+- The relation picker collapsed and sprang back as a search narrowed the list; it is now a fixed height.
+- List items sat as far apart as paragraphs — 0.9.5's paragraph spacing applied inside `<li>`, which wraps its content in a `<p>`.
+
+### Changed
+
+- `getAllDescendantItems` takes a status; the public `whereRelated` path keeps `published`, the admin passes `all`.
+- `@tiptap/extension-list` is a declared dependency rather than relying on hoisting from `@tiptap/starter-kit`.
+
 ## [0.9.5] - 8 September 2026
 
 ### Added

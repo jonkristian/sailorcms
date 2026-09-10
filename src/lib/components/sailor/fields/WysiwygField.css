@@ -84,6 +84,34 @@
   line-height: 1.6;
 }
 
+/* TipTap wraps each list item's content in a paragraph, so the paragraph rule
+   above — not this one — was deciding the gap between bullets, and widening
+   paragraph spacing widened lists with it. Zero it so `li` owns list spacing. */
+.ProseMirror li > p {
+  margin: 0;
+}
+
+/* A bullet list with its markers dropped. The indent goes with them — the
+   marker was what the padding was reserving space for. Still a real `ul` in
+   the markup, so the frontend and screen readers keep the list semantics.
+
+   Targets the `li`, because that is where the marker is set below; a rule on
+   the `ul` alone loses to `.ProseMirror ul li`. */
+.ProseMirror ul.list-none {
+  padding-left: 0;
+}
+
+/* `>` so a nested list keeps its own markers and indent unless it is marked
+   plain too. Without it, nesting inside a plain list became invisible — and the
+   consumer stylesheet, which only sees the class, would disagree. */
+.ProseMirror ul.list-none > li {
+  list-style-type: none;
+}
+
+.ProseMirror ul.list-none > li > ul:not(.list-none) {
+  padding-left: 1.5em;
+}
+
 .ProseMirror ul li {
   list-style-type: disc;
 }

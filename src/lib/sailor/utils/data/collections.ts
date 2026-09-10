@@ -1445,15 +1445,22 @@ async function generateItemUrlAndBreadcrumbs(
 export async function getAllDescendantItems(
   parentSlug: string,
   targetType: string,
-  targetKind: 'global' | 'collection'
+  targetKind: 'global' | 'collection',
+  /**
+   * Defaults to published, which is right for the public `whereRelated` path.
+   * The admin passes `'all'`: an editor filtering a list by a draft category
+   * would otherwise resolve to no descendants and see an empty list, with
+   * nothing on screen explaining why.
+   */
+  status: 'published' | 'draft' | 'all' = 'published'
 ): Promise<string[]> {
   const allSlugs = new Set<string>();
   const isGlobal = targetKind === 'global';
 
   async function getChildren(slug: string) {
     const itemResult = isGlobal
-      ? await getGlobals(targetType, { itemSlug: slug, withRelations: true })
-      : await getCollections(targetType, { itemSlug: slug });
+      ? await getGlobals(targetType, { itemSlug: slug, withRelations: true, status })
+      : await getCollections(targetType, { itemSlug: slug, status });
 
     if (!itemResult) {
       console.warn(`Could not find item with slug '${slug}' in ${targetKind} '${targetType}'`);
@@ -1468,8 +1475,8 @@ export async function getAllDescendantItems(
     allSlugs.add(item.slug);
 
     const childrenResult = isGlobal
-      ? await getGlobals(targetType, { parentId: item.id, withRelations: true })
-      : await getCollections(targetType, { parentId: item.id });
+      ? await getGlobals(targetType, { parentId: item.id, withRelations: true, status })
+      : await getCollections(targetType, { parentId: item.id, status });
 
     if (childrenResult && 'items' in childrenResult && childrenResult.items) {
       for (const child of childrenResult.items) {

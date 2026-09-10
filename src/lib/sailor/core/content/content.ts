@@ -39,7 +39,10 @@ export function tiptapJsonToHtml(jsonContent: any): string {
 
     if (node.type === 'bulletList') {
       const content = node.content?.map(nodeToHtml).join('') || '';
-      return `<ul>${content}</ul>`;
+      // Carry the marker-less flag through. Dropping it here lost the setting
+      // on load for JSON-stored values, and the next save persisted the loss.
+      const cls = node.attrs?.plain ? ' class="list-none"' : '';
+      return `<ul${cls}>${content}</ul>`;
     }
 
     if (node.type === 'orderedList') {
@@ -170,11 +173,13 @@ export function htmlToTiptapJson(html: string): any {
   const content = [];
 
   // Split by block elements and process each one
-  const blockRegex = /<(h[1-6]|p|ul|ol|blockquote|pre|div)[^>]*>(.*?)<\/\1>/gs;
+  // Attributes are captured, not skipped: `<ul class="list-none">` carries the
+  // marker-less flag, and matching `[^>]*` would have discarded it.
+  const blockRegex = /<(h[1-6]|p|ul|ol|blockquote|pre|div)([^>]*)>(.*?)<\/\1>/gs;
   let match;
 
   while ((match = blockRegex.exec(html)) !== null) {
-    const [fullMatch, tag, innerContent] = match;
+    const [fullMatch, tag, attrs, innerContent] = match;
 
     switch (tag) {
       case 'h1':
@@ -201,6 +206,7 @@ export function htmlToTiptapJson(html: string): any {
       case 'ul':
         content.push({
           type: 'bulletList',
+          attrs: { plain: /class\s*=\s*["'][^"']*\blist-none\b/.test(attrs) },
           content: parseListItems(innerContent, 'bulletList')
         });
         break;

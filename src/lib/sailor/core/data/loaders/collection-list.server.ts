@@ -18,7 +18,10 @@ import type { Pagination } from '../../types';
 import { log } from '../../utils/logger';
 import { loadReverseRelationsForOwners } from '../../../utils/data/loaders/reverse-loader';
 import { loadJunctionValuesForOwners } from './junction-values.server';
-import { resolveRelationFilter } from '../../../utils/data/loaders/relation-filter';
+import {
+  resolveRelationFilter,
+  resolveRelationTables
+} from '../../../utils/data/loaders/relation-filter';
 import { getAllDescendantItems } from '../../../utils/data/collections';
 
 /**
@@ -47,13 +50,103 @@ async function resolveListRelationFilter(
       relationField: options.relationField,
       targetValues: options.relationValue,
       recursive: options.relationRecursive ?? false,
-      resolveDescendants: getAllDescendantItems
+      // The admin lists drafts, so the descendant walk has to see them too —
+      // otherwise filtering by a draft category resolves to nothing.
+      resolveDescendants: (parentSlug, targetType, targetKind) =>
+        getAllDescendantItems(parentSlug, targetType, targetKind, 'all')
     });
     return resolved.ownerIds;
   } catch (err) {
     log.warn(`Relation filter on '${slug}.${options.relationField}' failed`, { error: err });
     return [];
   }
+}
+
+/**
+ * The `ORDER BY` for a requested sort, or a fallback when the column does not
+ * exist.
+ *
+ * `sortBy` arrives from a query parameter, so it can name anything — a
+ * `showInTable` relation, or a typo. Passing a missing column straight into
+ * `asc()` builds an `ORDER BY` with a null chunk that fails at execution, which
+ * surfaced as a 500 on the collection list for any bad `?sortBy=`.
+ *
+ * Candidate tables are tried in order: a localized collection prefers its
+ * `_locales` row and falls back to main for identity-only columns like
+ * `created_at`.
+ */
+function resolveOrderBy(
+  sortBy: string,
+  sortOrder: 'asc' | 'desc',
+  fallbackColumn: any,
+  ...candidates: any[]
+) {
+  // `Object.hasOwn`, not a truthiness check: `sortBy` comes from a query
+  // parameter, and every object inherits `constructor`, `toString` and friends.
+  // A truthy lookup on those returns a function, which then reaches `asc()` and
+  // fails at execution — the same 500 this guard exists to prevent.
+  const column = candidates
+    .map((table) => (table && Object.hasOwn(table, sortBy) ? table[sortBy] : undefined))
+    .find(Boolean);
+  if (!column) return desc(fallbackColumn);
+  return sortOrder === 'asc' ? asc(column) : desc(column);
+}
+
+/**
+ * `ORDER BY` for a many-to-many column shown via `showInTable`, or `null` when
+ * `sortBy` is not one.
+ *
+ * A relation is not a column on the row, so it sorts through a correlated
+ * subquery — the same shape `getCollections({ orderBy: 'relation' })` uses, so
+ * ordering stays in SQL and survives pagination.
+ *
+ * `MIN(title)` because an item can have several targets and `ORDER BY` needs
+ * one value: a product in two categories sorts by the alphabetically first,
+ * which is arbitrary but stable. Rows with no relation sort last in both
+ * directions — SQLite would otherwise put them first ascending, so sorting by
+ * category would open with every uncategorised product.
+ *
+ * `ownerIdColumn` rather than the table, because the two list paths key the
+ * junction differently: the main row for a plain collection, the `_locales` row
+ * for a localized one. Passing the wrong one matches nothing and sorts every
+ * row as if it had no relation.
+ */
+function resolveRelationOrderBy(
+  slug: string,
+  fields: Record<string, any> | undefined,
+  sortBy: string,
+  sortOrder: 'asc' | 'desc',
+  ownerIdColumn: any
+) {
+  const tables = resolveRelationTables('collection', slug, sortBy, fields);
+  if (!tables) return null;
+
+  // A localized target keeps `title` on its `_locales` row — `db:update` drops
+  // the shadowed column from main — so sorting against `target.title` would be
+  // "no such column". Soft-deleted targets are excluded for the same reason the
+  // reader excludes them: an edge to a trashed row is not a value to sort by.
+  const localesTable = (schema as any)[`${tables.targetTable}_locales`];
+  const defaultLocale = localesTable ? getContentSettings().defaultLocale : null;
+  const fkColumn = tables.targetTable.replace(/^(collection|global)_/, '') + '_id';
+
+  const titleExpr =
+    localesTable && defaultLocale
+      ? sql`(
+          SELECT MIN(loc.title)
+          FROM ${sql.identifier(`${tables.targetTable}_locales`)} AS loc
+          WHERE loc.${sql.identifier(fkColumn)} = target.id AND loc.locale = ${defaultLocale}
+        )`
+      : sql`target.title`;
+
+  const value = sql`(
+    SELECT MIN(${titleExpr})
+    FROM ${sql.identifier(tables.junctionTable)} AS junction
+    JOIN ${sql.identifier(tables.targetTable)} AS target ON target.id = junction.target_id
+    WHERE junction.${sql.identifier(tables.ownerKey)} = ${ownerIdColumn}
+      AND target.deleted_at IS NULL
+  )`;
+
+  return [sql`${value} IS NULL`, sortOrder === 'asc' ? asc(value) : desc(value)];
 }
 
 /**
@@ -185,6 +278,10 @@ export async function loadCollectionList(
       collectionType,
       collectionTable,
       options,
+      // The relation filter reads `relationField` / `relationValue` off the
+      // caller's options, which is a different object from the parsed
+      // collection-type `options` above.
+      opts,
       page,
       pageSize,
       searchQuery,
@@ -262,9 +359,20 @@ export async function loadCollectionList(
       baseQuery()
         .where(whereClause)
         .orderBy(
-          sortOrder === 'asc'
-            ? asc((collectionTable as any)[sortBy])
-            : desc((collectionTable as any)[sortBy])
+          ...(resolveRelationOrderBy(
+            slug,
+            collectionType.fields,
+            sortBy,
+            sortOrder as 'asc' | 'desc',
+            (collectionTable as any).id
+          ) ?? [
+            resolveOrderBy(
+              sortBy,
+              sortOrder as 'asc' | 'desc',
+              (collectionTable as any).created_at,
+              collectionTable
+            )
+          ])
         )
         .limit(pageSize)
         .offset((page - 1) * pageSize)
@@ -306,9 +414,20 @@ export async function loadCollectionList(
       baseQuery()
         .where(whereClause)
         .orderBy(
-          sortOrder === 'asc'
-            ? asc((collectionTable as any)[sortBy])
-            : desc((collectionTable as any)[sortBy])
+          ...(resolveRelationOrderBy(
+            slug,
+            collectionType.fields,
+            sortBy,
+            sortOrder as 'asc' | 'desc',
+            (collectionTable as any).id
+          ) ?? [
+            resolveOrderBy(
+              sortBy,
+              sortOrder as 'asc' | 'desc',
+              (collectionTable as any).created_at,
+              collectionTable
+            )
+          ])
         )
         .limit(pageSize)
         .offset((page - 1) * pageSize)
@@ -350,6 +469,7 @@ async function loadLocalizedList({
   collectionType,
   collectionTable,
   options,
+  opts,
   page,
   pageSize,
   searchQuery,
@@ -360,6 +480,7 @@ async function loadLocalizedList({
   collectionType: LoadCollectionListResult['collectionType'];
   collectionTable: any;
   options: any;
+  opts: LoadCollectionListOptions;
   page: number;
   pageSize: number;
   searchQuery: string;
@@ -428,12 +549,21 @@ async function loadLocalizedList({
   // "main first" because doctor --fix drops shadowed main columns — Drizzle's
   // schema view still lists them, so the old "main first" lookup resolved to
   // a column that no longer exists in the DB.
-  const sortCol = localesTable[sortBy] ?? (collectionTable as any)[sortBy];
-  const orderBy = sortCol
-    ? sortOrder === 'asc'
-      ? asc(sortCol)
-      : desc(sortCol)
-    : desc((collectionTable as any).created_at);
+  const orderBy = resolveRelationOrderBy(
+    slug,
+    collectionType.fields,
+    sortBy,
+    sortOrder as 'asc' | 'desc',
+    localesTable.id
+  ) ?? [
+    resolveOrderBy(
+      sortBy,
+      sortOrder as 'asc' | 'desc',
+      (collectionTable as any).created_at,
+      localesTable,
+      collectionTable
+    )
+  ];
 
   const selectShape = {
     id: (collectionTable as any).id,
@@ -473,7 +603,7 @@ async function loadLocalizedList({
         .where(whereClause),
       baseQuery()
         .where(whereClause)
-        .orderBy(orderBy)
+        .orderBy(...orderBy)
         .limit(pageSize)
         .offset((page - 1) * pageSize)
     ]);
@@ -517,7 +647,7 @@ async function loadLocalizedList({
         .where(whereClause),
       baseQuery()
         .where(whereClause)
-        .orderBy(orderBy)
+        .orderBy(...orderBy)
         .limit(pageSize)
         .offset((page - 1) * pageSize)
     ]);

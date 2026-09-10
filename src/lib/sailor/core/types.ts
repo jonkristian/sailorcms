@@ -170,6 +170,15 @@ export interface FieldDefinition {
   hidden?: boolean; // Hide field from UI but still include in form data
   showInTable?: boolean; // Show this field as a column in table views
   readonly?: boolean; // Make this specific field readonly (overrides global readonly for this field)
+  /**
+   * `wysiwyg` only — what the Enter key does.
+   *
+   * `'paragraph'` (default) starts a new paragraph, with Shift+Enter for a line
+   * break. `'break'` swaps them, for content that is one block of lines rather
+   * than prose — an address or a specification list, where a paragraph per line
+   * carries the wrong meaning and spacing.
+   */
+  enterKey?: 'paragraph' | 'break';
 }
 
 /**

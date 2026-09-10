@@ -97,7 +97,7 @@
     config: {
       search: true,
       sort: {
-        options: () => sortOptions,
+        options: () => allSortOptions,
         defaultSort: () => (data.collectionType.options?.sortable ? 'sort' : 'updated_at'),
         defaultOrder: () => (data.collectionType.options?.sortable ? 'asc' : 'desc')
       }
@@ -131,7 +131,11 @@
   // Template fields marked `showInTable`, inserted after the title. Unlike the
   // globals table — which replaces its defaults entirely — a collection's
   // status/author/date columns stay, since they are what the list is for.
-  // Not sortable: these are not columns on the collection's own table.
+  //
+  // A many-to-many is sortable even though it is not a column on the row: the
+  // loader orders it through a correlated subquery on the junction. The other
+  // `showInTable` types (reverse, array, file) have no such ordering and stay
+  // off — a header that sorts by nothing is worse than one that does not sort.
   const extraColumns = $derived(
     Object.entries((data.collectionType.fields ?? {}) as Record<string, any>)
       .filter(([, field]) => field?.showInTable === true)
@@ -139,10 +143,20 @@
       .map(([key, field]) => ({
         key,
         label: field?.label || field?.title || key,
-        sortable: false,
+        sortable: field?.type === 'relation' && field?.relation?.type === 'many-to-many',
         width: 200
       }))
   );
+
+  // Sortable relation columns belong in the dropdown too, or clicking one of
+  // their headers leaves the control reading "Unknown" — the sort is active but
+  // has no entry to name it.
+  const allSortOptions = $derived([
+    ...sortOptions,
+    ...extraColumns
+      .filter((column) => column.sortable)
+      .map((column) => ({ label: column.label, value: column.key }))
+  ]);
 
   // Column definitions with sorting and fixed widths
   const columns = $derived([
@@ -314,11 +328,11 @@
               }}
             >
               <Select.Trigger class="h-9">
-                {sortOptions.find((o) => o.value === tableFilters.sortBy)?.label ||
+                {allSortOptions.find((o) => o.value === tableFilters.sortBy)?.label ||
                   m.common_unknown()}
               </Select.Trigger>
               <Select.Content>
-                {#each sortOptions as option}
+                {#each allSortOptions as option}
                   <Select.Item value={option.value}>{option.label}</Select.Item>
                 {/each}
               </Select.Content>

@@ -1139,5 +1139,7 @@
   "locale_field_search": "Search language or code…",
   "locale_field_empty": "No match",
   "locale_field_use_custom": "Use “{code}”",
-  "locale_display_language": "en"
+  "locale_display_language": "en",
+  "relation_open_in_new_tab": "Open in new tab",
+  "wysiwyg_tooltip_plain_list": "List without bullets"
 }
