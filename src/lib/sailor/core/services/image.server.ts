@@ -649,28 +649,6 @@ export class ImageProcessor {
     return { ok, failed };
   }
 
-  // Get image URL with transformation parameters using SvelteKit's URLSearchParams
-  static async getImageUrl(
-    imagePath: string,
-    options: ImageTransformOptions = {}
-  ): Promise<string> {
-    const params = new URLSearchParams();
-
-    if (options.width) params.append('width', options.width.toString());
-    if (options.height) params.append('height', options.height.toString());
-    if (options.quality) params.append('quality', options.quality.toString());
-    if (options.format) params.append('format', options.format);
-    if (options.resize) params.append('resize', options.resize);
-
-    return `/api/images/transform?path=${encodeURIComponent(imagePath)}&${params.toString()}`;
-  }
-
-  // Clear all caches
-  static clearCache(): void {
-    this.memoryCache.clear();
-    this.existsCache.clear();
-  }
-
   // Purge every cached variant from storage and wipe the in-process state. Returns the
   // count of objects removed for UI feedback. Cache regenerates lazily on the next request
   // for each variant (or eagerly via pre-warm when that lands).

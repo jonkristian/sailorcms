@@ -8,6 +8,7 @@ import { ensureFtsReady } from 'sailorcms/core/services/search-index.server';
 import { collectionDefinitions } from '$sailor/templates/collections';
 import { globalDefinitions } from '$sailor/templates/globals';
 import type { FieldDefinition, Pagination } from 'sailorcms/core/types';
+import { timestampToDate } from '../../core/utils/date';
 
 type User = {
   id: string;
@@ -361,7 +362,9 @@ function normalizeMatchRow(r: any): MatchRow {
     title: r.title ?? null,
     searchable_text: r.searchable_text ?? '',
     status: r.status ?? null,
-    updated_at: r.updated_at instanceof Date ? r.updated_at : new Date(r.updated_at)
+    // The FTS path is raw SQL and yields seconds; the LIKE path goes through
+    // Drizzle and yields a Date. Both land here, so both are normalised here.
+    updated_at: timestampToDate(r.updated_at) ?? new Date(0)
   };
 }
 

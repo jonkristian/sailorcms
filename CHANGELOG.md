@@ -2,6 +2,23 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.9.9] - 10 September 2026
+
+### Fixed
+
+- **Timestamps read from raw SQL landed in January 1970.** Timestamp columns are stored as seconds and converted by Drizzle, but raw `sql` queries, which the search paths need because the table name is dynamic, bypass that and return the bare integer. Affected every date on Settings > Search, and the ordering values inside the public `search()`.
+- **Settings > Search showed US-format dates.** `toLocaleString()` with no argument follows the browser's locale rather than the one the CMS is set to.
+- **Walking a category tree loaded every related item and discarded it.** `getAllDescendantItems` reads only `slug`, `id` and `parent_id`, but relation loading is on by default, so filtering a listing by a parent category paid for every product of every category it visited. Siblings now resolve in parallel. Halves the queries on a six-child category.
+- **Enter in a list inserted a line break** when a `wysiwyg` field set `enterKey: 'break'`, because that keymap outranked the list's own, leaving a second list item unreachable from the keyboard.
+- **Clicking the bulleted-list button inside a marker-less list removed the list** instead of restoring its markers. A plain list is a bullet list underneath, so the toggle saw one and turned it off.
+- The plain and bulleted buttons both showed active for a marker-less list; exactly one of the three list buttons lights up now.
+
+### Changed
+
+- Collection, global and block type lookups are memoised for a few seconds. A thirty-item listing previously issued thirty identical queries for the same row and parsed the same schema JSON thirty times.
+- Settings > Search stat labels are weighted rather than uppercased.
+- Removed `ImageProcessor.getImageUrl`, which had no callers and pointed at `/api/images/transform` rather than `/sailor/api/images/transform`, and `ImageProcessor.clearCache`, which had no callers.
+
 ## [0.9.8] - 10 September 2026
 
 ### Added

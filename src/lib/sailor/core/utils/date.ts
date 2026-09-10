@@ -175,3 +175,30 @@ export function getCurrentTimestamp(): Date {
 export function getCurrentTimestampSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
+
+/**
+ * Turn a raw timestamp column value into a Date.
+ *
+ * Drizzle declares these columns `integer(mode: 'timestamp')`, stores them as
+ * seconds, and converts them itself — but only when the query goes through the
+ * query builder. Raw `sql` queries, which the search paths need because the
+ * table name is dynamic, bypass that mapping and hand back the bare integer.
+ * `new Date(seconds)` then reads it as milliseconds and lands in January 1970.
+ *
+ * Accepts what either path produces, so a caller fed by both cannot drift.
+ */
+export function timestampToDate(raw: unknown): Date | null {
+  if (raw === null || raw === undefined) return null;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+
+  // A non-numeric string is a date string, not a column value.
+  if (typeof raw === 'string' && !/^\d+$/.test(raw.trim())) {
+    const parsed = new Date(raw);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const seconds = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(seconds)) return null;
+  const date = new Date(seconds * 1000);
+  return isNaN(date.getTime()) ? null : date;
+}

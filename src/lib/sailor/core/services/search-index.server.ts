@@ -8,7 +8,10 @@ import { blockDefinitions } from '$sailor/templates/blocks';
 import type { FieldDefinition } from '../types';
 import { readGlobal, readCollection } from './data-read.server';
 import { getContentSettings } from 'sailorcms/core/settings/i18n';
+import { timestampToDate } from '../utils/date';
 import { TagService } from './tag.server';
+
+
 
 // Resolved lazily so the file typechecks even before `npx sailor db:update`
 // has regenerated generated/schema.ts with the search_index table.
@@ -450,8 +453,7 @@ export class SearchIndexService {
     const totalRows = Number(totalRowsRow?.[0]?.n ?? 0);
 
     const lastRow: any = await db.all(sql`SELECT MAX(updated_at) AS t FROM ${table}`);
-    const lastRaw = lastRow?.[0]?.t;
-    const lastUpdatedAt = lastRaw ? new Date(lastRaw) : null;
+    const lastUpdatedAt = timestampToDate(lastRow?.[0]?.t);
 
     const perEntityRaw: any = await db.all(sql`
       SELECT entity_type, entity_name, COUNT(*) AS count, MAX(updated_at) AS last
@@ -473,7 +475,7 @@ export class SearchIndexService {
         entityType,
         entityName,
         count: Number(r.count ?? 0),
-        lastUpdatedAt: r.last ? new Date(r.last) : null,
+        lastUpdatedAt: timestampToDate(r.last),
         searchableInTemplate
       };
     });

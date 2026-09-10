@@ -10,16 +10,18 @@
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { reindexSearchIndex } from 'sailorcms/remote/search-index.remote.js';
   import { m } from '$sailor/i18n';
+  import { formatTimestamp } from 'sailorcms/core/utils/date';
+  import { getUserLocale } from 'sailorcms/core/ui/user-locale';
 
   const { data }: { data: PageData } = $props();
 
   let isReindexing = $state(false);
 
+  // `toLocaleString()` with no argument follows the browser's locale, not the
+  // one the CMS is set to, so a Norwegian admin on an en-US browser read US
+  // dates. `formatTimestamp` takes the locale explicitly.
   function fmtDate(d: Date | string | null): string {
-    if (!d) return '—';
-    const date = typeof d === 'string' ? new Date(d) : d;
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleString();
+    return d ? formatTimestamp(d, getUserLocale()) : '—';
   }
 
   async function reindex() {
@@ -69,19 +71,19 @@
         <Card.Content>
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <div class="text-muted-foreground text-xs uppercase">
+              <div class="text-muted-foreground text-xs font-medium">
                 {m.settings_search_summary_total()}
               </div>
               <div class="text-2xl font-semibold">{health.totalRows.toLocaleString()}</div>
             </div>
             <div>
-              <div class="text-muted-foreground text-xs uppercase">
+              <div class="text-muted-foreground text-xs font-medium">
                 {m.settings_search_summary_last_updated()}
               </div>
               <div class="text-sm">{fmtDate(health.lastUpdatedAt)}</div>
             </div>
             <div>
-              <div class="text-muted-foreground text-xs uppercase">
+              <div class="text-muted-foreground text-xs font-medium">
                 {m.settings_search_summary_fts()}
               </div>
               <div class="text-sm">

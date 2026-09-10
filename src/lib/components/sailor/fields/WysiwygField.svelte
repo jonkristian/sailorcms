@@ -156,8 +156,18 @@
     priority: 1000,
     addKeyboardShortcuts() {
       return {
-        Enter: () => this.editor.commands.setHardBreak(),
-        'Shift-Enter': () => this.editor.commands.splitBlock()
+        Enter: () => {
+          // Not inside a list. There, Enter has to keep making the next item:
+          // this extension outranks the list keymap, so swapping it would make
+          // a second list item unreachable from the keyboard. Returning false
+          // hands the key back to the default handler.
+          if (this.editor.isActive('listItem')) return false;
+          return this.editor.commands.setHardBreak();
+        },
+        'Shift-Enter': () => {
+          if (this.editor.isActive('listItem')) return false;
+          return this.editor.commands.splitBlock();
+        }
       };
     }
   });
@@ -280,7 +290,17 @@
   }
 
   function toggleBulletList() {
-    editor?.chain().focus().toggleBulletList().run();
+    if (!editor) return;
+
+    // A plain list is a bulletList with its markers off, so a plain toggle here
+    // would leave the list entirely. Restoring the markers is what the button
+    // looks like it does.
+    if (editor.isActive('bulletList') && editor.getAttributes('bulletList')?.plain === true) {
+      editor.chain().focus().updateAttributes('bulletList', { plain: false }).run();
+      return;
+    }
+
+    editor.chain().focus().toggleBulletList().run();
   }
 
   /**
@@ -611,7 +631,12 @@
               type="button"
               variant="ghost"
               size="sm"
-              class={cn('h-7 w-7 p-0', isActive('bulletList') && 'bg-accent')}
+              class={cn(
+                'h-7 w-7 p-0',
+                isActive('bulletList') &&
+                  activeAttributes('bulletList')?.plain !== true &&
+                  'bg-accent'
+              )}
               onclick={toggleBulletList}
               tooltip={m.wysiwyg_tooltip_bullet_list()}
             >

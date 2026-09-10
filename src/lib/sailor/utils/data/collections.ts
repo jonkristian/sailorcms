@@ -1457,9 +1457,20 @@ export async function getAllDescendantItems(
   const allSlugs = new Set<string>();
   const isGlobal = targetKind === 'global';
 
+  // Checked synchronously on entry, so two siblings resolving in parallel can
+  // never both start on the same node. The `allSlugs` check below cannot do
+  // this job on its own: it runs after an await, leaving a window open.
+  const started = new Set<string>();
+
   async function getChildren(slug: string) {
+    if (started.has(slug)) return;
+    started.add(slug);
+
+    // `withRelations: false` explicitly, because it defaults to true. This walk
+    // reads `slug`, `id` and `parent_id` only, so loading every related item
+    // for every category visited was pure waste.
     const itemResult = isGlobal
-      ? await getGlobals(targetType, { itemSlug: slug, withRelations: true, status })
+      ? await getGlobals(targetType, { itemSlug: slug, withRelations: false, status })
       : await getCollections(targetType, { itemSlug: slug, status });
 
     if (!itemResult) {
@@ -1475,15 +1486,17 @@ export async function getAllDescendantItems(
     allSlugs.add(item.slug);
 
     const childrenResult = isGlobal
-      ? await getGlobals(targetType, { parentId: item.id, withRelations: true, status })
+      ? await getGlobals(targetType, { parentId: item.id, withRelations: false, status })
       : await getCollections(targetType, { parentId: item.id, status });
 
     if (childrenResult && 'items' in childrenResult && childrenResult.items) {
-      for (const child of childrenResult.items) {
-        if ('slug' in child && typeof child.slug === 'string') {
-          await getChildren(child.slug);
-        }
-      }
+      // Siblings are independent, so they resolve together rather than each
+      // waiting on the one before it. Depth still serialises, which is correct.
+      await Promise.all(
+        childrenResult.items
+          .filter((child: any) => typeof child?.slug === 'string')
+          .map((child: any) => getChildren(child.slug))
+      );
     }
   }
 
