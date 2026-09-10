@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Badge } from 'sailorcms/components/ui/badge/index.js';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
@@ -104,6 +105,21 @@
     },
     debounceMs: 600
   });
+
+  /**
+   * Whether anything is narrowing the list.
+   *
+   * `hasActiveFilters` only knows about the filters the composable owns; the
+   * relation filter lives in the URL, so it has to be checked separately.
+   */
+  const isFiltered = $derived(
+    tableFilters.hasActiveFilters || page.url.searchParams.has('relation')
+  );
+
+  /** Drop every filter at once, the relation one included, by going to the bare list URL. */
+  function clearFilters() {
+    goto(`/sailor/collections/${data.collectionType.slug}`, { keepFocus: true, noScroll: true });
+  }
 
   // Local bulk action state for Select
   let bulkAction = $state('');
@@ -258,7 +274,9 @@
       addButtonAction={handleAddNew}
     />
 
-    {#if items.length > 0}
+    <!-- Shown while filtered even with no rows: the controls are the only way
+         to clear a filter, so hiding them here strands the user. -->
+    {#if items.length > 0 || isFiltered}
       <!-- Table Controls with FilterBar -->
       <BulkActionsBar
         selectedCount={selection.selectedCount}
@@ -405,16 +423,30 @@
     {:else}
       <div class="rounded-lg border p-8 text-center">
         <FileText class="text-muted-foreground mx-auto my-2 size-6" />
-        <h3 class="text-lg font-medium">
-          {m.collections_empty_title({
-            plural: data.collectionType.name.plural.toLowerCase()
-          })}
-        </h3>
-        <p class="text-muted-foreground mt-1">
-          {m.collections_empty_text({
-            singular: data.collectionType.name.singular.toLowerCase()
-          })}
-        </p>
+        {#if isFiltered}
+          <h3 class="text-lg font-medium">
+            {m.collections_empty_filtered_title({
+              plural: data.collectionType.name.plural.toLowerCase()
+            })}
+          </h3>
+          <p class="text-muted-foreground mt-1">
+            {m.collections_empty_filtered_text()}
+          </p>
+          <Button variant="outline" class="mt-4" onclick={clearFilters}>
+            {m.filter_clear_filters()}
+          </Button>
+        {:else}
+          <h3 class="text-lg font-medium">
+            {m.collections_empty_title({
+              plural: data.collectionType.name.plural.toLowerCase()
+            })}
+          </h3>
+          <p class="text-muted-foreground mt-1">
+            {m.collections_empty_text({
+              singular: data.collectionType.name.singular.toLowerCase()
+            })}
+          </p>
+        {/if}
       </div>
     {/if}
 

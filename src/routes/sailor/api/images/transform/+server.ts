@@ -19,7 +19,10 @@ export const GET: RequestHandler = async ({ url }) => {
     const quality = url.searchParams.get('quality')
       ? parseInt(url.searchParams.get('quality')!)
       : undefined;
-    const format = url.searchParams.get('format') as 'webp' | 'jpg' | 'png' | undefined;
+    // `?? undefined`, not a bare cast: `get()` returns null when the parameter
+    // is absent, and null does not trigger a destructuring default downstream.
+    const format =
+      (url.searchParams.get('format') as 'webp' | 'jpg' | 'png' | null) ?? undefined;
     const resize =
       (url.searchParams.get('resize') as
         'cover' | 'contain' | 'fill' | 'inside' | 'outside' | undefined) || 'cover';

@@ -3,6 +3,7 @@ import {
   StorageProviderFactory,
   type StorageFolderSummary
 } from 'sailorcms/core/services/storage-provider.server';
+import { ImageProcessor } from 'sailorcms/core/services/image.server';
 import { m } from '$sailor/i18n';
 import type { PageServerLoad } from './$types';
 
@@ -23,6 +24,15 @@ export const load: PageServerLoad = async ({ parent }) => {
     console.warn('Storage folder listing failed:', err);
   }
 
+  // Image pipeline state. Tolerant for the same reason the folder listing is:
+  // stale bucket creds should not blank the page that exists to fix them.
+  let imageCacheStats: Awaited<ReturnType<typeof ImageProcessor.getCacheStats>> | null = null;
+  try {
+    imageCacheStats = await ImageProcessor.getCacheStats();
+  } catch (err) {
+    console.warn('Image cache stats failed:', err);
+  }
+
   // Create header actions for payload preview
   const headerActions = [];
   headerActions.push({
@@ -39,6 +49,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   return {
     storageConfig: settings.storage,
     folders,
+    imageCacheStats,
     headerActions,
     // Mask sensitive information for display
     displayConfig: {

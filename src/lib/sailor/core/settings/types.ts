@@ -1,4 +1,6 @@
 // Storage Settings
+import type { ImageTransformConfig } from '../files/transform-provider';
+
 export interface StorageSettings {
   provider?: 'local' | 's3'; // Optional since it's set via environment variables
   excludePaths?: string[]; // Paths/folders to exclude from storage scanning
@@ -39,6 +41,13 @@ export interface CacheConfig {
 }
 
 export interface ImageConfig {
+  /**
+   * Hand image resizing to an external service instead of doing it in-process
+   * with sharp. Omit it (or leave `provider: 'local'`) to keep Sailor's own
+   * pipeline, which is the default.
+   */
+  transform?: ImageTransformConfig;
+
   maxFileSize: string; // Human readable like "10.0MB"
   maxWidth: number; // Maximum width for image transformations
   maxHeight: number; // Maximum height for image transformations

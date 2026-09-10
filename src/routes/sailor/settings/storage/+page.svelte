@@ -23,6 +23,7 @@
 
   import { repairFileUrls, checkFiles, importFiles } from 'sailorcms/remote/files.remote.js';
   import { purgeImageCache, enforceImageCacheSize } from 'sailorcms/remote/storage.remote.js';
+  import { invalidateAll } from '$app/navigation';
 
   let isPurging = $state(false);
   let isEnforcing = $state(false);
@@ -34,6 +35,7 @@
     isPurging = false;
     if (result.success) {
       toast.success(m.settings_storage_image_cache_purged({ count: result.removed }));
+      await invalidateAll();
     } else {
       toast.error(result.error || m.settings_storage_image_cache_failed());
     }
@@ -68,6 +70,7 @@
           })
         );
       }
+      await invalidateAll();
     } else {
       toast.error(result.error || m.settings_storage_image_cache_enforce_failed());
     }
@@ -405,7 +408,65 @@
             {m.settings_storage_image_cache_description()}
           </Card.Description>
         </Card.Header>
-        <Card.Content class="flex-1" />
+        <Card.Content class="flex-1">
+          {#if data.imageCacheStats}
+            {@const stats = data.imageCacheStats}
+            <dl class="flex flex-col gap-2 text-sm">
+              <div class="flex items-center justify-between gap-4">
+                <dt class="text-muted-foreground">
+                  {m.settings_storage_image_transform_label()}
+                </dt>
+                <dd>
+                  {#if stats.transformProvider === 'local'}
+                    <Badge variant="secondary">
+                      {m.settings_storage_image_transform_local()}
+                    </Badge>
+                  {:else}
+                    <Badge>{stats.transformProvider}</Badge>
+                  {/if}
+                </dd>
+              </div>
+
+              <!-- Counts are null under an external provider: the local cache is
+                   neither written nor read, so a figure would describe nothing. -->
+              {#if stats.count !== null && stats.bytes !== null}
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-muted-foreground">
+                    {m.settings_storage_image_cache_variants_label()}
+                  </dt>
+                  <dd class="font-mono text-xs">{stats.count}</dd>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-muted-foreground">
+                    {m.settings_storage_image_cache_size_label()}
+                  </dt>
+                  <dd class="font-mono text-xs">
+                    {#if stats.limit > 0}
+                      {m.settings_storage_image_cache_size({
+                        size: formatBytes(stats.bytes),
+                        limit: formatBytes(stats.limit)
+                      })}
+                    {:else}
+                      {m.settings_storage_image_cache_size_nolimit({
+                        size: formatBytes(stats.bytes)
+                      })}
+                    {/if}
+                  </dd>
+                </div>
+              {:else if stats.transformProvider !== 'local'}
+                <p class="text-muted-foreground text-xs">
+                  {m.settings_storage_image_transform_external_note({
+                    provider: stats.transformProvider
+                  })}
+                </p>
+              {:else if !stats.cacheEnabled}
+                <p class="text-muted-foreground text-xs">
+                  {m.settings_storage_image_cache_disabled()}
+                </p>
+              {/if}
+            </dl>
+          {/if}
+        </Card.Content>
         <Card.Footer class="flex gap-2">
           <Button variant="outline" onclick={purgeCache} disabled={isPurging}>
             {#if isPurging}

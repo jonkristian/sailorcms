@@ -635,6 +635,69 @@ const retina = getImage('logo.png', {
 });
 ```
 
+### Where the resizing happens
+
+By default Sailor resizes images itself with sharp and caches the results, so
+the first request for a given size pays the transform cost and later ones are
+served from cache. Nothing needs configuring for this.
+
+If you would rather resize at the edge, point `storage.images.transform` at a
+service in `templates/settings.ts`. Every `getImage()` and `getFileUrl()` call
+then returns that service's URL instead, so no calling code changes.
+
+```typescript
+// templates/settings.ts
+storage: {
+  images: {
+    transform: { provider: 'cloudflare' }
+  }
+}
+```
+
+`cloudflare` requires Image Resizing to be enabled on the zone, and the images
+must be served from a hostname inside that zone. An R2 bucket on its default
+`pub-….r2.dev` URL does not qualify, so a bucket needs a custom domain in front
+of it before this provider can work. That is a deploy change, not a code one,
+but it decides whether the option is available to you at all.
+
+It is worth
+using mainly for `format=auto`: Cloudflare negotiates AVIF per request, which
+the local pipeline does not do, and it costs no more than a fixed format
+because one `format=auto` URL is billed as a single transformation however
+many formats it actually serves.
+
+Billing is per unique combination of source image and options, counted per
+calendar month and reset each month. Each width in your `breakpoints` is a
+separate transformation, so the default four breakpoints mean one responsive
+image costs four. That also means inconsistent call sites cost real money:
+asking for the same image at `quality: 85` in one component and `quality: 90`
+in another doubles it. Pick a set of sizes and stick to them.
+
+Prewarming is skipped automatically when a provider is set, since those cached
+variants would never be read.
+
+For anything else, give a URL template:
+
+```typescript
+transform: {
+  provider: 'custom',
+  url: 'https://img.example.com/{width}x{height}/{url}'
+}
+```
+
+Placeholders are `{url}` (percent-encoded source), `{rawUrl}`, `{width}`,
+`{height}`, `{quality}`, `{format}` and `{fit}`. Any option you do not pass at
+the call site becomes an empty string, so write a template your service
+tolerates blanks in.
+
+Services that require a signed URL, imgproxy and Cloudinary among them, are not
+supported. These URLs are built in the browser as well as on the server, so a
+signing key placed here would be public.
+
+Set `provider: 'local'`, or leave `transform` out, to keep Sailor's own
+pipeline. A provider that is only half-configured falls back to it rather than
+producing broken images.
+
 ### Using Responsive Images in Svelte
 
 ```svelte

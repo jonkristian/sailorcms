@@ -2,23 +2,44 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [0.9.7] - 10 September 2026
+
+### Added
+
+- **Optional image transform provider.** Set `storage.images.transform` to hand resizing to an edge service instead of sharp. `cloudflare` and a `custom` URL template are supported; the default stays Sailor's own pipeline. Cloudflare URLs carry `onerror=redirect`, so a failed transform serves the original rather than a broken image.
+- **Settings > Storage shows the image pipeline.** Which provider is active, how many variants are cached, and their size against `cache.maxSize`.
+
+### Fixed
+
+- **Transformed images were never converted.** `format` arrived from the route as `null`, which does not trigger a destructuring default, so the encoder switch matched nothing and sharp emitted the source bytes under a webp name, MIME type and cache key. Roughly 10x the intended size on PNG sources.
+- **Every srcset candidate resolved to the same file.** The cache key only recorded a size when both width and height were given, and never recorded `resize`, `position` or `format` at all. Width-only requests, which is what `getImage()` emits, all collapsed onto one object.
+- **Resizing enlarged past the source**, generating variants several times the original's width with no added detail. Capped with `withoutEnlargement`.
+- **A filter matching nothing hid the controls that would clear it.** The list toolbar was gated on having rows, so an empty result left no way back. The empty state now says a filter is responsible and offers to clear it, rather than claiming the collection is empty.
+- Concurrent requests for the same uncached variant each ran their own sharp pass; they now share one.
+
+### Changed
+
+- The image cache size button no longer reads `Enforce cache.maxSize`; a settings key is not a button label.
+- Prewarming is skipped when an external transform provider is set, since those variants would never be read.
+- Removed a dead `getCacheStats` that returned memory-cache figures and had no callers.
+
 ## [0.9.6] - 10 September 2026
 
 ### Added
 
 - **Sort a collection list by a relation column.** A `showInTable` many-to-many is now sortable from its header, ordered in SQL through a correlated subquery so it survives pagination. Items with no relation sort last in both directions.
-- **`enterKey` on `wysiwyg` fields** — `'break'` swaps Enter and Shift+Enter, for content that is one block of lines rather than prose. Defaults to `'paragraph'`, so existing fields are unchanged.
-- **Bullet lists without markers** — a toolbar toggle stores `class="list-none"` on the `<ul>`, so the list keeps its markup for the frontend and screen readers.
+- **`enterKey` on `wysiwyg` fields.** `'break'` swaps Enter and Shift+Enter, for content that is one block of lines rather than prose. Defaults to `'paragraph'`, so existing fields are unchanged.
+- **Bullet lists without markers.** A toolbar toggle stores `class="list-none"` on the `<ul>`, so the list keeps its markup for the frontend and screen readers.
 - Attached entries in the relation editor link to their own edit page, in a new tab.
 
 ### Fixed
 
 - **The relation filter never applied.** Both call sites passed the parsed collection-type options where the loader's own options were expected, so the filter short-circuited on every request. On localized collections it had never worked at all.
-- **An unknown `?sortBy=` returned 500** on non-localized lists — including inherited property names like `constructor`. The localized path already guarded this.
-- **Filtering by a parent category returned nothing** — descendants were never requested, and the descendant walk skipped drafts, which the admin lists.
+- **An unknown `?sortBy=` returned 500** on non-localized lists, including inherited property names like `constructor`. The localized path already guarded this.
+- **Filtering by a parent category returned nothing.** Descendants were never requested, and the descendant walk skipped drafts, which the admin lists.
 - **Toggling source view and back left the editor blank.** The element TipTap attaches to was unmounted, so returning bound a fresh element to nothing.
 - The relation picker collapsed and sprang back as a search narrowed the list; it is now a fixed height.
-- List items sat as far apart as paragraphs — 0.9.5's paragraph spacing applied inside `<li>`, which wraps its content in a `<p>`.
+- List items sat as far apart as paragraphs: 0.9.5's paragraph spacing applied inside `<li>`, which wraps its content in a `<p>`.
 
 ### Changed
 

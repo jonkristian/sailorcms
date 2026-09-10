@@ -7,6 +7,7 @@ import { getSettings } from 'sailorcms/core/settings/index';
 import { StorageProviderFactory, type StorageProvider } from './storage-provider.server';
 import { S3StorageService } from './storage-s3.server';
 import sharp, { type Sharp, type ResizeOptions } from 'sharp';
+import type { ImageTransformProvider } from '../files/transform-provider';
 
 interface CacheEntry {
   data: Buffer;
@@ -31,6 +32,20 @@ interface ProcessedImage {
 
 export class ImageProcessor {
   private static memoryCache = new Map<string, CacheEntry>();
+  /**
+   * Generations currently running, keyed by cache key.
+   *
+   * Without this, every concurrent request for a variant that is not yet
+   * cached runs its own Sharp pass and writes the same object: a cold
+   * category page is thirty parallel Sharp instances for one visitor, and a
+   * cache purge or a deploy onto fresh storage does it for the whole library
+   * at once. `prewarmBreakpoints` only covers images as they are uploaded, so
+   * it does not help an existing library.
+   *
+   * Entries are removed as soon as the generation settles, so the map holds
+   * only what is in flight right now.
+   */
+  private static inFlight = new Map<string, Promise<ProcessedImage>>();
   private static defaultTTL = 24 * 60 * 60 * 1000; // 24 hours
 
   // Positive existence cache for processed variants. Lets the transform endpoint skip
@@ -84,13 +99,33 @@ export class ImageProcessor {
   // Generate cache key. The basename stays in the key for human readability when poking
   // around storage; the path hash makes the key safe against same-filename collisions
   // (different uploads with the same filename, file replacement, flat folder structure).
+  //
+  // Every option that changes the output bytes has to be in the key. It is typed as an
+  // exhaustive record of `ImageTransformOptions` so adding a field to that interface
+  // fails to compile until it is accounted for here: the key was previously written by
+  // hand and drifted twice, collapsing width-only requests onto one entry and ignoring
+  // the fit mode entirely, so a 150px thumbnail could serve the full-size original.
   private static generateCacheKey(imagePath: string, options: ImageTransformOptions): string {
-    const { width, height, quality = 80, position } = options;
+    const { width, height, position } = options;
+    const quality = options.quality || 80;
+    const resize = options.resize || 'cover';
+    const format = options.format || 'webp';
+
+    const parts: Record<keyof Required<ImageTransformOptions>, string> = {
+      width: width ? String(width) : 'auto',
+      height: height ? String(height) : 'auto',
+      quality: String(quality),
+      resize,
+      position: position ? position.replace(/\s+/g, '-') : 'default',
+      format
+    };
+
     const baseName = basename(imagePath, extname(imagePath));
     const pathHash = createHash('sha1').update(imagePath).digest('hex').slice(0, 10);
-    const sizeStr = width && height ? `${width}x${height}` : 'auto';
-    const positionStr = position ? `_${position.replace(/\s+/g, '-')}` : '';
-    return `${baseName}_${pathHash}_${sizeStr}_q${quality}${positionStr}`;
+    // Dimensions stay legible in the filename; the hash covers the rest, so a new
+    // option cannot silently share a key with an old one.
+    const optionsHash = createHash('sha1').update(JSON.stringify(parts)).digest('hex').slice(0, 8);
+    return `${baseName}_${pathHash}_${parts.width}x${parts.height}_${optionsHash}`;
   }
 
   // Generate cache path for storage provider
@@ -367,7 +402,13 @@ export class ImageProcessor {
     originalPath: string,
     options: ImageTransformOptions
   ): Promise<ProcessedImage> {
-    const { width, height, quality = 80, format = 'webp', resize = 'cover', position } = options;
+    const { width, height, position } = options;
+    // `||`, not destructuring defaults: those only fire on undefined, and a
+    // null reaching here silently skipped the encoder switch below, emitting
+    // the source format under a webp name, MIME type and cache key.
+    const quality = options.quality || 80;
+    const format = options.format || 'webp';
+    const resize = options.resize || 'cover';
 
     // Handle remote URLs vs local files
     let sharpInstance: Sharp;
@@ -406,7 +447,14 @@ export class ImageProcessor {
       const resizeOptions: ResizeOptions = {
         width,
         height,
-        fit: resize as 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
+        fit: resize as 'cover' | 'contain' | 'fill' | 'inside' | 'outside',
+        // A srcset candidate wider than the source carries no more detail, only
+        // more bytes: a 568px original asked for 1600w costs 4x the 400w
+        // variant for nothing. Sharp caps at the source instead, and the
+        // candidate resolves to a smaller file, which is what `sizes` should
+        // have picked. Only reachable since per-width cache keys started
+        // producing real variants.
+        withoutEnlargement: true
       };
       // Sharp's `position` only affects `cover` / `contain` fits; ignored otherwise.
       if (position) resizeOptions.position = position as any;
@@ -486,7 +534,39 @@ export class ImageProcessor {
       }
     }
 
-    // 3. Generate and cache (slow)
+    // 3. Generate and cache (slow). One generation per key: late arrivals
+    // wait on the pass already running rather than starting their own.
+    const running = this.inFlight.get(cacheKey);
+    if (running) return await running;
+
+    // Cleared on settle, including on failure, so a transient error does not
+    // poison the key for later requests. The stored promise is the one that is
+    // returned, not the bare generation: storing a `.finally()` chain nobody
+    // awaits would make a failed generation an unhandled rejection.
+    const generation = this.generateAndCache(
+      imagePath,
+      options,
+      cacheKey,
+      cachePath,
+      cacheEnabled
+    ).finally(() => this.inFlight.delete(cacheKey));
+    // Registered before the first await, so a caller arriving in the same tick
+    // sees it rather than starting a second pass.
+    this.inFlight.set(cacheKey, generation);
+    return await generation;
+  }
+
+  /**
+   * The slow path of {@link getProcessedImage}: resize, then populate both
+   * cache layers. Split out so the in-flight guard has a single call to wrap.
+   */
+  private static async generateAndCache(
+    imagePath: string,
+    options: ImageTransformOptions,
+    cacheKey: string,
+    cachePath: string,
+    cacheEnabled: boolean
+  ): Promise<ProcessedImage> {
     try {
       const processed = await this.processImage(imagePath, options);
 
@@ -532,12 +612,19 @@ export class ImageProcessor {
    * to log a summary.
    *
    * Skips silently if `prewarmBreakpoints` is unset / empty (zero-cost
-   * when not configured).
+   * when not configured), or if an external transform service is handling
+   * resizing — those variants would be written to cache and never read,
+   * since every URL points at the service instead.
    */
   static async prewarmImageVariants(imagePath: string): Promise<{ ok: number; failed: number }> {
     const settings = await getSettings();
     const breakpoints = settings.storage?.images?.prewarmBreakpoints;
     if (!Array.isArray(breakpoints) || breakpoints.length === 0) {
+      return { ok: 0, failed: 0 };
+    }
+
+    const provider = settings.storage?.images?.transform?.provider ?? 'local';
+    if (provider !== 'local') {
       return { ok: 0, failed: 0 };
     }
 
@@ -849,6 +936,59 @@ export class ImageProcessor {
     return { removed, freedBytes, beforeBytes, limit };
   }
 
+  /**
+   * What the image pipeline is currently doing, for Settings > Storage.
+   *
+   * `transformProvider` is read from settings rather than inferred, so the
+   * admin shows what is configured even when it is misconfigured. That is the
+   * point: a Cloudflare provider on a zone without Image Resizing produces
+   * broken images and nothing else in the CMS would say why.
+   *
+   * Counts are skipped entirely when an external provider is active, since
+   * the local cache is then neither written nor read and a stale figure would
+   * be more misleading than none.
+   */
+  static async getCacheStats(): Promise<{
+    transformProvider: ImageTransformProvider;
+    cacheEnabled: boolean;
+    count: number | null;
+    bytes: number | null;
+    limit: number;
+  }> {
+    const settings = await getSettings();
+    const transformProvider = settings.storage?.images?.transform?.provider ?? 'local';
+    const { enabled: cacheEnabled, provider } = await this.getCacheConfig();
+
+    let limit = 0;
+    const limitStr = process.env.CACHE_MAX_SIZE || settings.cache?.maxSize;
+    if (limitStr) {
+      try {
+        const { parseFileSize } = await import('../settings/index');
+        limit = parseFileSize(limitStr) || 0;
+      } catch {
+        limit = 0;
+      }
+    }
+
+    if (transformProvider !== 'local' || !cacheEnabled) {
+      return { transformProvider, cacheEnabled, count: null, bytes: null, limit };
+    }
+
+    const { LocalStorageProvider } = await import('./storage-provider.server');
+    const entries =
+      provider instanceof LocalStorageProvider
+        ? await this.listLocalCacheEntries()
+        : await this.listS3CacheEntries();
+
+    return {
+      transformProvider,
+      cacheEnabled,
+      count: entries.length,
+      bytes: entries.reduce((total, entry) => total + entry.size, 0),
+      limit
+    };
+  }
+
   private static async listLocalCacheEntries(): Promise<
     Array<{ key: string; size: number; mtimeMs: number }>
   > {
@@ -916,18 +1056,5 @@ export class ImageProcessor {
     const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
     const s3 = await createS3Client(s3Config, { accessKeyId, secretAccessKey });
     await s3.send(new DeleteObjectCommand({ Bucket: s3Config.bucket, Key: key }));
-  }
-
-  // Get cache statistics
-  static getCacheStats(): { memoryEntries: number; memorySize: number } {
-    let totalSize = 0;
-    for (const entry of this.memoryCache.values()) {
-      totalSize += entry.data.length;
-    }
-
-    return {
-      memoryEntries: this.memoryCache.size,
-      memorySize: totalSize
-    };
   }
 }

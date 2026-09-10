@@ -15,6 +15,21 @@ export const settings: Partial<CMSSettings> = {
 
     // Image processing configuration
     images: {
+      // Who resizes images. Default is Sailor itself, with sharp, cached to
+      // disk or S3. Point this at a service to resize at the edge instead:
+      //
+      //   transform: { provider: 'cloudflare' }
+      //     Needs Image Resizing enabled on the zone. Sends format=auto, so
+      //     browsers that take AVIF get it.
+      //
+      //   transform: { provider: 'custom', url: 'https://img.example.com/{width}x{height}/{url}' }
+      //     Placeholders: {url} (encoded), {rawUrl}, {width}, {height},
+      //     {quality}, {format}, {fit}. Unset ones become empty strings.
+      //
+      // Services that sign their URLs are not supported: these URLs are built
+      // in the browser, so the key would be public.
+      // transform: { provider: 'local' },
+
       maxFileSize: '10.0MB',
       maxWidth: 2560, // Maximum width for transformations
       maxHeight: 2560, // Maximum height for transformations

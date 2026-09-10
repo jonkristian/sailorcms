@@ -1,5 +1,8 @@
 // Client-safe file utilities (no Node.js imports)
 
+import { buildTransformUrl, type ImageTransformConfig } from './transform-provider';
+import { settings as generatedSettings } from '$sailor/generated/settings';
+
 export type FileTransformOptions = {
   width?: number;
   height?: number;
@@ -52,6 +55,19 @@ export type FileListItem = {
   created_at?: Date;
 };
 
+/**
+ * Transform provider config, as generated from `templates/settings.ts`.
+ *
+ * Read from the generated module rather than `getSettings()` because this runs
+ * in the browser and `getSettings()` is async and reaches server-only code.
+ * Which service resizes images is a build-time decision, so the database
+ * override layer that `getSettings()` adds is not needed here.
+ */
+function imageTransformConfig(): ImageTransformConfig | undefined {
+  return (generatedSettings as { storage?: { images?: { transform?: ImageTransformConfig } } })
+    ?.storage?.images?.transform;
+}
+
 export function getFileUrl(
   path: string,
   options: FileTransformOptions = { transform: true }
@@ -62,6 +78,12 @@ export function getFileUrl(
 
   // For images with transformation enabled, always use the transform API
   if (options.transform && isImageFile(path)) {
+    // A configured transform service takes the job instead, resizing at the
+    // edge so there is no origin hop and no cold sharp cost. Returns null
+    // when unset or half-configured, which is the default path below.
+    const serviceUrl = buildTransformUrl(path, options, imageTransformConfig());
+    if (serviceUrl) return serviceUrl;
+
     const transformUrl = '/sailor/api/images/transform';
     const params = new URLSearchParams();
 
