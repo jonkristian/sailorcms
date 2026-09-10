@@ -196,7 +196,7 @@ export async function loadCollectionList(
   // ── Non-localized path ────────────────────────────────────────────────
   const whereConditions: any[] = [liveOnly(collectionTable)];
 
-  const relationMatches = await resolveListRelationFilter(slug, options);
+  const relationMatches = await resolveListRelationFilter(slug, opts);
   if (relationMatches) {
     whereConditions.push(
       relationMatches.length > 0
@@ -384,7 +384,7 @@ async function loadLocalizedList({
 
   // WHERE: soft-delete on main, locale match on locales. Search and
   // parent-null filter both target locales (slug/title/parent_id live there).
-  const localizedRelationMatches = await resolveListRelationFilter(slug, options);
+  const localizedRelationMatches = await resolveListRelationFilter(slug, opts);
 
   const whereConditions: any[] = [
     liveOnly(collectionTable),

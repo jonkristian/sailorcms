@@ -82,9 +82,15 @@
     if (!key || !slugValue) {
       params.delete('relation');
       params.delete('relationValue');
+      params.delete('relationRecursive');
     } else {
       params.set('relation', key);
       params.set('relationValue', slugValue);
+      // Filtering by a parent category means "everything under it". Set
+      // unconditionally: `parent_id` is a core column on every collection and
+      // global, so on a flat taxonomy the descendant walk returns the target
+      // itself and the result is unchanged.
+      params.set('relationRecursive', '1');
     }
     // A new filter invalidates the current page position.
     params.delete('page');
