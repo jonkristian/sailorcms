@@ -178,7 +178,8 @@ async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
     // `i18n/messages` is sailor-authored (admin strings only — toasts, sidebar,
     // dashboard labels) and ships per-release, same model as `core/` or `utils/`.
     // Always overwrite so new keys reach consumers without a manual merge.
-    // `i18n/paraglide` is compiled output — regenerated on next dev/build start.
+    // `i18n/paraglide` is compiled output, gitignored so it never ships in the
+    // package; `cleanDir` must skip it or update deletes the consumer's copy.
     const skipPaths = isInit
       ? [path.join('sailor', 'templates')]
       : [path.join('sailor', 'templates'), path.join('sailor', 'generated')];
@@ -198,7 +199,7 @@ async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
       console.log('✅ Updated sailor core files');
 
       // Remove files/folders in targetSailorDir that no longer exist in mainSailorDir
-      await cleanDir(mainSailorDir, targetSailorDir, ['templates', 'generated']);
+      await cleanDir(mainSailorDir, targetSailorDir, ['templates', 'generated', 'i18n/paraglide']);
     }
   }
 
@@ -261,6 +262,32 @@ async function mirrorSailorIntoConsumer({ targetDir, mode, force = false }) {
 
 export async function setupSailorFiles(targetDir, force = false) {
   return await mirrorSailorIntoConsumer({ targetDir, mode: 'init', force });
+}
+
+/**
+ * Compile the Paraglide runtime + messages into `src/lib/sailor/i18n/paraglide`.
+ * The vite plugin only does this on dev/build, so without it `svelte-check`
+ * right after an init or update can't resolve `./paraglide/*` or sees stale message
+ * keys. Non-fatal: the next dev/build start compiles it anyway.
+ */
+export function compileParaglide(targetDir) {
+  const shim = process.platform === 'win32' ? 'paraglide-js.cmd' : 'paraglide-js';
+  const bin = path.join(targetDir, 'node_modules', '.bin', shim);
+  if (!fs.existsSync(bin)) {
+    console.log('⚠️ paraglide-js not installed, skipping i18n compile');
+    return false;
+  }
+  try {
+    execSync(
+      `"${bin}" compile --project ./src/lib/sailor/project.inlang --outdir ./src/lib/sailor/i18n/paraglide`,
+      { cwd: targetDir, stdio: 'pipe' }
+    );
+    console.log('✅ Compiled i18n messages');
+    return true;
+  } catch (error) {
+    console.log(`⚠️ Paraglide compile failed, it will run on next dev/build: ${error.message}`);
+    return false;
+  }
 }
 
 export async function updateSailorCoreFiles(targetDir) {

@@ -15,7 +15,8 @@ import {
   printManualActionBanner,
   dedupeNestedSvelteDeps,
   dedupeNestedSailorcmsDeps,
-  isCorePackage
+  isCorePackage,
+  compileParaglide
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -213,6 +214,7 @@ export function registerCoreUpdate(program) {
         // Update Sailor CMS core files (lib, routes, hooks)
         console.log('Updating core files...');
         await updateSailorCoreFiles(targetDir);
+        compileParaglide(targetDir);
 
         // Update config files
         const manual = [];

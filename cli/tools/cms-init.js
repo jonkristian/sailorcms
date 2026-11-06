@@ -11,7 +11,8 @@ import {
   printManualActionBanner,
   dedupeNestedSvelteDeps,
   dedupeNestedSailorcmsDeps,
-  isCorePackage
+  isCorePackage,
+  compileParaglide
 } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -169,6 +170,7 @@ export function registerCoreInit(program) {
           console.log('Setting up Sailor CMS files...');
           const setupResult = await setupSailorFiles(targetDir, options.force);
           console.log('✅ Files copied successfully');
+          compileParaglide(targetDir);
 
           // Add Sailor CMS patterns to .gitignore
           const gitignorePath = path.join(targetDir, '.gitignore');

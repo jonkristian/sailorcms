@@ -9,6 +9,7 @@ import { getCurrentTimestamp, getCurrentTimestampSeconds } from '../utils/date';
 import { generateSlug } from '../utils/common';
 import { childTableName } from '../utils/string';
 import { ensureUniqueSlug } from '../utils/slug';
+import { replaceOwnerEdges } from '../data/persisters/owner-edges.server';
 
 // WordPress REST API Response Interfaces
 export interface WordPressAPIPost {
@@ -810,37 +811,31 @@ export class WordPressImportService {
 
         // Create category relationships through junction table
         if (categoriesToCreate && categoriesToCreate.length > 0 && categoryConfig) {
+          const categoryIds: string[] = [];
           for (const categoryName of categoriesToCreate) {
-            try {
-              const categoryId = categoryMap.get(categoryName);
-              if (categoryId) {
-                const junctionTable = schema[categoryConfig.junctionTable as keyof typeof schema];
-                if (junctionTable) {
-                  await db.insert(junctionTable).values({
-                    id: crypto.randomUUID(),
-                    collection_id: post.id,
-                    target_id: categoryId,
-                    created_at: getCurrentTimestamp(),
-                    updated_at: getCurrentTimestamp()
-                  });
-                } else {
-                  // Fallback to raw SQL if table not found in schema
-                  await db.run(
-                    sql`INSERT INTO ${sql.identifier(categoryConfig.junctionTable)}
-                        (id, collection_id, target_id, created_at, updated_at)
-                        VALUES (${crypto.randomUUID()}, ${post.id}, ${categoryId}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})`
-                  );
-                }
-              } else {
-                console.error(
-                  `Category '${categoryName}' not found in category map. Available categories:`,
-                  Array.from(categoryMap.keys())
-                );
-                console.error(`Category map contents:`, Object.fromEntries(categoryMap));
-              }
-            } catch (error) {
-              console.error(`Failed to create category relationship for '${categoryName}':`, error);
+            const categoryId = categoryMap.get(categoryName);
+            if (categoryId) {
+              categoryIds.push(categoryId);
+            } else {
+              console.error(
+                `Category '${categoryName}' not found in category map. Available categories:`,
+                Array.from(categoryMap.keys())
+              );
+              console.error(`Category map contents:`, Object.fromEntries(categoryMap));
             }
+          }
+          // Same writer as the editor, so an imported post lands at the end
+          // of a category editors have already ordered, not at the top.
+          try {
+            await replaceOwnerEdges(
+              db,
+              categoryConfig.junctionTable,
+              'collection_id',
+              post.id,
+              categoryIds
+            );
+          } catch (error) {
+            console.error(`Failed to create category relationships for post '${post.id}':`, error);
           }
         } else if (categoriesToCreate && categoriesToCreate.length > 0 && !categoryConfig) {
           console.warn(
@@ -1550,8 +1545,7 @@ export class WordPressImportService {
         // Extract featured image URL and metadata
         let featuredImageUrl: string | undefined;
         let featuredImageMetadata:
-          | { alt?: string; title?: string; description?: string; caption?: string }
-          | undefined;
+          { alt?: string; title?: string; description?: string; caption?: string } | undefined;
 
         if (apiPost.featured_media && apiPost._embedded?.['wp:featuredmedia']?.[0]) {
           const featuredMedia = apiPost._embedded['wp:featuredmedia'][0];

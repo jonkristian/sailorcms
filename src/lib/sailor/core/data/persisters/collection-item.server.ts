@@ -21,6 +21,7 @@ import { RevisionsService, resolveRevisionsKeep } from '../../services/revisions
 import { childTableName } from '../../utils/string';
 import { getCurrentTimestampSeconds } from '../../utils/date';
 import { persistReverseRelations } from './reverse-relations.server';
+import { replaceOwnerEdges } from './owner-edges.server';
 import { syncArrayRowFiles, clearArrayRowFilesByParent } from './array-row-files.server';
 import { saveNestedArrayFields } from '../../content/blocks.server';
 import { GROUP_CONFIG_COLUMNS } from '../../content/block-groups';
@@ -603,37 +604,14 @@ export async function saveCollectionItem(
 
           if (!junctionTable) continue;
 
-          await tx.run(sql`
-            DELETE FROM ${sql.identifier(junctionTableName)}
-            WHERE collection_id = ${entityId}
-          `);
-
-          // Rows are deleted and reinserted on every save, so the picker's
-          // array order is the edge order — persist it as `sort` so this
-          // owner's sequence survives independently of the target's own.
-          let relationSort = 0;
-          for (const item of relationItems as any[]) {
-            const targetId =
-              typeof item === 'string' ? item : item && item.id ? item.id : undefined;
-            if (!targetId) continue;
-
-            await tx.run(sql`
-              INSERT INTO ${sql.identifier(junctionTableName)}
-              (${sql.join(
-                [
-                  sql.identifier('id'),
-                  sql.identifier('collection_id'),
-                  sql.identifier('target_id'),
-                  sql.identifier('sort'),
-                  sql.identifier('created_at'),
-                  sql.identifier('updated_at')
-                ],
-                sql`, `
-              )})
-              VALUES (${generateUUID()}, ${entityId}, ${targetId}, ${relationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
-            `);
-            relationSort++;
-          }
+          // Picker order becomes `sort`; the target's `inverse_sort` is kept.
+          await replaceOwnerEdges(
+            tx,
+            junctionTableName,
+            'collection_id',
+            entityId,
+            relationItems as unknown[]
+          );
         }
       }
 
@@ -797,26 +775,14 @@ export async function saveCollectionItem(
 
               if (!junctionTable) continue;
 
-              await tx.run(sql`
-                DELETE FROM ${sql.identifier(junctionTableName)}
-                WHERE block_id = ${blockData.id}
-              `);
-
               const fieldValue = (block.content || {})[fieldName];
-              if (!fieldValue || !Array.isArray(fieldValue)) continue;
-
-              let blockRelationSort = 0;
-              for (const relatedId of fieldValue) {
-                const targetId = typeof relatedId === 'object' ? relatedId.id : relatedId;
-                if (!targetId) continue;
-
-                await tx.run(sql`
-                  INSERT INTO ${sql.identifier(junctionTableName)}
-                  (id, block_id, target_id, sort, created_at, updated_at)
-                  VALUES (${generateUUID()}, ${blockData.id}, ${targetId}, ${blockRelationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})
-                `);
-                blockRelationSort++;
-              }
+              await replaceOwnerEdges(
+                tx,
+                junctionTableName,
+                'block_id',
+                blockData.id,
+                Array.isArray(fieldValue) ? fieldValue : []
+              );
             }
 
             const blockFileFieldsSave = Object.entries(blockType.fields || {}).filter(

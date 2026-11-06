@@ -310,6 +310,17 @@ function generateRelations(
               `${match.targetType} '${match.targetSlug}', not at this ${ownerType}.`
           );
         }
+        // A localized owner keys its junction rows on the `_locales` row, while
+        // the reverse reader and writer join the owner's main table. The field
+        // would read empty, and edits made through it would land on main ids
+        // that the owner's own editor never reads.
+        const fromDefinitions = sources.find(([type]) => type === fromType)?.[1] || {};
+        if (fromDefinitions[fromSlug]?.localized) {
+          throw new Error(
+            `${where}: ${fromType} '${fromSlug}' is localized, and reverse fields ` +
+              `cannot read relations owned by a localized ${fromType} yet.`
+          );
+        }
       }
     }
   }

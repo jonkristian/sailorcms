@@ -13,7 +13,7 @@
 // keeps its inline logic for now and can be migrated in a follow-up.
 
 import { db } from '../../db/index.server';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import * as schema from '$sailor/generated/schema';
 import { fieldConfigurations } from '$sailor/generated/fields';
 import { globalDefinitions } from '$sailor/templates/globals';
@@ -23,7 +23,8 @@ import { TagService } from '../../services/tag.server';
 import { SearchIndexService } from '../../services/search-index.server';
 import { toSnakeCase } from '../../utils/string';
 import { persistReverseRelations } from './reverse-relations.server';
-import { getCurrentTimestamp, getCurrentTimestampSeconds } from '../../utils/date';
+import { replaceOwnerEdges } from './owner-edges.server';
+import { getCurrentTimestamp } from '../../utils/date';
 import { syncArrayRowFiles, clearArrayRowFiles } from './array-row-files.server';
 import { getContentSettings } from '../../settings/i18n';
 import { log } from '../../utils/logger';
@@ -464,21 +465,13 @@ export async function saveGlobalItem(opts: SaveGlobalItemOptions): Promise<SaveG
           fieldDef?.relation?.through || `junction_${globalSlug}_${toSnakeCase(fieldName)}`;
         if (!(schema as any)[junctionTableName]) continue;
 
-        await tx.run(
-          sql`DELETE FROM ${sql.identifier(junctionTableName)} WHERE global_id = ${itemId}`
+        await replaceOwnerEdges(
+          tx,
+          junctionTableName,
+          'global_id',
+          itemId,
+          relationItems as unknown[]
         );
-
-        let relationSort = 0;
-        for (const entry of relationItems) {
-          const targetId = typeof entry === 'object' && entry ? (entry as any).id : entry;
-          if (!targetId) continue;
-          await tx.run(
-            sql`INSERT INTO ${sql.identifier(junctionTableName)}
-                (id, global_id, target_id, sort, created_at, updated_at)
-                VALUES (${generateUUID()}, ${itemId}, ${targetId}, ${relationSort}, ${getCurrentTimestampSeconds()}, ${getCurrentTimestampSeconds()})`
-          );
-          relationSort++;
-        }
       }
     });
 

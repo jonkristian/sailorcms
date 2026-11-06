@@ -2,6 +2,14 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [1.0.0] - 6 November 2026
+
+### Fixed
+
+- **Saving an owner reset the order set from the other side of the relation.** Many-to-many edges are deleted and reinserted on every save, and the reinsert dropped `inverse_sort`, so it fell back to 0. Saving a product, even with its categories untouched, moved it to the top of each of its categories, both in the reverse field and on `orderBy: 'relation'` listings. Collection, global and block relations, and the WordPress importer, now carry `inverse_sort` across. A newly added target goes to the end of that target's list instead of the top, unless nobody has ordered that target yet, in which case it keeps falling back to the owner's own `sort`. This cannot restore orders that were already reset, so editors need to reorder affected categories once after upgrading.
+- **A `reverse` field could point at a relation owned by a localized collection or global.** A localized owner keys its junction rows on the `_locales` row, but reverse fields read and write against the owner's main table, so the field always showed empty and edits made through it created edges the owner's own editor never sees. `db:update` now refuses this combination with an error naming the field, until reverse fields support localized owners.
+- **`core:update` deleted the consumer's compiled Paraglide output.** `i18n/paraglide` is gitignored, so it is missing from the package and the stale-file cleanup removed it, leaving `svelte-check` unable to resolve `./paraglide/messages` until the next dev run. Cleanup now skips it, and both `core:init` and `core:update` compile it after copying core files, using the `.cmd` shim on Windows.
+
 ## [0.9.9] - 10 September 2026
 
 ### Fixed
