@@ -2,6 +2,12 @@
 
 All notable changes to SailorCMS are documented here.
 
+## [1.0.1] - 17 November 2026
+
+### Fixed
+
+- **The add button did nothing on a repeatable global with `view: 'table'` plus `nestable` or `inline`.** The header **+** and the table's empty-state **Add** both now open a new item page.
+
 ## [1.0.0] - 6 November 2026
 
 ### Fixed

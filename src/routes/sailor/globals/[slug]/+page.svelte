@@ -133,19 +133,9 @@
     await handleReorder(without);
   }
 
-  // Handle add new item
+  // Only wired up for TableView paths; nested/inline views supply their own add fns.
   function handleAddNew() {
-    if (data.global.dataType === 'repeatable' && data.global.options?.nestable) {
-      // For nestable repeatable globals, the NestedView component handles this
-      return;
-    } else if (data.global.dataType === 'repeatable' && data.global.options?.inline) {
-      // For inline repeatable globals, the InlineView component handles this
-      return;
-    } else {
-      // For relational globals, navigate to edit page
-      const newId = generateUUID();
-      goto(`/sailor/globals/${data.global.slug}/${newId}`);
-    }
+    goto(`/sailor/globals/${data.global.slug}/${generateUUID()}`);
   }
 </script>
 
