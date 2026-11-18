@@ -14,7 +14,7 @@
   import RelationFilter from 'sailorcms/components/sailor/table/RelationFilter.svelte';
   import { m } from '$sailor/i18n';
   import { generateUUID } from 'sailorcms/core/utils/common';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import FileText from '@lucide/svelte/icons/file-text';
   import { useBulkSelection } from 'sailorcms/composables/useBulkSelection.svelte';
   import { useTableFilters } from 'sailorcms/composables/useTableFilters.svelte';
@@ -64,7 +64,7 @@
       });
 
       if (toastResult(result, m.toast_items_deleted, m.toast_items_delete_failed)) {
-        await invalidateAll();
+        await refreshAll();
         selection.clearSelection();
         deleteDialogOpen = false;
       }
@@ -118,7 +118,7 @@
 
   /** Drop every filter at once, the relation one included, by going to the bare list URL. */
   function clearFilters() {
-    goto(`/sailor/collections/${data.collectionType.slug}`, { keepFocus: true, noScroll: true });
+    goto(`/sailor/collections/${data.collectionType.slug}`, { reset: false });
   }
 
   // Local bulk action state for Select
@@ -201,7 +201,7 @@
       });
 
       if (result.success) {
-        await invalidateAll();
+        await refreshAll();
       } else {
         toast.error(result.error || m.toast_sort_order_update_failed(), {
           id: 'collection-reorder'
@@ -226,7 +226,7 @@
           id: 'collection-nest'
         })
       ) {
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_nesting_update_failed(), { id: 'collection-nest' });
@@ -250,7 +250,7 @@
       });
 
       if (toastResult(result, m.toast_items_cloned, m.toast_items_clone_failed)) {
-        await invalidateAll();
+        await refreshAll();
         selection.clearSelection();
       }
     } catch (error) {
@@ -492,7 +492,7 @@
           });
 
           if (toastResult(result, m.toast_author_updated, m.toast_author_update_failed)) {
-            await invalidateAll();
+            await refreshAll();
             selection.clearSelection();
           }
         } catch (error) {

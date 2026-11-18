@@ -246,27 +246,28 @@ export function buildLocalePath(
  *     `/en/about` duplicate-content trap).
  *   - `'symmetric'`: accepts every configured URL form including the default.
  *
- * Drop into `src/params/lang.ts`:
+ * Returns the param when it matches, `undefined` otherwise. Register it in
+ * `src/params.ts`:
  *
  * ```ts
- * import type { ParamMatcher } from '@sveltejs/kit';
+ * import { defineParams } from '@sveltejs/kit/params';
  * import { defaultLangParamMatcher } from 'sailorcms/utils/i18n';
  *
- * export const match: ParamMatcher = defaultLangParamMatcher;
+ * export const params = defineParams({ lang: defaultLangParamMatcher });
  * ```
  *
  * Replaces the hand-rolled matcher from docs §8 — same behavior, one line.
  */
-export const defaultLangParamMatcher = (param: string): boolean => {
+export const defaultLangParamMatcher = (param: string): string | undefined => {
   const settings = getContentSettings();
   const strategy = settings.urlStrategy;
   const defaultUrl = settings.defaultLocale
     ? (settings.urlAliases[settings.defaultLocale] ?? settings.defaultLocale)
     : '';
   if (strategy === 'default-at-root' && param === defaultUrl) {
-    return false;
+    return undefined;
   }
-  return urlToContentLocale(param) !== null;
+  return urlToContentLocale(param) !== null ? param : undefined;
 };
 
 /**

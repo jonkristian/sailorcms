@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { env } from '$env/dynamic/public';
+  import * as env from '$app/env/public';
 
   let {
     token = $bindable(''),

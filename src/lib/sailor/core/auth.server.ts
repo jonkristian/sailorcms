@@ -5,12 +5,12 @@ import { admin, captcha } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import { defaultStatements } from 'better-auth/plugins/admin/access';
 import { getRequestEvent } from '$app/server';
-import { env } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
+import * as env from '$app/env/private';
+import * as publicEnv from '$app/env/public';
 import { db } from './db/index.server';
 import { users, sessions, accounts, verifications } from './db/index.server';
 import { getSettings } from './settings';
-import { building } from '$app/environment';
+import { building } from '$app/env';
 import { SystemSettingsService } from './services/settings.server';
 import { sendMail } from 'sailorcms/utils/mail/server';
 import {

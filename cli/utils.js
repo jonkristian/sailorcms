@@ -1,8 +1,11 @@
 import fs from 'fs-extra';
+import { config as loadDotenv } from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { matchBracket, insertKey, ensurePath, findKey, removeKey } from './config-edit.js';
+import { SAILOR_SUBPATHS } from '../vite-plugin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,7 +119,7 @@ async function cleanDir(srcDir, tgtDir, skip = [], relPath = '') {
  *   - **init** copies app.html / app.d.ts / app.css, hooks.server.ts /
  *     hooks.client.ts (interactively, --force-aware), the templates dir
  *     (only if missing), then sets up routes and patches the consumer's
- *     vite.config / svelte.config / package.json (`setupConfigFiles`).
+ *     vite.config / package.json (`setupConfigFiles`).
  *   - **update** preserves the consumer's templates / generated via the
  *     copy filter, overwrites `i18n/messages` (sailor-authored admin
  *     strings, shipped per-release), runs `cleanDir` to drop files
@@ -352,8 +355,7 @@ export async function setupConfigFiles(targetDir, force = false) {
     }
   }
 
-  const svelteResult = await updateSvelteConfig(targetDir);
-  if (svelteResult?.manual) manual.push(...svelteResult.manual);
+  manual.push(...(await ensureEnvEntry(targetDir)).manual);
 
   // Copy components.json for shadcn-svelte configuration
   const componentsJsonSource = path.join(mainProjectDir, 'components.json');
@@ -404,18 +406,31 @@ async function mergeViteConfig(targetDir, mainProjectDir, force = false) {
     return { applied, manual: manual.map((m) => ({ file: 'vite.config.ts', ...m })) };
   }
 
-  await fs.writeFile(viteConfigTarget, sourceContent);
-  return { applied: ['copied default'], manual: [] };
+  // Sailor's own sveltekit({...}) options point aliases at this repo's src/;
+  // reset them to just the adapter and let the patcher add consumer paths.
+  const call = /\bsveltekit\s*\(/.exec(sourceContent);
+  const parenOpen = call ? call.index + call[0].length - 1 : -1;
+  const parenClose = call ? matchBracket(sourceContent, parenOpen) : -1;
+  const base =
+    parenClose === -1
+      ? sourceContent
+      : `${sourceContent.slice(0, parenOpen + 1)}{ adapter: adapter() }${sourceContent.slice(parenClose)}`;
+  const { content, manual } = patchViteConfig(
+    base.replace(/(['"])\.\/vite-plugin\.js\1/, "'sailorcms/vite'")
+  );
+  await fs.writeFile(viteConfigTarget, content);
+  return {
+    applied: ['copied default'],
+    manual: manual.map((m) => ({ file: 'vite.config.ts', ...m }))
+  };
 }
 
 /**
- * Idempotently inject the Tailwind and Paraglide vite plugins into a
- * consumer's `vite.config.ts`. Both plugins are required for Sailor's admin:
- * Tailwind powers the styling and `paraglideVitePlugin` compiles the i18n
- * messages that the admin imports from `$sailor/i18n/paraglide`. Without
- * paraglide registered, Vite's dep-optimizer fails on the admin entry chain
- * (stale `$sailor/i18n/paraglide/runtime.js`), which surfaces as parse errors
- * in unrelated downstream modules like `bits-ui`.
+ * Idempotently wire Sailor into a consumer's vite config: `tailwindcss()`
+ * (admin styling), `sailor()` from `sailorcms/vite` (aliases, SSR and
+ * dep-optimizer options, admin Paraglide), and the `sveltekit({...})` options
+ * Sailor relies on. Settings older versions wrote by hand are folded into
+ * `sailor()`.
  *
  * Returns { content, applied, manual } so callers can log what changed and
  * what needs the user's attention.
@@ -437,7 +452,7 @@ export function patchViteConfig(content) {
     if (!hasTailwindPlugin) {
       // Insert before sveltekit() in the plugins array
       const before = updated;
-      updated = updated.replace(/(\bplugins\s*:\s*\[\s*)(sveltekit\(\))/, `$1tailwindcss(), $2`);
+      updated = updated.replace(/(\bplugins\s*:\s*\[\s*)(sveltekit\()/, `$1tailwindcss(), $2`);
       if (updated === before) {
         manual.push({
           name: '@tailwindcss/vite',
@@ -448,540 +463,262 @@ export function patchViteConfig(content) {
     if (!manual.find((m) => m.name === '@tailwindcss/vite')) applied.push('Tailwind CSS');
   }
 
-  const hasParaglideImport = /from\s+['"]@inlang\/paraglide-js['"]/.test(updated);
-  const hasParaglidePlugin = /paraglideVitePlugin\s*\(/.test(updated);
-  if (!hasParaglideImport || !hasParaglidePlugin) {
-    if (!hasParaglideImport) {
-      updated = updated.replace(
-        /(import\s+\{\s*sveltekit\s*\}\s+from\s+['"]@sveltejs\/kit\/vite['"];?)/,
-        `$1\nimport { paraglideVitePlugin } from '@inlang/paraglide-js';`
-      );
-    }
-    if (!hasParaglidePlugin) {
-      const pluginCall = `paraglideVitePlugin({ project: './src/lib/sailor/project.inlang', outdir: './src/lib/sailor/i18n/paraglide' })`;
-      const before = updated;
-      // Try inserting after tailwindcss() if present, otherwise before sveltekit()
-      updated = updated.replace(/(tailwindcss\(\)\s*,\s*)(sveltekit\(\))/, `$1${pluginCall}, $2`);
-      if (updated === before) {
-        updated = updated.replace(/(\bplugins\s*:\s*\[\s*)(sveltekit\(\))/, `$1${pluginCall}, $2`);
-      }
-      if (updated === before) {
-        manual.push({
-          name: 'paraglideVitePlugin',
-          hint: `Add \`${pluginCall}\` to your plugins array (before sveltekit()) and \`import { paraglideVitePlugin } from '@inlang/paraglide-js';\` at the top. Required for the Sailor admin's i18n.`
-        });
-      }
-    }
-    if (!manual.find((m) => m.name === 'paraglideVitePlugin')) applied.push('Paraglide i18n');
-  }
+  // Older sailor wired these in one by one; `sailor()` now sets them all.
+  updated = removeLegacySailorViteConfig(updated, applied);
 
-  // 3. resolve.dedupe — force a single instance of @sveltejs/kit and svelte
-  //    across the consumer's app code and sailor's admin code (resolved from
-  //    node_modules/sailorcms). Vite externalizes node_modules for SSR by
-  //    default, so without this each side evaluates the framework separately;
-  //    `throw redirect()` from a sailor hook then fails the consumer-side
-  //    `instanceof Redirect` check (different class identity from a different
-  //    module evaluation) and 500s with a stringified-redirect body instead
-  //    of 302'ing.
-  const REQUIRED_DEDUPE = ['@sveltejs/kit', 'svelte'];
-  const dedupeMatch = updated.match(/dedupe\s*:\s*\[([^\]]*)\]/);
-  if (dedupeMatch) {
-    const inner = dedupeMatch[1];
-    const missing = REQUIRED_DEDUPE.filter(
-      (m) => !inner.includes(`'${m}'`) && !inner.includes(`"${m}"`)
-    );
-    if (missing.length > 0) {
-      const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
-      const additions = missing.map((m) => `'${m}'`).join(', ');
-      const newInner = trimmed.trim() ? `${trimmed}, ${additions}` : additions;
-      updated = updated.replace(dedupeMatch[0], `dedupe: [${newInner}]`);
-      applied.push('resolve.dedupe');
-    }
-  } else if (/\bresolve\s*:\s*\{/.test(updated)) {
-    // resolve block exists but no dedupe — splice in
+  if (!/\bsailor\s*\(\s*\)/.test(updated)) {
     const before = updated;
-    updated = updated.replace(
-      /(\bresolve\s*:\s*\{)/,
-      `$1\n    dedupe: ['${REQUIRED_DEDUPE.join("', '")}'],`
-    );
-    if (updated !== before) applied.push('resolve.dedupe');
-    else {
-      manual.push({
-        name: 'resolve.dedupe',
-        hint: `Add \`dedupe: ['@sveltejs/kit', 'svelte']\` inside your existing \`resolve\` block in vite.config.ts. Required so sailor's admin code (resolved from node_modules/sailorcms) and your app code share a single SvelteKit / svelte instance — without this, redirects from sailor hooks 500 instead of 302 because Vite evaluates the framework twice.`
-      });
-    }
-  } else {
-    // No resolve block at all — insert one after the plugins array.
-    const before = updated;
-    updated = updated.replace(
-      /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
-      `$1,\n  resolve: {\n    dedupe: ['${REQUIRED_DEDUPE.join("', '")}']\n  },`
-    );
+    updated = updated.replace(/\bsveltekit\s*\(/, 'sailor(), $&');
     if (updated === before) {
       manual.push({
-        name: 'resolve.dedupe',
-        hint: `Add \`resolve: { dedupe: ['@sveltejs/kit', 'svelte'] }\` to your defineConfig in vite.config.ts. Required so sailor's admin code (resolved from node_modules/sailorcms) and your app code share a single SvelteKit / svelte instance — without this, redirects from sailor hooks 500 instead of 302 because Vite evaluates the framework twice.`
+        name: 'sailor()',
+        hint: "Add `sailor()` before `sveltekit({...})` in your plugins array, with `import { sailor } from 'sailorcms/vite';`. It sets the aliases, SSR and dep-optimizer options and admin i18n Sailor needs."
       });
     } else {
-      applied.push('resolve.dedupe');
+      applied.push('sailor() plugin');
     }
   }
-
-  // 4. ssr.noExternal — bundle sailor's admin code through Vite's SSR
-  //    pipeline instead of letting Node load it from node_modules. Lets
-  //    `$sailor/...` aliases inside sailor's package code resolve via the
-  //    consumer's Vite config (where `kit.alias.$sailor` points at the
-  //    consumer's `src/lib/sailor`, which holds generated/, templates/,
-  //    i18n/, etc. — the consumer-owned resources sailor's package code
-  //    references). Without this the SSR module loader externalizes sailor,
-  //    Node loads it without alias awareness, and imports like
-  //    `$sailor/generated/schema` from sailor's core fail at runtime.
-  if (!/ssr\s*:\s*\{[^}]*noExternal[^}]*['"]sailorcms['"]/.test(updated)) {
-    const noExternalMatch = updated.match(/ssr\s*:\s*\{([\s\S]*?)\}/);
-    if (noExternalMatch && /noExternal\s*:\s*\[/.test(noExternalMatch[1])) {
-      // ssr.noExternal exists but doesn't include 'sailorcms' — splice in
-      const before = updated;
-      updated = updated.replace(/(noExternal\s*:\s*\[)([^\]]*)(\])/, (_m, open, inner, close) => {
-        const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
-        const additions = trimmed.trim() ? `${trimmed}, 'sailorcms'` : `'sailorcms'`;
-        return `${open}${additions}${close}`;
-      });
-      if (updated !== before) applied.push('ssr.noExternal');
-    } else if (/\bssr\s*:\s*\{/.test(updated)) {
-      // ssr block exists without noExternal — inject it
-      const before = updated;
-      updated = updated.replace(/(\bssr\s*:\s*\{)/, `$1\n    noExternal: ['sailorcms'],`);
-      if (updated !== before) applied.push('ssr.noExternal');
-    } else {
-      // No ssr block — add one
-      const before = updated;
-      updated = updated.replace(
-        /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
-        `$1,\n  ssr: {\n    noExternal: ['sailorcms']\n  },`
-      );
-      if (updated === before) {
-        manual.push({
-          name: 'ssr.noExternal',
-          hint: `Add \`ssr: { noExternal: ['sailorcms'] }\` to your defineConfig in vite.config.ts. Required so sailor's admin code (resolved from node_modules/sailorcms) goes through Vite's SSR transform pipeline — without this, the \`$sailor/...\` aliases inside sailor's package code don't resolve and dev mode 500s on first request.`
-        });
-      } else {
-        applied.push('ssr.noExternal');
-      }
-    }
+  if (
+    /\bsailor\s*\(\s*\)/.test(updated) &&
+    !/import\s*\{[^}]*\bsailor\b[^}]*\}\s*from\s*['"]sailorcms\/vite['"]/.test(updated)
+  ) {
+    updated = updated.replace(
+      /(import\s+\{\s*sveltekit\s*\}\s+from\s+['"]@sveltejs\/kit\/vite['"];?)/,
+      `$1\nimport { sailor } from 'sailorcms/vite';`
+    );
   }
 
-  // 5. optimizeDeps — exclude sailorcms (so its source goes through Vite's
-  //    dev module pipeline instead of esbuild prebundle, which doesn't know
-  //    about Vite aliases or how to handle TS in `.svelte.ts` rune-state
-  //    files). Then explicitly include known transitives that need
-  //    pre-bundling for ESM interop: highlight.js subpaths sailor uses, and
-  //    CJS-only deps that slip through unbundled because we excluded
-  //    sailorcms (notably `style-to-object` via svelte-sonner / bits-ui).
-  //
-  //    `REQUIRED_OPTIMIZE_INCLUDES` is the running list; new entries get
-  //    spliced into existing `include` arrays on re-run, so consumers who
-  //    were patched on older sailor versions pick up additions on the next
-  //    `core:update`.
-  const REQUIRED_OPTIMIZE_INCLUDES = [
-    'highlight.js/lib/core',
-    'highlight.js/lib/languages/json',
-    'style-to-object'
-  ];
-  const includesLiteral = REQUIRED_OPTIMIZE_INCLUDES.map((m) => `'${m}'`).join(', ');
-
-  // 5a. Ensure `optimizeDeps.exclude` contains 'sailorcms'
-  if (!/optimizeDeps\s*:\s*\{[^}]*exclude[^}]*['"]sailorcms['"]/.test(updated)) {
-    const optMatch = updated.match(/optimizeDeps\s*:\s*\{([\s\S]*?)\}/);
-    if (optMatch && /\bexclude\s*:\s*\[/.test(optMatch[1])) {
-      const before = updated;
-      updated = updated.replace(
-        /(optimizeDeps\s*:\s*\{[\s\S]*?\bexclude\s*:\s*\[)([^\]]*)(\])/,
-        (_m, open, inner, close) => {
-          const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
-          const additions = trimmed.trim() ? `${trimmed}, 'sailorcms'` : `'sailorcms'`;
-          return `${open}${additions}${close}`;
-        }
-      );
-      if (updated !== before) applied.push('optimizeDeps.exclude');
-    } else if (/\boptimizeDeps\s*:\s*\{/.test(updated)) {
-      const before = updated;
-      updated = updated.replace(
-        /(\boptimizeDeps\s*:\s*\{)/,
-        `$1\n    exclude: ['sailorcms'],\n    include: [${includesLiteral}],`
-      );
-      if (updated !== before) applied.push('optimizeDeps.exclude');
-    } else {
-      const before = updated;
-      updated = updated.replace(
-        /(\bplugins\s*:\s*\[[\s\S]*?\])\s*,?/,
-        `$1,\n  optimizeDeps: {\n    exclude: ['sailorcms'],\n    include: [${includesLiteral}]\n  },`
-      );
-      if (updated === before) {
-        manual.push({
-          name: 'optimizeDeps',
-          hint: `Add \`optimizeDeps: { exclude: ['sailorcms'], include: [${includesLiteral}] }\` to your defineConfig in vite.config.ts. Required so esbuild prebundle skips sailor's source (which uses Vite-only features like \`$sailor\` aliases and \`.svelte.ts\` rune state files), Vite picks up highlight.js's ESM exports condition, and CJS-only transitives like style-to-object get pre-bundled.`
-        });
-      } else {
-        applied.push('optimizeDeps.exclude');
-      }
-    }
-  }
-
-  // 5b. Ensure `optimizeDeps.include` contains every entry in
-  //     REQUIRED_OPTIMIZE_INCLUDES. Runs independently of 5a so existing
-  //     consumers gain new required transitives without rewriting the block.
-  const optMatch2 = updated.match(/optimizeDeps\s*:\s*\{([\s\S]*?)\}/);
-  if (optMatch2) {
-    const includeMatch = optMatch2[1].match(/\binclude\s*:\s*\[([^\]]*)\]/);
-    if (includeMatch) {
-      const existing = new Set(
-        includeMatch[1]
-          .split(',')
-          .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
-          .filter(Boolean)
-      );
-      const missing = REQUIRED_OPTIMIZE_INCLUDES.filter((m) => !existing.has(m));
-      if (missing.length > 0) {
-        const additions = missing.map((m) => `'${m}'`).join(', ');
-        const before = updated;
-        updated = updated.replace(
-          /(optimizeDeps\s*:\s*\{[\s\S]*?\binclude\s*:\s*\[)([^\]]*)(\])/,
-          (_m, open, inner, close) => {
-            const trimmed = inner.replace(/\s+$/, '').replace(/,\s*$/, '');
-            const newInner = trimmed.trim() ? `${trimmed}, ${additions}` : additions;
-            return `${open}${newInner}${close}`;
-          }
-        );
-        if (updated !== before) applied.push('optimizeDeps.include');
-      }
-    } else if (/\boptimizeDeps\s*:\s*\{/.test(updated)) {
-      // optimizeDeps exists without include — inject
-      const before = updated;
-      updated = updated.replace(
-        /(\boptimizeDeps\s*:\s*\{)/,
-        `$1\n    include: [${includesLiteral}],`
-      );
-      if (updated !== before) applied.push('optimizeDeps.include');
-    }
-  }
+  // sveltekit({...}) options (formerly svelte.config.js)
+  updated = patchSvelteKitOptions(updated, applied, manual);
 
   return { content: updated, applied, manual };
 }
 
-export async function updateSvelteConfig(targetDir) {
-  const configPath = path.join(targetDir, 'svelte.config.js');
-  if (!(await fs.pathExists(configPath))) {
-    console.log('⚠️ svelte.config.js not found, skipping Sailor configuration');
-    return { applied: [], manual: [] };
-  }
-  const existingContent = await fs.readFile(configPath, 'utf8');
-  const { content: patched, applied, manual } = patchSvelteConfig(existingContent);
-  if (applied.length > 0) {
-    await fs.writeFile(configPath, patched);
-    console.log(`✅ Updated svelte.config.js: ${applied.join(', ')}`);
-  }
-  return {
-    applied,
-    manual: manual.map((m) => ({ file: 'svelte.config.js', ...m }))
-  };
-}
+const SAILOR_ENV_IMPORT = "import { sailorEnvVars } from 'sailorcms/utils/env';";
+
+const DEFAULT_ENV_ENTRY = `import { defineEnvVars } from '@sveltejs/kit/env';
+${SAILOR_ENV_IMPORT}
+
+export const variables = defineEnvVars({
+  ...sailorEnvVars
+});
+`;
 
 /**
- * Idempotently inject Sailor's required svelte.config.js bits:
- *   - `$sailor` alias (so admin code can import `$sailor/...`)
- *   - `vitePreprocess({ script: true })` preprocessor (so `<script lang="ts">`
- *     in shipped .svelte files like `@lucide/svelte` and `bits-ui` parses;
- *     without this, every TS-typed component in node_modules fails with
- *     "Unexpected token" during Vite's optimize-svelte step)
- *   - `compilerOptions.runes: true` and `compilerOptions.experimental.async: true`
- *     (sailor relies on runes mode and async components)
- *
- * Returns { content, applied, manual } so the caller can log changes.
+ * SvelteKit 3 only exposes variables declared in `src/env.ts`, so sailor's
+ * (BETTER_AUTH_SECRET, SMTP_*, ...) must be spread into it. Returns the new
+ * content, or null when it can't be patched safely.
  */
-export function patchSvelteConfig(content) {
-  let updated = content;
-  const applied = [];
-  const manual = [];
-
-  // 1. Aliases: $sailor + sailorcms/* subpaths.
-  //
-  // Sailor's admin code lives in node_modules/sailorcms/... but consumers
-  // import from `sailorcms/components/sailor/X`, `sailorcms/core/X`, etc.
-  // TypeScript's `moduleResolution: bundler` is supposed to resolve these
-  // through the package's `exports` map and probe `.ts` extensions, but in
-  // practice it doesn't reliably probe TS sources through wildcard exports
-  // (the package would need shipped `.d.ts` files). Until sailor publishes
-  // pre-built declarations, we mirror the resolution into kit.alias so TS
-  // sees the paths via the consumer's tsconfig, and Vite gets a redundant
-  // (but harmless) alias that matches its exports-map result.
-  const REQUIRED_ALIASES = [
-    ['$sailor', 'src/lib/sailor'],
-    ['sailorcms/components/sailor/*', 'node_modules/sailorcms/src/lib/components/sailor/*'],
-    ['sailorcms/components/ui/*', 'node_modules/sailorcms/src/lib/components/ui/*'],
-    ['sailorcms/composables/*', 'node_modules/sailorcms/src/lib/sailor/composables/*'],
-    ['sailorcms/core/*', 'node_modules/sailorcms/src/lib/sailor/core/*'],
-    ['sailorcms/remote/*', 'node_modules/sailorcms/src/lib/sailor/remote/*'],
-    ['sailorcms/scripts/*', 'node_modules/sailorcms/src/lib/sailor/scripts/*'],
-    ['sailorcms/assets/*', 'node_modules/sailorcms/src/lib/sailor/assets/*'],
-    ['sailorcms/utils/*', 'node_modules/sailorcms/src/lib/sailor/utils/*'],
-    ['sailorcms/styles/*', 'node_modules/sailorcms/src/lib/sailor/styles/*']
-  ];
-
-  if (!/\balias\s*:\s*\{/.test(updated)) {
-    // No alias block at all — synthesize one with all required entries.
-    const aliasLines = REQUIRED_ALIASES.map(([k, v]) => `      '${k}': '${v}'`).join(',\n');
-    const aliasBlock = `alias: {\n${aliasLines}\n    }`;
-    const before = updated;
-    if (/\bkit\s*:\s*\{/.test(updated)) {
-      updated = updated.replace(
-        /(kit:\s*\{[^}]*adapter:\s*adapter\(\)[^}]*)(\})/s,
-        `$1,\n    ${aliasBlock}\n  $2`
-      );
-    } else {
-      updated = updated.replace(
-        /(const\s+config\s*=\s*\{)/,
-        `$1\n  kit: {\n    adapter: adapter(),\n    ${aliasBlock}\n  },`
-      );
-    }
-    if (updated !== before) applied.push('kit.alias');
-    else
-      manual.push({
-        name: 'kit.alias',
-        hint: `Add \`alias: { ${REQUIRED_ALIASES.map(([k]) => `'${k}': ...`).join(', ')} }\` inside \`kit: {}\`.`
-      });
-  } else {
-    // Alias block exists — splice in any missing entries.
-    // `$sailor` is a valid JS identifier, so consumers often write it unquoted
-    // (`$sailor: 'src/lib/sailor'`). Match both forms, or --fix appends a
-    // duplicate key right next to the existing one.
-    const hasAliasKey = (key) => {
-      const esc = key.replace(/[$/*]/g, '\\$&');
-      return new RegExp(`(['"])${esc}\\1\\s*:|(?:^|[{,\\s])${esc}\\s*:`, 'm').test(updated);
-    };
-    const missing = REQUIRED_ALIASES.filter(([k]) => !hasAliasKey(k));
-    if (missing.length > 0) {
-      const before = updated;
-      const additions = missing.map(([k, v]) => `      '${k}': '${v}'`).join(',\n');
-      // Insert at the start of the alias block so longer-prefix entries
-      // come first — matters for Vite's resolve order with overlapping keys.
-      updated = updated.replace(/(\balias\s*:\s*\{\s*\n?)/, `$1${additions},\n`);
-      if (updated !== before) applied.push(`kit.alias (${missing.length} entries)`);
-      else
-        manual.push({
-          name: 'kit.alias',
-          hint: `Add the following entries to your kit.alias object: ${missing.map(([k]) => k).join(', ')}.`
-        });
-    }
+export function patchEnvEntry(content) {
+  if (content === null) return { content: DEFAULT_ENV_ENTRY, applied: ['created src/env.ts'] };
+  if (/\.\.\.\s*sailorEnvVars\b/.test(content)) return { content, applied: [] };
+  const call = /\bdefineEnvVars\s*\(\s*\{/.exec(content);
+  if (!call) return { content: null, applied: [] };
+  const at = call.index + call[0].length;
+  let updated = `${content.slice(0, at)}\n  ...sailorEnvVars,${content.slice(at)}`;
+  if (!/\bsailorEnvVars\b[^;]*from\s+['"]sailorcms\/utils\/env['"]/.test(updated)) {
+    const imports = [...updated.matchAll(/^import[^;]*;[ \t]*$/gm)];
+    const last = imports[imports.length - 1];
+    updated = last
+      ? `${updated.slice(0, last.index + last[0].length)}\n${SAILOR_ENV_IMPORT}${updated.slice(last.index + last[0].length)}`
+      : `${SAILOR_ENV_IMPORT}\n${updated}`;
   }
+  return { content: updated, applied: ['sailorEnvVars'] };
+}
 
-  // 2. vitePreprocess({ script: true })
-  if (!/vitePreprocess\s*\(/.test(updated)) {
-    if (!/from\s+['"]@sveltejs\/vite-plugin-svelte['"]/.test(updated)) {
-      const before = updated;
+export const ENV_ENTRY_HINT =
+  "Spread sailor's variables into `defineEnvVars({...})` in src/env.ts: `import { sailorEnvVars } from 'sailorcms/utils/env';` then `...sailorEnvVars`. SvelteKit 3 hides undeclared env vars, so without this auth, mail and Turnstile settings read as undefined.";
+
+export async function ensureEnvEntry(targetDir) {
+  const srcDir = path.join(targetDir, 'src');
+  const existing = ['env.ts', 'env.js']
+    .map((f) => path.join(srcDir, f))
+    .find((f) => fs.existsSync(f));
+  const target = existing ?? path.join(srcDir, 'env.ts');
+  const current = existing ? await fs.readFile(existing, 'utf8') : null;
+  const { content, applied } = patchEnvEntry(current);
+  if (content === null) {
+    return {
+      manual: [{ file: path.relative(targetDir, target), name: 'src/env.ts', hint: ENV_ENTRY_HINT }]
+    };
+  }
+  if (applied.length > 0) {
+    await fs.ensureDir(srcDir);
+    await fs.writeFile(target, content);
+    console.log(`✅ Updated ${path.relative(targetDir, target)}: ${applied.join(', ')}`);
+  }
+  return { manual: [] };
+}
+
+// Keys older sailor versions put in the kit `alias` option. `sailor()` sets
+// the Vite side now and tsconfig `paths` the TypeScript side.
+export const SAILOR_ALIAS_KEYS = new Set([
+  '$sailor',
+  ...SAILOR_SUBPATHS.map(([sub]) => `sailorcms/${sub}/*`)
+]);
+
+const SAILOR_PARAGLIDE_CALL =
+  /paraglideVitePlugin\s*\(\s*\{[^{}]*sailor\/project\.inlang[^{}]*\}\s*\)\s*,?[ \t]*/;
+
+// What older sailor versions wrote at the top level of defineConfig, in the
+// forms they wrote it. Removed only on an exact match, so a consumer's own
+// additions keep the whole key in place (duplicates with `sailor()` merge
+// harmlessly).
+const LEGACY_TOP_LEVEL = {
+  resolve: (v) => v === "{dedupe:['@sveltejs/kit','svelte']}",
+  ssr: (v) => v === "{noExternal:['sailorcms']}",
+  optimizeDeps: (v) =>
+    /^\{exclude:\['sailorcms'\](,include:\[('(highlight\.js\/lib\/core|highlight\.js\/lib\/languages\/json|style-to-object)',?)*\])?\}$/.test(
+      v
+    )
+};
+
+const normalizeSource = (src) =>
+  src
+    .replace(/\s+/g, '')
+    .replace(/"/g, "'")
+    .replace(/,([}\]])/g, '$1');
+
+function removeLegacySailorViteConfig(content, applied) {
+  let updated = content;
+  if (SAILOR_PARAGLIDE_CALL.test(updated)) {
+    updated = updated.replace(SAILOR_PARAGLIDE_CALL, '');
+    if (!/paraglideVitePlugin\s*\(/.test(updated)) {
       updated = updated.replace(
-        /(import\s+adapter\s+from\s+['"][^'"]+['"];?)/,
-        `$1\nimport { vitePreprocess } from '@sveltejs/vite-plugin-svelte';`
+        /^import\s*\{\s*paraglideVitePlugin\s*\}\s*from\s*['"]@inlang\/paraglide-js['"];?[ \t]*\r?\n/m,
+        ''
       );
-      if (updated === before) {
-        // No adapter import to anchor on — prepend
-        updated = `import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';\n${updated}`;
+    }
+    applied.push('moved admin Paraglide into sailor()');
+  }
+  const call = /\bdefineConfig\s*\(\s*\{/.exec(updated);
+  if (call) {
+    const objOpen = call.index + call[0].length - 1;
+    for (const [key, isLegacy] of Object.entries(LEGACY_TOP_LEVEL)) {
+      const found = findKey(updated, objOpen, key);
+      if (found && isLegacy(normalizeSource(updated.slice(found.valueStart, found.valueEnd)))) {
+        updated = removeKey(updated, objOpen, key);
+        applied.push(`moved ${key} into sailor()`);
       }
     }
-    const before = updated;
-    if (/\bkit\s*:\s*\{/.test(updated)) {
-      // Insert `preprocess: ...` immediately before `kit: {`
-      updated = updated.replace(
-        /(\n\s*)(kit\s*:\s*\{)/,
-        `$1preprocess: vitePreprocess({ script: true }),$1$2`
-      );
-    } else {
-      updated = updated.replace(
-        /(const\s+config\s*=\s*\{)/,
-        `$1\n  preprocess: vitePreprocess({ script: true }),`
-      );
-    }
-    if (updated !== before) applied.push('vitePreprocess (TS support)');
-    else
+  }
+  return updated;
+}
+
+const forceTrue = (current) => (current.trim() === 'true' ? null : 'true');
+
+/**
+ * Idempotently inject Sailor's required options into the `sveltekit({...})`
+ * call of a vite config:
+ *   - removes sailor's entries from the deprecated `alias` option
+ *   - `preprocess: vitePreprocess({ script: true })`, so `<script lang="ts">`
+ *     in shipped .svelte files (sailor, @lucide/svelte, bits-ui) parses
+ *   - `compilerOptions.runes: true` — `sv create` writes a function form that
+ *     excludes node_modules, which breaks SSR of shipped Svelte 5 packages
+ *   - `compilerOptions.experimental.async: true` — remote functions use
+ *     `hydratable()` internally and throw `experimental_async_required`
+ *   - `experimental.remoteFunctions: true` — all admin RPC is `*.remote.ts`
+ */
+function patchSvelteKitOptions(content, applied, manual) {
+  let updated = content;
+  const call = /\bsveltekit\s*\(/.exec(updated);
+  const parenOpen = call ? call.index + call[0].length - 1 : -1;
+  const parenClose = call ? matchBracket(updated, parenOpen) : -1;
+  if (parenClose === -1) {
+    manual.push({
+      name: 'sveltekit()',
+      hint: 'Add `sveltekit({...})` from `@sveltejs/kit/vite` to your plugins array.'
+    });
+    return updated;
+  }
+  const args = updated.slice(parenOpen + 1, parenClose).trim();
+  if (!args) {
+    updated = `${updated.slice(0, parenOpen + 1)}{}${updated.slice(parenClose)}`;
+  } else if (!args.startsWith('{')) {
+    manual.push({
+      name: 'sveltekit options',
+      hint: 'Pass an inline object to `sveltekit({...})` so sailor can add `preprocess`, `compilerOptions` and `experimental.remoteFunctions`, or add them to your options yourself.'
+    });
+    return updated;
+  }
+  const objOpen = updated.indexOf('{', parenOpen);
+
+  const step = (label, keys, value, replace) => {
+    const next = ensurePath(updated, objOpen, keys, value, replace);
+    if (next === null) {
       manual.push({
-        name: 'vitePreprocess',
-        hint: 'Add `preprocess: vitePreprocess({ script: true })` to your config and `import { vitePreprocess } from \'@sveltejs/vite-plugin-svelte\';` at the top. Required so <script lang="ts"> in node_modules .svelte files parses.'
+        name: label,
+        hint: `Set \`${keys.join('.')}: ${value}\` in \`sveltekit({...})\`.`
       });
-  } else if (!/vitePreprocess\s*\([^)]*script\s*:\s*true/.test(updated)) {
-    // vitePreprocess(...) is present but missing `script: true` — upgrade in place.
-    // Without `script: true`, <script lang="ts"> in shipped .svelte files (sailor admin
-    // chrome, lucide, bits-ui) doesn't get TS-stripped, and the svelte parser fails
-    // with "Unexpected token" on the first identifier in the script block.
+      return false;
+    }
+    if (next === updated) return false;
+    updated = next;
+    return true;
+  };
+
+  const alias = findKey(updated, objOpen, 'alias');
+  if (alias && updated[alias.valueStart] === '{') {
     const before = updated;
-    if (/vitePreprocess\s*\(\s*\)/.test(updated)) {
-      // Empty call — replace with explicit { script: true }
-      updated = updated.replace(/vitePreprocess\s*\(\s*\)/, 'vitePreprocess({ script: true })');
-    } else if (/vitePreprocess\s*\(\s*\{[^}]*\}\s*\)/.test(updated)) {
-      // Has options object — splice script: true in
-      updated = updated.replace(/vitePreprocess\s*\(\s*\{([^}]*)\}\s*\)/, (_m, inner) => {
+    for (const key of SAILOR_ALIAS_KEYS) updated = removeKey(updated, alias.valueStart, key);
+    if (
+      /^\{\s*\}$/.test(updated.slice(alias.valueStart, matchBracket(updated, alias.valueStart) + 1))
+    ) {
+      updated = removeKey(updated, objOpen, 'alias');
+    }
+    if (updated !== before)
+      applied.push('moved sailor aliases out of the deprecated `alias` option');
+  }
+
+  const preprocessChanged = step(
+    'preprocess',
+    ['preprocess'],
+    'vitePreprocess({ script: true })',
+    (current) => {
+      if (!/vitePreprocess\s*\(/.test(current)) return null;
+      if (/script\s*:\s*true/.test(current)) return null;
+      if (/vitePreprocess\s*\(\s*\)/.test(current)) {
+        return current.replace(/vitePreprocess\s*\(\s*\)/, 'vitePreprocess({ script: true })');
+      }
+      return current.replace(/vitePreprocess\s*\(\s*\{([^}]*)\}\s*\)/, (_m, inner) => {
         const trimmed = inner.trim().replace(/,$/, '');
         return `vitePreprocess({ script: true${trimmed ? `, ${trimmed}` : ''} })`;
       });
     }
-    if (updated !== before) applied.push('vitePreprocess (added script: true)');
-    else
-      manual.push({
-        name: 'vitePreprocess script: true',
-        hint: 'Your existing `vitePreprocess(...)` call is missing `script: true`. Change it to `vitePreprocess({ script: true })` so <script lang="ts"> in node_modules .svelte files parses.'
-      });
+  );
+  if (preprocessChanged) applied.push('preprocess (vitePreprocess script: true)');
+
+  if (step('compilerOptions.runes', ['compilerOptions', 'runes'], 'true', forceTrue)) {
+    applied.push('compilerOptions.runes');
+  }
+  if (
+    step(
+      'compilerOptions.experimental.async',
+      ['compilerOptions', 'experimental', 'async'],
+      'true',
+      forceTrue
+    )
+  ) {
+    applied.push('compilerOptions.experimental.async');
+  }
+  if (
+    step('experimental.remoteFunctions', ['experimental', 'remoteFunctions'], 'true', forceTrue)
+  ) {
+    applied.push('experimental.remoteFunctions');
   }
 
-  // 3. compilerOptions: { runes: true, experimental: { async: true } }
-  // `experimental.async` is required by SvelteKit's remote functions —
-  // `query()` / `command()` use `hydratable(...)` internally, which throws
-  // `experimental_async_required` at runtime if the flag is off. So even
-  // though sailor's own components don't use top-level `await`, we still
-  // need the flag for the framework's RPC plumbing to work.
-  if (!/\bcompilerOptions\s*:/.test(updated)) {
-    const compilerBlock = `compilerOptions: {\n    runes: true,\n    experimental: {\n      async: true\n    }\n  }`;
-    const before = updated;
-    // Insert at the end of the top-level config object — before the closing `};`
+  // Last, since it shifts the indices `step` relies on.
+  if (
+    /\bvitePreprocess\s*\(/.test(updated) &&
+    !/\bvitePreprocess\b[^;]*from\s+['"]@sveltejs\/vite-plugin-svelte['"]/.test(updated)
+  ) {
     updated = updated.replace(
-      /(\n\}\s*;?\s*\n*export\s+default\s+config\s*;?)/,
-      `,\n  ${compilerBlock}$1`
+      /(import\s+\{\s*sveltekit\s*\}\s+from\s+['"]@sveltejs\/kit\/vite['"];?)/,
+      `$1\nimport { vitePreprocess } from '@sveltejs/vite-plugin-svelte';`
     );
-    if (updated === before) {
-      // Fallback: insert before `}` that closes `const config = {`
-      updated = updated.replace(
-        /(,?\s*)(\n\};?)(\s*export\s+default\s+config)/,
-        `,\n  ${compilerBlock}$2$3`
-      );
-    }
-    if (updated !== before) applied.push('compilerOptions (runes + async)');
-    else
-      manual.push({
-        name: 'compilerOptions',
-        hint: 'Add `compilerOptions: { runes: true, experimental: { async: true } }` to your config object.'
-      });
-  } else {
-    if (!/\brunes\s*:\s*true\b/.test(updated)) {
-      // compilerOptions exists but runes isn't flat `true`. The current `sv create`
-      // scaffold writes a function form that excludes `node_modules` from runes
-      // mode — but shipped Svelte 5 packages like @lucide/svelte and bits-ui use
-      // runes (`$props()`) in their .svelte source, so compiling them in legacy
-      // mode breaks SSR with `<thing> is not defined` errors. Force flat `true`.
-      const before = updated;
-      updated = updated.replace(
-        /^(\s*)runes\s*:\s*[^\n]+?$/m,
-        (_m, indent) => `${indent}runes: true,`
-      );
-      if (updated !== before) applied.push('compilerOptions.runes (forced flat true)');
-      else
-        manual.push({
-          name: 'compilerOptions.runes',
-          hint: 'Change `compilerOptions.runes` to a flat `true` (sv create writes a function form that excludes node_modules — sailor needs runes mode for shipped Svelte 5 packages like @lucide/svelte).'
-        });
-    }
-
-    // Ensure compilerOptions.experimental.async is true. SvelteKit's remote
-    // functions use `hydratable(...)` internally and throw `experimental_async_required`
-    // at runtime if the flag is off — and the previous branches don't add it
-    // when `compilerOptions` already exists (e.g. `sv create` wrote `{ runes: ... }`).
-    if (!/\basync\s*:\s*true\b/.test(updated)) {
-      const before = updated;
-      // Match the compilerOptions block specifically (not kit.experimental).
-      const coMatch = /\bcompilerOptions\s*:\s*\{/.exec(updated);
-      if (coMatch) {
-        const coStart = coMatch.index + coMatch[0].length;
-        let depth = 1;
-        let i = coStart;
-        while (i < updated.length && depth > 0) {
-          const c = updated[i];
-          if (c === '{') depth++;
-          else if (c === '}') depth--;
-          if (depth === 0) break;
-          i++;
-        }
-        if (depth === 0) {
-          const coContent = updated.slice(coStart, i);
-          const expMatch = /\bexperimental\s*:\s*\{([\s\S]*?)\}/.exec(coContent);
-          if (expMatch) {
-            const expGlobalStart = coStart + expMatch.index;
-            const expGlobalEnd = expGlobalStart + expMatch[0].length;
-            const innerTrimmed = expMatch[1].trim().replace(/,$/, '');
-            const replacement = `experimental: { async: true${innerTrimmed ? `, ${innerTrimmed}` : ''} }`;
-            updated = updated.slice(0, expGlobalStart) + replacement + updated.slice(expGlobalEnd);
-          } else {
-            const tail = updated.slice(0, i).trimEnd();
-            const needsComma = tail[tail.length - 1] !== ',' && tail[tail.length - 1] !== '{';
-            const block = `${needsComma ? ',' : ''}\n    experimental: {\n      async: true\n    }\n  `;
-            updated = updated.slice(0, i) + block + updated.slice(i);
-          }
-        }
-      }
-      if (updated !== before) applied.push('compilerOptions.experimental.async');
-      else
-        manual.push({
-          name: 'compilerOptions.experimental.async',
-          hint: 'Add `experimental: { async: true }` inside the `compilerOptions:` block. SvelteKit remote functions (`query`, `command`) use `hydratable()` internally which requires this flag.'
-        });
-    }
   }
 
-  // 4. kit.experimental.remoteFunctions: true
-  // Sailor uses SvelteKit remote functions (`*.remote.ts`) for all admin RPC.
-  // Without this flag, every remote import errors with "An impossible situation
-  // occurred" + "To enable remote functions, add the following to your
-  // svelte.config.js" at vite-transform time.
-  if (!/\bremoteFunctions\s*:\s*true\b/.test(updated)) {
-    const before = updated;
-    const kit = findKitBlockRange(updated);
-    if (kit) {
-      const kitContent = updated.slice(kit.contentStart, kit.contentEnd);
-      const expMatch = /\bexperimental\s*:\s*\{([\s\S]*?)\}/.exec(kitContent);
-      if (expMatch) {
-        // Splice remoteFunctions: true into existing experimental object
-        const expGlobalStart = kit.contentStart + expMatch.index;
-        const expGlobalEnd = expGlobalStart + expMatch[0].length;
-        const innerTrimmed = expMatch[1].trim().replace(/,$/, '');
-        const replacement = `experimental: { remoteFunctions: true${innerTrimmed ? `, ${innerTrimmed}` : ''} }`;
-        updated = updated.slice(0, expGlobalStart) + replacement + updated.slice(expGlobalEnd);
-      } else {
-        // Append experimental block before kit's closing `}`
-        const insertAt = kit.contentEnd;
-        const tail = updated.slice(0, insertAt).trimEnd();
-        const needsComma = tail[tail.length - 1] !== ',' && tail[tail.length - 1] !== '{';
-        const block = `${needsComma ? ',' : ''}\n\t\texperimental: {\n\t\t\tremoteFunctions: true\n\t\t}\n\t`;
-        updated = updated.slice(0, insertAt) + block + updated.slice(insertAt);
-      }
-    }
-    if (updated !== before) applied.push('kit.experimental.remoteFunctions');
-    else
-      manual.push({
-        name: 'kit.experimental.remoteFunctions',
-        hint: 'Add `experimental: { remoteFunctions: true }` inside the `kit:` block. Sailor uses SvelteKit remote functions (*.remote.ts) which require this flag.'
-      });
-  }
-
-  return { content: updated, applied, manual };
-}
-
-/**
- * Find the byte range of the `kit: { ... }` block's contents in a svelte config.
- * Returns `{ contentStart, contentEnd }` where `contentEnd` is the index of the
- * matching closing `}` (so the contents are `text.slice(contentStart, contentEnd)`).
- * Walks brace depth so nested objects (like `experimental: {}`) don't terminate
- * the search early. Returns null if no `kit: {` is found or braces don't balance.
- */
-function findKitBlockRange(text) {
-  const m = /\bkit\s*:\s*\{/.exec(text);
-  if (!m) return null;
-  const contentStart = m.index + m[0].length;
-  let depth = 1;
-  let i = contentStart;
-  while (i < text.length && depth > 0) {
-    const c = text[i];
-    if (c === '{') depth++;
-    else if (c === '}') depth--;
-    if (depth === 0) return { contentStart, contentEnd: i };
-    i++;
-  }
-  return null;
+  return updated;
 }
 
 /**
@@ -1013,7 +750,7 @@ function findKitBlockRange(text) {
  * after removal, which is what we want.
  *
  * Caveat: this only runs from sailor's CLI. CI/PaaS pipelines that just call
- * `bun install` (Coolify nixpacks, Vercel, Netlify, GitHub Actions) skip
+ * `bun install` (Coolify/Railpack, Vercel, Netlify, GitHub Actions) skip
  * this entirely and will hit the parse error at build time. Workarounds
  * there: switch the install command to `npm install` (npm doesn't nest the
  * same way) or add a postinstall script in the consumer's package.json
@@ -1149,6 +886,84 @@ export async function stripLegacyDbScripts(targetDir) {
  * Detection: the `package.json#name` is exactly `sailorcms` only in the
  * upstream package itself; a consumer's own package.json has a different name.
  */
+/** Major version from a semver range like `^2.70.3` or `~3.0.0`; null if unparseable. */
+export function rangeMajor(range) {
+  const m = /(\d+)/.exec(String(range ?? ''));
+  return m ? Number(m[1]) : null;
+}
+
+export const KIT3_UPGRADED_HINT =
+  'Upgraded to SvelteKit 3. Sailor migrated what it could (listed above); run `npx sv migrate sveltekit-3` for the rest of your app code: https://svelte.dev/docs/kit/migrating-to-sveltekit-3';
+
+export const KIT3_MIGRATE_HINT =
+  'Sailor needs SvelteKit 3. Run `npx sv migrate sveltekit-3` to migrate your own app code (config moves into vite.config.ts, $app/stores is removed, $lib becomes #lib, and more): https://svelte.dev/docs/kit/migrating-to-sveltekit-3';
+
+const RAILPACK_SCHEMA = 'https://schema.railpack.com';
+
+/**
+ * Railpack (Nixpacks' successor, and Coolify's/Railway's builder) config:
+ *   - `deploy.aptPackages: ['sqlite3']`, the binary `db:backup` uses
+ *   - `deploy.startCommand: 'node build'`, adapter-node's entry. Railpack
+ *     can't infer it, and without a start command it takes any project with
+ *     a vite.config for a static SPA.
+ * Merges into an existing railpack.json without overriding a start command.
+ * Sailor's old nixpacks.toml scaffold is removed when unmodified. With
+ * `create: false` (core:update) a project with neither file is left alone.
+ */
+export async function ensureRailpackConfig(targetDir, { create = true } = {}) {
+  const manual = [];
+  const file = path.join(targetDir, 'railpack.json');
+  const nixpacks = path.join(targetDir, 'nixpacks.toml');
+  if (!create && !(await fs.pathExists(file)) && !(await fs.pathExists(nixpacks))) {
+    return { manual };
+  }
+  let config = { $schema: RAILPACK_SCHEMA };
+  if (await fs.pathExists(file)) {
+    try {
+      config = JSON.parse(await fs.readFile(file, 'utf8'));
+    } catch {
+      return {
+        manual: [
+          {
+            file: 'railpack.json',
+            name: 'railpack.json',
+            hint: 'Couldn\'t parse it. Add `"deploy": { "aptPackages": ["sqlite3"], "startCommand": "node build" }` by hand.'
+          }
+        ]
+      };
+    }
+  }
+  const before = JSON.stringify(config);
+  config.deploy ??= {};
+  config.deploy.aptPackages ??= [];
+  if (!config.deploy.aptPackages.includes('sqlite3')) config.deploy.aptPackages.push('sqlite3');
+  config.deploy.startCommand ??= 'node build';
+  if (JSON.stringify(config) !== before) {
+    await fs.writeFile(file, `${JSON.stringify(config, null, 2)}\n`);
+    console.log('✅ Updated railpack.json (sqlite3 for db:backup, node build start command)');
+  }
+
+  if (await fs.pathExists(nixpacks)) {
+    const content = await fs.readFile(nixpacks, 'utf8');
+    const scaffold = content.startsWith('# Nixpacks build config — ensures the sqlite3 binary');
+    const ownLines = content
+      .split('\n')
+      .filter((l) => l.trim() && !l.startsWith('#'))
+      .join('\n');
+    if (scaffold && ownLines === "[phases.setup]\nnixPkgs = ['...', 'sqlite']") {
+      await fs.remove(nixpacks);
+      console.log('✅ Removed nixpacks.toml (replaced by railpack.json)');
+    } else {
+      manual.push({
+        file: 'nixpacks.toml',
+        name: 'Nixpacks',
+        hint: 'Nixpacks is deprecated in favour of Railpack. Move your customizations to railpack.json (https://railpack.com/config/file), delete nixpacks.toml, and switch the build pack to Railpack on your host.'
+      });
+    }
+  }
+  return { manual };
+}
+
 export async function isCorePackage(targetDir) {
   try {
     const pkg = await fs.readJson(path.join(targetDir, 'package.json'));
@@ -1333,19 +1148,12 @@ export async function getConsumerSchemaOrFail(targetDir) {
 }
 
 /**
- * Load the consumer's `.env` via their installed dotenv. Silently no-ops if
- * dotenv isn't present (still-uninstalled projects, CI environments where
+ * Load the consumer's `.env`. No-ops if there is none (CI environments where
  * env vars come from elsewhere). Idempotent — safe to call repeatedly.
  */
 export async function loadConsumerEnv(targetDir) {
-  try {
-    const dotenvPath = path.join(targetDir, 'node_modules', 'dotenv', 'lib', 'main.js');
-    if (!(await fs.pathExists(dotenvPath))) return;
-    const { config } = await import(pathToFileURL(dotenvPath).href);
-    config({ path: path.join(targetDir, '.env'), quiet: true });
-  } catch {
-    /* ignore */
-  }
+  const envPath = path.join(targetDir, '.env');
+  if (await fs.pathExists(envPath)) loadDotenv({ path: envPath, quiet: true });
 }
 
 /**
@@ -1367,7 +1175,11 @@ export async function createConsumerLibsqlClient(targetDir, { skipPostgres } = {
     return { client: null, dbUrl, skipped: true, skipReason: skipPostgres };
   }
   const { createClient } = await import('@libsql/client');
-  const client = createClient({ url: dbUrl, authToken: process.env.DATABASE_AUTH_TOKEN });
+  const client = createClient({
+    url: dbUrl,
+    authToken: process.env.DATABASE_AUTH_TOKEN,
+    timeout: 3000
+  });
   return { client, dbUrl, skipped: false };
 }
 
@@ -1426,7 +1238,8 @@ export async function runMigrations(targetDir) {
 
   const client = createClient({
     url: dbUrl,
-    authToken: process.env.DATABASE_AUTH_TOKEN
+    authToken: process.env.DATABASE_AUTH_TOKEN,
+    timeout: 3000
   });
 
   try {

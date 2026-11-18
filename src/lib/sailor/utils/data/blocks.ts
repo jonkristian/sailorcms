@@ -2,7 +2,7 @@ import { db } from 'sailorcms/core/db/index.server';
 import { sql, eq, asc, desc, and, isNull } from 'drizzle-orm';
 import { blockTypes as blockTypesTable, files, globalTypes } from '$sailor/generated/schema';
 import * as schema from '$sailor/generated/schema';
-import { blockGroupsEnabled } from '$sailor/generated/block-groups';
+import { blockGroupsEnabled, blockGroupsTable } from '$sailor/generated/block-groups';
 import { log } from 'sailorcms/core/utils/logger';
 import { TagService } from 'sailorcms/core/services/tag.server';
 import { loadFileFields } from './loaders/file-loader';
@@ -169,13 +169,8 @@ export async function loadGroupedBlocksForCollection(
   options: Omit<LoadBlocksOptions, 'collectionId'> = {}
 ): Promise<BlockOrGroup[]> {
   const blocks = await loadBlocksForCollection(collectionId, options);
-  if (!blockGroupsEnabled) return blocks;
-
-  // `blockGroups` is only emitted into the generated schema when the project
-  // opts into `blocks.groups`, so it can't be referenced at type level here —
-  // that would break `svelte-check` for every consumer with groups off.
-  const blockGroups = (schema as Record<string, any>).blockGroups;
-  if (!blockGroups) return blocks;
+  if (!blockGroupsEnabled || !blockGroupsTable) return blocks;
+  const blockGroups = blockGroupsTable;
 
   let groupRows: any[] = [];
   try {

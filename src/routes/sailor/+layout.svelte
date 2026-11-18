@@ -49,7 +49,7 @@
     toast.error(error, { id: `redirect-error:${error}` });
     const url = new URL(to.url);
     url.searchParams.delete('error');
-    goto(url.toString(), { replaceState: true });
+    goto(url.toString(), { replace: true });
   });
 </script>
 

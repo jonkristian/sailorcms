@@ -8,7 +8,7 @@
   import { getFiles, restoreFile } from 'sailorcms/remote/files.remote.js';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
 
   let {
     value = $bindable(''),
@@ -134,7 +134,7 @@
     try {
       const result = await restoreFile({ fileId });
       if (toastResult(result, m.toast_file_restored, m.toast_restore_file_failed)) {
-        await invalidateAll();
+        await refreshAll();
       }
     } catch {
       toast.error(m.toast_restore_file_failed());

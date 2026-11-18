@@ -10,7 +10,7 @@
   } from 'sailorcms/components/ui/dialog/index.js';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import {
     updateFlatGlobal,
     updateRepeatableGlobal,
@@ -78,7 +78,7 @@
         )
       ) {
         // Manual invalidation needed because we use "unchecked" command mode
-        await invalidateAll();
+        await refreshAll();
         onClose();
       }
     } catch (error) {

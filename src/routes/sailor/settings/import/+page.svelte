@@ -7,7 +7,7 @@
   import * as Tabs from 'sailorcms/components/ui/tabs/index.js';
   import * as Select from 'sailorcms/components/ui/select/index.js';
   import { Label } from 'sailorcms/components/ui/label/index.js';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import type { PageData } from './$types';
   import Header from 'sailorcms/components/sailor/Header.svelte';
 
@@ -19,8 +19,8 @@
 
   // Dynamic import state
   let WordPressImportComponent:
-    | typeof import('sailorcms/components/sailor/WordPressImport.svelte').default
-    | null = $state(null);
+    typeof import('sailorcms/components/sailor/WordPressImport.svelte').default | null =
+    $state(null);
   let loadingImportComponent = $state(false);
 
   function handleCollectionChange(value: string) {
@@ -33,7 +33,7 @@
   // Handle import completion
   function handleImportComplete() {
     // Refresh the page data
-    invalidateAll();
+    refreshAll();
   }
 
   // Load WordPressImport component dynamically

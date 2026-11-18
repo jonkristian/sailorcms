@@ -2,7 +2,10 @@
 // for information about these interfaces
 declare global {
   namespace App {
-    // interface Error {}
+    interface Error {
+      /** Set by `handleError` in hooks.client.ts for unexpected errors. */
+      errorId?: string;
+    }
     interface Locals {
       user?: {
         id: string;

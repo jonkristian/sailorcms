@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Label } from 'sailorcms/components/ui/label/index.js';
   import { Badge } from 'sailorcms/components/ui/badge/index.js';
@@ -68,7 +68,7 @@
       } else {
         toast.success(m.mail_outbox_retry_success());
         selectedEvent = null;
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (e) {
       console.error('Retry mail error:', e);
@@ -98,7 +98,7 @@
         toast.error(result.data?.error || m.settings_mail_save_error());
       } else {
         toast.success(m.settings_mail_save_success());
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (e) {
       console.error('Save mail settings error:', e);

@@ -5,7 +5,7 @@
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { Save, Pencil } from '@lucide/svelte';
   import { Separator } from 'sailorcms/components/ui/separator/index.js';
   import { formatDetailedDate } from 'sailorcms/core/utils/date';
@@ -114,7 +114,7 @@
         })
       ) {
         userChanges = {};
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_save_global_failed(), { id: 'global-save' });
@@ -141,7 +141,7 @@
 
       if (result.success) {
         // Reload data to show the updated order
-        await invalidateAll();
+        await refreshAll();
       } else {
         toast.error(m.toast_reorder_items_failed());
       }

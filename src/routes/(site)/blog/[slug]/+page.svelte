@@ -43,7 +43,10 @@
         {#each data.relatedPosts as relatedPost (relatedPost.id || relatedPost.slug)}
           <article class="related-post-card">
             <h3 class="related-post-title">
-              <a href={resolve(`/blog/${relatedPost.slug}`)} class="related-post-link">
+              <a
+                href={resolve('/(site)/blog/[slug]', { slug: relatedPost.slug })}
+                class="related-post-link"
+              >
                 {relatedPost.title}
               </a>
             </h3>
@@ -57,7 +60,7 @@
   {/if}
 
   <footer class="blog-footer">
-    <a href={resolve('/blog')} class="back-link">← Back to Blog</a>
+    <a href={resolve('/(site)/blog')} class="back-link">← Back to Blog</a>
   </footer>
 </article>
 

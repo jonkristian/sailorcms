@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import { SystemSettingsService } from 'sailorcms/core/services/settings.server';
 
 export const load: PageServerLoad = async () => {

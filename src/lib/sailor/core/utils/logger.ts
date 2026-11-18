@@ -37,8 +37,7 @@ class Logger {
     // Initialize debug mode from environment
     this.debugMode = process.env.DEBUG_MODE === 'true';
     const envLevel = (process.env.LOG_LEVEL as LogLevel | undefined)?.toLowerCase() as
-      | LogLevel
-      | undefined;
+      LogLevel | undefined;
     this.minLevel = envLevel
       ? envLevel
       : this.isDevelopment

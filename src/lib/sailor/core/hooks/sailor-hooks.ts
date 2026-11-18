@@ -2,14 +2,8 @@
  * Main Sailor hooks handler - single entry point for all hook logic
  */
 
-import {
-  redirect,
-  error,
-  isHttpError,
-  isRedirect,
-  type RequestEvent,
-  type ResolveOptions
-} from '@sveltejs/kit';
+import { redirect, error, isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
+import type { ResolveOptions } from '@sveltejs/kit/hooks';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { auth } from 'sailorcms/core/auth.server';
 import { handleSailorLogging, log } from 'sailorcms/core/utils/logger';
@@ -135,8 +129,6 @@ async function checkRouteAccess(pathname: string, user: User | null | undefined)
   }
 }
 
-type MaybePromise<T> = T | Promise<T>;
-
 export interface SailorHookOptions {
   /**
    * Resolve the public-site content locale for the current request. Called
@@ -177,7 +169,7 @@ export interface SailorHookOptions {
  */
 export async function handleSailorHooks(
   event: RequestEvent,
-  resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>,
+  resolve: (event: RequestEvent, opts?: ResolveOptions) => Promise<Response>,
   options?: SailorHookOptions
 ): Promise<Response> {
   // Initialize database on first request
@@ -200,7 +192,7 @@ export async function handleSailorHooks(
 
 async function handleSailorRequest(
   event: RequestEvent,
-  resolve: (event: RequestEvent, opts?: ResolveOptions) => MaybePromise<Response>,
+  resolve: (event: RequestEvent, opts?: ResolveOptions) => Promise<Response>,
   options?: SailorHookOptions
 ): Promise<Response> {
   // Get session for other routes

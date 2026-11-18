@@ -181,7 +181,7 @@
   onSuccess={() => {
     selection.clearSelection();
     // Refresh page to update user list
-    goto(page.url.href, { invalidateAll: true });
+    goto(page.url.href, { refreshAll: true });
   }}
   onCancel={() => {
     userDeleteDialogOpen = false;

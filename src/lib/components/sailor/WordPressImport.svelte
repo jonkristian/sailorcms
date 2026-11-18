@@ -11,7 +11,7 @@
   import * as Select from 'sailorcms/components/ui/select/index.js';
   import { Progress } from 'sailorcms/components/ui/progress/index.js';
   import { Separator } from 'sailorcms/components/ui/separator/index.js';
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
 
   let {
     collectionSlug,

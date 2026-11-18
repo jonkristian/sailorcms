@@ -29,16 +29,18 @@
     <header class="site-header" class:scrolled={isScrolled}>
       <div class="header-container">
         <div class="header-brand">
-          <a href={resolve('/')} class="brand-link">
+          <a href={resolve('/(site)')} class="brand-link">
             <span class="brand-text">Sailor CMS</span>
           </a>
         </div>
 
         <nav class="header-nav">
-          <a href={resolve('/')} class="nav-link" class:active={isHomeActive}>Home</a>
-          <a href={resolve('/pages')} class="nav-link" class:active={isPagesActive}>Pages</a>
-          <a href={resolve('/blog')} class="nav-link" class:active={isBlogActive}>Blog</a>
-          <a href={resolve('/search')} class="nav-link" class:active={isSearchActive}>Search</a>
+          <a href={resolve('/(site)')} class="nav-link" class:active={isHomeActive}>Home</a>
+          <a href={resolve('/(site)/pages')} class="nav-link" class:active={isPagesActive}>Pages</a>
+          <a href={resolve('/(site)/blog')} class="nav-link" class:active={isBlogActive}>Blog</a>
+          <a href={resolve('/(site)/search')} class="nav-link" class:active={isSearchActive}
+            >Search</a
+          >
         </nav>
       </div>
     </header>

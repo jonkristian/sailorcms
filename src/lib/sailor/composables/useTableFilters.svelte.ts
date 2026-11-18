@@ -1,5 +1,5 @@
 import { afterNavigate, goto } from '$app/navigation';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { page } from '$app/state';
 import { debounce } from 'sailorcms/core/utils/debounce';
 
@@ -182,7 +182,7 @@ export function useTableFilters(options: FilterOptions) {
 
   function applyFilters() {
     const url = buildUrl();
-    goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+    goto(url, { replace: true, reset: false });
   }
 
   // Debounced search
@@ -251,7 +251,7 @@ export function useTableFilters(options: FilterOptions) {
       }
     }
 
-    goto(getBaseUrl(), { replaceState: true, keepFocus: true, noScroll: true });
+    goto(getBaseUrl(), { replace: true, reset: false });
   }
 
   const hasActive = $derived.by(() => {

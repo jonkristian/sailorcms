@@ -1,4 +1,4 @@
-import { invalidateAll } from '$app/navigation';
+import { refreshAll } from '$app/navigation';
 
 interface BulkDeleteOptions {
   customDeleteHandler: (ids: string[]) => Promise<void>;
@@ -25,7 +25,7 @@ export function useBulkDelete(options: BulkDeleteOptions) {
     try {
       const count = pendingDeleteItems.count;
       await options.customDeleteHandler(pendingDeleteItems.ids);
-      await invalidateAll();
+      await refreshAll();
       deleteDialogOpen = false;
       options.onSuccess?.(count);
     } finally {

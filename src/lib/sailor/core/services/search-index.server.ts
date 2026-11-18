@@ -11,8 +11,6 @@ import { getContentSettings } from 'sailorcms/core/settings/i18n';
 import { timestampToDate } from '../utils/date';
 import { TagService } from './tag.server';
 
-
-
 // Resolved lazily so the file typechecks even before `npx sailor db:update`
 // has regenerated generated/schema.ts with the search_index table.
 function getTable(): any {
@@ -778,8 +776,7 @@ function collectSearchableText(
 
     if (type === 'array' && Array.isArray(value)) {
       const itemFields = (field as any).items?.properties as
-        | Record<string, FieldDefinition>
-        | undefined;
+        Record<string, FieldDefinition> | undefined;
       if (itemFields) {
         for (const row of value) {
           if (row && typeof row === 'object') {

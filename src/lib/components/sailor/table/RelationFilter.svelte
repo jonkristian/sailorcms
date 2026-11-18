@@ -78,7 +78,7 @@
   }
 
   function apply(key: string | null, slugValue: string | null) {
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new URLSearchParams(page.url.search);
     if (!key || !slugValue) {
       params.delete('relation');
       params.delete('relationValue');
@@ -95,7 +95,7 @@
     // A new filter invalidates the current page position.
     params.delete('page');
     open = false;
-    goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+    goto(`?${params.toString()}`, { reset: false });
   }
 </script>
 

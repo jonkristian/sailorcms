@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { config } from 'dotenv';
 import { createRequire } from 'module';
 import { existsSync } from 'fs';
-import path from 'path';
 import { registerCoreInit } from './tools/cms-init.js';
 import { registerCoreUpdate } from './tools/cms-update.js';
 import { registerDbUpdate } from './tools/db-update.js';
@@ -22,17 +22,7 @@ import { registerContentPurgeLocale } from './tools/content-purge-locale.js';
 
 // Load environment variables and start CLI
 (async () => {
-  // Load environment variables from .env file if it exists and dotenv is available
-  if (existsSync('.env')) {
-    try {
-      // Import dotenv from the consumer project's node_modules
-      const dotenvPath = path.join(process.cwd(), 'node_modules', 'dotenv', 'lib', 'main.js');
-      const { config } = await import(dotenvPath);
-      config({ quiet: true });
-    } catch (error) {
-      // dotenv not available - fallback to manual parsing or skip
-    }
-  }
+  if (existsSync('.env')) config({ quiet: true });
 
   const require = createRequire(import.meta.url);
   const packageJson = require('../package.json');

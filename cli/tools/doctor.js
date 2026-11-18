@@ -10,16 +10,27 @@ import { existsSync, readdirSync } from 'fs';
 import { pathToFileURL } from 'url';
 import { sql } from 'drizzle-orm';
 import {
-  patchSvelteConfig,
+  ENV_ENTRY_HINT,
+  ensureEnvEntry,
+  patchEnvEntry,
   patchViteConfig,
   dedupeNestedSvelteDeps,
   dedupeNestedSailorcmsDeps,
   stripLegacyDbScripts,
   isCorePackage,
   loadConsumerEnv,
+  createConsumerLibsqlClient,
   SAILOR_DIRS_RESOLVED_VIA_PACKAGE,
   COMPONENT_DIRS_RESOLVED_VIA_PACKAGE
 } from '../utils.js';
+import {
+  LEGACY_SVELTE_CONFIG_HINT,
+  migrateLegacySvelteConfig,
+  migrateSvelteConfigContent,
+  ensureTsconfig,
+  scanKit2Leftovers
+} from '../kit3.js';
+import { runAccountIssuerRepair, runCredentialAccountIdRepair } from './db-repair-accounts.js';
 
 const SOURCE_EXTS = new Set(['.svelte', '.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs']);
 
@@ -199,43 +210,88 @@ async function checkScaffoldRouteClash(targetDir) {
 }
 
 async function checkSvelteConfig(targetDir) {
-  const configPath = path.join(targetDir, 'svelte.config.js');
-  if (!(await fs.pathExists(configPath))) {
+  const legacy = path.join(targetDir, 'svelte.config.js');
+  if (!(await fs.pathExists(legacy))) {
     return {
       id: 'config:svelte',
-      label: 'svelte.config.js patches',
-      ok: false,
-      message: 'svelte.config.js not found',
-      fixable: false
-    };
-  }
-  const content = await fs.readFile(configPath, 'utf8');
-  const { applied, manual } = patchSvelteConfig(content);
-  if (applied.length === 0 && manual.length === 0) {
-    return {
-      id: 'config:svelte',
-      label: 'svelte.config.js patches',
+      label: 'No legacy svelte.config.js',
       ok: true,
-      message: 'all sailor patches applied',
+      message: 'config lives in vite.config.ts',
       fixable: false
     };
   }
-  const lines = [];
-  if (applied.length > 0) lines.push(`    auto-fixable: ${applied.join(', ')}`);
-  for (const m of manual) lines.push(`    manual: ${m.name} — ${m.hint}`);
+  const vite = ['vite.config.ts', 'vite.config.js']
+    .map((f) => path.join(targetDir, f))
+    .find((f) => existsSync(f));
+  const dry = vite
+    ? migrateSvelteConfigContent(await fs.readFile(legacy, 'utf8'), await fs.readFile(vite, 'utf8'))
+    : { error: 'no vite.config found.' };
   return {
     id: 'config:svelte',
-    label: 'svelte.config.js patches',
+    label: 'No legacy svelte.config.js',
     ok: false,
-    message: `svelte.config.js missing required sailor bits\n${lines.join('\n')}`,
+    message: dry.error
+      ? `${LEGACY_SVELTE_CONFIG_HINT}\n    Can't move it automatically: ${dry.error}`
+      : `${LEGACY_SVELTE_CONFIG_HINT}\n    --fix moves it into ${path.basename(vite)} and keeps svelte.config.js.bak.`,
+    fixable: !dry.error,
+    fix: async () => {
+      const { manual } = await migrateLegacySvelteConfig(targetDir);
+      for (const m of manual) console.log(`  ⚠️  ${m.name}: ${m.hint}`);
+    }
+  };
+}
+
+async function checkTsconfig(targetDir) {
+  const { applied, manual } = await ensureTsconfig(targetDir, { dryRun: true });
+  const ok = applied.length === 0 && manual.length === 0;
+  return {
+    id: 'config:tsconfig',
+    label: 'tsconfig.json extends $app/tsconfig',
+    ok,
+    message: ok
+      ? 'tsconfig.json is set up for SvelteKit 3'
+      : manual.length > 0
+        ? manual[0].hint
+        : `needs: ${applied.join(', ')}`,
     fixable: applied.length > 0,
     fix: async () => {
-      const fresh = await fs.readFile(configPath, 'utf8');
-      const { content: patched, applied: appliedNow } = patchSvelteConfig(fresh);
-      if (appliedNow.length > 0) {
-        await fs.writeFile(configPath, patched);
-        console.log(`  svelte.config.js: ${appliedNow.join(', ')}`);
-      }
+      await ensureTsconfig(targetDir);
+    }
+  };
+}
+
+async function checkKit2Leftovers(targetDir) {
+  const { fixable, manual } = await scanKit2Leftovers(targetDir);
+  const ok = manual.length === 0;
+  return {
+    id: 'kit3:leftovers',
+    label: 'No SvelteKit 2 leftovers in app code',
+    ok,
+    message: ok
+      ? 'no removed or moved SvelteKit 2 APIs in src/'
+      : manual.map((m) => `${m.name}: ${m.hint}`).join('\n    '),
+    fixable: fixable.length > 0,
+    fix: async () => {
+      const { manual: rest } = await scanKit2Leftovers(targetDir, { fix: true });
+      for (const m of rest) console.log(`  ⚠️  ${m.name}: ${m.hint}`);
+    }
+  };
+}
+
+async function checkEnvEntry(targetDir) {
+  const file = ['env.ts', 'env.js']
+    .map((f) => path.join(targetDir, 'src', f))
+    .find((f) => existsSync(f));
+  const { content, applied } = patchEnvEntry(file ? await fs.readFile(file, 'utf8') : null);
+  const ok = content !== null && applied.length === 0;
+  return {
+    id: 'config:env',
+    label: 'sailor env vars declared in src/env.ts',
+    ok,
+    message: ok ? 'sailorEnvVars spread into defineEnvVars' : ENV_ENTRY_HINT,
+    fixable: !ok && content !== null,
+    fix: async () => {
+      await ensureEnvEntry(targetDir);
     }
   };
 }
@@ -522,7 +578,7 @@ async function openLibsqlClientForDoctor(targetDir) {
   const { createClient } = await import('@libsql/client');
   const { drizzle } = await import('drizzle-orm/libsql');
   const url = dbUrl.startsWith('file:') || dbUrl.startsWith('libsql:') ? dbUrl : `file:${dbUrl}`;
-  const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN });
+  const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN, timeout: 3000 });
   return drizzle(client);
 }
 
@@ -1059,8 +1115,19 @@ async function checkAccountIssuer(targetDir) {
       `${total} account row(s) have no issuer — invisible to better-auth >=1.7 (OAuth sign-in fails, ` +
       `accounts read as unlinked)\n${detail.join('\n')}\n` +
       '    Remedy: `npx sailor db:repair-accounts` (add `--dry-run` to preview).',
-    fixable: false
+    fixable: true,
+    fix: () => runAccountsRepair(targetDir, runAccountIssuerRepair)
   };
+}
+
+async function runAccountsRepair(targetDir, repair) {
+  const { client } = await createConsumerLibsqlClient(targetDir);
+  try {
+    const { status } = await repair({ client });
+    if (status === 'refused') throw new Error('repair refused, see above');
+  } finally {
+    client.close?.();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1120,7 +1187,8 @@ async function checkCredentialAccountId(targetDir) {
       `${rows.length} credential account(s) have a mismatched account_id — better-auth >=1.7 ` +
       `can't resolve them, so those users can never sign in\n${detail.join('\n')}\n` +
       '    Remedy: `npx sailor db:repair-accounts` (add `--dry-run` to preview).',
-    fixable: false
+    fixable: true,
+    fix: () => runAccountsRepair(targetDir, runCredentialAccountIdRepair)
   };
 }
 
@@ -1134,7 +1202,10 @@ async function checkCredentialAccountId(targetDir) {
 const CONSUMER_ONLY_CHECKS = new Set([
   checkScaffoldRouteClash,
   checkSvelteConfig,
+  checkTsconfig,
+  checkKit2Leftovers,
   checkViteConfig,
+  checkEnvEntry,
   checkLegacyDbScripts,
   checkNestedSailorcmsDeps
 ]);
@@ -1143,7 +1214,10 @@ const CHECKS = [
   checkStaleMigratedImports,
   checkScaffoldRouteClash,
   checkSvelteConfig,
+  checkTsconfig,
+  checkKit2Leftovers,
   checkViteConfig,
+  checkEnvEntry,
   checkLegacyDbScripts,
   checkNestedAcorn,
   checkNestedSailorcmsDeps,

@@ -25,7 +25,9 @@ npx sailor core:init # Initializes the cms by copying required files into your p
 npx sailor db:update # Regenerate files from your templates & updates your database.
 ```
 
-`core:init` patches your `svelte.config.js` automatically (adds `kit.experimental.remoteFunctions`, ensures `compilerOptions.runes: true` and `compilerOptions.experimental.async: true`, and wires up `vitePreprocess({ script: true })`). If anything was skipped because your config didn't match the expected shape, run `npx sailor doctor --fix` to apply the missing pieces.
+Sailor requires SvelteKit 3. `core:init` adds the `sailor()` plugin from `sailorcms/vite` to your `vite.config.ts` (aliases, SSR and dependency-optimizer settings, and the admin's i18n compiler), adds `paths` for `$sailor` and `sailorcms/*` to `tsconfig.json`, and patches the `sveltekit({...})` options (adds `experimental.remoteFunctions`, ensures `compilerOptions.runes: true` and `compilerOptions.experimental.async: true`, and wires up `vitePreprocess({ script: true })`). If anything was skipped because your config didn't match the expected shape, run `npx sailor doctor --fix` to apply the missing pieces.
+
+Upgrading an existing SvelteKit 2 project: `core:update` moves `svelte.config.js` into `sveltekit({...})` (the old file is kept as `svelte.config.js.bak`), points `tsconfig.json` at `$app/tsconfig`, and rewrites hook type imports, `$app/environment` and `$env/*` in your own code. What it can't rewrite safely (`$app/stores`, `$lib`, env vars your code reads but `src/env.ts` doesn't declare) is listed at the end of the run; `npx sailor doctor` reports the same list.
 
 > **⚠️ Important**: If you have already installed Lucia, Drizzle, or Tailwind , you might have to do some manual setup. Sailor provides its own authentication, database layer, and styling. If you do install these packages, additional manual configuration will be required to avoid conflicts.
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import * as Sheet from 'sailorcms/components/ui/sheet/index.js';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import {

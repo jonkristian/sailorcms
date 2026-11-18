@@ -13,7 +13,7 @@
  * ```
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { beforeNavigate } from '$app/navigation';
 import { m } from '$sailor/i18n';
 

@@ -5,7 +5,7 @@
   import FieldRenderer from 'sailorcms/components/sailor/fields/FieldRenderer.svelte';
   import { toast, toastResult, requirePermission } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { updateFlatGlobal } from '../data.remote.js';
 
   const {
@@ -59,7 +59,7 @@
 
       if (toastResult(result, m.toast_global_settings_saved, m.toast_save_global_settings_failed)) {
         // Manual invalidation needed because we use "unchecked" command mode
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_save_global_settings_failed());

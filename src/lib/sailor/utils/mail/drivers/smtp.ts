@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import { log } from 'sailorcms/core/utils/logger';
 import type { MailDriver, MailMessage, SendResult } from '../types';
 

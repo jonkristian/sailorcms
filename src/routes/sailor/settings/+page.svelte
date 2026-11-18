@@ -7,7 +7,7 @@
   import { Save, RotateCcw } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import type { PageData } from './$types';
   import * as Card from 'sailorcms/components/ui/card/index.js';
   import Header from 'sailorcms/components/sailor/Header.svelte';
@@ -55,7 +55,7 @@
         toast.error(errorMessage);
       } else {
         toast.success(result.message || m.toast_site_settings_saved());
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_save_site_settings_failed());
@@ -80,7 +80,7 @@
 
       if (result.type === 'success') {
         toast.success(result.data?.message || m.toast_settings_purged());
-        await invalidateAll();
+        await refreshAll();
       } else {
         toast.error(result.data?.error || m.toast_purge_settings_failed());
       }

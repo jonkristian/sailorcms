@@ -15,56 +15,53 @@ export class SQLiteAdapter extends DatabaseAdapter {
   async createClient(): Promise<any> {
     const { createClient } = await import('@libsql/client');
 
-    if (this.config.url) {
+    if (!this.config.file) {
       // Remote database (Turso, etc.)
       return createClient({
-        url: this.config.url,
-        authToken: this.config.authToken
-      });
-    } else {
-      // Local SQLite file - import Node.js modules dynamically
-      const [{ default: fs }, { join, dirname }] = await Promise.all([
-        import('fs'),
-        import('path')
-      ]);
-
-      const DB_PATH = join(process.cwd(), this.config.file!);
-      const localUrl = `file:${DB_PATH}`;
-
-      // Ensure database directory exists
-      const dbDir = dirname(DB_PATH);
-      if (!fs.existsSync(dbDir)) {
-        console.log(`Creating database directory: ${dbDir}`);
-        fs.mkdirSync(dbDir, { recursive: true });
-      }
-
-      // Ensure database file exists
-      if (!fs.existsSync(DB_PATH)) {
-        console.log('Creating new SQLite database file...');
-        fs.writeFileSync(DB_PATH, '');
-      }
-
-      return createClient({
-        url: localUrl,
+        url: this.config.url!,
         authToken: this.config.authToken
       });
     }
+
+    // Local SQLite file - import Node.js modules dynamically
+    const [{ default: fs }, { resolve, dirname }] = await Promise.all([
+      import('fs'),
+      import('path')
+    ]);
+
+    const DB_PATH = resolve(process.cwd(), this.config.file);
+
+    const dbDir = dirname(DB_PATH);
+    if (!fs.existsSync(dbDir)) {
+      console.log(`Creating database directory: ${dbDir}`);
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+
+    if (!fs.existsSync(DB_PATH)) {
+      console.log('Creating new SQLite database file...');
+      fs.writeFileSync(DB_PATH, '');
+    }
+
+    // libsql pools local connections, so a busy timeout is needed on each of
+    // them or concurrent writers fail immediately with SQLITE_BUSY.
+    return createClient({
+      url: `file:${DB_PATH}`,
+      authToken: this.config.authToken,
+      timeout: 3000
+    });
   }
 
   async createDrizzleInstance(client: any, schema: any): Promise<any> {
     const { drizzle } = await import('drizzle-orm/libsql');
     const db = drizzle(client, { schema });
-    // Apply local SQLite tuning pragmas to reduce SQLITE_BUSY and improve concurrency
-    try {
-      // For local files, this.config.url is not set; remote URLs (Turso) should skip PRAGMAs
-      if (!this.config.url) {
+    if (this.config.file) {
+      try {
+        // WAL is persisted in the file, so one connection is enough.
         const { sql } = await import('drizzle-orm');
-        // Enable write-ahead logging and set a small busy timeout for dev
         await db.run(sql`PRAGMA journal_mode = WAL`);
-        await db.run(sql`PRAGMA busy_timeout = 3000`);
+      } catch (e) {
+        console.warn('SQLite PRAGMA setup skipped/failed:', e);
       }
-    } catch (e) {
-      console.warn('SQLite PRAGMA setup skipped/failed:', e);
     }
     return db;
   }

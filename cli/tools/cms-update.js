@@ -1,7 +1,8 @@
 // Core CMS update tool
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import {
   detectPackageManager,
@@ -9,18 +10,40 @@ import {
   updateSailorCoreFiles,
   cleanupUnusedDependencies,
   trackInstalledDependencies,
-  updateSvelteConfig,
+  ensureEnvEntry,
   updateViteConfig,
   stripLegacyDbScripts,
   printManualActionBanner,
   dedupeNestedSvelteDeps,
   dedupeNestedSailorcmsDeps,
   isCorePackage,
-  compileParaglide
+  compileParaglide,
+  ensureRailpackConfig,
+  rangeMajor,
+  KIT3_UPGRADED_HINT,
+  generateSchema
 } from '../utils.js';
+import { migrateLegacySvelteConfig, ensureTsconfig, scanKit2Leftovers } from '../kit3.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Hash of the files this process has loaded as code, to tell whether an
+// install actually changed the CLI or just re-copied it (bun `file:` deps).
+function cliFingerprint(dir) {
+  const hash = crypto.createHash('sha256');
+  const add = (rel) => {
+    const abs = path.join(dir, rel);
+    if (!fs.existsSync(abs)) return;
+    if (fs.statSync(abs).isDirectory()) {
+      for (const name of fs.readdirSync(abs).sort()) add(path.join(rel, name));
+    } else {
+      hash.update(rel).update(fs.readFileSync(abs));
+    }
+  };
+  for (const rel of ['package.json', 'bin', 'cli', 'vite-plugin.js']) add(rel);
+  return hash.digest('hex');
+}
 
 export function registerCoreUpdate(program) {
   program
@@ -60,6 +83,12 @@ export function registerCoreUpdate(program) {
           );
           process.exit(1);
         }
+
+        // A re-exec after install sees the bumped package.json, so the
+        // first run hands down the major it started from.
+        const kitMajorBefore = process.env.SAILOR_UPDATE_KIT_MAJOR
+          ? Number(process.env.SAILOR_UPDATE_KIT_MAJOR)
+          : rangeMajor(hasSvelteKit);
 
         // Update dependencies if not skipped
         if (!options.skipDeps) {
@@ -159,6 +188,8 @@ export function registerCoreUpdate(program) {
             );
           }
 
+          const cliBefore = cliFingerprint(mainProjectDir);
+
           // Detect and use appropriate package manager
           const packageManager = await detectPackageManager(targetDir);
           const installCommand = getInstallCommand(packageManager);
@@ -209,6 +240,33 @@ export function registerCoreUpdate(program) {
 
           // Update the tracking file with the current CMS dependencies
           await trackInstalledDependencies(targetDir);
+
+          // If the install changed the sailorcms copy this process was
+          // loaded from, finish with the new CLI so the config migrations
+          // come from the version just installed.
+          const installed = path.join(targetDir, 'node_modules', 'sailorcms');
+          if (
+            !process.env.SAILOR_UPDATE_REEXEC &&
+            (await fs.pathExists(installed)) &&
+            fs.realpathSync(installed) === fs.realpathSync(mainProjectDir) &&
+            cliFingerprint(installed) !== cliBefore
+          ) {
+            console.log('Continuing with the newly installed Sailor CLI...');
+            const result = spawnSync(
+              process.execPath,
+              [path.join(installed, 'bin', 'sailor.js'), 'core:update', '--skip-deps'],
+              {
+                cwd: targetDir,
+                stdio: 'inherit',
+                env: {
+                  ...process.env,
+                  SAILOR_UPDATE_REEXEC: '1',
+                  SAILOR_UPDATE_KIT_MAJOR: kitMajorBefore === null ? '' : String(kitMajorBefore)
+                }
+              }
+            );
+            process.exit(result.status ?? 1);
+          }
         }
 
         // Update Sailor CMS core files (lib, routes, hooks)
@@ -216,12 +274,34 @@ export function registerCoreUpdate(program) {
         await updateSailorCoreFiles(targetDir);
         compileParaglide(targetDir);
 
+        // The new core may import generated exports the consumer's copy
+        // predates; regenerating only rewrites files, the DB is untouched.
+        const manualGenerate = [];
+        try {
+          console.log('Regenerating schema and types...');
+          await generateSchema(targetDir);
+          console.log(
+            'ℹ️  Run `npx sailor db:update` if the regenerated schema needs a migration.'
+          );
+        } catch (err) {
+          manualGenerate.push({
+            name: 'generated files',
+            hint: `Regenerating src/lib/sailor/generated failed (${err.message}). Run \`npx sailor db:update\`; until then the new core may not find exports it expects.`
+          });
+        }
+
         // Update config files
-        const manual = [];
-        const svelteResult = await updateSvelteConfig(targetDir);
-        if (svelteResult?.manual) manual.push(...svelteResult.manual);
+        const manual = [...manualGenerate];
         const viteResult = await updateViteConfig(targetDir);
         if (viteResult?.manual) manual.push(...viteResult.manual);
+        manual.push(...(await migrateLegacySvelteConfig(targetDir)).manual);
+        manual.push(...(await ensureTsconfig(targetDir)).manual);
+        manual.push(...(await scanKit2Leftovers(targetDir, { fix: true })).manual);
+        manual.push(...(await ensureEnvEntry(targetDir)).manual);
+        manual.push(...(await ensureRailpackConfig(targetDir, { create: false })).manual);
+        if (kitMajorBefore !== null && kitMajorBefore < 3) {
+          manual.push({ name: 'SvelteKit 3', hint: KIT3_UPGRADED_HINT });
+        }
 
         console.log('✅ Sailor CMS updated successfully!');
         printManualActionBanner(manual);

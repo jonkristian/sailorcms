@@ -7,7 +7,6 @@ import { fieldConfigurations } from '$sailor/generated/fields';
 import type { GlobalTypes } from '$sailor/generated/types';
 import type { Pagination } from 'sailorcms/core/types';
 import { TagService } from 'sailorcms/core/services/tag.server';
-import { SearchIndexService } from 'sailorcms/core/services/search-index.server';
 import { runTemplateHook } from 'sailorcms/core/hooks/template-hooks';
 import { generateUUID } from 'sailorcms/core/utils/common';
 import { globalDefinitions } from '$sailor/templates/globals';
@@ -1391,6 +1390,9 @@ export async function createGlobalItem(
   };
 
   await db.insert(table).values(insertData);
+  // Lazy: the search index reads globals through this module, so a static
+  // import would make the two modules a cycle.
+  const { SearchIndexService } = await import('sailorcms/core/services/search-index.server');
   await SearchIndexService.onSaveSafe('global', slug, id);
 
   // Fire the template's `afterCreate` hook for the public-endpoint case

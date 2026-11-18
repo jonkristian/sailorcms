@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { Search, Database, Loader2, RefreshCw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import * as Card from 'sailorcms/components/ui/card/index.js';
@@ -36,7 +36,7 @@
           skipped: result.skipped
         })
       );
-      await invalidateAll();
+      await refreshAll();
     } else {
       toast.error(result.error || m.settings_search_reindex_failed());
     }

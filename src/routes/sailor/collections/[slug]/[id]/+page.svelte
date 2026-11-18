@@ -39,7 +39,7 @@
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
   import { saveCollectionItem } from './data.remote';
   import { restoreCollectionItem } from '../../data.remote.js';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { AlertTriangle, RotateCcw } from '@lucide/svelte';
   import { formatRelativeTime } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
@@ -161,7 +161,7 @@
   // formData (same code path as a normal save: search-index, new revision row,
   // pruning all happen automatically). Restore is one of the few ops that
   // *wants* to overwrite local edit state with the server's truth, so after
-  // `invalidateAll()` we explicitly re-init `formData` / `blocks` from the
+  // `refreshAll()` we explicitly re-init `formData` / `blocks` from the
   // refreshed `data.page` — bypassing the `untrack(...)` guard that normally
   // keeps in-progress edits safe from background data refreshes.
   async function handleRestoreRevision(snapshot: Record<string, unknown>): Promise<boolean | void> {
@@ -177,7 +177,7 @@
         toast.error(result.error || m.revisions_restore_failed());
         return false;
       }
-      await invalidateAll();
+      await refreshAll();
       formData = buildFormData(data.page);
       blocks = buildBlocksFromPage(data.page);
       groups = buildGroupsFromPage(data.page);
@@ -205,7 +205,7 @@
         itemId: data.page.id
       });
       if (toastResult(result, m.toast_item_restored, m.toast_restore_item_failed)) {
-        await invalidateAll();
+        await refreshAll();
       }
     } catch {
       toast.error(m.toast_restore_item_failed());
@@ -278,7 +278,7 @@
         if (wasNew) {
           // First save of a new item — re-run the load once so headerActions
           // ("Create" → "Save") and isNewItem flip correctly.
-          await invalidateAll();
+          await refreshAll();
         } else if (result.item) {
           // Subsequent edits: merge server-side mutations onto formData.
           // result.item is the flat row only — file/array/block fields live
@@ -295,7 +295,7 @@
           // so the History dialog includes this save). The form's local
           // `formData`/`blocks` state is initialized with `untrack(...)` so it
           // won't be clobbered by the data refresh.
-          void invalidateAll();
+          void refreshAll();
         }
       } else {
         toast.error(result.error || m.toast_save_collection_failed(), { id: 'collection-save' });

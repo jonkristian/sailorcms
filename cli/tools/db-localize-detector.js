@@ -60,7 +60,7 @@ async function openLibsqlClient(targetDir) {
   const { createClient } = await import('@libsql/client');
   const { drizzle } = await import('drizzle-orm/libsql');
   const url = dbUrl.startsWith('file:') || dbUrl.startsWith('libsql:') ? dbUrl : `file:${dbUrl}`;
-  const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN });
+  const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN, timeout: 3000 });
   return drizzle(client);
 }
 

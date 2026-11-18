@@ -370,6 +370,10 @@ function generateBlockGroups(targetDir, { groupFields, groupsEnabled }) {
 // Block group settings (from settings.ts blocks.groups, or core defaults).
 export const blockGroupsEnabled = ${groupsEnabled ? 'true' : 'false'};
 
+// The table only exists in schema.ts when groups are enabled; re-exported here
+// so callers never reference a schema export that may be missing.
+${groupsEnabled ? "export { blockGroups as blockGroupsTable } from './schema';" : 'export const blockGroupsTable = null;'}
+
 export const blockGroupFields = ${JSON.stringify(groupFields, null, 2)} as Record<string, any>;
 
 export const blockGroupColumns = Object.keys(blockGroupFields);

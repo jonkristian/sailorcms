@@ -4,7 +4,7 @@
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';
   import { goto } from '$app/navigation';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { FlatView, TableView, RepeatableNestedView, RepeatableInlineView } from '../(components)';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import { generateUUID } from 'sailorcms/core/utils/common';
@@ -39,7 +39,7 @@
 
       if (toastResult(result, m.toast_item_deleted, m.toast_delete_item_failed)) {
         // Refresh the page data to reflect the changes
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_delete_item_failed());
@@ -75,7 +75,7 @@
             items: pluralize(successCount, m.common_item_singular(), m.common_item_plural())
           })
         );
-        await invalidateAll();
+        await refreshAll();
       }
 
       if (errorCount > 0) {
@@ -96,7 +96,7 @@
       });
 
       if (result.success) {
-        await invalidateAll();
+        await refreshAll();
       } else {
         toast.error(result.error || m.toast_sort_order_update_failed());
       }

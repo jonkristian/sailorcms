@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import {
     Database,
@@ -18,9 +18,7 @@
 
   const { children } = $props();
 
-  // Mobile drawer open state. Closed on every nav so consumers don't have
-  // to manage it explicitly; the existing `goto` callbacks already trigger
-  // a page change which we hook into via $effect on $page.url.pathname below.
+  // Mobile drawer open state; each nav item closes it on click.
   let mobileNavOpen = $state(false);
 
   // Navigation items for settings
@@ -77,7 +75,7 @@
 
   // Check if current route matches nav item
   function isActive(href: string) {
-    return $page.url.pathname === href;
+    return page.url.pathname === href;
   }
 </script>
 

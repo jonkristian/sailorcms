@@ -1,7 +1,7 @@
 <script lang="ts">
   import './AuthWidget.css';
   import { page } from '$app/state';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import emblemSvg from 'sailorcms/assets/emblem.svg?raw';
   import * as Avatar from 'sailorcms/components/ui/avatar/index.js';
   import { authClient } from 'sailorcms/core/auth';
@@ -27,7 +27,7 @@
 
   async function handleSignOut() {
     await authClient.signOut();
-    await invalidateAll(); // Refresh page data to update server-side session state
+    await refreshAll(); // Refresh page data to update server-side session state
     closePopover();
     // Stay on the current page - the widget will update to show signed-out state
   }
@@ -82,8 +82,8 @@
             <a
               class="sailor-widget-button primary"
               href="/sailor"
-              data-sveltekit-preload-data="off"
-              data-sveltekit-preload-code="off"
+              data-sveltekit-preload-data="false"
+              data-sveltekit-preload-code="false"
               data-sveltekit-reload
               onclick={closePopover}
             >
@@ -98,8 +98,8 @@
             <a
               class="sailor-widget-button secondary"
               href="/sailor/account"
-              data-sveltekit-preload-data="off"
-              data-sveltekit-preload-code="off"
+              data-sveltekit-preload-data="false"
+              data-sveltekit-preload-code="false"
               data-sveltekit-reload
               onclick={closePopover}
             >
@@ -132,8 +132,8 @@
             <a
               class="sailor-widget-button primary"
               href="/sailor/auth/login"
-              data-sveltekit-preload-data="off"
-              data-sveltekit-preload-code="off"
+              data-sveltekit-preload-data="false"
+              data-sveltekit-preload-code="false"
               data-sveltekit-reload
               onclick={closePopover}
             >
@@ -148,8 +148,8 @@
               <a
                 class="sailor-widget-button secondary"
                 href="/sailor/auth/signup"
-                data-sveltekit-preload-data="off"
-                data-sveltekit-preload-code="off"
+                data-sveltekit-preload-data="false"
+                data-sveltekit-preload-code="false"
                 data-sveltekit-reload
                 onclick={closePopover}
               >

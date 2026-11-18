@@ -23,7 +23,7 @@
 
   import { repairFileUrls, checkFiles, importFiles } from 'sailorcms/remote/files.remote.js';
   import { purgeImageCache, enforceImageCacheSize } from 'sailorcms/remote/storage.remote.js';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
 
   let isPurging = $state(false);
   let isEnforcing = $state(false);
@@ -35,7 +35,7 @@
     isPurging = false;
     if (result.success) {
       toast.success(m.settings_storage_image_cache_purged({ count: result.removed }));
-      await invalidateAll();
+      await refreshAll();
     } else {
       toast.error(result.error || m.settings_storage_image_cache_failed());
     }
@@ -70,7 +70,7 @@
           })
         );
       }
-      await invalidateAll();
+      await refreshAll();
     } else {
       toast.error(result.error || m.settings_storage_image_cache_enforce_failed());
     }

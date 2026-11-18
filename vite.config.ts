@@ -1,21 +1,27 @@
 import tailwindcss from '@tailwindcss/vite';
+import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { sailor } from './vite-plugin.js';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    // Sailor admin i18n: compiles `src/lib/sailor/i18n/messages/{locale}.json`
-    // into a tree-shakable runtime under `src/lib/sailor/i18n/paraglide/`.
-    // The admin reads from this; consumer-site i18n is intentionally out of
-    // scope and consumers can add their own Paraglide instance with a
-    // separate `project` and `outdir` — the two coexist.
-    paraglideVitePlugin({
-      project: './src/lib/sailor/project.inlang',
-      outdir: './src/lib/sailor/i18n/paraglide'
-    }),
-    sveltekit()
+    sailor(),
+    sveltekit({
+      adapter: adapter(),
+      preprocess: vitePreprocess({ script: true }),
+      experimental: {
+        remoteFunctions: true
+      },
+      compilerOptions: {
+        runes: true,
+        experimental: {
+          async: true
+        }
+      }
+    })
   ],
   server: {
     watch: {

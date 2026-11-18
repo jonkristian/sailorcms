@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto, refreshAll } from '$app/navigation';
   import { enhance, applyAction } from '$app/forms';
   import { page } from '$app/state';
   import { Button } from 'sailorcms/components/ui/button/index.js';
@@ -127,7 +127,7 @@
                     if (result.type === 'success' && result.data?.success) {
                       toast.success(result.data.message as string);
                       // Refresh page data to update sidebar info
-                      await invalidateAll();
+                      await refreshAll();
                     } else if (result.type === 'failure') {
                       toast.error((result.data?.error as string) || m.toast_generic_error());
                       await applyAction(result);

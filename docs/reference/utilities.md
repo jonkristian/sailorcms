@@ -681,7 +681,9 @@ then returns that service's URL instead, so no calling code changes.
 // templates/settings.ts
 storage: {
   images: {
-    transform: { provider: 'cloudflare' }
+    transform: {
+      provider: 'cloudflare';
+    }
   }
 }
 ```

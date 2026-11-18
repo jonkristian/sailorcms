@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
@@ -47,7 +47,7 @@
       toast.error(m.toast_restore_failed());
     }
 
-    await invalidateAll();
+    await refreshAll();
   }
 
   function initiatePurge(items: Array<{ id: string; title: string }>) {
@@ -91,7 +91,7 @@
         toast.error(m.toast_permanent_delete_failed());
       }
 
-      await invalidateAll();
+      await refreshAll();
       purgeDialogOpen = false;
       pendingPurge = null;
     } finally {

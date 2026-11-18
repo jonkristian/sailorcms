@@ -2,7 +2,7 @@
  * Standard API utilities for consistent response patterns and validation
  */
 
-import { json, error as svelteError } from '@sveltejs/kit';
+import { error as svelteError } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 
 // Standard API response types
@@ -22,7 +22,7 @@ export interface ApiError {
  * Standard success response
  */
 export function apiSuccess<T>(data: T, message?: string) {
-  return json({
+  return Response.json({
     success: true,
     data,
     ...(message && { message })
@@ -33,7 +33,7 @@ export function apiSuccess<T>(data: T, message?: string) {
  * Standard error response
  */
 export function apiError(message: string, status: number = 400, details?: any) {
-  return json(
+  return Response.json(
     {
       success: false,
       error: message,

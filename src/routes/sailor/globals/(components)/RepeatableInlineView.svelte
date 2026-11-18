@@ -3,7 +3,7 @@
   import { toast, requirePermission } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { generateUUID } from 'sailorcms/core/utils/common';
   import NestedList from 'sailorcms/components/sailor/dnd/NestedList.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
@@ -97,7 +97,7 @@
         status: next
       });
       if (!result.success) throw new Error(result.error || m.toast_save_items_failed());
-      await invalidateAll();
+      await refreshAll();
     } catch (error) {
       console.error('Error updating status:', error);
       localItems = localItems.map((item, i) => (i === idx ? { ...item, status: previous } : item));
@@ -159,7 +159,7 @@
           items: pluralize(nodeIds.length, m.common_item_singular(), m.common_item_plural())
         })
       );
-      await invalidateAll();
+      await refreshAll();
     } catch (error) {
       console.error('Error deleting items:', error);
       toast.error(m.toast_delete_some_items_failed());
@@ -235,7 +235,7 @@
       expandedItems = new SvelteSet(expandedItems);
 
       toast.success(m.toast_item_deleted());
-      await invalidateAll();
+      await refreshAll();
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error(m.toast_delete_item_failed());
@@ -298,7 +298,7 @@
 
       if (result.success) {
         toast.success(m.toast_all_items_saved());
-        await invalidateAll();
+        await refreshAll();
       } else {
         throw new Error(result.error || m.toast_save_items_failed());
       }

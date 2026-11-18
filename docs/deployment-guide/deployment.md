@@ -21,6 +21,8 @@ Coolify is a self-hosted platform-as-a-service that makes deployment simple and 
 
 ### Deployment Configuration
 
+`core:init` writes a `railpack.json` that installs `sqlite3` (used by `db:backup`) and sets `node build` as the start command, so pick **Railpack** as the build pack. Nixpacks is deprecated; `core:update` replaces Sailor's old `nixpacks.toml` with `railpack.json`.
+
 Deploy to Coolify with these settings:
 
 **Recommended Deployment (with Backup Restore):**

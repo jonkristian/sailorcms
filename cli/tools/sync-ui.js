@@ -56,6 +56,12 @@ function rewriteContent(content) {
   );
   if (updated !== beforeShadcn) changed = true;
 
+  // `$lib` no longer exists in SvelteKit 3. Hooks (e.g. sidebar's IsMobile)
+  // ship with the package, so reach them relatively from ui/<name>/.
+  const beforeHooks = updated;
+  updated = updated.replace(/(['"])\$lib\/hooks\//g, '$1../../../hooks/');
+  if (updated !== beforeHooks) changed = true;
+
   return { content: updated, changed };
 }
 

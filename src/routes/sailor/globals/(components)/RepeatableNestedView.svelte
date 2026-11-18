@@ -4,7 +4,7 @@
   import { toast, toastResult } from 'sailorcms/core/ui/toast';
   import { m } from '$sailor/i18n';
   import { pluralize } from 'sailorcms/utils/ui/text';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import EditModal from './EditModal.svelte';
   import NestedList from 'sailorcms/components/sailor/dnd/NestedList.svelte';
   import type { FlatItem } from 'sailorcms/components/sailor/dnd/types.ts';
@@ -46,7 +46,7 @@
   let canCreate = $derived(permissions.globals.create);
 
   // Flat-tree view of `items`. The drag-drop handler optimistically reorders
-  // before invalidateAll lands, so we layer an optional override on top of
+  // before refreshAll lands, so we layer an optional override on top of
   // the derived base: when `optimisticItems` is non-null it wins, otherwise
   // we fall back to the prop-derived list. Clearing the override after the
   // save completes is what hands control back to fresh server data.
@@ -72,7 +72,7 @@
   async function handleDataChange(updatedData: FlatItem[]) {
     try {
       // Optimistic local override for responsive UI; cleared on success
-      // (so the derived snaps back to fresh props after invalidateAll) or
+      // (so the derived snaps back to fresh props after refreshAll) or
       // on failure (so the UI shows the server-side truth).
       optimisticItems = updatedData;
 
@@ -103,7 +103,7 @@
 
         if (result.success) {
           setTimeout(async () => {
-            await invalidateAll();
+            await refreshAll();
             optimisticItems = null;
           }, 1000);
         } else {
@@ -131,7 +131,7 @@
 
       if (toastResult(result, m.toast_item_deleted, m.toast_delete_item_failed)) {
         // Refresh the page data to reflect the changes
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_delete_item_failed());
@@ -160,7 +160,7 @@
         })
       );
       // Refresh the page data to reflect the changes
-      await invalidateAll();
+      await refreshAll();
     } catch (error) {
       toast.error(m.toast_delete_some_items_failed());
     }

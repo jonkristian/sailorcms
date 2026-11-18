@@ -3,7 +3,7 @@
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { Trash2 } from '@lucide/svelte';
   import { toast } from 'sailorcms/core/ui/toast';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import DeleteDialog from 'sailorcms/components/sailor/dialogs/DeleteDialog.svelte';
   import Pagination from 'sailorcms/components/sailor/Pagination.svelte';
   import FilterBar from 'sailorcms/components/sailor/table/FilterBar.svelte';
@@ -38,7 +38,7 @@
 
       if (result.success) {
         toast.success(m.toast_tag_deleted_named({ name: pendingDeleteTag.name }));
-        await invalidateAll();
+        await refreshAll();
         deleteDialogOpen = false;
       } else {
         throw new Error(result.error || m.toast_delete_tag_failed());

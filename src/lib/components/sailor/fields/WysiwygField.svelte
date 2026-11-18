@@ -1,7 +1,7 @@
 <script lang="ts">
   import './WysiwygField.css';
   import { onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { Editor } from '@tiptap/core';
   import type { Editor as TiptapEditor } from '@tiptap/core';
   import StarterKit from '@tiptap/starter-kit';
@@ -777,8 +777,7 @@
             oninput={updateSourceContent}
             class="w-full resize-none border-0 bg-transparent p-4 font-mono text-sm outline-none"
             style="min-height: {computedMinHeight};"
-            placeholder={m.wysiwyg_source_placeholder()}
-          ></textarea>
+            placeholder={m.wysiwyg_source_placeholder()}></textarea>
         {/if}
         <!-- Hidden rather than unmounted while the source view is open. TipTap
              attaches to this element once, on mount; taking it out of the DOM

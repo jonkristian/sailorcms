@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll, afterNavigate } from '$app/navigation';
+  import { goto, refreshAll, afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import { Button } from 'sailorcms/components/ui/button/index.js';
   import { LayoutGrid, List } from '@lucide/svelte';
@@ -126,9 +126,9 @@
   afterNavigate(async () => {
     const focusId = page.url.searchParams.get('focus');
     if (!focusId) return;
-    const next = new URL(page.url);
+    const next = new URL(page.url.href);
     next.searchParams.delete('focus');
-    await goto(next.toString(), { replaceState: true, noScroll: true, keepFocus: true });
+    await goto(next.toString(), { replace: true, reset: false });
 
     const fromList = files.find((f: FileWithTags) => f.id === focusId);
     if (fromList) {
@@ -191,7 +191,7 @@
                 // Close dialog after a short delay
                 setTimeout(() => {
                   uploadProgressOpen = false;
-                  invalidateAll(); // Refresh the file list
+                  refreshAll(); // Refresh the file list
                 }, 1500);
               }
             }
@@ -224,7 +224,7 @@
   async function changeViewMode(newViewMode: 'table' | 'grid') {
     viewMode = newViewMode;
 
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
 
     // Set view mode in URL parameters
     url.searchParams.set('viewMode', newViewMode);
@@ -242,7 +242,7 @@
       const result = await deleteMediaFiles({ ids });
 
       if (toastResult(result, m.toast_files_deleted, m.toast_files_delete_failed)) {
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.toast_files_delete_failed());
@@ -306,7 +306,7 @@
       });
 
       if (toastResult(result, m.toast_tags_updated, m.toast_tags_update_failed)) {
-        await invalidateAll();
+        await refreshAll();
         selection.clearSelection();
         tagsDialogOpen = false;
         selectedTags = [];
@@ -469,7 +469,7 @@
     bind:open={editModalOpen}
     file={editingFile}
     onSave={async () => {
-      invalidateAll();
+      refreshAll();
       editModalOpen = false;
     }}
   />

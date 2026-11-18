@@ -37,7 +37,7 @@
 
   async function goToPage(newPage: number) {
     if (useUrlNavigation) {
-      const url = new URL(pageState.url);
+      const url = new URL(pageState.url.href);
       url.searchParams.set('page', newPage.toString());
       await goto(url.pathname + url.search);
     } else if (onPageChange) {
@@ -48,7 +48,7 @@
   async function changePageSize(newPageSize: string) {
     const size = Number(newPageSize);
     if (useUrlNavigation) {
-      const url = new URL(pageState.url);
+      const url = new URL(pageState.url.href);
       url.searchParams.set('pageSize', newPageSize);
       url.searchParams.set('page', '1'); // Reset to first page
       await goto(url.pathname + url.search);

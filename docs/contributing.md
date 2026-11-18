@@ -12,7 +12,7 @@ Thank you for considering contributing to Sailor CMS!
 
 **Prerequisites:**
 
-- Node.js 20+
+- Node.js 22.17+
 - Git
 - Basic knowledge of SvelteKit, TypeScript
 

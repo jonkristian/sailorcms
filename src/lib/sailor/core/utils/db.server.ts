@@ -40,26 +40,26 @@ export async function getCollectionOptions(collectionSlug: string): Promise<{
   nestable?: boolean;
 } | null> {
   return memoizeType(`getCollectionOptions:${collectionSlug}`, async () => {
-  try {
-    const collectionTypeResults = await db
-      .select()
-      .from(schema.collectionTypes)
-      .where(eq(schema.collectionTypes.slug, collectionSlug))
-      .limit(1);
-
-    const collectionType = collectionTypeResults[0];
-    if (!collectionType) return null;
-
     try {
-      return JSON.parse(collectionType.options || '{}');
-    } catch (parseError) {
-      console.error(`Failed to parse collection options JSON for ${collectionSlug}:`, parseError);
-      return {};
+      const collectionTypeResults = await db
+        .select()
+        .from(schema.collectionTypes)
+        .where(eq(schema.collectionTypes.slug, collectionSlug))
+        .limit(1);
+
+      const collectionType = collectionTypeResults[0];
+      if (!collectionType) return null;
+
+      try {
+        return JSON.parse(collectionType.options || '{}');
+      } catch (parseError) {
+        console.error(`Failed to parse collection options JSON for ${collectionSlug}:`, parseError);
+        return {};
+      }
+    } catch (error) {
+      console.error(`Failed to get collection options for ${collectionSlug}:`, error);
+      return null;
     }
-  } catch (error) {
-    console.error(`Failed to get collection options for ${collectionSlug}:`, error);
-    return null;
-  }
   });
 }
 
@@ -75,26 +75,26 @@ export async function getGlobalOptions(globalSlug: string): Promise<{
   defaultSort?: { field: string; direction: 'asc' | 'desc' };
 } | null> {
   return memoizeType(`getGlobalOptions:${globalSlug}`, async () => {
-  try {
-    const globalTypeResults = await db
-      .select()
-      .from(schema.globalTypes)
-      .where(eq(schema.globalTypes.slug, globalSlug))
-      .limit(1);
-
-    const globalType = globalTypeResults[0];
-    if (!globalType) return null;
-
     try {
-      return JSON.parse(globalType.options || '{}');
-    } catch (parseError) {
-      console.error(`Failed to parse global options JSON for ${globalSlug}:`, parseError);
-      return {};
+      const globalTypeResults = await db
+        .select()
+        .from(schema.globalTypes)
+        .where(eq(schema.globalTypes.slug, globalSlug))
+        .limit(1);
+
+      const globalType = globalTypeResults[0];
+      if (!globalType) return null;
+
+      try {
+        return JSON.parse(globalType.options || '{}');
+      } catch (parseError) {
+        console.error(`Failed to parse global options JSON for ${globalSlug}:`, parseError);
+        return {};
+      }
+    } catch (error) {
+      console.error(`Failed to get global options for ${globalSlug}:`, error);
+      return null;
     }
-  } catch (error) {
-    console.error(`Failed to get global options for ${globalSlug}:`, error);
-    return null;
-  }
   });
 }
 
@@ -103,22 +103,22 @@ export async function getGlobalOptions(globalSlug: string): Promise<{
  */
 export async function getBlockOptions(blockSlug: string): Promise<{ titleField?: string } | null> {
   return memoizeType(`getBlockOptions:${blockSlug}`, async () => {
-  try {
-    const blockTypeResults = await db
-      .select()
-      .from(schema.blockTypes)
-      .where(eq(schema.blockTypes.slug, blockSlug))
-      .limit(1);
+    try {
+      const blockTypeResults = await db
+        .select()
+        .from(schema.blockTypes)
+        .where(eq(schema.blockTypes.slug, blockSlug))
+        .limit(1);
 
-    const blockType = blockTypeResults[0];
-    if (!blockType) return null;
+      const blockType = blockTypeResults[0];
+      if (!blockType) return null;
 
-    // Block types don't have options field yet, but adding for future extensibility
-    return {}; // JSON.parse(blockType.options || '{}');
-  } catch (error) {
-    console.error(`Failed to get block options for ${blockSlug}:`, error);
-    return null;
-  }
+      // Block types don't have options field yet, but adding for future extensibility
+      return {}; // JSON.parse(blockType.options || '{}');
+    } catch (error) {
+      console.error(`Failed to get block options for ${blockSlug}:`, error);
+      return null;
+    }
   });
 }
 
@@ -127,34 +127,34 @@ export async function getBlockOptions(blockSlug: string): Promise<{ titleField?:
  */
 export async function getCollectionType(collectionSlug: string) {
   return memoizeType(`getCollectionType:${collectionSlug}`, async () => {
-  try {
-    const collectionTypeResults = await db
-      .select()
-      .from(schema.collectionTypes)
-      .where(eq(schema.collectionTypes.slug, collectionSlug))
-      .limit(1);
+    try {
+      const collectionTypeResults = await db
+        .select()
+        .from(schema.collectionTypes)
+        .where(eq(schema.collectionTypes.slug, collectionSlug))
+        .limit(1);
 
-    const collectionType = collectionTypeResults[0];
-    if (!collectionType) return null;
+      const collectionType = collectionTypeResults[0];
+      if (!collectionType) return null;
 
-    return {
-      id: collectionType.id,
-      name: {
-        singular: collectionType.name_singular,
-        plural: collectionType.name_plural
-      },
-      slug: collectionType.slug,
-      description: collectionType.description,
-      icon: collectionType.icon,
-      fields: JSON.parse(collectionType.schema),
-      options: JSON.parse(collectionType.options || '{}'),
-      created_at: collectionType.created_at,
-      updated_at: collectionType.updated_at
-    };
-  } catch (error) {
-    console.error(`Failed to get collection type for ${collectionSlug}:`, error);
-    return null;
-  }
+      return {
+        id: collectionType.id,
+        name: {
+          singular: collectionType.name_singular,
+          plural: collectionType.name_plural
+        },
+        slug: collectionType.slug,
+        description: collectionType.description,
+        icon: collectionType.icon,
+        fields: JSON.parse(collectionType.schema),
+        options: JSON.parse(collectionType.options || '{}'),
+        created_at: collectionType.created_at,
+        updated_at: collectionType.updated_at
+      };
+    } catch (error) {
+      console.error(`Failed to get collection type for ${collectionSlug}:`, error);
+      return null;
+    }
   });
 }
 
@@ -163,35 +163,35 @@ export async function getCollectionType(collectionSlug: string) {
  */
 export async function getGlobalType(globalSlug: string) {
   return memoizeType(`getGlobalType:${globalSlug}`, async () => {
-  try {
-    const globalTypeResults = await db
-      .select()
-      .from(schema.globalTypes)
-      .where(eq(schema.globalTypes.slug, globalSlug))
-      .limit(1);
+    try {
+      const globalTypeResults = await db
+        .select()
+        .from(schema.globalTypes)
+        .where(eq(schema.globalTypes.slug, globalSlug))
+        .limit(1);
 
-    const globalType = globalTypeResults[0];
-    if (!globalType) return null;
+      const globalType = globalTypeResults[0];
+      if (!globalType) return null;
 
-    return {
-      id: globalType.id,
-      name: {
-        singular: globalType.name_singular,
-        plural: globalType.name_plural
-      },
-      slug: globalType.slug,
-      description: globalType.description,
-      icon: globalType.icon,
-      dataType: globalType.data_type,
-      fields: JSON.parse(globalType.schema),
-      options: JSON.parse(globalType.options || '{}'),
-      created_at: globalType.created_at,
-      updated_at: globalType.updated_at
-    };
-  } catch (error) {
-    console.error(`Failed to get global type for ${globalSlug}:`, error);
-    return null;
-  }
+      return {
+        id: globalType.id,
+        name: {
+          singular: globalType.name_singular,
+          plural: globalType.name_plural
+        },
+        slug: globalType.slug,
+        description: globalType.description,
+        icon: globalType.icon,
+        dataType: globalType.data_type,
+        fields: JSON.parse(globalType.schema),
+        options: JSON.parse(globalType.options || '{}'),
+        created_at: globalType.created_at,
+        updated_at: globalType.updated_at
+      };
+    } catch (error) {
+      console.error(`Failed to get global type for ${globalSlug}:`, error);
+      return null;
+    }
   });
 }
 
@@ -200,28 +200,28 @@ export async function getGlobalType(globalSlug: string) {
  */
 export async function getBlockType(blockSlug: string) {
   return memoizeType(`getBlockType:${blockSlug}`, async () => {
-  try {
-    const blockTypeResults = await db
-      .select()
-      .from(schema.blockTypes)
-      .where(eq(schema.blockTypes.slug, blockSlug))
-      .limit(1);
+    try {
+      const blockTypeResults = await db
+        .select()
+        .from(schema.blockTypes)
+        .where(eq(schema.blockTypes.slug, blockSlug))
+        .limit(1);
 
-    const blockType = blockTypeResults[0];
-    if (!blockType) return null;
+      const blockType = blockTypeResults[0];
+      if (!blockType) return null;
 
-    return {
-      id: blockType.id,
-      name: blockType.name,
-      slug: blockType.slug,
-      description: blockType.description,
-      fields: JSON.parse(blockType.schema),
-      created_at: blockType.created_at,
-      updated_at: blockType.updated_at
-    };
-  } catch (error) {
-    console.error(`Failed to get block type for ${blockSlug}:`, error);
-    return null;
-  }
+      return {
+        id: blockType.id,
+        name: blockType.name,
+        slug: blockType.slug,
+        description: blockType.description,
+        fields: JSON.parse(blockType.schema),
+        created_at: blockType.created_at,
+        updated_at: blockType.updated_at
+      };
+    } catch (error) {
+      console.error(`Failed to get block type for ${blockSlug}:`, error);
+      return null;
+    }
   });
 }

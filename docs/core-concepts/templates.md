@@ -305,7 +305,7 @@ per-render. It bakes in no styling — all decisions stay in your stylesheet.
 <script lang="ts">
   import { getBlockTree } from 'sailorcms/utils/data/blocks';
   import { isBlockGroup, blockGroupAttrs } from 'sailorcms/utils/blocks';
-  import MyBlock from '$lib/blocks/MyBlock.svelte';
+  import MyBlock from '#lib/blocks/MyBlock.svelte';
 
   let { page } = $props();
   const tree = await getBlockTree(page.id);

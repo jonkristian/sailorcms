@@ -7,7 +7,7 @@
   import { formatFileSize } from 'sailorcms/utils/files/index';
   import { type FileType } from 'sailorcms/core/files/file';
   import MediaEditModal from 'sailorcms/components/sailor/MediaEditModal.svelte';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { m } from '$sailor/i18n';
 
   interface Props {
@@ -166,7 +166,7 @@
     bind:open={editModalOpen}
     file={editingFile}
     onSave={async () => {
-      await invalidateAll();
+      await refreshAll();
       editModalOpen = false;
     }}
   />

@@ -199,14 +199,14 @@ With this, `getUrlLangs()` returns `['en', 'no']`, `urlToContentLocale('no')` re
 ### Param matcher — accept non-default URL forms only
 
 ```ts
-// src/params/lang.ts
-import type { ParamMatcher } from '@sveltejs/kit';
+// src/params.ts
+import { defineParams } from '@sveltejs/kit/params';
 // IMPORTANT: import from `sailorcms/utils/i18n`, not `sailorcms/utils/data`.
 // Param matchers ship to the client too; the data/ entry pulls in `db` (→ dotenv → process)
 // which crashes in the browser. `utils/i18n` is the pure, client-safe helper module.
 import { defaultLangParamMatcher } from 'sailorcms/utils/i18n';
 
-export const match: ParamMatcher = defaultLangParamMatcher;
+export const params = defineParams({ lang: defaultLangParamMatcher });
 ```
 
 `defaultLangParamMatcher` reads `content.i18n.urlStrategy` from settings — under `'default-at-root'` it refuses the default's URL form so `/about` is the only valid URL for default-locale pages (prevents `/en/about` from quietly serving duplicate content; search engines penalize that); under `'symmetric'` it accepts every configured form. Hand-roll your own matcher only if the bundled rule doesn't fit (multi-tenant subdomains, locale on a non-first segment, etc.).

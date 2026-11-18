@@ -22,7 +22,7 @@ For UI-facing changes, run the dev server and exercise the feature — there's n
 
 ## Path alias
 
-`$sailor` → `src/lib/sailor` (declared in `svelte.config.js`). Prefer it over relative paths when importing across the sailor library.
+`$sailor` → `src/lib/sailor`. Prefer it over relative paths when importing across the sailor library. It and the `sailorcms/*` subpaths come from the `sailor()` Vite plugin (`vite-plugin.js`, exported as `sailorcms/vite`) for Vite, and from `compilerOptions.paths` in `tsconfig.json` for TypeScript. Don't use kit's `alias` option, which is deprecated.
 
 ## Architecture — the zones
 
@@ -35,7 +35,7 @@ For UI-facing changes, run the dev server and exercise the feature — there's n
   - `db/` — Drizzle adapter; backend picked from `DATABASE_URL` (SQLite/Turso/Postgres). Only SQLite and Postgres are supported (`DatabaseType`).
   - `hooks/sailor-hooks.ts` — invoked from `src/hooks.server.ts`; wires auth + CMS route handling.
   - `services/`, `settings/`, `editor/`, `files/`, `content/`, `types/`, `ui/`, `utils/`.
-- **`remote/*.remote.ts`** — all server RPC endpoints. Use `command`/`query` from `$app/server`. Gated by `kit.experimental.remoteFunctions: true`.
+- **`remote/*.remote.ts`** — all server RPC endpoints. Use `command`/`query` from `$app/server`. Gated by `experimental.remoteFunctions: true`.
 - **`composables/`**, **`utils/`** — shared Svelte 5 runes helpers and content/file utilities.
 
 ### `src/routes/`
@@ -51,8 +51,8 @@ For UI-facing changes, run the dev server and exercise the feature — there's n
 
 - **Schema workflow:** edit `templates/` → run `npx sailor db:update` → commit both the template change and the regenerated `generated/` files plus any new migration under `drizzle/`. Do **not** write Drizzle schema or migrations by hand.
 - **Remote functions** have non-trivial call-context rules (`.run()` vs awaiting directly differs between server load, universal load, components, and event handlers). Check `src/lib/sailor/remote/*.remote.ts` for established patterns before adding one.
-- **Experimental features are intentionally on** (`svelte.config.js`): `kit.experimental.remoteFunctions` and `compilerOptions.experimental.async` (the latter is required because SvelteKit remote functions use `hydratable()` internally — turning it off makes `query()` / `command()` throw `experimental_async_required` at runtime). Don't "fix" them off.
-- **Env vars:** anything needed on the client must use the `PUBLIC_` prefix and be read from `$env/dynamic/public`. Server-only secrets come from `$env/dynamic/private` (which excludes `PUBLIC_*`).
+- **Experimental features are intentionally on** (`sveltekit({...})` in `vite.config.ts`): `experimental.remoteFunctions` and `compilerOptions.experimental.async` (the latter is required because SvelteKit remote functions use `hydratable()` internally — turning it off makes `query()` / `command()` throw `experimental_async_required` at runtime). Don't "fix" them off.
+- **Env vars:** SvelteKit 3 only exposes variables declared in `src/env.ts`. Sailor's live in `sailorEnvVars` (`src/lib/sailor/utils/env.ts`), which consumers spread into their own `src/env.ts` (the CLI patches this). Add any new variable there (`public: true` for client-side ones) and read it via `import * as env from '$app/env/private'` or `'$app/env/public'`. `$env/*` is deprecated and no longer typed.
 - **Hands off:**
   - `src/lib/sailor/generated/` (regenerate instead)
   - `src/lib/components/ui/` — shadcn-svelte components, don't modify unless explicitly asked

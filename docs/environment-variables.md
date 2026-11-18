@@ -8,6 +8,21 @@ nav_order: 3
 
 Complete reference for all environment variables in Sailor CMS. For basic setup, see the [Getting Started Guide](getting-started.md).
 
+SvelteKit 3 only exposes environment variables that are declared in `src/env.ts`. `core:init` and `core:update` add Sailor's declarations for you:
+
+```ts
+// src/env.ts
+import { defineEnvVars } from '@sveltejs/kit/env';
+import { sailorEnvVars } from 'sailorcms/utils/env';
+
+export const variables = defineEnvVars({
+  ...sailorEnvVars
+  // your own variables
+});
+```
+
+All of Sailor's variables are optional at the SvelteKit level. To make one stricter, declare it again after the spread with your own `schema`. Run `npx sailor doctor` to check the file.
+
 ## Essential Variables
 
 ### Authentication (Required)

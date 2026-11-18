@@ -31,7 +31,7 @@
   import { authClient } from 'sailorcms/core/auth';
   import { formatDate } from 'sailorcms/core/utils/date';
   import { getUserLocale } from 'sailorcms/core/ui/user-locale';
-  import { invalidateAll } from '$app/navigation';
+  import { refreshAll } from '$app/navigation';
   import { getRoleColor, copyUserId, shortenUserId } from 'sailorcms/core/utils/user';
   import Header from 'sailorcms/components/sailor/Header.svelte';
   import PasswordStrength from 'sailorcms/components/sailor/PasswordStrength.svelte';
@@ -93,7 +93,7 @@
         formData.currentPassword = '';
         formData.newPassword = '';
         formData.confirmPassword = '';
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (error) {
       toast.error(m.account_update_failed());
@@ -165,7 +165,7 @@
         toast.success(m.account_oauth_unlink_success({ provider: getProviderName(providerId) }));
         selectedAccount = null;
         unlinkConfirming = false;
-        await invalidateAll();
+        await refreshAll();
       }
     } catch (e) {
       console.error('OAuth unlink error:', e);

@@ -5,7 +5,7 @@
 // honoured everywhere.
 
 import { page } from '$app/state';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { getLocale } from '$sailor/i18n';
 import { resolvePreferences, type UserPreferences } from 'sailorcms/core/utils/user-preferences';
 

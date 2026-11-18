@@ -1,5 +1,5 @@
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import { and, eq, like } from 'drizzle-orm';
 import { db, accounts } from 'sailorcms/core/db/index.server';
 import { log } from 'sailorcms/core/utils/logger';

@@ -37,7 +37,7 @@ The fastest way to get started is with Coolify or any Node.js hosting platform:
 3. Set your environment variables
 4. Deploy!
 
-> **Note**: Sailor CMS ships with `@sveltejs/adapter-node` by default. If you want to deploy to Vercel or Netlify, you'll need to swap the adapter in your `svelte.config.js`. See the [SvelteKit adapter docs](https://svelte.dev/docs/kit/adapters) for details.
+> **Note**: Sailor CMS ships with `@sveltejs/adapter-node` by default. If you want to deploy to Vercel or Netlify, you'll need to swap the `adapter` option of `sveltekit({...})` in your `vite.config.ts`. See the [SvelteKit adapter docs](https://svelte.dev/docs/kit/adapters) for details.
 
 [Learn more about specific deployment methods]({{ site.baseurl }}{% link deployment-guide/deployment.md %})
 
